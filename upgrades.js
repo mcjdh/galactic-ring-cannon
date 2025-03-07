@@ -323,6 +323,7 @@ class UpgradeSystem {
         this.levelUpContainer = document.getElementById('level-up-container');
         this.upgradeOptionsContainer = document.getElementById('upgrade-options');
         this.levelUpActive = false;
+        this.levelUpKeyListener = null; // Store reference to listener for cleanup
     }
     
     showUpgradeOptions() {
@@ -341,12 +342,14 @@ class UpgradeSystem {
         this.upgradeOptionsContainer.innerHTML = '';
         
         // Add upgrade options to the DOM
-        options.forEach(upgrade => {
+        options.forEach((upgrade, index) => {
             const option = document.createElement('div');
             option.className = 'upgrade-option';
             option.dataset.rarity = upgrade.rarity || 'common';
+            option.dataset.index = index + 1; // Store numeric index
             
             option.innerHTML = `
+                <div class="shortcut-key">${index + 1}</div>
                 <div class="upgrade-icon">${upgrade.icon}</div>
                 <h3>${upgrade.name}</h3>
                 <p>${upgrade.description}</p>
@@ -362,6 +365,38 @@ class UpgradeSystem {
         
         // Show the level up UI
         this.levelUpContainer.classList.remove('hidden');
+        
+        // Add keyboard shortcut listener
+        this.addKeyboardShortcuts(options);
+    }
+    
+    addKeyboardShortcuts(upgrades) {
+        // Remove existing listener if present
+        this.removeKeyboardShortcuts();
+        
+        // Create new listener
+        this.levelUpKeyListener = (e) => {
+            // Check if a number key 1-3 was pressed
+            if (e.key >= '1' && e.key <= '3') {
+                const index = parseInt(e.key) - 1;
+                
+                // Make sure the index is valid
+                if (index >= 0 && index < upgrades.length) {
+                    this.selectUpgrade(upgrades[index]);
+                }
+            }
+        };
+        
+        // Add the listener
+        window.addEventListener('keydown', this.levelUpKeyListener);
+    }
+    
+    removeKeyboardShortcuts() {
+        // Remove existing listener if present
+        if (this.levelUpKeyListener) {
+            window.removeEventListener('keydown', this.levelUpKeyListener);
+            this.levelUpKeyListener = null;
+        }
     }
     
     isLevelUpActive() {
@@ -448,6 +483,9 @@ class UpgradeSystem {
         
         // Hide the level up UI
         this.levelUpContainer.classList.add('hidden');
+        
+        // Clean up keyboard shortcuts
+        this.removeKeyboardShortcuts();
         
         // Reset levelUpActive state BEFORE resuming game
         this.levelUpActive = false;

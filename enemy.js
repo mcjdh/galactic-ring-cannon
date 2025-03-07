@@ -577,11 +577,22 @@ class EnemySpawner {
         this.enemyTypes = ['basic'];
         this.difficultyTimer = 0;
         this.bossTimer = 0;
-        this.bossInterval = 120; // Boss every 2 minutes (reduced from 3)
+        this.bossInterval = 95; // Boss every ~1.5 minutes (reduced for faster pacing)
         this.wavesEnabled = true;
         this.waveTimer = 0;
-        this.waveInterval = 35; // Wave every 35 seconds (reduced from 60)
+        this.waveInterval = 30; // Wave every 30 seconds
         this.waveCount = 0;
+        
+        // Enemy quality scaling
+        this.eliteChance = 0.05; // 5% chance for an elite enemy
+        this.eliteTimer = 0;
+        this.eliteInterval = 40; // Increase elite chance every 40 seconds
+        
+        // Add boss scaling parameters
+        this.bossScaleFactor = 1.0;
+        
+        // Track enemy count for analytics
+        this.totalEnemiesSpawned = 0;
     }
     
     update(deltaTime) {
@@ -665,7 +676,70 @@ class EnemySpawner {
         
         // Create and add enemy
         const enemy = new Enemy(x, y, enemyType);
+        
+        // Apply difficulty scaling to enemy stats
+        if (gameManager && gameManager.difficultyFactor) {
+            const difficultyScaling = 1 + ((gameManager.difficultyFactor - 1) * 0.5);
+            
+            // Scale enemy health and damage with difficulty
+            enemy.maxHealth = Math.ceil(enemy.maxHealth * difficultyScaling);
+            enemy.health = enemy.maxHealth;
+            enemy.damage = Math.ceil(enemy.damage * difficultyScaling);
+            
+            // Scale XP reward slightly (but not as much as stats)
+            enemy.xpValue = Math.ceil(enemy.xpValue * (1 + ((difficultyScaling - 1) * 0.5)));
+        }
+        
+        // Chance to create an elite enemy with boosted stats
+        if (Math.random() < this.eliteChance) {
+            this.makeElite(enemy);
+        }
+        
         this.game.addEntity(enemy);
+        this.totalEnemiesSpawned++;
+    }
+    
+    makeElite(enemy) {
+        // Boost enemy stats for elite version
+        enemy.maxHealth *= 2.5; // Even stronger elites
+        enemy.health = enemy.maxHealth;
+        enemy.damage *= 1.5;
+        enemy.xpValue *= 3;
+        enemy.radius *= 1.2;
+        
+        // Add elite visual indicator
+        enemy.isElite = true;
+        enemy.glowColor = '#f1c40f';
+        
+        // Additional unique elite abilities based on enemy type
+        switch (enemy.enemyType) {
+            case 'basic':
+                enemy.damageReduction = 0.2; // 20% damage reduction
+                break;
+            case 'fast':
+                enemy.speed *= 1.2; // Even faster
+                break;
+            case 'tank':
+                enemy.deflectChance = 0.2; // Chance to deflect projectiles
+                break;
+            case 'ranged':
+                enemy.projectileDamage *= 1.5;
+                enemy.rangeAttackCooldown *= 0.7; // Shoot more often
+                break;
+            case 'dasher':
+                enemy.dashCooldown *= 0.7; // Dash more frequently
+                enemy.dashSpeed *= 1.2; // Dash faster
+                break;
+            case 'exploder':
+                // Bigger explosion
+                enemy.explosionRadiusMod = 1.5;
+                break;
+            case 'teleporter':
+                enemy.teleportCooldown *= 0.6; // Teleport more often
+                break;
+        }
+        
+        return enemy;
     }
     
     spawnBoss() {
@@ -676,24 +750,77 @@ class EnemySpawner {
         const x = this.game.player.x + Math.cos(angle) * this.spawnRadius;
         const y = this.game.player.y + Math.sin(angle) * this.spawnRadius;
         
-        // Create boss
+        // Create boss with progressive scaling
         const boss = new Enemy(x, y, 'boss');
-        this.game.addEntity(boss);
         
-        // Notify player
-        gameManager.showFloatingText("BOSS APPEARED!", 
-                                   this.game.player.x, 
-                                   this.game.player.y - 50, 
-                                   "#c0392b", 
-                                   30);
+        // Scale boss with game time and based on how many bosses have spawned
+        if (gameManager && gameManager.difficultyFactor) {
+            // Determine if this should be a mega boss (every 3rd boss after the first)
+            const isMegaBoss = gameManager.gameStats && 
+                gameManager.gameStats.bossesSpawned &&
+                (gameManager.gameStats.bossesSpawned + 1) % 3 === 0 && 
+                gameManager.gameStats.bossesSpawned > 0;
+            
+            // Apply scaled stats
+            const bossScaling = gameManager.difficultyFactor * 
+                (isMegaBoss ? 1.5 : 1.0);
+            
+            boss.maxHealth *= bossScaling;
+            boss.health = boss.maxHealth;
+            boss.damage *= Math.sqrt(bossScaling); // Scale damage less aggressively
+            boss.xpValue *= bossScaling;
+            
+            // Visual indicator for mega bosses
+            if (isMegaBoss) {
+                boss.radius *= 1.2; 
+                boss.color = '#8e44ad'; // Purple for mega bosses
+                boss.isMegaBoss = true;
+                
+                // More frequent special attacks for mega bosses
+                if (boss.rangeAttackCooldown) boss.rangeAttackCooldown *= 0.7;
+                if (boss.spawnMinionCooldown) boss.spawnMinionCooldown *= 0.7;
+                
+                gameManager.showFloatingText("MEGA BOSS APPEARED!", 
+                                          this.game.player.x, 
+                                          this.game.player.y - 50, 
+                                          "#8e44ad", 
+                                          32);
+                
+                // Add extra screen shake
+                if (gameManager.addScreenShake) {
+                    gameManager.addScreenShake(10, 1.0);
+                }
+            } else {
+                gameManager.showFloatingText("BOSS APPEARED!", 
+                                          this.game.player.x, 
+                                          this.game.player.y - 50, 
+                                          "#c0392b", 
+                                          30);
+                
+                // Add regular screen shake
+                if (gameManager.addScreenShake) {
+                    gameManager.addScreenShake(5, 0.7);
+                }
+            }
+        }
+        
+        this.game.addEntity(boss);
+        this.totalEnemiesSpawned++;
+        
+        // Track boss spawns
+        if (gameManager && gameManager.gameStats) {
+            gameManager.gameStats.bossesSpawned = 
+                (gameManager.gameStats.bossesSpawned || 0) + 1;
+        }
     }
     
     spawnWave() {
         if (!this.game.player) return;
         
         this.waveCount++;
-        // Slightly reduce wave size scaling for better balance with faster waves
-        const waveSize = 8 + Math.floor(this.waveCount * 1.7); 
+        // Scaling wave size based on difficulty and wave count
+        const difficultyMod = gameManager ? gameManager.difficultyFactor : 1;
+        const waveSize = Math.floor(8 + (this.waveCount * 1.5) + (difficultyMod * 3));
         
         // Notify player
         gameManager.showFloatingText(`WAVE ${this.waveCount} INCOMING!`, 
@@ -711,26 +838,108 @@ class EnemySpawner {
             const x = this.game.player.x + Math.cos(angle) * spawnRadius;
             const y = this.game.player.y + Math.sin(angle) * spawnRadius;
             
-            // Pick enemy type based on wave count - accelerated progression
+            // Make waves include more advanced enemies as game progresses
             let enemyType;
-            const roll = Math.random();
             
+            // More varied enemy types in later waves
             if (this.waveCount <= 1) {
                 enemyType = 'basic';
-            } else if (this.waveCount <= 3) { // Previously <= 4
-                enemyType = roll < 0.7 ? 'basic' : 'fast';
-            } else if (this.waveCount <= 5) { // Previously <= 6
+            } else if (this.waveCount <= 3) {
+                enemyType = Math.random() < 0.7 ? 'basic' : 'fast';
+            } else if (this.waveCount <= 5) {
+                const roll = Math.random();
                 if (roll < 0.5) enemyType = 'basic';
                 else if (roll < 0.8) enemyType = 'fast';
                 else enemyType = 'tank';
             } else {
-                // Use all available enemy types
-                enemyType = this.enemyTypes[Math.floor(Math.random() * this.enemyTypes.length)];
+                // Use weighted random selection based on enemy difficulty
+                enemyType = this.getWeightedEnemyType();
             }
             
             // Create and add enemy
             const enemy = new Enemy(x, y, enemyType);
+            
+            // Apply difficulty scaling to wave enemies
+            if (gameManager && gameManager.difficultyFactor) {
+                const scaling = 1 + ((gameManager.difficultyFactor - 1) * 0.5);
+                enemy.maxHealth = Math.ceil(enemy.maxHealth * scaling);
+                enemy.health = enemy.maxHealth;
+                enemy.damage = Math.ceil(enemy.damage * scaling);
+            }
+            
+            // Higher elite chance in waves
+            if (Math.random() < this.eliteChance * 1.5) {
+                this.makeElite(enemy);
+            }
+            
             this.game.addEntity(enemy);
+            this.totalEnemiesSpawned++;
+        }
+        
+        // Add screen shake for wave spawn
+        if (gameManager && gameManager.addScreenShake) {
+            gameManager.addScreenShake(3, 0.4);
         }
     }
+    
+    // Helper method for weighted enemy type selection
+    getWeightedEnemyType() {
+        // Don't try to select from empty array
+        if (!this.enemyTypes.length) return 'basic';
+        
+        // Define weights for different enemy types (higher = less common)
+        const weights = {
+            'basic': 1,
+            'fast': 2,
+            'tank': 3,
+            'ranged': 3,
+            'dasher': 4,
+            'exploder': 5,
+            'teleporter': 5
+        };
+        
+        // Create weighted list of available types
+        const availableTypes = [];
+        this.enemyTypes.forEach(type => {
+            // Add each type to the array a number of times inversely proportional to its weight
+            const count = Math.max(1, Math.floor(10 / (weights[type] || 1)));
+            for (let i = 0; i < count; i++) {
+                availableTypes.push(type);
+            }
+        });
+        
+        // Pick random enemy type from weighted list
+        return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+    }
 }
+
+// Override boss render to show mega boss visual difference
+const originalBossRender = Enemy.prototype.render;
+Enemy.prototype.render = function(ctx) {
+    // Call the original render method
+    originalBossRender.call(this, ctx);
+    
+    // Additional visual effects for mega bosses
+    if (this.isBoss && this.isMegaBoss) {
+        // Extra aura for mega bosses
+        const pulseSize = 1 + Math.sin((gameManager.gameTime || 0) / 150) * 0.15;
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * pulseSize + 15, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(142, 68, 173, 0.2)'; // Purple aura
+        ctx.fill();
+        
+        // Add sparkle effects around mega boss
+        for (let i = 0; i < 3; i++) {
+            const angle = ((gameManager.gameTime || 0) / 200 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
+            const distance = this.radius * 1.5;
+            const sparkleX = this.x + Math.cos(angle) * distance;
+            const sparkleY = this.y + Math.sin(angle) * distance;
+            
+            ctx.beginPath();
+            ctx.arc(sparkleX, sparkleY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#f1c40f';
+            ctx.fill();
+        }
+    }
+};

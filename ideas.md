@@ -4,7 +4,7 @@ consider game balance.
 
 perhaps scale max enemy count based on time so game gets progressively more dank.
 
-perhaps spawn more bosses with big xp drops on slay.
+perhaps spawn more bosses with big xp drops on slay, and make sure bosses take a bit to slay instead of being 1 shot.
 
 perhaps add small random chance for xp drops to be big xp.
 

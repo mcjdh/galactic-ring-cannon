@@ -30,6 +30,19 @@ class GameManager {
         
         // Add sound toggle button
         this.addSoundButton();
+
+        // Dynamic difficulty scaling system
+        this.difficultyFactor = 1.0;
+        this.difficultyTimer = 0;
+        this.difficultyInterval = 45; // Increase difficulty every 45 seconds
+        this.maxDifficultyFactor = 5.0; // Cap difficulty scaling
+        
+        // Track game progression stats
+        this.gameStats = {
+            highestEnemyCount: 0,
+            totalEnemiesSpawned: 0,
+            bossesSpawned: 0
+        };
     }
     
     initializeUI() {
@@ -105,6 +118,31 @@ class GameManager {
         if (this.gameOver) return;
         
         this.gameTime += deltaTime;
+        
+        // Update difficulty scaling
+        this.difficultyTimer += deltaTime;
+        if (this.difficultyTimer >= this.difficultyInterval) {
+            this.difficultyTimer = 0;
+            this.difficultyFactor = Math.min(this.maxDifficultyFactor, 
+                this.difficultyFactor * 1.15); // 15% increase per interval
+            
+            // Scale enemy spawning based on difficulty
+            this.updateDifficultyScaling();
+            
+            // Display difficulty increase notification for significant thresholds
+            if (Math.floor(this.difficultyFactor * 10) % 5 === 0) { // every 0.5 increase
+                this.showFloatingText(
+                    `Difficulty Increased! (x${this.difficultyFactor.toFixed(1)})`, 
+                    this.game.player.x, this.game.player.y - 70,
+                    "#e74c3c", 20
+                );
+                
+                // Add screen shake for dramatic effect
+                if (this.addScreenShake) {
+                    this.addScreenShake(3, 0.3);
+                }
+            }
+        }
         
         // Update enemy spawner
         this.enemySpawner.update(deltaTime);
@@ -221,6 +259,16 @@ class GameManager {
             <p>XP collected: <span class="stats-highlight">${this.xpCollected}</span></p>
             <button id="restart-button">Play Again</button>
         `;
+
+        // Add difficulty factor to game over stats
+        const difficultyInfo = document.createElement('p');
+        difficultyInfo.innerHTML = `Max Difficulty: <span class="stats-highlight">x${this.difficultyFactor.toFixed(1)}</span>`;
+        gameOverDiv.insertBefore(difficultyInfo, gameOverDiv.querySelector('button'));
+        
+        // Add max enemy count to stats
+        const enemyInfo = document.createElement('p');
+        enemyInfo.innerHTML = `Max enemies at once: <span class="stats-highlight">${this.gameStats.highestEnemyCount}</span>`;
+        gameOverDiv.insertBefore(enemyInfo, gameOverDiv.querySelector('button'));
         
         document.getElementById('game-container').appendChild(gameOverDiv);
         
@@ -495,6 +543,64 @@ class GameManager {
                 this.minimapCtx.fill();
             }
         });
+    }
+
+    updateDifficultyScaling() {
+        if (!this.enemySpawner) return;
+        
+        // Dynamically scale max enemies based on difficulty and player level
+        const playerLevelFactor = this.game.player ? 
+            (1 + this.game.player.level / 20) : 1; // 5% more enemies per level
+            
+        const timeBasedLimit = 50 + Math.min(300, Math.floor(this.gameTime / 15)); // +1 max enemy every 15 seconds
+        
+        // Calculate new max enemies - combines base value, difficulty scaling, time and level factors
+        const newMaxEnemies = Math.floor(
+            Math.min(500, // Hard upper limit for performance reasons
+                (50 + // Base value
+                (this.difficultyFactor * 30)) * // Difficulty scaling
+                playerLevelFactor // Player level factor
+            )
+        );
+        
+        this.enemySpawner.maxEnemies = Math.max(newMaxEnemies, timeBasedLimit);
+        
+        // Track highest enemy count for stats
+        this.gameStats.highestEnemyCount = Math.max(
+            this.gameStats.highestEnemyCount, 
+            this.enemySpawner.maxEnemies
+        );
+        
+        // Scale spawn rate with difficulty
+        this.enemySpawner.spawnRate = Math.min(
+            8.0, // Hard cap on spawn rate
+            1.0 + (this.difficultyFactor * 0.8)  // Base + scaling
+        );
+        this.enemySpawner.spawnCooldown = 1 / this.enemySpawner.spawnRate;
+        
+        // Adjust elite chance based on time and difficulty
+        if (this.enemySpawner.eliteChance !== undefined) {
+            this.enemySpawner.eliteChance = Math.min(
+                0.35, // Maximum elite chance 
+                0.05 + (this.difficultyFactor * 0.05) // Base + scaling
+            );
+        }
+        
+        // Also adjust wave interval to make waves more frequent later
+        if (this.enemySpawner.waveInterval !== undefined) {
+            this.enemySpawner.waveInterval = Math.max(
+                15, // Minimum 15 seconds between waves
+                35 - (this.difficultyFactor * 3) // Decrease interval as difficulty increases
+            );
+        }
+        
+        // Make bosses more frequent at higher difficulties
+        if (this.enemySpawner.bossInterval !== undefined) {
+            this.enemySpawner.bossInterval = Math.max(
+                60, // Minimum 60 seconds between bosses
+                120 - (this.difficultyFactor * 10) // Decrease interval as difficulty increases
+            );
+        }
     }
 }
 

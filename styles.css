@@ -105,6 +105,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
 }
 
 .upgrade-option:hover {
@@ -629,4 +630,50 @@ body {
     border-radius: 5px;
     font-size: 14px;
     color: #e74c3c;
+}
+
+/* Keyboard shortcut indicators */
+.shortcut-key {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 2px solid #fff;
+    font-size: 14px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Highlight the shortcut key when hovering over the upgrade option */
+.upgrade-option:hover .shortcut-key {
+    background-color: rgba(52, 152, 219, 0.8);
+}
+
+/* Different colors for different rarity levels */
+.upgrade-option[data-rarity="uncommon"] .shortcut-key {
+    border-color: #2ecc71;
+}
+
+.upgrade-option[data-rarity="rare"] .shortcut-key {
+    border-color: #f1c40f;
+}
+
+.upgrade-option[data-rarity="epic"] .shortcut-key {
+    border-color: #9b59b6;
+}
+
+/* Shortcut hint styles */
+.shortcut-hint {
+    color: #aaa;
+    font-size: 14px;
+    font-style: italic;
+    margin-top: -5px;
+    margin-bottom: 15px;
 }
