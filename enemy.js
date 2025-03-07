@@ -38,6 +38,11 @@ class Enemy {
         
         // Customize based on enemy type
         this.configureEnemyType();
+        
+        // Add collision flag to prevent multiple collisions in the same frame
+        this.collidedThisFrame = false;
+        this.collisionCooldown = 0;
+        this.lastCollisionTime = 0;
     }
     
     configureEnemyType() {
@@ -168,6 +173,46 @@ class Enemy {
                 this.y += vy;
             }
         }
+        
+        // Reset collision flag each frame
+        this.collidedThisFrame = false;
+        
+        // Update collision cooldown
+        if (this.collisionCooldown > 0) {
+            this.collisionCooldown -= deltaTime;
+        }
+        
+        // Check for collisions with other enemies
+        if (!this.isDead && this.collisionCooldown <= 0 && game.enemies) {
+            for (const other of game.enemies) {
+                if (other !== this && !other.isDead && !other.collidedThisFrame) {
+                    const dx = other.x - this.x;
+                    const dy = other.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < this.radius + other.radius) {
+                        // Enemies damage each other on collision
+                        const damage = this.damage * 0.2; // 20% of normal damage
+                        other.takeDamage(damage);
+                        
+                        // Add collision cooldown
+                        this.collisionCooldown = 0.5;
+                        this.collidedThisFrame = true;
+                        
+                        // Visual effect for collision
+                        if (gameManager && gameManager.createHitEffect) {
+                            gameManager.createHitEffect(
+                                this.x + dx/2, 
+                                this.y + dy/2, 
+                                damage
+                            );
+                        }
+                        
+                        break;
+                    }
+                }
+            }
+        }
     }
     
     startDash() {
@@ -216,16 +261,127 @@ class Enemy {
     }
     
     takeDamage(amount) {
+        // Apply damage resistance for bosses (prevents one-shotting)
+        if (this.isBoss) {
+            // Apply base damage resistance
+            if (this.damageResistance) {
+                amount *= (1 - this.damageResistance);
+            }
+            
+            // Apply stacking damage reduction (makes bosses harder to burst down)
+            if (this.damageReductionPerHit) {
+                // Get current reduction
+                if (!this.hitDamageReduction) {
+                    this.hitDamageReduction = 0;
+                }
+                
+                // Apply increasing damage reduction
+                this.hitDamageReduction += this.damageReductionPerHit;
+                
+                // Cap damage reduction
+                const maxReduction = 1 - (this.minDamagePercent || 0.25);
+                this.hitDamageReduction = Math.min(this.hitDamageReduction, maxReduction);
+                
+                // Apply stacked reduction
+                amount *= (1 - this.hitDamageReduction);
+            }
+            
+            // Show damage numbers for bosses
+            gameManager.showFloatingText(`${Math.round(amount)}`, this.x, this.y - 30, '#ffffff', 14);
+        }
+        
+        // Apply damage
         this.health -= amount;
         
-        // Boss damage feedback
-        if (this.isBoss) {
-            gameManager.showFloatingText(`${Math.round(amount)}`, this.x, this.y - 30, '#ffffff', 14);
+        // Check for boss phase transitions
+        if (this.isBoss && this.hasPhases && this.phaseThresholds) {
+            const healthPercent = this.health / this.maxHealth;
+            
+            // Check if we've crossed a phase threshold
+            for (let i = this.currentPhase - 1; i < this.phaseThresholds.length; i++) {
+                if (healthPercent <= this.phaseThresholds[i]) {
+                    this.transitionToPhase(i + 2); // +2 because phases are 1-based and i is 0-based
+                    break;
+                }
+            }
         }
         
         if (this.health <= 0) {
             this.die();
         }
+    }
+    
+    transitionToPhase(newPhase) {
+        if (this.currentPhase >= newPhase) return; // Already in this phase or further
+        
+        this.currentPhase = newPhase;
+        
+        // Visual effect for phase transition
+        if (gameManager) {
+            gameManager.createExplosion(this.x, this.y, 80, '#c0392b');
+            gameManager.addScreenShake(5, 0.5);
+            
+            // Show phase transition message
+            gameManager.showFloatingText(`BOSS PHASE ${this.currentPhase}!`, 
+                this.x, this.y - 50, '#e74c3c', 24);
+        }
+        
+        // Change attack pattern
+        if (this.attackPatterns && this.attackPatterns.length >= this.currentPhase) {
+            this.currentAttackPattern = this.currentPhase - 1;
+        }
+        
+        // Reset damage reduction on phase change (gives player a window of opportunity)
+        this.hitDamageReduction = 0;
+        
+        // Slightly heal boss on phase transition (to ensure phase lasts a bit)
+        const healAmount = this.maxHealth * 0.05; // 5% heal
+        this.health = Math.min(this.maxHealth, this.health + healAmount);
+        
+        // Spawn additional minions on phase transition
+        if (gameManager && gameManager.game) {
+            // Spawn a wave of minions
+            this.spawnMinionsPhaseTransition();
+        }
+        
+        // Make boss temporarily move faster after phase transition
+        this.originalSpeed = this.originalSpeed || this.speed;
+        this.speed = this.originalSpeed * 1.5;
+        
+        // Add phase-specific abilities
+        switch (this.currentPhase) {
+            case 2:
+                // Phase 2: Boss gains periodic shield
+                this.hasShield = true;
+                this.shieldCooldown = 8; // seconds
+                this.shieldDuration = 3; // seconds
+                this.shieldTimer = 0;
+                this.shieldActive = false;
+                break;
+                
+            case 3:
+                // Phase 3: Boss can teleport away from player when damaged heavily
+                this.canTeleport = true;
+                this.teleportThreshold = 50; // Teleport after taking 50 damage
+                this.damageTaken = 0; 
+                this.teleportCooldown = 6; // seconds
+                this.teleportTimer = 0;
+                break;
+                
+            case 4:
+                // Phase 4: Boss can create damaging areas that persist
+                this.canCreateDamageZones = true;
+                this.damageZoneCooldown = 10; // seconds
+                this.damageZoneTimer = 0;
+                break;
+        }
+        
+        // Set timer to revert speed
+        setTimeout(() => {
+            if (this && !this.isDead) {
+                this.speed = this.originalSpeed;
+            }
+        }, 3000);
     }
     
     die() {
@@ -280,26 +436,46 @@ class Enemy {
     
     createBossDeathEffect() {
         // Boss death creates many XP orbs
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 15; i++) { // Increased from 10 to 15
             const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 80;
+            const distance = Math.random() * 100; // Increased from 80
             
             const x = this.x + Math.cos(angle) * distance;
             const y = this.y + Math.sin(angle) * distance;
             
-            const orb = new XPOrb(x, y, 20);
+            const orbValue = Math.random() < 0.3 ? 40 : 20; // 30% chance for double value
+            const orb = new XPOrb(x, y, orbValue);
+            
+            // Make boss XP orbs more attractive
+            orb.color = Math.random() < 0.5 ? '#f1c40f' : '#e67e22';
             gameManager.game.addEntity(orb);
         }
         
         // Visual explosion
-        gameManager.createExplosion(this.x, this.y, 100, '#c0392b');
+        gameManager.createExplosion(this.x, this.y, 120, '#c0392b'); // Bigger explosion (100 -> 120)
+        
+        // Add screen shake for boss defeat
+        if (gameManager.addScreenShake) {
+            gameManager.addScreenShake(10, 0.7);
+        }
+        
+        // Heal player when defeating a boss (15% of max health)
+        if (gameManager.game.player) {
+            const healAmount = gameManager.game.player.maxHealth * 0.15;
+            gameManager.game.player.heal(healAmount);
+            gameManager.showFloatingText(`BOSS BONUS: +${Math.round(healAmount)} HP`, 
+                gameManager.game.player.x, 
+                gameManager.game.player.y - 70, 
+                "#2ecc71", 
+                22);
+        }
         
         // Show message
         gameManager.showFloatingText("BOSS DEFEATED!", 
-                                     gameManager.game.player.x, 
-                                     gameManager.game.player.y - 50, 
-                                     "#f1c40f", 
-                                     30);
+                                   gameManager.game.player.x, 
+                                   gameManager.game.player.y - 50, 
+                                   "#f1c40f", 
+                                   30);
     }
     
     render(ctx) {
@@ -577,7 +753,7 @@ class EnemySpawner {
         this.enemyTypes = ['basic'];
         this.difficultyTimer = 0;
         this.bossTimer = 0;
-        this.bossInterval = 95; // Boss every ~1.5 minutes (reduced for faster pacing)
+        this.bossInterval = 60; // Boss every 1 minute (down from 1.5 minutes)
         this.wavesEnabled = true;
         this.waveTimer = 0;
         this.waveInterval = 30; // Wave every 30 seconds
@@ -593,6 +769,9 @@ class EnemySpawner {
         
         // Track enemy count for analytics
         this.totalEnemiesSpawned = 0;
+        
+        // Track boss kills for scaling
+        this.bossesKilled = 0;
     }
     
     update(deltaTime) {
@@ -753,56 +932,8 @@ class EnemySpawner {
         // Create boss with progressive scaling
         const boss = new Enemy(x, y, 'boss');
         
-        // Scale boss with game time and based on how many bosses have spawned
-        if (gameManager && gameManager.difficultyFactor) {
-            // Determine if this should be a mega boss (every 3rd boss after the first)
-            const isMegaBoss = gameManager.gameStats && 
-                gameManager.gameStats.bossesSpawned &&
-                (gameManager.gameStats.bossesSpawned + 1) % 3 === 0 && 
-                gameManager.gameStats.bossesSpawned > 0;
-            
-            // Apply scaled stats
-            const bossScaling = gameManager.difficultyFactor * 
-                (isMegaBoss ? 1.5 : 1.0);
-            
-            boss.maxHealth *= bossScaling;
-            boss.health = boss.maxHealth;
-            boss.damage *= Math.sqrt(bossScaling); // Scale damage less aggressively
-            boss.xpValue *= bossScaling;
-            
-            // Visual indicator for mega bosses
-            if (isMegaBoss) {
-                boss.radius *= 1.2; 
-                boss.color = '#8e44ad'; // Purple for mega bosses
-                boss.isMegaBoss = true;
-                
-                // More frequent special attacks for mega bosses
-                if (boss.rangeAttackCooldown) boss.rangeAttackCooldown *= 0.7;
-                if (boss.spawnMinionCooldown) boss.spawnMinionCooldown *= 0.7;
-                
-                gameManager.showFloatingText("MEGA BOSS APPEARED!", 
-                                          this.game.player.x, 
-                                          this.game.player.y - 50, 
-                                          "#8e44ad", 
-                                          32);
-                
-                // Add extra screen shake
-                if (gameManager.addScreenShake) {
-                    gameManager.addScreenShake(10, 1.0);
-                }
-            } else {
-                gameManager.showFloatingText("BOSS APPEARED!", 
-                                          this.game.player.x, 
-                                          this.game.player.y - 50, 
-                                          "#c0392b", 
-                                          30);
-                
-                // Add regular screen shake
-                if (gameManager.addScreenShake) {
-                    gameManager.addScreenShake(5, 0.7);
-                }
-            }
-        }
+        // Improve boss with adaptive mechanics
+        this.enhanceBoss(boss);
         
         this.game.addEntity(boss);
         this.totalEnemiesSpawned++;
@@ -811,6 +942,134 @@ class EnemySpawner {
         if (gameManager && gameManager.gameStats) {
             gameManager.gameStats.bossesSpawned = 
                 (gameManager.gameStats.bossesSpawned || 0) + 1;
+        }
+        
+        // Add global boss indicator
+        if (gameManager) {
+            gameManager.activateBossMode();
+        }
+    }
+    
+    enhanceBoss(boss) {
+        // Scale boss with game time and based on how many bosses have spawned
+        if (!gameManager) return;
+        
+        // Get player level and stats for scaling
+        const playerLevel = this.game.player ? this.game.player.level : 1;
+        const playerDamage = this.game.player ? this.game.player.attackDamage : 25;
+        const playerAttackSpeed = this.game.player ? this.game.player.attackSpeed : 1.2;
+        
+        // Determine if this should be a mega boss (every 3rd boss after the first)
+        const isMegaBoss = gameManager.gameStats && 
+            gameManager.gameStats.bossesSpawned &&
+            (gameManager.gameStats.bossesSpawned + 1) % 3 === 0 && 
+            gameManager.gameStats.bossesSpawned > 0;
+        
+        // Base boss scaling factor - combines difficulty and boss number
+        const bossNumber = (gameManager.gameStats.bossesSpawned || 0) + 1;
+        const difficultyFactor = gameManager.difficultyFactor || 1;
+        let bossScaling = difficultyFactor * (0.8 + (bossNumber * 0.2));
+        
+        if (isMegaBoss) {
+            bossScaling *= 1.5;
+        }
+        
+        // Calculate DPS-based minimum health to prevent one-shotting
+        // This ensures bosses take at least 5-10 seconds to kill
+        const estimatedPlayerDPS = playerDamage * playerAttackSpeed * 
+            (1 + (this.game.player?.projectileCount - 1 || 0) * 0.8); // Adjust for multishot
+            
+        const minimumBossHealth = estimatedPlayerDPS * (isMegaBoss ? 10 : 7);
+        
+        // Apply health scaling with minimum threshold
+        const scaledHealth = Math.max(
+            minimumBossHealth,
+            boss.maxHealth * bossScaling
+        );
+        
+        boss.maxHealth = Math.ceil(scaledHealth);
+        boss.health = boss.maxHealth;
+        
+        // Scale damage more conservatively to avoid one-shots on player
+        boss.damage = Math.ceil(boss.damage * Math.sqrt(bossScaling));
+        
+        // Increase XP reward proportionally
+        boss.xpValue = Math.ceil(boss.xpValue * bossScaling);
+        
+        // Add damage resistance to prevent being melted by high DPS builds
+        boss.damageResistance = Math.min(0.5, 0.2 + (bossNumber * 0.02));
+        boss.damageReductionPerHit = 0.01; // Each hit reduces damage by 1% (stacking)
+        boss.minDamagePercent = 0.25; // Damage can't be reduced below 25% of original
+        
+        // Add phase mechanics
+        boss.hasPhases = true;
+        boss.currentPhase = 1;
+        boss.phaseThresholds = [0.7, 0.4, 0.15]; // 70%, 40%, 15% health
+        
+        // Attack patterns that change with phases
+        boss.attackPatterns = [
+            { name: "basic", cooldown: 2.0 },
+            { name: "spread", cooldown: 1.8, projectiles: 3 },
+            { name: "circle", cooldown: 1.5, projectiles: 8 },
+            { name: "random", cooldown: 1.0, projectiles: 5 }
+        ];
+        boss.currentAttackPattern = 0;
+        
+        // Boss combat factor based on player level - increases boss stats
+        // as player level increases
+        const levelFactor = 1 + (playerLevel * 0.03);
+        boss.rangeAttackCooldown *= 0.9 / levelFactor;
+        boss.projectileDamage *= levelFactor;
+        
+        // Improve minion spawning based on boss level
+        boss.spawnMinionCooldown = Math.max(4, 8 - (bossNumber * 0.5));
+        boss.minionCount = Math.min(5, 2 + Math.floor(bossNumber / 2));
+        boss.minionTypes = ['basic', 'fast'];
+        
+        // Advanced boss types added over time
+        if (bossNumber >= 3) {
+            boss.minionTypes.push('tank');
+        }
+        if (bossNumber >= 5) {
+            boss.minionTypes.push('ranged');
+            boss.shieldRegeneration = true;
+        }
+        if (bossNumber >= 7) {
+            boss.minionTypes.push('dasher');
+            boss.teleportation = true;
+        }
+        
+        // Visual indicator for mega bosses
+        if (isMegaBoss) {
+            boss.radius *= 1.2; 
+            boss.color = '#8e44ad'; // Purple for mega bosses
+            boss.isMegaBoss = true;
+            
+            // More frequent special attacks for mega bosses
+            if (boss.rangeAttackCooldown) boss.rangeAttackCooldown *= 0.7;
+            if (boss.spawnMinionCooldown) boss.spawnMinionCooldown *= 0.7;
+            
+            gameManager.showFloatingText("MEGA BOSS APPEARED!", 
+                this.game.player.x, 
+                this.game.player.y - 50, 
+                "#8e44ad", 
+                32);
+            
+            // Add extra screen shake
+            if (gameManager.addScreenShake) {
+                gameManager.addScreenShake(10, 1.0);
+            }
+        } else {
+            gameManager.showFloatingText("BOSS APPEARED!", 
+                this.game.player.x, 
+                this.game.player.y - 50, 
+                "#c0392b", 
+                30);
+            
+            // Add regular screen shake
+            if (gameManager.addScreenShake) {
+                gameManager.addScreenShake(5, 0.7);
+            }
         }
     }
     
@@ -943,3 +1202,485 @@ Enemy.prototype.render = function(ctx) {
         }
     }
 };
+
+Enemy.prototype.performRangeAttack = function(game) {
+    if (!game.player || game.player.isDead) return;
+    
+    // Boss has different attack patterns
+    if (this.isBoss && this.attackPatterns && this.attackPatterns.length > 0) {
+        const pattern = this.attackPatterns[this.currentAttackPattern || 0];
+        
+        switch (pattern.name) {
+            case "spread":
+                this.performSpreadAttack(game, pattern.projectiles || 3);
+                break;
+                
+            case "circle":
+                this.performCircleAttack(game, pattern.projectiles || 8);
+                break;
+                
+            case "random":
+                this.performRandomAttack(game, pattern.projectiles || 5);
+                break;
+                
+            default:
+                this.performBasicAttack(game);
+                break;
+        }
+    } else {
+        // Default attack for non-boss enemies
+        this.performBasicAttack(game);
+    }
+};
+
+Enemy.prototype.performBasicAttack = function(game) {
+    // Standard single projectile attack
+    const dx = game.player.x - this.x;
+    const dy = game.player.y - this.y;
+    const angle = Math.atan2(dy, dx);
+    
+    const projectile = new EnemyProjectile(
+        this.x,
+        this.y,
+        Math.cos(angle) * this.projectileSpeed,
+        Math.sin(angle) * this.projectileSpeed,
+        this.projectileDamage
+    );
+    
+    if (!game.enemyProjectiles) {
+        game.enemyProjectiles = [];
+    }
+    
+    game.enemyProjectiles.push(projectile);
+    game.addEntity(projectile);
+};
+
+Enemy.prototype.performSpreadAttack = function(game, count) {
+    // Fire projectiles in a spread pattern
+    const dx = game.player.x - this.x;
+    const dy = game.player.y - this.y;
+    const baseAngle = Math.atan2(dy, dx);
+    const spread = Math.PI / 4; // 45 degrees total spread
+    
+    for (let i = 0; i < count; i++) {
+        const angle = baseAngle - (spread/2) + (spread / (count - 1)) * i;
+        
+        const projectile = new EnemyProjectile(
+            this.x,
+            this.y,
+            Math.cos(angle) * this.projectileSpeed,
+            Math.sin(angle) * this.projectileSpeed,
+            this.projectileDamage * 0.8 // Slightly reduced damage for multi-projectile attacks
+        );
+        
+        if (!game.enemyProjectiles) {
+            game.enemyProjectiles = [];
+        }
+        
+        game.enemyProjectiles.push(projectile);
+        game.addEntity(projectile);
+    }
+    
+    // Visual effect
+    if (gameManager) {
+        gameManager.createSpecialEffect('spread', this.x, this.y, 30, '#9b59b6');
+    }
+};
+
+Enemy.prototype.performCircleAttack = function(game, count) {
+    // Fire projectiles in a circle around the boss
+    for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        
+        const projectile = new EnemyProjectile(
+            this.x,
+            this.y,
+            Math.cos(angle) * this.projectileSpeed,
+            Math.sin(angle) * this.projectileSpeed,
+            this.projectileDamage * 0.7 // Reduced damage for circle attacks
+        );
+        
+        if (!game.enemyProjectiles) {
+            game.enemyProjectiles = [];
+        }
+        
+        game.enemyProjectiles.push(projectile);
+        game.addEntity(projectile);
+    }
+    
+    // Visual effect
+    if (gameManager) {
+        gameManager.createSpecialEffect('circle', this.x, this.y, 40, '#9b59b6');
+    }
+};
+
+Enemy.prototype.performRandomAttack = function(game, count) {
+    // Fire projectiles in random directions
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        
+        const projectile = new EnemyProjectile(
+            this.x,
+            this.y,
+            Math.cos(angle) * this.projectileSpeed,
+            Math.sin(angle) * this.projectileSpeed,
+            this.projectileDamage * 0.9
+        );
+        
+        if (!game.enemyProjectiles) {
+            game.enemyProjectiles = [];
+        }
+        
+        game.enemyProjectiles.push(projectile);
+        game.addEntity(projectile);
+    }
+    
+    // Visual effect
+    if (gameManager) {
+        gameManager.createSpecialEffect('random', this.x, this.y, 35, '#9b59b6');
+    }
+};
+
+Enemy.prototype.spawnMinions = function(game) {
+    // Enhanced minion spawning for bosses
+    const count = this.minionCount || (2 + Math.floor(Math.random() * 2));
+    const types = this.minionTypes || ['basic', 'fast'];
+    
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 60 + Math.random() * 30;
+        
+        const x = this.x + Math.cos(angle) * distance;
+        const y = this.y + Math.sin(angle) * distance;
+        
+        // Randomly select enemy type from available types
+        const randomType = types[Math.floor(Math.random() * types.length)];
+        const enemy = new Enemy(x, y, randomType);
+        
+        game.addEntity(enemy);
+    }
+    
+    // Visual effect
+    gameManager.showFloatingText("Summoning!", this.x, this.y - 30, "#9b59b6", 20);
+    
+    // Add minor screen shake
+    if (gameManager && gameManager.addScreenShake) {
+        gameManager.addScreenShake(2, 0.3);
+    }
+};
+
+Enemy.prototype.spawnMinionsPhaseTransition = function() {
+    if (!gameManager || !gameManager.game) return;
+    
+    // Spawn more minions during phase transitions
+    const count = (this.minionCount || 3) + this.currentPhase;
+    const types = this.minionTypes || ['basic', 'fast'];
+    
+    // Spawn in a circle around the boss
+    for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const distance = 80; // Fixed distance for neat circle
+        
+        const x = this.x + Math.cos(angle) * distance;
+        const y = this.y + Math.sin(angle) * distance;
+        
+        // Select enemy type based on phase
+        const phaseIndex = Math.min(this.currentPhase - 1, types.length - 1);
+        const enemyType = types[Math.min(phaseIndex, types.length - 1)];
+        
+        const enemy = new Enemy(x, y, enemyType);
+        
+        // Make transition minions stronger
+        enemy.health = enemy.health * 1.2;
+        enemy.maxHealth = enemy.health;
+        
+        gameManager.game.addEntity(enemy);
+    }
+    
+    // Visual effect
+    gameManager.showFloatingText("Minion Wave!", this.x, this.y - 30, "#9b59b6", 24);
+    
+    // Add meatier screen shake
+    if (gameManager.addScreenShake) {
+        gameManager.addScreenShake(4, 0.4);
+    }
+};
+
+// Add phase transition implementation
+Enemy.prototype.transitionToPhase = function(newPhase) {
+    if (this.currentPhase >= newPhase) return; // Already in this phase or further
+    
+    this.currentPhase = newPhase;
+    
+    // Visual effect for phase transition
+    if (gameManager) {
+        // Use special phase transition effect
+        gameManager.createSpecialEffect('bossPhase', this.x, this.y, 100, '#c0392b');
+        
+        // Show phase transition message
+        gameManager.showFloatingText(`BOSS PHASE ${this.currentPhase}!`, 
+            this.x, this.y - 50, '#e74c3c', 24);
+        
+        // Play phase transition sound
+        if (audioSystem && audioSystem.playBossPhaseSound) {
+            audioSystem.playBossPhaseSound(0.8);
+        }
+    }
+    
+    // Change attack pattern
+    if (this.attackPatterns && this.attackPatterns.length >= this.currentPhase) {
+        this.currentAttackPattern = this.currentPhase - 1;
+    }
+    
+    // Reset damage reduction on phase change (gives player a window of opportunity)
+    this.hitDamageReduction = 0;
+    
+    // Slightly heal boss on phase transition (to ensure phase lasts a bit)
+    const healAmount = this.maxHealth * 0.05; // 5% heal
+    this.health = Math.min(this.maxHealth, this.health + healAmount);
+    
+    // Spawn additional minions on phase transition
+    if (gameManager && gameManager.game) {
+        // Spawn a wave of minions
+        this.spawnMinionsPhaseTransition();
+    }
+    
+    // Make boss temporarily move faster after phase transition
+    this.originalSpeed = this.originalSpeed || this.speed;
+    this.speed = this.originalSpeed * 1.5;
+    
+    // Add phase-specific abilities
+    switch (this.currentPhase) {
+        case 2:
+            // Phase 2: Boss gains periodic shield
+            this.hasShield = true;
+            this.shieldCooldown = 8; // seconds
+            this.shieldDuration = 3; // seconds
+            this.shieldTimer = 0;
+            this.shieldActive = false;
+            break;
+            
+        case 3:
+            // Phase 3: Boss can teleport away from player when damaged heavily
+            this.canTeleport = true;
+            this.teleportThreshold = 50; // Teleport after taking 50 damage
+            this.damageTaken = 0; 
+            this.teleportCooldown = 6; // seconds
+            this.teleportTimer = 0;
+            break;
+            
+        case 4:
+            // Phase 4: Boss can create damaging areas that persist
+            this.canCreateDamageZones = true;
+            this.damageZoneCooldown = 10; // seconds
+            this.damageZoneTimer = 0;
+            break;
+    }
+    
+    // Set timer to revert speed
+    setTimeout(() => {
+        if (this && !this.isDead) {
+            this.speed = this.originalSpeed;
+        }
+    }, 3000);
+};
+
+// Update boss behavior to include phase-specific abilities
+const originalEnemyUpdate = Enemy.prototype.update;
+Enemy.prototype.update = function(deltaTime, game) {
+    // Call the original update method
+    originalEnemyUpdate.call(this, deltaTime, game);
+    
+    // Handle phase-specific abilities
+    if (this.isBoss) {
+        // Phase 2: Shield mechanics
+        if (this.hasShield) {
+            this.shieldTimer += deltaTime;
+            
+            if (this.shieldActive) {
+                if (this.shieldTimer >= this.shieldDuration) {
+                    this.shieldActive = false;
+                    this.shieldTimer = 0;
+                }
+            } else {
+                if (this.shieldTimer >= this.shieldCooldown) {
+                    this.activateShield();
+                }
+            }
+        }
+        
+        // Phase 3: Teleport when damaged heavily
+        if (this.canTeleport && this.teleportTimer > 0) {
+            this.teleportTimer -= deltaTime;
+        }
+        
+        // Phase 4: Create damage zones
+        if (this.canCreateDamageZones) {
+            this.damageZoneTimer += deltaTime;
+            
+            if (this.damageZoneTimer >= this.damageZoneCooldown) {
+                this.damageZoneTimer = 0;
+                this.createDamageZone(game);
+            }
+        }
+    }
+};
+
+// Add shield activation
+Enemy.prototype.activateShield = function() {
+    this.shieldActive = true;
+    this.shieldTimer = 0;
+    this.damageReductionBackup = this.damageResistance || 0;
+    this.damageResistance = 0.8; // 80% damage reduction while shield is active
+    
+    // Visual effect
+    if (gameManager) {
+        gameManager.showFloatingText("SHIELD UP!", this.x, this.y - 30, "#3498db", 20);
+        
+        // Create shield effect
+        for (let i = 0; i < 20; i++) {
+            const angle = (i / 20) * Math.PI * 2;
+            const particle = new Particle(
+                this.x + Math.cos(angle) * this.radius,
+                this.y + Math.sin(angle) * this.radius,
+                Math.cos(angle) * 30,
+                Math.sin(angle) * 30,
+                3,
+                '#3498db',
+                0.4
+            );
+            
+            if (gameManager.particles) {
+                gameManager.particles.push(particle);
+            }
+        }
+    }
+    
+    // Return to normal damage resistance when shield expires
+    setTimeout(() => {
+        if (this && !this.isDead) {
+            this.shieldActive = false;
+            this.damageResistance = this.damageReductionBackup;
+            
+            if (gameManager) {
+                gameManager.showFloatingText("SHIELD DOWN!", this.x, this.y - 30, "#e74c3c", 18);
+            }
+        }
+    }, this.shieldDuration * 1000);
+};
+
+// Add teleport mechanism
+Enemy.prototype.teleport = function(game) {
+    if (!game || !game.player || this.teleportTimer > 0) return;
+    
+    // Reset damage counter
+    this.damageTaken = 0;
+    this.teleportTimer = this.teleportCooldown;
+    
+    // Teleport away from player
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 300 + Math.random() * 200;
+    
+    // Save old position for effect
+    const oldX = this.x;
+    const oldY = this.y;
+    
+    // Set new position
+    this.x = game.player.x + Math.cos(angle) * distance;
+    this.y = game.player.y + Math.sin(angle) * distance;
+    
+    // Visual effect at old position
+    if (gameManager && gameManager.createSpecialEffect) {
+        gameManager.createSpecialEffect('bossPhase', oldX, oldY, 30, '#9b59b6');
+    }
+    
+    // Visual effect at new position
+    if (gameManager && gameManager.createSpecialEffect) {
+        gameManager.createSpecialEffect('bossPhase', this.x, this.y, 30, '#9b59b6');
+        gameManager.showFloatingText("TELEPORT!", this.x, this.y - 30, "#9b59b6", 20);
+    }
+};
+
+// Override takeDamage to handle teleport trigger
+const enemyTakeDamageForTeleport = Enemy.prototype.takeDamage;
+Enemy.prototype.takeDamage = function(amount) {
+    // Handle shield damage reduction
+    if (this.isBoss && this.shieldActive) {
+        amount *= 0.2; // 80% damage reduction
+    }
+    
+    // Apply damage as normal
+    enemyTakeDamageForTeleport.call(this, amount);
+    
+    // Teleport check for Phase 3+
+    if (this.isBoss && this.canTeleport && this.teleportTimer <= 0) {
+        this.damageTaken += amount;
+        
+        if (this.damageTaken >= this.teleportThreshold) {
+            this.teleport(gameManager.game);
+        }
+    }
+};
+
+// Add damage zone creation
+Enemy.prototype.createDamageZone = function(game) {
+    if (!game || !game.player) return;
+    
+    // Create 2-3 damage zones
+    const zoneCount = 2 + Math.floor(Math.random());
+    
+    for (let i = 0; i < zoneCount; i++) {
+        // Position somewhat near player
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 100 + Math.random() * 200;
+        const x = game.player.x + Math.cos(angle) * distance;
+        const y = game.player.y + Math.sin(angle) * distance;
+        
+        const damageZone = new DamageZone(
+            x, y,
+            80, // radius
+            20, // damage
+            5  // duration in seconds
+        );
+        
+        game.addEntity(damageZone);
+        
+        // Visual effect for zone creation
+        if (gameManager && gameManager.createSpecialEffect) {
+            gameManager.createSpecialEffect('circle', x, y, 80, '#e74c3c');
+            gameManager.showFloatingText("DANGER!", x, y - 30, "#e74c3c", 18);
+        }
+    }
+};
+
+// Render shielded boss with visual effect
+const originalBossRenderWithShield = Enemy.prototype.render;
+Enemy.prototype.render = function(ctx) {
+    // Call the original render method
+    originalBossRenderWithShield.call(this, ctx);
+    
+    // Add shield visual if active
+    if (this.isBoss && this.shieldActive) {
+        // Draw shield
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
+        ctx.fill();
+        
+        // Draw shield border
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 1.2, 0, Math.PI * 2);
+        ctx.strokeStyle = '#3498db';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Pulsing effect
+        const pulseSize = 1 + Math.sin((gameManager.gameTime || 0) / 100) * 0.1;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 1.3 * pulseSize, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+};
+

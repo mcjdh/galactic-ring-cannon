@@ -43,6 +43,24 @@ class GameManager {
             totalEnemiesSpawned: 0,
             bossesSpawned: 0
         };
+
+        // Add combo system
+        this.comboCount = 0;
+        this.comboTimer = 0;
+        this.comboTimeout = 2.0; // seconds before combo resets
+        
+        // Critical XP chance
+        this.critXpChance = 0.1; // 10% chance for critical XP drops
+        
+        // Screen shake effect
+        this.screenShakeAmount = 0;
+        this.screenShakeDuration = 0;
+        this.screenShakeTimer = 0;
+
+        // Boss mode tracking
+        this.bossActive = false;
+        this.activeBoss = null;
+        this.bossHealthBarVisible = false;
     }
     
     initializeUI() {
@@ -83,6 +101,16 @@ class GameManager {
         enemyCounter.id = 'enemy-counter';
         enemyCounter.textContent = 'Enemies: 0';
         document.getElementById('game-container').appendChild(enemyCounter);
+
+        // Add boss health bar (initially hidden)
+        const bossHealthBarContainer = document.createElement('div');
+        bossHealthBarContainer.id = 'boss-health-container';
+        bossHealthBarContainer.className = 'hidden';
+        bossHealthBarContainer.innerHTML = `
+            <div class="boss-name">BOSS</div>
+            <div id="boss-health-bar"></div>
+        `;
+        document.getElementById('game-container').appendChild(bossHealthBarContainer);
     }
     
     initializePauseControls() {
@@ -174,6 +202,39 @@ class GameManager {
                                  this.game.player.y - 50, 
                                  "#3498db", 
                                  20);
+        }
+
+        // Update combo timer
+        if (this.comboCount > 0) {
+            this.comboTimer += deltaTime;
+            if (this.comboTimer >= this.comboTimeout) {
+                if (this.comboCount >= 5) {
+                    // Give bonus XP for high combos when they end
+                    const bonusXp = Math.floor(this.comboCount * 2.5);
+                    if (this.game.player) {
+                        this.game.player.addXP(bonusXp);
+                        this.showFloatingText(`COMBO BONUS: +${bonusXp} XP!`, 
+                            this.game.player.x, this.game.player.y - 80, 
+                            '#f39c12', 20);
+                    }
+                }
+                this.comboCount = 0;
+            }
+        }
+        
+        // Update screen shake
+        if (this.screenShakeDuration > 0) {
+            this.screenShakeDuration -= deltaTime;
+        } else {
+            this.screenShakeAmount = 0;
+        }
+
+        // Update boss health bar if active
+        this.updateBossUI();
+        
+        // Check if boss mode should end (boss is dead or doesn't exist)
+        if (this.bossActive && this.activeBoss && (this.activeBoss.isDead || !this.game.enemies.includes(this.activeBoss))) {
+            this.deactivateBossMode();
         }
     }
     
@@ -334,6 +395,13 @@ class GameManager {
     }
     
     renderParticles(ctx) {
+        // Apply screen shake if active
+        if (this.screenShakeAmount > 0) {
+            const shakeX = (Math.random() - 0.5) * this.screenShakeAmount;
+            const shakeY = (Math.random() - 0.5) * this.screenShakeAmount;
+            ctx.translate(shakeX, shakeY);
+        }
+        
         for (const particle of this.particles) {
             particle.render(ctx);
         }
@@ -662,6 +730,182 @@ class GameManager {
                 );
                 this.particles.push(bounceFlash);
                 break;
+
+            case 'spread':
+                // Create spread attack effect
+                for (let i = 0; i < 15; i++) {
+                    const angle = -Math.PI/8 + (Math.PI/4) * (i/14);
+                    const speed = 80 + Math.random() * 40;
+                    const particle = new Particle(
+                        x, y,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        3 + Math.random() * 2,
+                        color || '#9b59b6',
+                        0.3 + Math.random() * 0.2
+                    );
+                    this.particles.push(particle);
+                }
+                break;
+                
+            case 'circle':
+                // Create circle attack effect
+                for (let i = 0; i < 16; i++) {
+                    const angle = (i / 16) * Math.PI * 2;
+                    const speed = 70 + Math.random() * 30;
+                    const particle = new Particle(
+                        x, y,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        3 + Math.random() * 2,
+                        color || '#9b59b6',
+                        0.4
+                    );
+                    this.particles.push(particle);
+                }
+                break;
+                
+            case 'random':
+                // Create random attack effect
+                for (let i = 0; i < 12; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 50 + Math.random() * 100;
+                    const particle = new Particle(
+                        x, y,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        2 + Math.random() * 3,
+                        color || '#9b59b6',
+                        0.2 + Math.random() * 0.3
+                    );
+                    this.particles.push(particle);
+                }
+                break;
+                
+            case 'bossPhase':
+                // Create boss phase transition effect (more dramatic)
+                // Central explosion
+                for (let i = 0; i < 30; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 100 + Math.random() * 200;
+                    const particle = new Particle(
+                        x, y,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        3 + Math.random() * 5,
+                        color || '#e74c3c',
+                        0.4 + Math.random() * 0.3
+                    );
+                    this.particles.push(particle);
+                }
+                
+                // Add shockwave
+                const shockwave = new ShockwaveParticle(
+                    x, y, 
+                    size * 2, 
+                    color || '#e74c3c',
+                    0.8
+                );
+                this.particles.push(shockwave);
+                
+                // Add screen shake
+                this.addScreenShake(8, 0.5);
+                break;
+        }
+    }
+
+    // Add screen shake method
+    addScreenShake(amount, duration) {
+        this.screenShakeAmount = amount;
+        this.screenShakeDuration = duration;
+    }
+
+    activateBossMode() {
+        this.bossActive = true;
+        
+        // Find the boss
+        this.activeBoss = this.game.enemies.find(enemy => enemy.isBoss);
+        
+        // Show boss health bar
+        const bossHealthBar = document.getElementById('boss-health-container');
+        if (bossHealthBar) {
+            bossHealthBar.classList.remove('hidden');
+            this.bossHealthBarVisible = true;
+            
+            // Set boss name
+            const bossNameElement = bossHealthBar.querySelector('.boss-name');
+            if (bossNameElement) {
+                bossNameElement.textContent = this.activeBoss && this.activeBoss.isMegaBoss ? 
+                    "MEGA BOSS" : "BOSS";
+            }
+        }
+        
+        // Add screen effect for boss presence
+        this.addScreenShake(4, 0.5);
+        
+        // Play boss music
+        audioSystem.play('boss', 0.8);
+        
+        // Add pulsing border effect to screen
+        document.getElementById('game-container').classList.add('boss-active');
+    }
+    
+    deactivateBossMode() {
+        this.bossActive = false;
+        this.activeBoss = null;
+        
+        // Hide boss health bar
+        const bossHealthBar = document.getElementById('boss-health-container');
+        if (bossHealthBar) {
+            bossHealthBar.classList.add('hidden');
+            this.bossHealthBarVisible = false;
+        }
+        
+        // Remove boss presence effect
+        document.getElementById('game-container').classList.remove('boss-active');
+        
+        // Player gets a short invulnerability period after defeating a boss
+        if (this.game.player && !this.game.player.isDead) {
+            this.game.player.isInvulnerable = true;
+            this.game.player.invulnerabilityTimer = 2.0; // 2 seconds of safety
+            
+            // Heal player a bit more after defeating boss (in addition to the boss death effect healing)
+            const healAmount = this.game.player.maxHealth * 0.05;
+            this.game.player.heal(healAmount);
+        }
+    }
+    
+    updateBossUI() {
+        if (!this.bossActive || !this.activeBoss) return;
+        
+        // Update boss health bar
+        const healthBar = document.getElementById('boss-health-bar');
+        if (healthBar) {
+            const healthPercent = (this.activeBoss.health / this.activeBoss.maxHealth) * 100;
+            healthBar.style.setProperty('--boss-health-width', `${healthPercent}%`);
+            
+            // Change color based on health percentage
+            if (healthPercent < 30) {
+                healthBar.classList.add('critical');
+            } else {
+                healthBar.classList.remove('critical');
+            }
+        }
+        
+        // Highlight phase transitions with color flashes
+        if (this.activeBoss.hasPhases && this.activeBoss.phaseThresholds) {
+            const healthPercent = (this.activeBoss.health / this.activeBoss.maxHealth);
+            
+            // Check if we're near a phase threshold for visual effect
+            for (const threshold of this.activeBoss.phaseThresholds) {
+                if (Math.abs(healthPercent - threshold) < 0.01) {
+                    healthBar.classList.add('phase-transition');
+                    setTimeout(() => {
+                        if (healthBar) healthBar.classList.remove('phase-transition');
+                    }, 300);
+                    break;
+                }
+            }
         }
     }
 }
@@ -907,6 +1151,45 @@ Enemy.prototype.die = function() {
         audioSystem.play('boss', 0.8);
     } else {
         audioSystem.play('enemyDeath', 0.3);
+    }
+
+    // Reset and increment combo
+    if (gameManager) {
+        gameManager.comboTimer = 0;
+        gameManager.comboCount++;
+        
+        // Show combo counter for 3+ combos
+        if (gameManager.comboCount >= 3) {
+            gameManager.showFloatingText(`${gameManager.comboCount}x COMBO!`, 
+                                       this.x, this.y - 50, '#f1c40f', 18);
+            
+            // Add minor screen shake for high combos
+            if (gameManager.comboCount >= 5 && gameManager.comboCount % 5 === 0) {
+                gameManager.addScreenShake(3, 0.2);
+            }
+        }
+    }
+    
+    // Chance for critical XP drop (2-3x normal value)
+    let xpValue = this.xpValue;
+    if (gameManager && Math.random() < gameManager.critXpChance) {
+        const multiplier = Math.random() < 0.3 ? 3 : 2;
+        xpValue = Math.floor(this.xpValue * multiplier);
+        
+        // Create critical XP orb with visual distinction
+        const critOrb = new XPOrb(this.x, this.y, xpValue);
+        critOrb.isCritical = true;
+        critOrb.pulseRate = 5; // Faster pulse for critical orbs
+        critOrb.color = '#f39c12'; // Orange for critical XP
+        critOrb.radius *= 1.5; // Bigger size
+        gameManager.game.addEntity(critOrb);
+        
+        // Show critical XP text
+        gameManager.showFloatingText(`BONUS XP!`, this.x, this.y - 40, '#f39c12', 18);
+    } else {
+        // Create normal XP orb
+        const orb = new XPOrb(this.x, this.y, xpValue);
+        gameManager.game.addEntity(orb);
     }
 };
 

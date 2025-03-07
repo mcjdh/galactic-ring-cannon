@@ -32,8 +32,8 @@ class Player {
         this.projectileCount = 1;
         this.projectileSpread = 0; // angle in degrees
         this.piercing = false;
-        this.critChance = 0.08; // Higher base crit chance
-        this.critMultiplier = 2.0; // 2x damage on crit
+        this.critChance = 0.10; // 10% base chance (up from 8%)
+        this.critMultiplier = 2.2; // 2.2x damage on crit (up from 2.0)
         
         // AOE attack specific properties
         this.aoeAttackCooldown = 2.0; // seconds between AOE attacks
@@ -99,6 +99,11 @@ class Player {
         this.ricochetBounces = 0;
         this.ricochetRange = 0;
         this.ricochetDamage = 0;
+
+        // Add a killstreak counter
+        this.killStreak = 0;
+        this.killStreakTimer = 0;
+        this.killStreakTimeout = 5.0; // seconds
     }
     
     update(deltaTime, game) {
@@ -108,6 +113,14 @@ class Player {
         this.handleRegeneration(deltaTime);
         this.handleDodge(deltaTime, game);
         this.updateOrbitalAttacks(deltaTime, game); // Add orbital attack handling
+
+        // Update killstreak timer
+        if (this.killStreak > 0) {
+            this.killStreakTimer += deltaTime;
+            if (this.killStreakTimer >= this.killStreakTimeout) {
+                this.killStreak = 0;
+            }
+        }
     }
     
     handleMovement(deltaTime, game) {
@@ -1059,6 +1072,13 @@ class Player {
             isCrit
         );
         
+        // For critical hits, make projectiles larger and faster
+        if (isCrit) {
+            projectile.radius *= 1.3; // Bigger size (was just set to 7)
+            projectile.vx *= 1.15; // 15% faster
+            projectile.vy *= 1.15;
+        }
+        
         // Add chain lightning property if player has it
         if (this.hasChainLightning) {
             projectile.chainLightning = {
@@ -1228,14 +1248,19 @@ class Projectile {
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         
         if (this.isCrit) {
-            // Use gradient for critical hits
+            // Enhanced critical hit visuals
             const gradient = ctx.createRadialGradient(
                 this.x, this.y, 0,
                 this.x, this.y, this.radius
             );
-            gradient.addColorStop(0, '#f1c40f');
-            gradient.addColorStop(1, '#e67e22');
+            gradient.addColorStop(0, '#fff');      // White center
+            gradient.addColorStop(0.5, '#f1c40f'); // Yellow middle
+            gradient.addColorStop(1, '#e67e22');   // Orange edge
             ctx.fillStyle = gradient;
+            
+            // Add extra glow for crits
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#f39c12';
         } else {
             // Special colors for different projectile types
             if (this.explosive) {
@@ -1250,6 +1275,7 @@ class Projectile {
         }
         
         ctx.fill();
+        ctx.shadowBlur = 0; // Reset shadow
         
         // Add glow effect
         if (this.isCrit) {
@@ -1280,3 +1306,64 @@ class Projectile {
         }
     }
 }
+
+Player.prototype.createExplosion = function(x, y, damage) {
+    // Apply explosion damage to nearby enemies
+    if (gameManager && gameManager.game) {
+        const explosionRadius = this.explosionRadius || 80; // Default radius if not set
+        
+        // Apply damage to enemies within explosion radius
+        gameManager.game.enemies.forEach(enemy => {
+            if (enemy.isDead) return;
+            
+            const dx = enemy.x - x;
+            const dy = enemy.y - y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= explosionRadius + enemy.radius) {
+                // Calculate damage with falloff based on distance
+                const falloff = 1 - (distance / (explosionRadius + enemy.radius));
+                const finalDamage = damage * Math.max(0.2, falloff);
+                
+                // Apply damage
+                enemy.takeDamage(finalDamage);
+                
+                // Show damage numbers
+                gameManager.showFloatingText(
+                    `${Math.round(finalDamage)}`, 
+                    enemy.x, 
+                    enemy.y - 20, 
+                    '#e74c3c', 
+                    14
+                );
+                
+                // Process chain lightning if enabled with chance
+                if (this.hasChainLightning && this.explosionChainChance > 0) {
+                    if (Math.random() < this.explosionChainChance) {
+                        this.processChainLightning(
+                            enemy,
+                            damage * 0.5, // 50% of explosion damage for chains
+                            this.maxChains || 2,
+                            new Set([enemy.id])
+                        );
+                    }
+                }
+            }
+        });
+        
+        // Create visual explosion effect
+        if (gameManager.createExplosion) {
+            gameManager.createExplosion(x, y, explosionRadius, '#e74c3c');
+        }
+        
+        // Add screen shake effect
+        if (gameManager.addScreenShake) {
+            gameManager.addScreenShake(3, 0.3);
+        }
+        
+        // Play explosion sound
+        if (audioSystem && audioSystem.play) {
+            audioSystem.play('enemyDeath', 0.5);
+        }
+    }
+};

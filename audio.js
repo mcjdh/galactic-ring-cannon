@@ -450,6 +450,70 @@ class AudioSystem {
     }
 }
 
+// Add boss phase transition sound - more intense than regular boss sound
+AudioSystem.prototype.playBossPhaseSound = function(volume) {
+    const now = this.audioContext.currentTime;
+    
+    // Deep impact sound
+    const oscillator1 = this.audioContext.createOscillator();
+    oscillator1.type = 'sawtooth';
+    oscillator1.frequency.setValueAtTime(60, now);
+    oscillator1.frequency.linearRampToValueAtTime(120, now + 0.2);
+    oscillator1.frequency.linearRampToValueAtTime(40, now + 0.4);
+    
+    // Higher alarm sound
+    const oscillator2 = this.audioContext.createOscillator();
+    oscillator2.type = 'square';
+    oscillator2.frequency.setValueAtTime(880, now);
+    oscillator2.frequency.setValueAtTime(660, now + 0.2);
+    oscillator2.frequency.setValueAtTime(440, now + 0.3);
+    
+    // Noise component
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this.createNoiseBuffer(0.8);
+    
+    // Configure gain nodes
+    const gain1 = this.audioContext.createGain();
+    gain1.gain.setValueAtTime(volume * 0.4, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    
+    const gain2 = this.audioContext.createGain();
+    gain2.gain.setValueAtTime(0.001, now);
+    gain2.gain.exponentialRampToValueAtTime(volume * 0.3, now + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    gain2.gain.exponentialRampToValueAtTime(volume * 0.3, now + 0.4);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+    
+    const noiseGain = this.audioContext.createGain();
+    noiseGain.gain.setValueAtTime(volume * 0.15, now);
+    noiseGain.gain.linearRampToValueAtTime(0.001, now + 0.8);
+    
+    // Configure filter for noise
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 300;
+    filter.Q.value = 2.0;
+    
+    // Connect nodes
+    oscillator1.connect(gain1);
+    gain1.connect(this.masterGainNode);
+    
+    oscillator2.connect(gain2);
+    gain2.connect(this.masterGainNode);
+    
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(this.masterGainNode);
+    
+    // Play sound
+    oscillator1.start(now);
+    oscillator2.start(now);
+    noise.start(now);
+    oscillator1.stop(now + 0.8);
+    oscillator2.stop(now + 0.8);
+    noise.stop(now + 0.8);
+};
+
 // Create global audio system instance
 const audioSystem = new AudioSystem();
 

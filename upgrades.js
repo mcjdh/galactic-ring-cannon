@@ -1,12 +1,13 @@
 class UpgradeSystem {
     constructor() {
         this.availableUpgrades = [
+            // Make early game upgrades more impactful
             {
                 id: 'attack_speed_1',
                 name: 'Quick Shot',
-                description: '25% faster attacks', // Increased from 20%
+                description: '30% faster attacks', // Increased from 25%
                 type: 'attackSpeed',
-                multiplier: 1.25,
+                multiplier: 1.30,
                 icon: '⚡',
                 rarity: 'common'
             },
@@ -33,9 +34,9 @@ class UpgradeSystem {
             {
                 id: 'attack_damage_1',
                 name: 'Sharp Shots',
-                description: '30% more damage', // Increased from 25%
+                description: '35% more damage', // Increased from 30%
                 type: 'attackDamage',
-                multiplier: 1.3,
+                multiplier: 1.35,
                 icon: '🗡️',
                 rarity: 'common'
             },
@@ -287,15 +288,15 @@ class UpgradeSystem {
                 rarity: 'rare',
                 requires: ['damage_reduction']
             },
-            // Add new dodge-related upgrades
+            // Make dodge more useful early
             {
                 id: 'dodge_cooldown',
                 name: 'Quick Reflexes',
-                description: '30% faster dodge cooldown',
+                description: '35% faster dodge cooldown', // Improved from 30%
                 type: 'dodgeCooldown',
-                multiplier: 0.7, // Reduces cooldown by 30%
+                multiplier: 0.65, // Reduced from 0.7 (better cooldown reduction)
                 icon: '💨',
-                rarity: 'uncommon'
+                rarity: 'common' // Changed from uncommon to make available earlier
             },
             {
                 id: 'dodge_duration',
@@ -566,6 +567,18 @@ class UpgradeSystem {
                 icon: '↩️💥',
                 rarity: 'uncommon',
                 requires: ['ricochet_1']
+            },
+            // Add new fun upgrade option
+            {
+                id: 'lucky_shots',
+                name: 'Lucky Shots',
+                description: '+5% critical chance and enemies drop more XP',
+                type: 'special',
+                specialType: 'lucky',
+                critBonus: 0.05,
+                xpBonus: 0.2, // 20% more XP from enemies
+                icon: '🍀',
+                rarity: 'uncommon'
             }
         ];
         
@@ -765,6 +778,34 @@ class UpgradeSystem {
     }
 }
 
-// Remove this duplicate implementation to avoid conflicts
-// Keep only the one in player.js
-// Player.prototype.applyUpgrade = function(upgrade) { ... };
+// Add to Player's applyUpgrade method to handle the new lucky upgrade
+const originalApplyUpgrade = Player.prototype.applyUpgrade;
+Player.prototype.applyUpgrade = function(upgrade) {
+    originalApplyUpgrade.call(this, upgrade);
+    
+    // Handle special "lucky" upgrade
+    if (upgrade.specialType === 'lucky') {
+        this.critChance += upgrade.critBonus || 0.05;
+        
+        // Apply XP bonus globally
+        if (upgrade.xpBonus && gameManager) {
+            // Create XP bonus function if it doesn't exist yet
+            if (!gameManager.xpBonus) {
+                gameManager.xpBonus = 0;
+            }
+            gameManager.xpBonus += upgrade.xpBonus;
+        }
+    }
+};
+
+// Override XP gain to apply the new XP bonus
+XPOrb.prototype.getValue = function() {
+    let finalValue = this.value;
+    
+    // Apply global XP bonus if exists
+    if (gameManager && gameManager.xpBonus) {
+        finalValue = Math.ceil(finalValue * (1 + gameManager.xpBonus));
+    }
+    
+    return finalValue;
+};
