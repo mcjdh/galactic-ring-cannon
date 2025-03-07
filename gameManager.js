@@ -84,18 +84,6 @@ class GameManager {
         scoreDisplay.textContent = 'Kills: 0';
         document.getElementById('game-container').appendChild(scoreDisplay);
         
-        // Add mini-tutorial text that fades away after a few seconds
-        const tutorialTip = document.createElement('div');
-        tutorialTip.className = 'overlay-message tutorial-tip';
-        tutorialTip.innerHTML = 'Use WASD or Arrow Keys to move<br><span class="tutorial-subtip">Defeat enemies to gain XP and level up</span>';
-        document.getElementById('game-container').appendChild(tutorialTip);
-        
-        // Hide tutorial after 5 seconds
-        setTimeout(() => {
-            tutorialTip.style.opacity = '0';
-            setTimeout(() => tutorialTip.remove(), 1000);
-        }, 5000);
-        
         // Add enemy counter display
         const enemyCounter = document.createElement('div');
         enemyCounter.id = 'enemy-counter';
@@ -618,16 +606,23 @@ class GameManager {
         
         // Dynamically scale max enemies based on difficulty and player level
         const playerLevelFactor = this.game.player ? 
-            (1 + this.game.player.level / 20) : 1; // 5% more enemies per level
+            (1 + this.game.player.level / 15) : 1; // 6.7% more enemies per level (adjusted from 5%)
             
-        const timeBasedLimit = 50 + Math.min(300, Math.floor(this.gameTime / 15)); // +1 max enemy every 15 seconds
+        // More aggressive time-based enemy scaling
+        const gameMinutes = this.gameTime / 60;
+        const timeBasedLimit = Math.min(500, Math.floor(50 + (gameMinutes * 20))); // +20 enemies per minute
+        
+        // Early game is more approachable, late game more challenging
+        const earlyStageFactor = Math.min(1, gameMinutes / 3); // Reaches max effect after 3 minutes
         
         // Calculate new max enemies - combines base value, difficulty scaling, time and level factors
         const newMaxEnemies = Math.floor(
-            Math.min(500, // Hard upper limit for performance reasons
-                (50 + // Base value
-                (this.difficultyFactor * 30)) * // Difficulty scaling
-                playerLevelFactor // Player level factor
+            Math.min(600, // Higher upper limit for more challenge in late game
+                (40 + // Lower base value to start easier
+                (this.difficultyFactor * 40) + // More impact from difficulty (increased from 30)
+                (Math.pow(gameMinutes, 1.2) * 15)) * // Non-linear time scaling for more challenge later
+                playerLevelFactor * // Player level factor
+                (0.7 + (0.3 * earlyStageFactor)) // Smoother early game ramp-up
             )
         );
         
@@ -639,38 +634,59 @@ class GameManager {
             this.enemySpawner.maxEnemies
         );
         
-        // Scale spawn rate with difficulty
+        // Dynamic spawn rate scaling with diminishing returns at higher levels
+        const baseSpawnRate = 1.0 + (this.difficultyFactor * 0.8);
+        const spawnRateCap = 10.0; // Higher cap for more intense late game (up from 8)
+        
         this.enemySpawner.spawnRate = Math.min(
-            8.0, // Hard cap on spawn rate
-            1.0 + (this.difficultyFactor * 0.8)  // Base + scaling
+            spawnRateCap,
+            baseSpawnRate * (1 + Math.pow(gameMinutes / 10, 0.7)) // Non-linear scaling
         );
         this.enemySpawner.spawnCooldown = 1 / this.enemySpawner.spawnRate;
         
-        // Adjust elite chance based on time and difficulty
+        // Adjust elite chance based on time and difficulty with better scaling
         if (this.enemySpawner.eliteChance !== undefined) {
+            const baseEliteChance = 0.05; // Start at 5%
+            const maxEliteChance = 0.40; // Cap at 40% (up from 35%)
+            const eliteScaling = this.difficultyFactor * 0.06; // More elites at higher difficulty
+            
             this.enemySpawner.eliteChance = Math.min(
-                0.35, // Maximum elite chance 
-                0.05 + (this.difficultyFactor * 0.05) // Base + scaling
+                maxEliteChance, 
+                baseEliteChance + eliteScaling + (gameMinutes * 0.01) // Additional 1% per minute
             );
         }
         
-        // Also adjust wave interval to make waves more frequent later
+        // Adjust wave interval to make waves more frequent later with better progression
         if (this.enemySpawner.waveInterval !== undefined) {
+            const minWaveInterval = 12; // Minimum 12 seconds between waves (down from 15)
+            
             this.enemySpawner.waveInterval = Math.max(
-                15, // Minimum 15 seconds between waves
-                35 - (this.difficultyFactor * 3) // Decrease interval as difficulty increases
+                minWaveInterval,
+                35 - (this.difficultyFactor * 3.5) - (gameMinutes * 0.5) // Faster waves over time
             );
         }
         
-        // Make bosses more frequent at higher difficulties
+        // Make bosses more frequent at higher difficulties with better scaling
         if (this.enemySpawner.bossInterval !== undefined) {
+            const minBossInterval = 45; // Minimum 45 seconds between bosses (down from 60)
+            
             this.enemySpawner.bossInterval = Math.max(
-                60, // Minimum 60 seconds between bosses
-                120 - (this.difficultyFactor * 10) // Decrease interval as difficulty increases
+                minBossInterval,
+                60 - (this.difficultyFactor * 6) - (gameMinutes * 0.75) // Boss every 1 minute, scaling down with difficulty
             );
         }
+        
+        // Add dynamic enemy health multiplier based on time to ensure challenge increases
+        if (this.enemySpawner.enemyHealthMultiplier === undefined) {
+            this.enemySpawner.enemyHealthMultiplier = 1.0;
+        }
+        
+        // Increase enemy health multiplier over time
+        this.enemySpawner.enemyHealthMultiplier = 1.0 + 
+            (this.difficultyFactor * 0.2) + 
+            (Math.min(2.0, gameMinutes / 10) * 0.5);
     }
-
+    
     // Add a helper method for creating special combat effects
     createSpecialEffect(type, x, y, size, color) {
         switch (type) {
@@ -1401,30 +1417,6 @@ Player.prototype.doDodge = function() {
     // Play dodge sound
     audioSystem.play('dodge', 0.7);
 };
-
-// REMOVE ALL THESE PROBLEMATIC OVERRIDES (around lines 1079-1090)
-// Delete these blocks of code:
-
-// Override player fireProjectile to add sound
-// const originalPlayerFireProjectile = Player.prototype.fireProjectile;
-// Player.prototype.fireProjectile = function(game, angle) {
-//    originalPlayerFireProjectile.call(this, game, angle);
-//    
-//    // Play shooting sound
-//    audioSystem.play('shoot', 0.3);
-// };
-
-// Override player attack method to include AOE sound
-// const originalPlayerAttack = Player.prototype.attack;
-// Player.prototype.attack = function(game) {
-//    // Call the original method
-//    originalPlayerAttack.call(this, game);
-//    
-//    // Add sound effect for basic attack types
-//    if (this.attackType === 'basic' || this.attackType === 'spread') {
-//        audioSystem.play('shoot', 0.3);
-//    }
-// };
 
 // ADD THIS AT THE BOTTOM OF THE FILE
 // Simple solution that doesn't try to override existing methods

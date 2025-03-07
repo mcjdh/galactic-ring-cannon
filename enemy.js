@@ -858,15 +858,30 @@ class EnemySpawner {
         
         // Apply difficulty scaling to enemy stats
         if (gameManager && gameManager.difficultyFactor) {
-            const difficultyScaling = 1 + ((gameManager.difficultyFactor - 1) * 0.5);
+            // Use the new health multiplier for more precise scaling
+            const healthMultiplier = gameManager.enemySpawner?.enemyHealthMultiplier || 
+                (1 + ((gameManager.difficultyFactor - 1) * 0.5));
+                
+            // Apply damage scaling with reduced growth compared to health
+            const damageScaling = 1 + ((gameManager.difficultyFactor - 1) * 0.4);
             
             // Scale enemy health and damage with difficulty
-            enemy.maxHealth = Math.ceil(enemy.maxHealth * difficultyScaling);
+            enemy.maxHealth = Math.ceil(enemy.maxHealth * healthMultiplier);
             enemy.health = enemy.maxHealth;
-            enemy.damage = Math.ceil(enemy.damage * difficultyScaling);
+            enemy.damage = Math.ceil(enemy.damage * damageScaling);
             
-            // Scale XP reward slightly (but not as much as stats)
-            enemy.xpValue = Math.ceil(enemy.xpValue * (1 + ((difficultyScaling - 1) * 0.5)));
+            // Scale XP reward with better balance
+            const xpMultiplier = 1 + ((healthMultiplier - 1) * 0.7);
+            enemy.xpValue = Math.ceil(enemy.xpValue * xpMultiplier);
+            
+            // Apply time-based scaling for more challenge later
+            const gameMinutes = gameManager.gameTime / 60;
+            if (gameMinutes > 5) {
+                // Additional scaling after 5 minutes for sustained challenge
+                const lateGameFactor = Math.min(1.5, 1 + ((gameMinutes - 5) * 0.05));
+                enemy.maxHealth = Math.ceil(enemy.maxHealth * lateGameFactor);
+                enemy.health = enemy.maxHealth;
+            }
         }
         
         // Chance to create an elite enemy with boosted stats
