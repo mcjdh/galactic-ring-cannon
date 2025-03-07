@@ -63,6 +63,9 @@ class GameManager {
         this.bossActive = false;
         this.activeBoss = null;
         this.bossHealthBarVisible = false;
+
+        // Track if mega boss has appeared
+        this.megaBossTracked = false;
     }
     
     initializeUI() {
@@ -141,6 +144,14 @@ class GameManager {
 
         // Only update if game is not over and not won
         if (this.gameOver || this.gameWon) {
+            return;
+        }
+        
+        // Check if mega boss exists and was just defeated
+        if (this.checkMegaBossDefeated()) {
+            console.log("Mega boss defeated detected in update cycle");
+            this.gameWon = true;
+            this.showWinScreen();
             return;
         }
         
@@ -965,85 +976,110 @@ class GameManager {
             this.game.isPaused = true;
         }
         
+        // Stop enemy spawning completely
+        if (this.enemySpawner) {
+            this.enemySpawner.spawnRate = 0;
+            this.enemySpawner.maxEnemies = 0;
+            this.enemySpawner.wavesEnabled = false;
+            this.enemySpawner.bossInterval = Number.MAX_VALUE; // Prevent more bosses
+        }
+        
         // Create massive victory explosion effect at player position
         if (this.game.player) {
             this.createSpecialEffect('bossPhase', this.game.player.x, this.game.player.y, 150, '#f1c40f');
             this.addScreenShake(8, 1.0);
         }
         
-        // Create win screen UI
-        const winDiv = document.createElement('div');
-        winDiv.id = 'win-screen';
-        
-        // Rest of the win screen creation code remains the same
-        const totalSeconds = Math.floor(this.gameTime);
-        const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-        
-        // Calculate score based on various factors
-        const timeScore = Math.floor(totalSeconds * 10);
-        const killScore = this.killCount * 100;
-        const levelScore = this.game.player.level * 500;
-        const bossScore = (this.gameStats.bossesSpawned || 0) * 1000;
-        const totalScore = timeScore + killScore + levelScore + bossScore;
-        
-        // Get player upgrades for display
-        const upgrades = this.game.player.upgrades || [];
-        let upgradeList = '';
-        const upgradeCounts = {};
-        
-        upgrades.forEach(upgrade => {
-            const name = upgrade.displayName || upgrade.name;
-            if (!upgradeCounts[name]) {
-                upgradeCounts[name] = 1;
-            } else {
-                upgradeCounts[name]++;
+        // Create win screen UI (with slight delay to ensure it displays properly)
+        setTimeout(() => {
+            const winDiv = document.createElement('div');
+            winDiv.id = 'win-screen';
+            
+            // Rest of the win screen creation code remains the same
+            const totalSeconds = Math.floor(this.gameTime);
+            const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+            
+            // Calculate score based on various factors
+            const timeScore = Math.floor(totalSeconds * 10);
+            const killScore = this.killCount * 100;
+            const levelScore = this.game.player.level * 500;
+            const bossScore = (this.gameStats.bossesSpawned || 0) * 1000;
+            const totalScore = timeScore + killScore + levelScore + bossScore;
+            
+            // Get player upgrades for display
+            const upgrades = this.game.player.upgrades || [];
+            let upgradeList = '';
+            const upgradeCounts = {};
+            
+            upgrades.forEach(upgrade => {
+                const name = upgrade.displayName || upgrade.name;
+                if (!upgradeCounts[name]) {
+                    upgradeCounts[name] = 1;
+                } else {
+                    upgradeCounts[name]++;
+                }
+            });
+            
+            // Create upgrade list HTML
+            for (const [name, count] of Object.entries(upgradeCounts)) {
+                upgradeList += `<li>${name}${count > 1 ? ` x${count}` : ''}</li>`;
             }
-        });
-        
-        // Create upgrade list HTML
-        for (const [name, count] of Object.entries(upgradeCounts)) {
-            upgradeList += `<li>${name}${count > 1 ? ` x${count}` : ''}</li>`;
+            
+            // Set victory content with mega boss defeat message
+            winDiv.innerHTML = `
+                <h1>VICTORY!</h1>
+                <h2>You've Defeated the Mega Boss!</h2>
+                <p>Final Score: <span class="stats-highlight">${totalScore}</span></p>
+                <p>Survived for: <span class="stats-highlight">${minutes}:${seconds}</span></p>
+                <p>Level reached: <span class="stats-highlight">${this.game.player.level}</span></p>
+                <p>Enemies defeated: <span class="stats-highlight">${this.killCount}</span></p>
+                <p>Bosses conquered: <span class="stats-highlight">${this.gameStats.bossesSpawned || 0}</span></p>
+                <div class="upgrades-container">
+                    <h3>Your Build</h3>
+                    <ul class="upgrade-list">
+                        ${upgradeList}
+                    </ul>
+                </div>
+                <button id="play-again-button">Play Again</button>
+                <p class="victory-message">Congratulations on your victory over the Mega Boss!</p>
+            `;
+            
+            document.getElementById('game-container').appendChild(winDiv);
+            console.log("Win screen DOM element added");
+            
+            // Add play again button functionality
+            document.getElementById('play-again-button').addEventListener('click', () => {
+                window.location.reload();
+            });
+            
+            // Play victory sound
+            if (audioSystem && audioSystem.play) {
+                audioSystem.play('levelUp', 0.8); // Use level up sound as victory sound
+            }
+        }, 100); // Short delay to ensure DOM is ready
+    }
+
+    // Add helper method to check if mega boss was defeated
+    checkMegaBossDefeated() {
+        // No enemies in game yet
+        if (!this.game || !this.game.enemies) {
+            return false;
         }
         
-        // Set victory content with mega boss defeat message
-        winDiv.innerHTML = `
-            <h1>VICTORY!</h1>
-            <h2>You've Defeated the Mega Boss!</h2>
-            <p>Final Score: <span class="stats-highlight">${totalScore}</span></p>
-            <p>Survived for: <span class="stats-highlight">${minutes}:${seconds}</span></p>
-            <p>Level reached: <span class="stats-highlight">${this.game.player.level}</span></p>
-            <p>Enemies defeated: <span class="stats-highlight">${this.killCount}</span></p>
-            <p>Bosses conquered: <span class="stats-highlight">${this.gameStats.bossesSpawned || 0}</span></p>
-            <div class="upgrades-container">
-                <h3>Your Build</h3>
-                <ul class="upgrade-list">
-                    ${upgradeList}
-                </ul>
-            </div>
-            <button id="play-again-button">Play Again</button>
-            <p class="victory-message">Congratulations on your victory over the Mega Boss!</p>
-        `;
-        
-        document.getElementById('game-container').appendChild(winDiv);
-        console.log("Win screen DOM element added");
-        
-        // Add play again button functionality
-        document.getElementById('play-again-button').addEventListener('click', () => {
-            window.location.reload();
-        });
-        
-        // Play victory sound
-        if (audioSystem && audioSystem.play) {
-            audioSystem.play('levelUp', 0.8); // Use level up sound as victory sound
+        // Check if mega boss exists in tracking but not in enemies array (was defeated)
+        if (this.megaBossTracked && !this.game.enemies.some(enemy => enemy.isMegaBoss)) {
+            return true;
         }
         
-        // Ensure enemies stop spawning after victory
-        if (this.enemySpawner) {
-            this.enemySpawner.spawnRate = 0;
-            this.enemySpawner.maxEnemies = 0;
+        // Start tracking if mega boss appears
+        const hasMegaBoss = this.game.enemies.some(enemy => enemy.isMegaBoss);
+        if (hasMegaBoss) {
+            this.megaBossTracked = true;
         }
-    };
+        
+        return false;
+    }
 }
 
 // Particle class for visual effects
