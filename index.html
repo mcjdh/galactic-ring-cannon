@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A 2D survival game inspired by Vampire Survivors">
+    <meta name="author" content="Game Developer">
+    <meta name="theme-color" content="#111111">
+    <title>Survivor's Quest</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+</head>
+<body>
+    <div id="loading-screen">
+        <h1>Survivor's Quest</h1>
+        <p>Prepare for battle...</p>
+        <div id="loading-bar">
+            <div id="loading-progress"></div>
+        </div>
+        <p id="loading-tip">Tip: Use WASD or Arrow Keys to move</p>
+    </div>
+    
+    <div id="game-container" class="hidden">
+        <canvas id="game-canvas"></canvas>
+        <div id="level-up-container" class="hidden">
+            <h2>Level Up!</h2>
+            <div id="upgrade-options"></div>
+        </div>
+        <div id="ui-container">
+            <div id="health-bar"></div>
+            <div id="xp-bar"></div>
+            <div id="level-display">Level: 1</div>
+        </div>
+        <button id="pause-button" class="control-button">⏸️</button>
+        <div id="controls-info">P or ESC = Pause | SPACE = Dodge</div>
+        
+        <!-- Add minimap -->
+        <div id="minimap-container">
+            <canvas id="minimap"></canvas>
+        </div>
+        
+        <!-- Add skill cooldown indicator -->
+        <div id="skill-container">
+            <div id="dodge-skill" class="skill">
+                <div class="skill-icon">💨</div>
+                <div class="skill-cooldown"></div>
+                <div class="skill-key">SPACE</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="pause-menu" class="hidden">
+        <div class="pause-content">
+            <h2>Game Paused</h2>
+            <button id="resume-button" class="menu-button">Resume</button>
+            <button id="restart-button-pause" class="menu-button">Restart</button>
+            <h3>Controls:</h3>
+            <p>WASD or Arrow Keys = Move</p>
+            <p>P or ESC = Pause Game</p>
+            <p>M = Toggle Sound</p>
+        </div>
+    </div>
+    
+    <!-- Audio system uses procedural sound synthesis now -->
+    
+    <script src="gameEngine.js"></script>
+    <script src="player.js"></script>
+    <script src="enemy.js"></script>
+    <script src="upgrades.js"></script>
+    <script src="audio.js"></script>
+    <script src="gameManager.js"></script>
+    <script>
+        // Game tips
+        const tips = [
+            "Use WASD or Arrow Keys to move",
+            "Enemies drop XP orbs when defeated",
+            "Collect XP to level up and choose upgrades",
+            "Press SPACE to dodge incoming enemies",
+            "Bosses appear every 3 minutes",
+            "Watch out for explosive enemies!",
+            "Ranged enemies will shoot projectiles at you",
+            "The game gets harder over time",
+            "Piercing projectiles can hit multiple enemies",
+            "Press P or ESC to pause the game",
+            "The minimap shows nearby enemies and XP orbs"
+        ];
+        
+        // Simple loading simulation with random tips
+        window.addEventListener('load', () => {
+            // Display random tip
+            const tipElem = document.getElementById('loading-tip');
+            tipElem.textContent = "Tip: " + tips[Math.floor(Math.random() * tips.length)];
+            
+            const loadingBar = document.getElementById('loading-progress');
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += 5;
+                loadingBar.style.width = `${progress}%`;
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        document.getElementById('game-container').classList.remove('hidden');
+                    }, 500);
+                }
+            }, 100);
+            
+            // Show dodge tutorial after initial loading is complete
+            setTimeout(() => {
+                const tutorialTip = document.createElement('div');
+                tutorialTip.className = 'overlay-message tutorial-tip';
+                tutorialTip.innerHTML = 'Press SPACE to dodge attacks<br><span class="tutorial-subtip">Look for the skill icon in the bottom right</span>';
+                document.getElementById('game-container').appendChild(tutorialTip);
+                
+                // Hide tutorial after 4 seconds
+                setTimeout(() => {
+                    tutorialTip.style.opacity = '0';
+                    setTimeout(() => tutorialTip.remove(), 1000);
+                }, 4000);
+            }, 10000); // Show 10 seconds after game starts
+        });
+    </script>
+</body>
+</html>
