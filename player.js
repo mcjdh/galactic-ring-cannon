@@ -386,16 +386,38 @@ class Player {
     }
     
     applyUpgrade(upgrade) {
+        // Track if this is a stacked upgrade
+        const isUpgradeStacked = this.upgrades.some(existing => 
+            existing.id === upgrade.id && existing.stackCount);
+        
+        // Initialize stack count
+        if (!upgrade.stackCount) {
+            upgrade.stackCount = 1;
+            upgrade.tier = 'I';
+        } else {
+            upgrade.stackCount++;
+            
+            // Set tier indicator based on stack count
+            const tiers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+            upgrade.tier = tiers[Math.min(upgrade.stackCount - 1, tiers.length - 1)];
+        }
+        
         this.upgrades.push(upgrade);
         
-        // Apply the upgrade effects
+        // Apply the upgrade effects with improved stacking logic
         switch (upgrade.type) {
             case 'attackSpeed':
-                this.attackSpeed *= upgrade.multiplier;
+                // Apply diminishing returns for attack speed after multiple stacks
+                const speedMultiplier = upgrade.stackCount > 3 ? 
+                    Math.pow(upgrade.multiplier, 0.85) : upgrade.multiplier;
+                this.attackSpeed *= speedMultiplier;
                 this.attackCooldown = 1 / this.attackSpeed;
                 break;
             case 'attackDamage':
-                this.attackDamage *= upgrade.multiplier;
+                // Progressive damage scaling for better stacking
+                const damageMultiplier = upgrade.stackCount > 2 ? 
+                    1 + ((upgrade.multiplier - 1) * 0.9) : upgrade.multiplier;
+                this.attackDamage *= damageMultiplier;
                 break;
             case 'projectileCount':
                 // Track how many projectiles were added
@@ -438,12 +460,20 @@ class Player {
                 this.health += (this.maxHealth - oldMaxHealth);
                 break;
             case 'critChance':
-                this.critChance += upgrade.value;
+                // Diminishing returns for crit chance after getting high
+                if (this.critChance > 0.4) {
+                    this.critChance += upgrade.value * 0.7; // 70% effectiveness at high levels
+                } else {
+                    this.critChance += upgrade.value;
+                }
                 break;
             case 'critDamage':
+                // Crit damage can keep stacking effectively
                 this.critMultiplier += upgrade.value;
                 break;
+                
             case 'regeneration':
+                // Regeneration also scales well with stacking
                 this.regeneration += upgrade.value;
                 break;
             case 'magnet':
@@ -537,7 +567,12 @@ class Player {
                 
             // Lifesteal upgrades
             case 'lifesteal':
-                this.lifestealAmount += upgrade.value || 0;
+                // Diminishing returns for high lifesteal
+                if (this.lifestealAmount > 0.15) {
+                    this.lifestealAmount += upgrade.value * 0.7; // 70% effectiveness at high levels
+                } else {
+                    this.lifestealAmount += upgrade.value;
+                }
                 break;
             case 'lifestealCrit':
                 this.lifestealCritMultiplier = upgrade.multiplier || 1;
@@ -555,8 +590,63 @@ class Player {
                 break;
         }
         
-        // Show upgrade applied message
-        gameManager.showFloatingText(`${upgrade.name} acquired!`, this.x, this.y - 30, '#3498db', 18);
+        // Show upgraded message with tier for stacked upgrades
+        if (isUpgradeStacked) {
+            const tierText = upgrade.tier ? ` ${upgrade.tier}` : '';
+            gameManager.showFloatingText(
+                `${upgrade.name}${tierText} upgraded!`, 
+                this.x, 
+                this.y - 30, 
+                '#e67e22', // Orange color for upgrades
+                18
+            );
+            
+            // Add more dramatic visual effect for stacked upgrades
+            this.createUpgradeStackEffect();
+        } else {
+            gameManager.showFloatingText(
+                `${upgrade.name} acquired!`, 
+                this.x, 
+                this.y - 30, 
+                '#3498db', 
+                18
+            );
+        }
+    }
+    
+    createUpgradeStackEffect() {
+        if (!gameManager || !gameManager.particles) return;
+        
+        // Create spiral effect with upgrade color
+        for (let i = 0; i < 16; i++) {
+            const angle = (i / 16) * Math.PI * 2;
+            const distance = 20 + (i % 4) * 10;
+            
+            const x = this.x + Math.cos(angle) * distance;
+            const y = this.y + Math.sin(angle) * distance;
+            
+            // Create outward moving particles with spiral pattern
+            const particle = new Particle(
+                x, y,
+                Math.cos(angle) * 60,
+                Math.sin(angle) * 60,
+                3 + Math.random() * 3,
+                '#e67e22', // Orange for upgrade stacks
+                0.5
+            );
+            
+            gameManager.particles.push(particle);
+        }
+        
+        // Add screen shake for powerful feeling
+        if (gameManager.addScreenShake) {
+            gameManager.addScreenShake(2, 0.2);
+        }
+        
+        // Play sound effect
+        if (audioSystem && audioSystem.play) {
+            audioSystem.play('levelUp', 0.3);
+        }
     }
     
     handleDodge(deltaTime, game) {
@@ -939,95 +1029,161 @@ class Player {
     }
 
     createLightningEffect(from, to) {
-        // Create lightning particles
-        const segments = 5;
+        // Create more dramatic lightning particles
+        const segments = 8; // Increased from 5 for more detailed lightning
         const baseX = from.x;
         const baseY = from.y;
         const targetX = to.x;
         const targetY = to.y;
         
-        // Calculate lightning path with some randomization
+        // Add initial spark effect at the source
+        for (let i = 0; i < 5; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 20 + Math.random() * 40;
+            const size = 2 + Math.random() * 2;
+            const sparkParticle = new Particle(
+                baseX, baseY,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                size,
+                '#81ecec', // Lighter blue for the spark
+                0.15
+            );
+            gameManager.particles.push(sparkParticle);
+        }
+        
+        // Calculate main lightning path with increased randomization
         let prevX = baseX;
         let prevY = baseY;
+        const points = []; // Store points for potential branch creation
         
         for (let i = 1; i <= segments; i++) {
             const ratio = i / segments;
             const straightX = baseX + (targetX - baseX) * ratio;
             const straightY = baseY + (targetY - baseY) * ratio;
             
-            // Add randomness to path
-            const randomness = 20 * (1 - ratio);
+            // Add increased randomness to path
+            const randomness = 30 * (1 - ratio); // Increased from 20
             const x = straightX + (Math.random() * randomness * 2 - randomness);
             const y = straightY + (Math.random() * randomness * 2 - randomness);
             
-            // Draw lightning segment
-            const particle = new Particle(
+            // Draw lightning segment with glowing effect
+            const mainParticle = new Particle(
                 prevX, prevY,
-                (x - prevX) * 10,
-                (y - prevY) * 10,
-                3,
-                '#3498db',
+                (x - prevX) * 12, // Faster particle movement for more dynamic effect
+                (y - prevY) * 12,
+                4, // Slightly larger
+                '#74b9ff', // Vibrant blue
                 0.2
             );
+            gameManager.particles.push(mainParticle);
             
-            gameManager.particles.push(particle);
+            // Create parallel faint lightning traces for glow effect
+            const offsetDist = 3;
+            const offsetAngle = Math.atan2(y - prevY, x - prevX) + Math.PI/2;
             
+            // Create glow particles on either side of main bolt
+            for (let j = -1; j <= 1; j += 2) {
+                const offsetX = prevX + Math.cos(offsetAngle) * offsetDist * j;
+                const offsetY = prevY + Math.sin(offsetAngle) * offsetDist * j;
+                const glowParticle = new Particle(
+                    offsetX, offsetY,
+                    (x - prevX) * 12,
+                    (y - prevY) * 12,
+                    3,
+                    'rgba(116, 185, 255, 0.4)', // Semi-transparent blue
+                    0.15
+                );
+                gameManager.particles.push(glowParticle);
+            }
+            
+            // Store points for branches
+            points.push({x, y});
             prevX = x;
             prevY = y;
         }
         
-        // Create impact flash at target
+        // Create random branches (forks) in the lightning
+        const branchCount = 1 + Math.floor(Math.random() * 2); // 1-2 branches
+        for (let i = 0; i < branchCount; i++) {
+            if (points.length < 3) continue; // Need enough points for branching
+            
+            // Select a random point from the first 70% of the lightning path
+            const sourceIndex = Math.floor(Math.random() * (points.length * 0.7));
+            const source = points[sourceIndex];
+            
+            // Create a short branch (2-3 segments)
+            let branchX = source.x;
+            let branchY = source.y;
+            const branchSegments = 2 + Math.floor(Math.random());
+            
+            for (let j = 0; j < branchSegments; j++) {
+                // Random angle deviation within 60 degrees of main bolt
+                const angle = Math.random() * Math.PI / 3 - Math.PI / 6;
+                const distance = 10 + Math.random() * 20;
+                
+                const nextX = branchX + Math.cos(angle) * distance;
+                const nextY = branchY + Math.sin(angle) * distance;
+                
+                // Create branch particle
+                const branchParticle = new Particle(
+                    branchX, branchY,
+                    (nextX - branchX) * 10,
+                    (nextY - branchY) * 10,
+                    2,
+                    '#0984e3', // Slightly darker blue for branches
+                    0.15
+                );
+                gameManager.particles.push(branchParticle);
+                
+                branchX = nextX;
+                branchY = nextY;
+            }
+        }
+        
+        // Create enhanced impact flash at target
         const flash = new Particle(
             to.x, to.y,
             0, 0,
-            12,
-            '#3498db',
-            0.15
+            18, // Larger flash (was 12)
+            '#74b9ff',
+            0.2 // Longer duration (was 0.15)
         );
         gameManager.particles.push(flash);
         
-        // Play lightning sound
-        audioSystem.play('hit', 0.3);
-    }
-
-    createRicochetEffect(fromX, fromY, toX, toY) {
-        // Create tracer line
-        const trail = 5;
-        for (let i = 0; i < trail; i++) {
-            const ratio = i / trail;
-            const x = fromX + (toX - fromX) * ratio;
-            const y = fromY + (toY - fromY) * ratio;
-            
-            // Create trail particle
-            const particle = new Particle(
-                x, y,
-                0, 0,
-                4 * (1 - ratio),
-                '#f39c12',
-                0.2
-            );
-            gameManager.particles.push(particle);
-        }
+        // Add secondary expanding ring for impact
+        const impactRing = new ShockwaveParticle(
+            to.x, to.y,
+            40, // Size of ring
+            '#0984e3',
+            0.3 // Duration
+        );
+        gameManager.particles.push(impactRing);
         
-        // Create spark effect at bounce point
+        // Add small sparks at impact point
         for (let i = 0; i < 8; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 30 + Math.random() * 70;
-            const size = 2 + Math.random() * 2;
+            const speed = 30 + Math.random() * 60;
+            const size = 1 + Math.random() * 3;
             
-            const particle = new Particle(
-                toX, toY,
+            const sparkParticle = new Particle(
+                to.x, to.y,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
                 size,
-                '#f39c12',
-                0.3
+                i % 2 === 0 ? '#74b9ff' : '#0984e3', // Alternate colors
+                0.2 + Math.random() * 0.2
             );
-            gameManager.particles.push(particle);
+            gameManager.particles.push(sparkParticle);
         }
         
-        // Play ricochet sound
-        audioSystem.play('hit', 0.25);
+        // Add subtle screen shake for impact
+        if (gameManager.addScreenShake) {
+            gameManager.addScreenShake(2, 0.2);
+        }
+        
+        // Play lightning sound
+        audioSystem.play('hit', 0.3);
     }
 
     findNearestEnemy(enemies) {
@@ -1125,6 +1281,77 @@ class Player {
         if (this.fireSound) {
             this.fireSound();
         }
+    }
+
+    createRicochetEffect(fromX, fromY, toX, toY) {
+        // Calculate direction vector
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const normalizedDx = dx / distance;
+        const normalizedDy = dy / distance;
+        
+        // Create tracer line with multiple particles
+        const particleCount = Math.min(15, Math.floor(distance / 10));
+        for (let i = 0; i < particleCount; i++) {
+            const ratio = i / particleCount;
+            const x = fromX + dx * ratio;
+            const y = fromY + dy * ratio;
+            
+            // Create particle for tracer line
+            const tracerParticle = new Particle(
+                x, y,
+                0, 0,
+                3 * (1 - ratio),  // Size decreases along path
+                '#f39c12',        // Orange color
+                0.2 + ratio * 0.1 // Duration increases along path
+            );
+            gameManager.particles.push(tracerParticle);
+        }
+        
+        // Create impact flash at destination
+        const flash = new Particle(
+            toX, toY,
+            0, 0,
+            12,
+            '#e67e22', // Darker orange
+            0.2
+        );
+        gameManager.particles.push(flash);
+        
+        // Add small spark particles at ricochet point
+        for (let i = 0; i < 6; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 40 + Math.random() * 60;
+            const size = 2 + Math.random() * 2;
+            
+            const sparkParticle = new Particle(
+                toX, toY,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                size,
+                '#f39c12',
+                0.3
+            );
+            gameManager.particles.push(sparkParticle);
+        }
+        
+        // Create small shockwave at ricochet point
+        const shockwave = new ShockwaveParticle(
+            toX, toY,
+            30, // Size of shockwave
+            '#f39c12',
+            0.25 // Duration
+        );
+        gameManager.particles.push(shockwave);
+        
+        // Add subtle screen shake for ricochet impact
+        if (gameManager.addScreenShake) {
+            gameManager.addScreenShake(1, 0.15);
+        }
+        
+        // Play ricochet sound
+        audioSystem.play('hit', 0.25);
     }
 }
 

@@ -666,9 +666,33 @@ class UpgradeSystem {
         return this.levelUpActive;
     }
     
+    // Enhanced method to get better quality random upgrades
     getRandomUpgrades(count) {
         // Get all available upgrades that player can select
         const availableUpgrades = this.availableUpgrades.filter(upgrade => {
+            // For stackable upgrades, implement stacking limits
+            if (upgrade.stackable === true) {
+                // Check how many times this upgrade has been selected already
+                const stackCount = this.player.upgrades.filter(u => u.id === upgrade.id).length;
+                
+                // Apply stacking limits based on rarity
+                const stackLimit = this.getStackLimit(upgrade);
+                if (stackCount >= stackLimit) {
+                    return false;
+                }
+                
+                // Check if required upgrades are met
+                if (upgrade.requires) {
+                    return upgrade.requires.every(reqId => this.isUpgradeSelected(reqId));
+                }
+                return true;
+            }
+            
+            // Handle non-stackable upgrades (existing logic)
+            if (this.isUpgradeSelected(upgrade.id)) {
+                return false;
+            }
+            
             // Exclude already selected one-time upgrades
             if (upgrade.type === 'piercing' && this.isUpgradeSelected('piercing_shot')) {
                 return false;
@@ -687,7 +711,7 @@ class UpgradeSystem {
             return true;
         });
         
-        // Weight upgrades by rarity
+        // Weight upgrades by rarity and current composition
         const weightedOptions = [];
         availableUpgrades.forEach(upgrade => {
             const rarity = upgrade.rarity || 'common';
@@ -697,7 +721,22 @@ class UpgradeSystem {
                 case 'common': weight = 100; break;
                 case 'uncommon': weight = 50; break;
                 case 'rare': weight = 25; break;
+                case 'epic': weight = 10; break;
                 default: weight = 10;
+            }
+            
+            // Adjust weight for stackable upgrades based on how many times they've been chosen
+            if (upgrade.stackable) {
+                const stackCount = this.player.upgrades.filter(u => u.id === upgrade.id).length;
+                if (stackCount > 0) {
+                    // Reduce weight for already stacked upgrades
+                    weight = Math.floor(weight * Math.pow(0.8, stackCount));
+                }
+            }
+            
+            // Slightly prefer upgrades that complement existing ones
+            if (this.isComplementaryUpgrade(upgrade)) {
+                weight = Math.floor(weight * 1.2);
             }
             
             // Add weighted copies to the pool
@@ -712,8 +751,28 @@ class UpgradeSystem {
         const selectedIds = new Set();
         
         for (const upgrade of shuffled) {
+            // For stackable upgrades, we want to still ensure variety in options
+            // by not offering the same upgrade twice in one level-up choice
             if (!selectedIds.has(upgrade.id)) {
-                selected.push(upgrade);
+                // Create a deep copy of the upgrade
+                const upgradeCopy = JSON.parse(JSON.stringify(upgrade));
+                
+                // Add stack info for UI display
+                const stackCount = this.player.upgrades.filter(u => u.id === upgrade.id).length;
+                if (stackCount > 0) {
+                    const tiers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+                    upgradeCopy.tier = tiers[Math.min(stackCount, tiers.length - 1)];
+                    upgradeCopy.displayName = `${upgrade.name} ${upgradeCopy.tier}`;
+                    
+                    // Enhance description to show stacking effect
+                    upgradeCopy.description = this.getStackedDescription(upgrade, stackCount + 1);
+                    
+                    // Mark as stacked for UI highlighting
+                    upgradeCopy.isStacked = true;
+                    upgradeCopy.stackCount = stackCount;
+                }
+                
+                selected.push(upgradeCopy);
                 selectedIds.add(upgrade.id);
                 
                 if (selected.length >= count) {
@@ -723,6 +782,79 @@ class UpgradeSystem {
         }
         
         return selected;
+    }
+    
+    // Helper to determine stack limits based on rarity
+    getStackLimit(upgrade) {
+        const rarity = upgrade.rarity || 'common';
+        switch (rarity) {
+            case 'common': return 5;
+            case 'uncommon': return 4;
+            case 'rare': return 3;
+            case 'epic': return 2;
+            default: return 3;
+        }
+    }
+    
+    // Helper to check if an upgrade complements existing upgrades
+    isComplementaryUpgrade(upgrade) {
+        // Check if player has upgrades that synergize with this one
+        const playerUpgradeTypes = this.player.upgrades.map(u => u.type);
+        
+        // Some example synergies
+        if (upgrade.type === 'critDamage' && playerUpgradeTypes.includes('critChance')) {
+            return true;
+        }
+        if (upgrade.type === 'projectileCount' && playerUpgradeTypes.includes('attackDamage')) {
+            return true;
+        }
+        if (upgrade.type === 'attackSpeed' && playerUpgradeTypes.includes('lifesteal')) {
+            return true;
+        }
+        // Add more synergy checks as needed
+        
+        return false;
+    }
+    
+    // Generate descriptive text for stacked upgrades
+    getStackedDescription(upgrade, newStack) {
+        let description = upgrade.description || '';
+        
+        // Add stacking info based on upgrade type
+        switch (upgrade.type) {
+            case 'attackSpeed':
+                // Calculate compounded effect
+                const speedMultiplier = Math.pow(upgrade.multiplier, newStack);
+                const percentIncrease = Math.round((speedMultiplier - 1) * 100);
+                description += ` (Total: +${percentIncrease}% attack speed)`;
+                break;
+                
+            case 'attackDamage':
+                // Calculate compounded effect
+                const damageMultiplier = Math.pow(upgrade.multiplier, newStack);
+                const damageIncrease = Math.round((damageMultiplier - 1) * 100);
+                description += ` (Total: +${damageIncrease}% damage)`;
+                break;
+                
+            case 'critChance':
+                const totalCrit = Math.round(upgrade.value * newStack * 100);
+                description += ` (Total: +${totalCrit}% chance)`;
+                break;
+                
+            case 'critDamage':
+                const totalCritDmg = (upgrade.value * newStack).toFixed(1);
+                description += ` (Total: +${totalCritDmg}x)`;
+                break;
+                
+            case 'projectileCount':
+                const totalProjectiles = upgrade.value * newStack;
+                description += ` (Total: ${totalProjectiles})`;
+                break;
+                
+            // Add cases for other stackable upgrade types
+        }
+        
+        return description;
     }
     
     isUpgradeSelected(upgradeId) {

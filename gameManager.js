@@ -1113,6 +1113,52 @@ upgradeSystem.getRandomUpgrades = function(count) {
     return selected;
 };
 
+// Update this method inside the UpgradeSystem class or apply this to upgradeSystem global instance
+upgradeSystem.renderUpgradeOption = function(upgrade, index) {
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'upgrade-option';
+    optionDiv.dataset.index = index;
+    
+    // Add stacking visual indicator if this is a stacked upgrade
+    if (upgrade.isStacked) {
+        optionDiv.classList.add('stacked-upgrade');
+    }
+    
+    // Use different colors based on rarity
+    const rarityColors = {
+        common: '#95a5a6',
+        uncommon: '#2ecc71',
+        rare: '#3498db',
+        epic: '#9b59b6',
+        legendary: '#f39c12'
+    };
+    
+    const rarityColor = rarityColors[upgrade.rarity || 'common'];
+    
+    // Create visual elements
+    optionDiv.innerHTML = `
+        <div class="upgrade-header" style="border-bottom: 2px solid ${rarityColor}">
+            <span class="upgrade-name">${upgrade.displayName || upgrade.name}</span>
+            <span class="upgrade-rarity" style="color: ${rarityColor}">${upgrade.rarity || 'common'}</span>
+        </div>
+        <div class="upgrade-description">${upgrade.description || ''}</div>
+        <div class="upgrade-key-hint">${index + 1}</div>
+        ${upgrade.isStacked ? '<div class="stack-indicator">UPGRADE</div>' : ''}
+    `;
+    
+    // Add click handler to select this upgrade
+    optionDiv.addEventListener('click', () => {
+        this.selectUpgrade(index);
+    });
+    
+    // If stacked, add gleaming animation
+    if (upgrade.isStacked) {
+        optionDiv.style.animation = 'stackGlow 1.5s infinite alternate';
+    }
+    
+    return optionDiv;
+};
+
 // Create global game manager instance
 const gameManager = new GameManager();
 
