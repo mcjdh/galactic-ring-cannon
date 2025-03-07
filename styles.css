@@ -804,3 +804,110 @@ body {
         box-shadow: 0 0 15px #e67e22, 0 0 20px #e67e22;
     }
 }
+
+/* Win screen styles */
+#win-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    padding: 30px;
+    border-radius: 10px;
+    z-index: 1000;
+    text-align: center;
+    width: 80%;
+    max-width: 600px;
+    box-shadow: 0 0 40px rgba(241, 196, 15, 0.7);
+    animation: victory-glow 2s infinite alternate;
+    overflow-y: auto;
+    max-height: 80vh;
+}
+
+#win-screen h1 {
+    color: #f1c40f;
+    font-size: 48px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.7);
+}
+
+#win-screen h2 {
+    color: #f39c12;
+    font-size: 28px;
+    margin-bottom: 20px;
+}
+
+#win-screen p {
+    color: #ecf0f1;
+    margin: 10px 0;
+    font-size: 18px;
+}
+
+#win-screen .stats-highlight {
+    color: #f1c40f;
+    font-weight: bold;
+    font-size: 22px;
+}
+
+.upgrades-container {
+    margin: 20px 0;
+    background-color: rgba(44, 62, 80, 0.6);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.upgrades-container h3 {
+    color: #2ecc71;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.upgrade-list {
+    list-style-type: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.upgrade-list li {
+    background-color: rgba(52, 152, 219, 0.3);
+    padding: 5px 12px;
+    border-radius: 15px;
+    color: #ecf0f1;
+    font-size: 14px;
+}
+
+#play-again-button {
+    background-color: #f39c12;
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    font-size: 20px;
+    margin-top: 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.5);
+}
+
+#play-again-button:hover {
+    background-color: #f1c40f;
+    transform: scale(1.05);
+}
+
+.victory-message {
+    color: #2ecc71;
+    font-style: italic;
+    margin-top: 15px;
+}
+
+@keyframes victory-glow {
+    from {
+        box-shadow: 0 0 20px rgba(241, 196, 15, 0.7);
+    }
+    to {
+        box-shadow: 0 0 30px rgba(241, 196, 15, 1);
+    }
+}

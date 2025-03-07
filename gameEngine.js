@@ -45,7 +45,19 @@ class GameEngine {
         this.lastTime = timestamp;
         this.gameTime += deltaTime;
         
-        if (!this.isPaused) {
+        // Check if game is won but win screen isn't displayed yet
+        if (gameManager && gameManager.gameWon && !gameManager.winScreenDisplayed) {
+            console.log("GameEngine detected win condition, rendering and displaying win screen");
+            this.render();
+            gameManager.showWinScreen();
+            requestAnimationFrame(this.gameLoop.bind(this));
+            return;
+        }
+        
+        // Don't update if game is won but still render one more time for visual effects
+        if (gameManager && gameManager.gameWon) {
+            this.render();
+        } else if (!this.isPaused) {
             this.update(deltaTime / 1000); // Convert to seconds
             this.render();
         }

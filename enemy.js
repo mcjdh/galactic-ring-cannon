@@ -476,6 +476,31 @@ class Enemy {
                                    gameManager.game.player.y - 50, 
                                    "#f1c40f", 
                                    30);
+                                   
+        // Check if this was a mega boss
+        if (this.isMegaBoss) {
+            // Set game win flag immediately
+            if (gameManager) {
+                // Set these flags immediately
+                gameManager.gameWon = true;
+                gameManager.gameOver = true;
+                
+                // Pause the game to stop enemy spawning
+                if (gameManager.game) {
+                    gameManager.game.isPaused = true;
+                }
+                
+                // Force immediate win screen display
+                gameManager.showWinScreen();
+                
+                // Double-ensure win screen appears with a delayed backup call
+                setTimeout(() => {
+                    if (gameManager && !gameManager.winScreenDisplayed) {
+                        gameManager.showWinScreen();
+                    }
+                }, 500);
+            }
+        }
     }
     
     render(ctx) {
@@ -974,14 +999,11 @@ class EnemySpawner {
         const playerDamage = this.game.player ? this.game.player.attackDamage : 25;
         const playerAttackSpeed = this.game.player ? this.game.player.attackSpeed : 1.2;
         
-        // Determine if this should be a mega boss (every 3rd boss after the first)
-        const isMegaBoss = gameManager.gameStats && 
-            gameManager.gameStats.bossesSpawned &&
-            (gameManager.gameStats.bossesSpawned + 1) % 3 === 0 && 
-            gameManager.gameStats.bossesSpawned > 0;
+        // Determine if this should be a mega boss (specifically the 3rd boss)
+        const bossNumber = (gameManager.gameStats.bossesSpawned || 0) + 1;
+        const isMegaBoss = bossNumber === 3;
         
         // Base boss scaling factor - combines difficulty and boss number
-        const bossNumber = (gameManager.gameStats.bossesSpawned || 0) + 1;
         const difficultyFactor = gameManager.difficultyFactor || 1;
         let bossScaling = difficultyFactor * (0.8 + (bossNumber * 0.2));
         
@@ -1054,11 +1076,11 @@ class EnemySpawner {
             boss.teleportation = true;
         }
         
-        // Visual indicator for mega bosses
+        // Set the mega boss flag
         if (isMegaBoss) {
             boss.radius *= 1.2; 
             boss.color = '#8e44ad'; // Purple for mega bosses
-            boss.isMegaBoss = true;
+            boss.isMegaBoss = true; // Ensure this flag is set correctly
             
             // More frequent special attacks for mega bosses
             if (boss.rangeAttackCooldown) boss.rangeAttackCooldown *= 0.7;
