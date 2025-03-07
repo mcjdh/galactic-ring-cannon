@@ -316,6 +316,256 @@ class UpgradeSystem {
                 icon: '👻',
                 rarity: 'epic',
                 requires: ['dodge_duration']
+            },
+            
+            // Orbit Build Path - projectiles that orbit around the player
+            {
+                id: 'orbit_attack_1',
+                name: 'Orbital Shield',
+                description: 'Projectiles orbit around you, damaging enemies they contact',
+                type: 'special',
+                specialType: 'orbit',
+                value: 1, // 1 orbiting projectile
+                orbDamage: 0.4, // 40% of base damage
+                orbSpeed: 2, // rotation speed
+                orbRadius: 80, // distance from player
+                icon: '🔄',
+                rarity: 'rare'
+            },
+            {
+                id: 'orbit_attack_2',
+                name: 'Double Orbit',
+                description: 'Add a second orbiting projectile',
+                type: 'orbit',
+                value: 1,
+                icon: '🔄🔄',
+                rarity: 'rare',
+                requires: ['orbit_attack_1']
+            },
+            {
+                id: 'orbit_attack_3',
+                name: 'Orbital Swarm',
+                description: 'Add two more orbiting projectiles',
+                type: 'orbit',
+                value: 2,
+                icon: '🔄🔄🔄',
+                rarity: 'epic',
+                requires: ['orbit_attack_2']
+            },
+            {
+                id: 'orbit_damage',
+                name: 'Orbital Impact',
+                description: 'Orbiting projectiles deal 40% more damage',
+                type: 'orbitDamage',
+                multiplier: 1.4,
+                icon: '🔄💥',
+                rarity: 'uncommon',
+                requires: ['orbit_attack_1']
+            },
+            {
+                id: 'orbit_speed',
+                name: 'Rapid Orbit',
+                description: 'Orbiting projectiles rotate 30% faster',
+                type: 'orbitSpeed',
+                multiplier: 1.3,
+                icon: '🔄⚡',
+                rarity: 'uncommon',
+                requires: ['orbit_attack_1']
+            },
+            {
+                id: 'orbit_size',
+                name: 'Expanded Orbit',
+                description: 'Orbiting projectiles circle at a greater distance',
+                type: 'orbitSize',
+                value: 30, // +30 to orbit radius
+                icon: '🔄↔️',
+                rarity: 'uncommon',
+                requires: ['orbit_attack_1']
+            },
+            
+            // Chain Lightning Build Path
+            {
+                id: 'chain_lightning_1',
+                name: 'Chain Lightning',
+                description: 'Projectiles have a 30% chance to chain to a nearby enemy',
+                type: 'special',
+                specialType: 'chain',
+                value: 0.3, // 30% chain chance
+                chainDamage: 0.7, // 70% of original damage
+                chainRange: 150, // maximum chain distance
+                maxChains: 1, // can hit one additional enemy
+                icon: '⚡',
+                rarity: 'rare'
+            },
+            {
+                id: 'chain_lightning_2',
+                name: 'Improved Chains',
+                description: 'Chain chance increased to 50% and can hit one more target',
+                type: 'chain',
+                value: 0.5,
+                maxChains: 2,
+                icon: '⚡⚡',
+                rarity: 'rare',
+                requires: ['chain_lightning_1']
+            },
+            {
+                id: 'chain_lightning_3',
+                name: 'Lightning Storm',
+                description: 'Chain chance increased to 70% and can hit two more targets',
+                type: 'chain',
+                value: 0.7,
+                maxChains: 4,
+                icon: '⚡⚡⚡',
+                rarity: 'epic',
+                requires: ['chain_lightning_2']
+            },
+            {
+                id: 'chain_damage',
+                name: 'Conductive Strike',
+                description: 'Chain lightning deals 85% of the original damage instead of 70%',
+                type: 'chainDamage',
+                value: 0.85,
+                icon: '⚡💥',
+                rarity: 'uncommon',
+                requires: ['chain_lightning_1']
+            },
+            {
+                id: 'chain_range',
+                name: 'Extended Discharge',
+                description: 'Chain lightning can jump 50% further between enemies',
+                type: 'chainRange',
+                multiplier: 1.5,
+                icon: '⚡↔️',
+                rarity: 'uncommon',
+                requires: ['chain_lightning_1']
+            },
+            
+            // Explosion Build Path
+            {
+                id: 'explosive_shots_1',
+                name: 'Explosive Rounds',
+                description: 'Projectiles explode on impact, dealing area damage',
+                type: 'special',
+                specialType: 'explosion',
+                explosionRadius: 60,
+                explosionDamage: 0.5, // 50% of hit damage as explosion
+                icon: '💥',
+                rarity: 'rare'
+            },
+            {
+                id: 'explosive_shots_2',
+                name: 'Bigger Explosions',
+                description: 'Explosion radius increased by 40%',
+                type: 'explosionSize',
+                multiplier: 1.4,
+                icon: '💥↔️',
+                rarity: 'uncommon',
+                requires: ['explosive_shots_1']
+            },
+            {
+                id: 'explosive_shots_3',
+                name: 'Devastating Blasts',
+                description: 'Explosions deal 75% of hit damage instead of 50%',
+                type: 'explosionDamage',
+                value: 0.75,
+                icon: '💥💥',
+                rarity: 'rare',
+                requires: ['explosive_shots_1']
+            },
+            {
+                id: 'explosive_chain',
+                name: 'Chain Reaction',
+                description: 'Enemies killed by explosions have a 30% chance to explode',
+                type: 'explosionChain',
+                value: 0.3,
+                icon: '💥🔄',
+                rarity: 'epic',
+                requires: ['explosive_shots_1']
+            },
+            
+            // Lifesteal Build Path
+            {
+                id: 'lifesteal_1',
+                name: 'Life Drain',
+                description: 'Heal for 5% of damage dealt',
+                type: 'lifesteal',
+                value: 0.05,
+                icon: '❤️🧛',
+                rarity: 'rare'
+            },
+            {
+                id: 'lifesteal_2',
+                name: 'Vampiric Touch',
+                description: 'Heal for an additional 7% of damage dealt',
+                type: 'lifesteal',
+                value: 0.07,
+                icon: '❤️🧛🧛',
+                rarity: 'rare',
+                requires: ['lifesteal_1']
+            },
+            {
+                id: 'lifesteal_crit',
+                name: 'Critical Drain',
+                description: 'Critical hits heal for double the lifesteal amount',
+                type: 'lifestealCrit',
+                multiplier: 2,
+                icon: '❤️🎯',
+                rarity: 'epic',
+                requires: ['lifesteal_1', 'crit_chance_1']
+            },
+            {
+                id: 'lifesteal_aoe',
+                name: 'AOE Drain',
+                description: 'AOE attacks also benefit from lifesteal',
+                type: 'lifestealAOE',
+                value: true,
+                icon: '❤️⭕',
+                rarity: 'rare',
+                requires: ['lifesteal_1', 'aoe_attack']
+            },
+            
+            // Ricocheting Build Path
+            {
+                id: 'ricochet_1',
+                name: 'Ricochet Shot',
+                description: 'Projectiles can bounce to a new target once',
+                type: 'special',
+                specialType: 'ricochet',
+                bounces: 1,
+                bounceRange: 180,
+                bounceDamage: 0.8, // 80% damage on bounce
+                icon: '↩️',
+                rarity: 'rare'
+            },
+            {
+                id: 'ricochet_2',
+                name: 'Multi-Bounce',
+                description: 'Projectiles can bounce one additional time',
+                type: 'ricochetBounces',
+                value: 1,
+                icon: '↩️↩️',
+                rarity: 'rare',
+                requires: ['ricochet_1']
+            },
+            {
+                id: 'ricochet_3',
+                name: 'Pinball Wizard',
+                description: 'Projectiles can bounce two additional times',
+                type: 'ricochetBounces',
+                value: 2,
+                icon: '↩️↩️↩️',
+                rarity: 'epic',
+                requires: ['ricochet_2']
+            },
+            {
+                id: 'ricochet_damage',
+                name: 'Momentum Transfer',
+                description: 'Ricochets deal 100% damage instead of 80%',
+                type: 'ricochetDamage',
+                value: 1.0,
+                icon: '↩️💥',
+                rarity: 'uncommon',
+                requires: ['ricochet_1']
             }
         ];
         
@@ -480,6 +730,24 @@ class UpgradeSystem {
         
         // Apply upgrade to player
         gameManager.game.player.applyUpgrade(upgrade);
+        
+        // Show special notification for certain upgrades
+        if (upgrade.specialType === 'chain') {
+            gameManager.showFloatingText("Chain Lightning Activated!", 
+                gameManager.game.player.x, 
+                gameManager.game.player.y - 50, 
+                '#3498db', 24);
+        } else if (upgrade.specialType === 'ricochet') {
+            gameManager.showFloatingText("Ricochet Shots Activated!", 
+                gameManager.game.player.x, 
+                gameManager.game.player.y - 50, 
+                '#f39c12', 24);
+        } else if (upgrade.specialType === 'explosion') {
+            gameManager.showFloatingText("Explosive Rounds Activated!", 
+                gameManager.game.player.x, 
+                gameManager.game.player.y - 50, 
+                '#e74c3c', 24);
+        }
         
         // Hide the level up UI
         this.levelUpContainer.classList.add('hidden');

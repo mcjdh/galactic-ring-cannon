@@ -602,6 +602,68 @@ class GameManager {
             );
         }
     }
+
+    // Add a helper method for creating special combat effects
+    createSpecialEffect(type, x, y, size, color) {
+        switch (type) {
+            case 'lightning':
+                // Create a lightning strike effect
+                for (let i = 0; i < 12; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 50 + Math.random() * 150;
+                    const distance = Math.random() * size;
+                    const particle = new Particle(
+                        x + Math.cos(angle) * (distance * 0.2), // Cluster closer to center
+                        y + Math.sin(angle) * (distance * 0.2),
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        2 + Math.random() * 3,
+                        color || '#3498db',
+                        0.2 + Math.random() * 0.2
+                    );
+                    this.particles.push(particle);
+                }
+                
+                // Create central flash
+                const flash = new Particle(
+                    x, y,
+                    0, 0,
+                    size * 0.5,
+                    color || '#3498db',
+                    0.15
+                );
+                this.particles.push(flash);
+                break;
+            
+            case 'ricochet':
+                // Create a bounce effect - particles flying outward
+                for (let i = 0; i < 10; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 60 + Math.random() * 120;
+                    const particle = new Particle(
+                        x,
+                        y,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        2 + Math.random() * 3,
+                        color || '#f39c12',
+                        0.2 + Math.random() * 0.2
+                    );
+                    this.particles.push(particle);
+                }
+                
+                // Create a small flash
+                const bounceFlash = new Particle(
+                    x, y,
+                    0, 0,
+                    size * 0.6,
+                    color || '#f39c12',
+                    0.1
+                );
+                this.particles.push(bounceFlash);
+                break;
+        }
+    }
 }
 
 // Particle class for visual effects
@@ -1011,23 +1073,34 @@ Player.prototype.doDodge = function() {
     audioSystem.play('dodge', 0.7);
 };
 
+// REMOVE ALL THESE PROBLEMATIC OVERRIDES (around lines 1079-1090)
+// Delete these blocks of code:
+
 // Override player fireProjectile to add sound
-const originalPlayerFireProjectile = Player.prototype.fireProjectile;
-Player.prototype.fireProjectile = function(game, angle) {
-    originalPlayerFireProjectile.call(this, game, angle);
-    
-    // Play shooting sound
-    audioSystem.play('shoot', 0.3);
-};
+// const originalPlayerFireProjectile = Player.prototype.fireProjectile;
+// Player.prototype.fireProjectile = function(game, angle) {
+//    originalPlayerFireProjectile.call(this, game, angle);
+//    
+//    // Play shooting sound
+//    audioSystem.play('shoot', 0.3);
+// };
 
 // Override player attack method to include AOE sound
-const originalPlayerAttack = Player.prototype.attack;
-Player.prototype.attack = function(game) {
-    // Call the original method
-    originalPlayerAttack.call(this, game);
-    
-    // Add sound effect for basic attack types
-    if (this.attackType === 'basic' || this.attackType === 'spread') {
-        audioSystem.play('shoot', 0.3);
-    }
+// const originalPlayerAttack = Player.prototype.attack;
+// Player.prototype.attack = function(game) {
+//    // Call the original method
+//    originalPlayerAttack.call(this, game);
+//    
+//    // Add sound effect for basic attack types
+//    if (this.attackType === 'basic' || this.attackType === 'spread') {
+//        audioSystem.play('shoot', 0.3);
+//    }
+// };
+
+// ADD THIS AT THE BOTTOM OF THE FILE
+// Simple solution that doesn't try to override existing methods
+// Just attach a function to play sounds when the player shoots
+Player.prototype.fireSound = function() {
+    // Play shooting sound
+    audioSystem.play('shoot', 0.3);
 };

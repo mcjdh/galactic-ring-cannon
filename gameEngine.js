@@ -105,9 +105,19 @@ class GameEngine {
             // Projectile collision with enemies
             this.projectiles.forEach(projectile => {
                 this.enemies.forEach(enemy => {
+                    // Skip dead enemies
+                    if (enemy.isDead) return;
+                    
+                    // Check for collision
                     if (this.isColliding(projectile, enemy)) {
+                        // Call the hit method which handles all special effects
+                        const hitSuccessful = projectile.hit(enemy);
+                        
+                        // Apply damage to enemy
                         enemy.takeDamage(projectile.damage);
-                        if (!projectile.piercing) {
+                        
+                        // Mark projectile as dead if not piercing
+                        if (hitSuccessful && !projectile.piercing) {
                             projectile.isDead = true;
                         }
                     }
