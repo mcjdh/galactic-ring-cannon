@@ -1,7 +1,8 @@
 # GALACTIC RING: CANNON - GAME GUIDE
 
 ## 🌌 OVERVIEW
-Galactic Ring: Cannon - VS-Like incremental space upgrade game.
+Galactic Ring: Cannon - VS-Like incremental space upgrade game. 
+
 Level up by collecting XP, choose powerful upgrades, and complete three boss fights.
 
 ## 🎮 BASIC CONTROLS
