@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # GALACTIC RING: CANNON - GAME GUIDE
 
 ## 🌌 OVERVIEW
@@ -77,3 +78,6 @@ Bosses have multiple phases triggered at health thresholds:
 ***
 
 > **GOOD LUCK, SPACE WARRIOR!**
+=======
+text
+>>>>>>> 4681f05a5157a6a9fa54ab10075893976d69b467
