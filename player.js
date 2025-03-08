@@ -8,7 +8,7 @@ class Player {
         this.health = 120; // More starting health
         this.maxHealth = 120;
         this.xp = 0;
-        this.xpToNextLevel = 70; // Lower first level XP requirement (from 80)
+        this.xpToNextLevel = 212; // Lower first level XP requirement (from 80)
         this.level = 1;
         this.isDead = false;
         this.isInvulnerable = false;
