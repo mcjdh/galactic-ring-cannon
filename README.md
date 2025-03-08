@@ -1,7 +1,8 @@
 # GALACTIC RING: CANNON - GAME GUIDE
 
 ## 🌌 OVERVIEW
-Galactic Ring: Cannon is a top-down 2D survival shooter where you face endless waves of enemies. Level up by collecting XP, choose powerful upgrades, and survive as long as possible against increasingly difficult foes and challenging boss encounters.
+Galactic Ring: Cannon - VS-Like incremental space upgrade game.
+Level up by collecting XP, choose powerful upgrades, and complete three boss fights.
 
 ## 🎮 BASIC CONTROLS
 - **WASD or Arrow Keys**: Move your character
