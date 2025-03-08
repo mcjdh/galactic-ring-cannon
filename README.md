@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # GALACTIC RING: CANNON - GAME GUIDE
 
 ## 🌌 OVERVIEW
