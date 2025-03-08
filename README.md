@@ -80,4 +80,4 @@ Bosses have multiple phases triggered at health thresholds:
 
 > **GOOD LUCK**
 
-> **made with vscode, claude3.7, supergrok, and gpt4o-mini**
+> **made with vscode, github copilot, claude3.7, supergrok, and gpt4o-mini**
