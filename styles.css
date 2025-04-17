@@ -255,6 +255,18 @@ body {
     padding: 5px 10px;
     border-radius: 5px;
 }
+/* Star token meta-progress display */
+#star-token-display {
+    position: absolute;
+    top: 20px;
+    right: 200px; /* moved further left to avoid overlap */
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 110;  /* above control buttons */
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 5px 10px;
+    border-radius: 5px;
+}
 
 .floating-text {
     position: absolute;

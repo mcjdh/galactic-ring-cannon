@@ -386,14 +386,14 @@ class UpgradeSystem {
             
             // Chain Lightning Build Path
             {
-                id: 'chain_lightning_1',
+            id: 'chain_lightning_1',
                 name: 'Chain Lightning',
-                description: 'Projectiles have a 30% chance to chain to a nearby enemy',
+                description: 'Projectiles have a 40% chance to chain to a nearby enemy',
                 type: 'special',
                 specialType: 'chain',
-                value: 0.3, // 30% chain chance
-                chainDamage: 0.7, // 70% of original damage
-                chainRange: 150, // maximum chain distance
+                value: 0.4, // 40% chain chance (buffed)
+                chainDamage: 0.8, // 80% of original damage (buffed)
+                chainRange: 175, // increased chain distance (buffed)
                 maxChains: 1, // can hit one additional enemy
                 icon: '⚡',
                 rarity: 'rare'
@@ -401,9 +401,9 @@ class UpgradeSystem {
             {
                 id: 'chain_lightning_2',
                 name: 'Improved Chains',
-                description: 'Chain chance increased to 50% and can hit one more target',
+                description: 'Chain chance increased to 60% and can hit one more target',
                 type: 'chain',
-                value: 0.5,
+                value: 0.6, // increased from 50%
                 maxChains: 2,
                 icon: '⚡⚡',
                 rarity: 'rare',
@@ -412,10 +412,10 @@ class UpgradeSystem {
             {
                 id: 'chain_lightning_3',
                 name: 'Lightning Storm',
-                description: 'Chain chance increased to 70% and can hit two more targets',
+                description: 'Chain chance increased to 80% and can hit multiple targets',
                 type: 'chain',
-                value: 0.7,
-                maxChains: 4,
+                value: 0.8, // increased from 70%
+                maxChains: 4, // can hit up to 4 additional enemies
                 icon: '⚡⚡⚡',
                 rarity: 'epic',
                 requires: ['chain_lightning_2']
@@ -423,9 +423,9 @@ class UpgradeSystem {
             {
                 id: 'chain_damage',
                 name: 'Conductive Strike',
-                description: 'Chain lightning deals 85% of the original damage instead of 70%',
+                description: 'Chain lightning deals 100% of the original damage instead of 70%',
                 type: 'chainDamage',
-                value: 0.85,
+                value: 1.0, // increased from 85%
                 icon: '⚡💥',
                 rarity: 'uncommon',
                 requires: ['chain_lightning_1']
@@ -433,9 +433,9 @@ class UpgradeSystem {
             {
                 id: 'chain_range',
                 name: 'Extended Discharge',
-                description: 'Chain lightning can jump 50% further between enemies',
+                description: 'Chain lightning can jump 75% further between enemies',
                 type: 'chainRange',
-                multiplier: 1.5,
+                multiplier: 1.75, // increased from 1.5
                 icon: '⚡↔️',
                 rarity: 'uncommon',
                 requires: ['chain_lightning_1']

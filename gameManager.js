@@ -66,6 +66,8 @@ class GameManager {
 
         // Track if mega boss has appeared
         this.megaBossTracked = false;
+        // Performance: cap maximum particles to prevent overload
+        this.maxParticles = 300;
         // Endless mode: disable win condition and allow indefinite bosses
         const urlParams = new URLSearchParams(window.location.search);
         this.endlessMode = urlParams.get('mode') === 'endless';
@@ -97,6 +99,13 @@ class GameManager {
         enemyCounter.id = 'enemy-counter';
         enemyCounter.textContent = 'Enemies: 0';
         document.getElementById('game-container').appendChild(enemyCounter);
+        // Meta progression: display star tokens
+        this.loadStarTokens();
+        const starDisplay = document.createElement('div');
+        starDisplay.id = 'star-token-display';
+        starDisplay.textContent = '⭐ ' + this.metaStars;
+        document.getElementById('game-container').appendChild(starDisplay);
+        this.starDisplayElement = starDisplay;
 
         // Add boss health bar (initially hidden)
         const bossHealthBarContainer = document.createElement('div');
@@ -331,14 +340,17 @@ class GameManager {
             difficultyLabel = "Skilled";
         }
         
+        // Calculate meta star tokens earned this run
+        const earnedStars = Math.floor(this.killCount / 50) + (this.gameStats.bossesSpawned || 0);
         gameOverDiv.innerHTML = `
             <h1>Game Over</h1>
             <p>Difficulty reached: <span class="stats-highlight">${difficultyLabel}</span></p>
             <p>You survived for <span class="stats-highlight">${minutes}:${seconds}</span></p>
             <p>Kills: <span class="stats-highlight">${this.killCount}</span></p>
             <p>Level reached: <span class="stats-highlight">${this.game.player.level}</span></p>
-            <p>XP collected: <span class="stats-highlight">${this.xpCollected}</span></p>
-            <button id="restart-button">Play Again</button>
+            <p>XP collected: <span class=\"stats-highlight\">${this.xpCollected}</span></p>
+            <p>Stars earned: <span class=\"stats-highlight\">${earnedStars}</span></p>
+            <button id=\"restart-button\">Play Again</button>
         `;
 
         // Add difficulty factor to game over stats
@@ -352,6 +364,8 @@ class GameManager {
         gameOverDiv.insertBefore(enemyInfo, gameOverDiv.querySelector('button'));
         
         document.getElementById('game-container').appendChild(gameOverDiv);
+        // Award and display star tokens
+        this.earnStarTokens(earnedStars);
         
         // Add restart button functionality
         document.getElementById('restart-button').addEventListener('click', () => {
@@ -405,6 +419,10 @@ class GameManager {
     }
     
     updateParticles(deltaTime) {
+        // Cap total particles to avoid performance issues
+        if (this.particles.length > this.maxParticles) {
+            this.particles.splice(0, this.particles.length - this.maxParticles);
+        }
         for (let i = this.particles.length - 1; i >= 0; i--) {
             this.particles[i].update(deltaTime);
             
@@ -1009,6 +1027,8 @@ class GameManager {
             const levelScore = this.game.player.level * 500;
             const bossScore = (this.gameStats.bossesSpawned || 0) * 1000;
             const totalScore = timeScore + killScore + levelScore + bossScore;
+            // Calculate meta star tokens earned this run
+            const earnedStars = Math.floor(this.killCount / 50) + (this.gameStats.bossesSpawned || 0);
             
             // Get player upgrades for display
             const upgrades = this.game.player.upgrades || [];
@@ -1038,6 +1058,7 @@ class GameManager {
                 <p>Level reached: <span class="stats-highlight">${this.game.player.level}</span></p>
                 <p>Enemies defeated: <span class="stats-highlight">${this.killCount}</span></p>
                 <p>Bosses conquered: <span class="stats-highlight">${this.gameStats.bossesSpawned || 0}</span></p>
+                <p>Stars earned: <span class="stats-highlight">${earnedStars}</span></p>
                 <div class="upgrades-container">
                     <h3>Your Build</h3>
                     <ul class="upgrade-list">
@@ -1049,6 +1070,8 @@ class GameManager {
             `;
             
             document.getElementById('game-container').appendChild(winDiv);
+            // Award and display star tokens
+            this.earnStarTokens(earnedStars);
             console.log("Win screen DOM element added");
             
             // Add play again button functionality
@@ -1086,6 +1109,31 @@ class GameManager {
         }
         
         return false;
+    }
+
+    // Meta progression: persistent star tokens across runs
+    loadStarTokens() {
+        this.metaStars = parseInt(localStorage.getItem('starTokens') || '0', 10);
+    }
+
+    saveStarTokens() {
+        localStorage.setItem('starTokens', this.metaStars);
+    }
+
+    updateStarDisplay() {
+        if (this.starDisplayElement) {
+            this.starDisplayElement.textContent = '⭐ ' + this.metaStars;
+        }
+    }
+
+    earnStarTokens(amount) {
+        if (amount <= 0) return;
+        this.metaStars += amount;
+        this.saveStarTokens();
+        this.updateStarDisplay();
+        if (this.game && this.game.player) {
+            this.showFloatingText('+' + amount + ' ⭐', this.game.player.x, this.game.player.y - 60, '#f1c40f', 20);
+        }
     }
 }
 
@@ -1223,6 +1271,10 @@ const upgradeSystem = new UpgradeSystem();
 upgradeSystem.getRandomUpgrades = function(count) {
     // Get all available upgrades that player can select
     const availableUpgrades = this.availableUpgrades.filter(upgrade => {
+        // Exclude any non-stackable upgrade already selected
+        if (!upgrade.stackable && this.isUpgradeSelected(upgrade.id)) {
+            return false;
+        }
         // Allow stackable upgrades to appear multiple times
         if (upgrade.stackable === true) {
             // For stackable upgrades, we don't exclude them even if already selected
@@ -1367,9 +1419,13 @@ Enemy.prototype.die = function() {
                                     gameManager.game.player.y - 50, '#f39c12', 24);
     }
     
-    // Play appropriate death sound
+    // Play appropriate death sound and award star token on boss kill
     if (this.isBoss) {
         audioSystem.play('boss', 0.8);
+        // Award 1 star token per boss defeated
+        if (gameManager && typeof gameManager.earnStarTokens === 'function') {
+            gameManager.earnStarTokens(1);
+        }
     } else {
         audioSystem.play('enemyDeath', 0.3);
     }
