@@ -194,6 +194,10 @@ class GameEngine {
         if (!upgradeSystem || !upgradeSystem.isLevelUpActive()) {
             document.getElementById('pause-menu').classList.remove('hidden');
         }
+        // Suspend audio during pause
+        if (audioSystem && audioSystem.audioContext && audioSystem.audioContext.state === 'running') {
+            audioSystem.audioContext.suspend();
+        }
     }
     
     resumeGame() {
@@ -206,5 +210,9 @@ class GameEngine {
         
         // Hide pause menu
         document.getElementById('pause-menu').classList.add('hidden');
+        // Resume audio on unpause
+        if (audioSystem) {
+            audioSystem.resumeAudioContext();
+        }
     }
 }

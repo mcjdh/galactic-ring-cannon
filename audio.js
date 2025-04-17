@@ -534,3 +534,30 @@ window.addEventListener('load', () => {
         document.removeEventListener('click', initAudio);
     });
 });
+// Boss theme: play bass beat in sync with player shots
+AudioSystem.prototype.playBossTheme = function(volume = 0.4) {
+    this.isBossThemePlaying = true;
+    this._bossBeat = { notes: [82.41, 98.00, 61.74, 65.41], idx: 0, volume };
+};
+AudioSystem.prototype.stopBossTheme = function() {
+    this.isBossThemePlaying = false;
+    delete this._bossBeat;
+};
+// Play a single boss beat note (invoke on each player shot)
+AudioSystem.prototype.playBossBeat = function() {
+    if (!this.isBossThemePlaying || !this._bossBeat || !this.audioContext) return;
+    const now = this.audioContext.currentTime;
+    const beat = this._bossBeat;
+    const freq = beat.notes[beat.idx];
+    beat.idx = (beat.idx + 1) % beat.notes.length;
+    const osc = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, now);
+    gainNode.gain.setValueAtTime(beat.volume, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc.connect(gainNode);
+    gainNode.connect(this.masterGainNode);
+    osc.start(now);
+    osc.stop(now + 0.4);
+};

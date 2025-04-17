@@ -195,6 +195,9 @@ class Player {
         this.attackTimer += deltaTime;
         if (this.attackTimer >= this.attackCooldown) {
             this.attackTimer = 0;
+            // Play shooting sound and boss beat
+            audioSystem.play('shoot', 0.3);
+            audioSystem.playBossBeat();
             this.attack(game);
         }
         
@@ -1398,6 +1401,8 @@ class Projectile {
             this.hitEnemies.add(enemy.id);
         }
 
+        // Play hit sound on impact
+        audioSystem.play('hit', 0.2);
         // Process lifesteal if enabled
         if (this.lifesteal && gameManager && gameManager.game && gameManager.game.player) {
             const player = gameManager.game.player;

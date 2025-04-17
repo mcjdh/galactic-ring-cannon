@@ -237,6 +237,8 @@ class Enemy {
         );
         
         game.addEntity(projectile);
+        // Play enemy shooting sound
+        audioSystem.play('shoot', 0.2);
     }
     
     spawnMinions(game) {
@@ -386,6 +388,8 @@ class Enemy {
     
     die() {
         this.isDead = true;
+        // Play enemy death sound
+        audioSystem.play('enemyDeath', 0.5);
         
         // Create XP orb
         const orb = new XPOrb(this.x, this.y, this.xpValue);

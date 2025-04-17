@@ -948,8 +948,9 @@ class GameManager {
         // Add screen effect for boss presence
         this.addScreenShake(4, 0.5);
         
-        // Play boss music
+        // Play boss music and start boss theme
         audioSystem.play('boss', 0.8);
+        audioSystem.playBossTheme(0.2);
         
         // Add pulsing border effect to screen
         document.getElementById('game-container').classList.add('boss-active');
@@ -978,6 +979,8 @@ class GameManager {
             const healAmount = this.game.player.maxHealth * 0.05;
             this.game.player.heal(healAmount);
         }
+        // Stop boss theme when boss fight ends
+        audioSystem.stopBossTheme();
     }
     
     updateBossUI() {
