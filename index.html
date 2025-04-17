@@ -20,6 +20,14 @@
         <p id="loading-tip">Tip: Use WASD or Arrow Keys to move</p>
     </div>
     
+    <!-- Main Menu: Choose Game Mode -->
+    <div id="main-menu" class="hidden">
+        <h1>Galactic Ring: Cannon</h1>
+        <p>Select Mode:</p>
+        <button id="btn-normal" class="menu-button">Normal Mode</button>
+        <button id="btn-endless" class="menu-button">Endless Mode</button>
+    </div>
+    
     <div id="game-container" class="hidden">
         <canvas id="game-canvas"></canvas>
         <div id="level-up-container" class="hidden">
@@ -104,10 +112,23 @@
                     clearInterval(interval);
                     setTimeout(() => {
                         document.getElementById('loading-screen').classList.add('hidden');
-                        document.getElementById('game-container').classList.remove('hidden');
+                        document.getElementById('main-menu').classList.remove('hidden');
                     }, 500);
                 }
             }, 100);
+        });
+        // Main menu button handlers
+        document.getElementById('btn-normal').addEventListener('click', () => {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+            gameManager.endlessMode = false;
+            gameManager.startGame();
+        });
+        document.getElementById('btn-endless').addEventListener('click', () => {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+            gameManager.endlessMode = true;
+            gameManager.startGame();
         });
     </script>
 </body>

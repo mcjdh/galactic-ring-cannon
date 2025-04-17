@@ -66,6 +66,9 @@ class GameManager {
 
         // Track if mega boss has appeared
         this.megaBossTracked = false;
+        // Endless mode: disable win condition and allow indefinite bosses
+        const urlParams = new URLSearchParams(window.location.search);
+        this.endlessMode = urlParams.get('mode') === 'endless';
     }
     
     initializeUI() {
@@ -147,8 +150,8 @@ class GameManager {
             return;
         }
         
-        // Check if mega boss exists and was just defeated
-        if (this.checkMegaBossDefeated()) {
+        // Check if mega boss exists and was just defeated (skip if endless mode)
+        if (!this.endlessMode && this.checkMegaBossDefeated()) {
             console.log("Mega boss defeated detected in update cycle");
             this.gameWon = true;
             this.showWinScreen();
@@ -1062,6 +1065,10 @@ class GameManager {
 
     // Add helper method to check if mega boss was defeated
     checkMegaBossDefeated() {
+        // Endless mode: never end game from mega boss defeat
+        if (this.endlessMode) {
+            return false;
+        }
         // No enemies in game yet
         if (!this.game || !this.game.enemies) {
             return false;
@@ -1341,10 +1348,6 @@ gameManager.game.update = function(deltaTime) {
     gameManager.update(deltaTime);
 };
 
-// Start the game when page loads
-window.addEventListener('load', () => {
-    gameManager.startGame();
-});
 
 // Override enemy die method to track kills and show floating text
 Enemy.prototype.die = function() {
