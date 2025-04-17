@@ -49,7 +49,11 @@ class GameManager {
         // Add combo system
         this.comboCount = 0;
         this.comboTimer = 0;
-        this.comboTimeout = 2.0; // seconds before combo resets
+        this.comboTimeout = 1.0; // seconds before combo resets (shorter for faster reset)
+        // Number of kills needed to fill combo bar
+        this.comboTarget = 10;
+        // Track highest combo achieved this run
+        this.highestCombo = 0;
         
         // Critical XP chance
         this.critXpChance = 0.1; // 10% chance for critical XP drops
@@ -66,11 +70,25 @@ class GameManager {
 
         // Track if mega boss has appeared
         this.megaBossTracked = false;
-        // Performance: cap maximum particles to prevent overload
-        this.maxParticles = 300;
-        // Endless mode: disable win condition and allow indefinite bosses
+        // Performance: cap maximum particles to prevent overload (reduced for lower-end devices)
+        this.maxParticles = 150;
+        // Endless mode and quality settings from URL params
         const urlParams = new URLSearchParams(window.location.search);
         this.endlessMode = urlParams.get('mode') === 'endless';
+        // Low-quality mode: skip heavy visual effects when '?quality=low'
+        this.lowQuality = urlParams.get('quality') === 'low';
+        // Toggle low-quality mode at runtime with 'L' key
+        window.addEventListener('keydown', e => {
+            if (e.key === 'l' || e.key === 'L') {
+                this.lowQuality = !this.lowQuality;
+                console.log('Low Quality Mode:', this.lowQuality);
+                // Hide or show minimap in low-quality mode
+                const minimapContainer = document.getElementById('minimap-container');
+                if (minimapContainer) {
+                    minimapContainer.classList.toggle('hidden', this.lowQuality);
+                }
+            }
+        });
     }
     
     initializeUI() {
@@ -197,8 +215,13 @@ class GameManager {
         // Update enemy spawner
         this.enemySpawner.update(deltaTime);
         
-        // Update particles
-        this.updateParticles(deltaTime);
+        // Update particles (skip in low-quality mode)
+        if (this.lowQuality) {
+            // Clear particles immediately
+            this.particles.length = 0;
+        } else {
+            this.updateParticles(deltaTime);
+        }
         
         // Update UI periodically (every 0.25 seconds)
         this.uiUpdateTimer += deltaTime;
@@ -230,7 +253,7 @@ class GameManager {
         if (this.comboCount > 0) {
             this.comboTimer += deltaTime;
             if (this.comboTimer >= this.comboTimeout) {
-                if (this.comboCount >= 5) {
+                if (this.comboCount >= this.comboTarget) {
                     // Give bonus XP for high combos when they end
                     const bonusXp = Math.floor(this.comboCount * 2.5);
                     if (this.game.player) {
@@ -280,29 +303,38 @@ class GameManager {
         // Update skill cooldown indicator
         this.updateSkillCooldowns();
         
-        // Update minimap
-        this.updateMinimap();
+        // Update minimap (skip in low-quality mode)
+        if (!this.lowQuality) {
+            this.updateMinimap();
+        }
         
         // Update enemy counter
         const enemyCount = this.game.enemies ? this.game.enemies.length : 0;
         document.getElementById('enemy-counter').textContent = `Enemies: ${enemyCount}`;
+        // Update combo bar fill
+        const comboFill = document.getElementById('combo-fill');
+        if (comboFill) {
+            const ratio = Math.min(this.comboCount / this.comboTarget, 1);
+            comboFill.style.width = `${ratio * 100}%`;
+        }
+        const comboText = document.getElementById('combo-text');
+        if (comboText) {
+            comboText.textContent = this.comboCount;
+        }
         
         // Check for nearby enemies for minimap alert
         const minimapContainer = document.getElementById('minimap-container');
         if (minimapContainer && this.game.player) {
             let nearbyEnemyCount = 0;
             const alertDistance = 300;
-            
+            const sqAlertDist = alertDistance * alertDistance;
             this.game.enemies.forEach(enemy => {
                 const dx = enemy.x - this.game.player.x;
                 const dy = enemy.y - this.game.player.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < alertDistance) {
+                if (dx * dx + dy * dy < sqAlertDist) {
                     nearbyEnemyCount++;
                 }
             });
-            
             if (nearbyEnemyCount > 0) {
                 minimapContainer.classList.add('minimap-alert');
             } else {
@@ -362,6 +394,10 @@ class GameManager {
         const enemyInfo = document.createElement('p');
         enemyInfo.innerHTML = `Max enemies at once: <span class="stats-highlight">${this.gameStats.highestEnemyCount}</span>`;
         gameOverDiv.insertBefore(enemyInfo, gameOverDiv.querySelector('button'));
+        // Add highest combo achieved
+        const comboInfo = document.createElement('p');
+        comboInfo.innerHTML = `Highest Combo: <span class="stats-highlight">${this.highestCombo}</span>`;
+        gameOverDiv.insertBefore(comboInfo, gameOverDiv.querySelector('button'));
         
         document.getElementById('game-container').appendChild(gameOverDiv);
         // Award and display star tokens
@@ -384,6 +420,9 @@ class GameManager {
     // Increment kill count when enemy is killed
     incrementKills() {
         this.killCount++;
+        // Update combo progress on each kill
+        this.comboCount = (this.comboCount || 0) + 1;
+        this.comboTimer = 0;
         return this.killCount;
     }
     
@@ -1059,6 +1098,7 @@ class GameManager {
                 <p>Enemies defeated: <span class="stats-highlight">${this.killCount}</span></p>
                 <p>Bosses conquered: <span class="stats-highlight">${this.gameStats.bossesSpawned || 0}</span></p>
                 <p>Stars earned: <span class="stats-highlight">${earnedStars}</span></p>
+                <p>Highest Combo: <span class="stats-highlight">${this.highestCombo}</span></p>
                 <div class="upgrades-container">
                     <h3>Your Build</h3>
                     <ul class="upgrade-list">
@@ -1530,12 +1570,12 @@ Player.prototype.takeDamage = function(amount) {
     audioSystem.play('playerHit', 0.5);
 };
 
-// Override the original update and render methods of GameEngine
+// Override the original GameEngine.render to incorporate low-quality mode
 const originalGameEngineRender = GameEngine.prototype.render;
 GameEngine.prototype.render = function() {
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
+
     // Set camera to follow player
     this.ctx.save();
     if (this.player) {
@@ -1543,18 +1583,25 @@ GameEngine.prototype.render = function() {
         const cameraY = -this.player.y + this.canvas.height / 2;
         this.ctx.translate(cameraX, cameraY);
     }
-    
-    // Render particles below entities
-    if (gameManager && gameManager.particles) {
+
+    // Render particles below entities if not in low-quality mode
+    if (gameManager && gameManager.particles && !gameManager.lowQuality) {
         gameManager.renderParticles(this.ctx);
     }
-    
+
     // Render all entities
-    // Sort entities by y position for proper layering
-    [...this.entities].sort((a, b) => a.y - b.y).forEach(entity => {
-        entity.render(this.ctx);
-    });
-    
+    if (gameManager && gameManager.lowQuality) {
+        // Low-quality: draw in insertion order
+        for (let i = 0, len = this.entities.length; i < len; i++) {
+            this.entities[i].render(this.ctx);
+        }
+    } else {
+        // Normal-quality: sort by y for proper layering
+        [...this.entities].sort((a, b) => a.y - b.y).forEach(entity => {
+            entity.render(this.ctx);
+        });
+    }
+
     this.ctx.restore();
 };
 
@@ -1772,6 +1819,7 @@ GameManager.prototype.showWinScreen = function() {
         <p>Level reached: <span class="stats-highlight">${this.game.player.level}</span></p>
         <p>Enemies defeated: <span class="stats-highlight">${this.killCount}</span></p>
         <p>Bosses conquered: <span class="stats-highlight">${this.gameStats.bossesSpawned || 0}</span></p>
+        <p>Highest Combo: <span class="stats-highlight">${this.highestCombo}</span></p>
         <div class="upgrades-container">
             <h3>Your Build</h3>
             <ul class="upgrade-list">

@@ -78,9 +78,8 @@ class GameEngine {
     }
     
     render() {
-        // Clear canvas
+        // Clear entire canvas each frame
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
         // Set camera to follow player
         this.ctx.save();
         if (this.player) {
@@ -88,13 +87,10 @@ class GameEngine {
             const cameraY = -this.player.y + this.canvas.height / 2;
             this.ctx.translate(cameraX, cameraY);
         }
-        
-        // Render all entities
-        // Sort entities by y position for proper layering
-        [...this.entities].sort((a, b) => a.y - b.y).forEach(entity => {
-            entity.render(this.ctx);
-        });
-        
+        // Render all entities in insertion order (avoiding per-frame array clone and sort)
+        for (let i = 0, len = this.entities.length; i < len; i++) {
+            this.entities[i].render(this.ctx);
+        }
         this.ctx.restore();
     }
     
@@ -140,10 +136,11 @@ class GameEngine {
     }
     
     isColliding(entity1, entity2) {
+        // Use squared distance to avoid costly sqrt per collision check
         const dx = entity1.x - entity2.x;
         const dy = entity1.y - entity2.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < (entity1.radius + entity2.radius);
+        const r = entity1.radius + entity2.radius;
+        return (dx * dx + dy * dy) < (r * r);
     }
     
     cleanupEntities() {
