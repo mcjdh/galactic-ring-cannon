@@ -63,7 +63,7 @@ class GameManager {
 
         // Boss mode tracking
         this.bossActive = false;
-        this.activeBoss = null;
+        this.activeBosses = new Map();
         this.bossHealthBarVisible = false;
 
         // Track if mega boss has appeared
@@ -87,6 +87,15 @@ class GameManager {
                 }
             }
         });
+        
+        // Initialize achievement tracking
+        this.enemiesKilled = 0;
+        this.bossesKilled = 0;
+        this.dodgesPerformed = 0;
+        this.perfectDodges = 0;
+        this.gameStartTime = 0;
+        this.currentWave = 0;
+        this.lastKillCount = 0;
     }
     
     initializeUI() {
@@ -212,6 +221,14 @@ class GameManager {
         
         // Start the game loop
         this.game.start();
+        
+        // Reset achievement tracking
+        this.enemiesKilled = 0;
+        this.bossesKilled = 0;
+        this.dodgesPerformed = 0;
+        this.perfectDodges = 0;
+        this.gameStartTime = Date.now();
+        this.currentWave = 0;
     }
     
     update(deltaTime) {
@@ -286,6 +303,31 @@ class GameManager {
             this.showGameOver();
         }
         
+        // Check boss mode status
+        if (this.bossActive) {
+            // Get current boss enemies
+            const currentBosses = this.game.enemies.filter(enemy => enemy.isBoss);
+            
+            // Check if all tracked bosses are dead or removed
+            let allBossesDead = true;
+            for (const [bossId, boss] of this.activeBosses) {
+                if (!boss.isDead && currentBosses.includes(boss)) {
+                    allBossesDead = false;
+                    break;
+                }
+            }
+            
+            if (allBossesDead) {
+                this.deactivateBossMode();
+            }
+        }
+        
+        // Check for new bosses and activate boss mode if needed
+        const bosses = this.game.enemies.filter(enemy => enemy.isBoss);
+        if (bosses.length > 0 && !this.bossActive) {
+            this.activateBossMode();
+        }
+        
         // Handle sound toggle (M key)
         if (this.game.keys && this.game.keys['m']) {
             // Would implement sound toggle if sound system was added
@@ -308,9 +350,9 @@ class GameManager {
                     const bonusXp = Math.floor(this.comboCount * 2.5);
                     if (this.game.player) {
                         this.game.player.addXP(bonusXp);
-                        this.showFloatingText(`COMBO BONUS: +${bonusXp} XP!`, 
+                        this.showCombatText(`++${bonusXp}`, 
                             this.game.player.x, this.game.player.y - 80, 
-                            '#f39c12', 20);
+                            'xpBonus', 20);
                     }
                 }
                 
@@ -334,9 +376,26 @@ class GameManager {
         // Update boss health bar if active
         this.updateBossUI();
         
-        // Check if boss mode should end (boss is dead or doesn't exist)
-        if (this.bossActive && this.activeBoss && (this.activeBoss.isDead || !this.game.enemies.includes(this.activeBoss))) {
-            this.deactivateBossMode();
+        // Check survival time achievement
+        if (this.gameStartTime > 0) {
+            const survivalTime = (Date.now() - this.gameStartTime) / 1000;
+            achievementSystem.updateAchievement('survivor', survivalTime);
+        }
+        
+        // Check endless mode achievement
+        if (this.endlessMode) {
+            achievementSystem.updateAchievement('endless_champion', this.currentWave);
+        }
+
+        // Update untouchable achievement tracking
+        if (!this.gameOver && !this.gameWon && achievementSystem) {
+            achievementSystem.updateUntouchable(deltaTime);
+        }
+
+        // Update kill streak tracking with timestamp
+        if (this.killCount > this.lastKillCount) {
+            achievementSystem.onEnemyKilled(Date.now());
+            this.lastKillCount = this.killCount;
         }
     }
     
@@ -473,12 +532,20 @@ class GameManager {
         // Update combo progress on each kill
         this.comboCount = (this.comboCount || 0) + 1;
         this.comboTimer = 0;
+
+        // Track achievement for first kill
+        achievementSystem.updateAchievement('first_kill', this.killCount);
+        
+        // Track combo achievement
+        achievementSystem.updateAchievement('combo_master', this.comboCount);
+
         return this.killCount;
     }
     
     // Track XP collected
     addXpCollected(amount) {
         this.xpCollected += amount;
+        achievementSystem.updateAchievement('star_collector', this.metaStars);
         return this.xpCollected;
     }
     
@@ -689,9 +756,22 @@ class GameManager {
     initializeMinimap() {
         this.minimap = document.getElementById('minimap');
         this.minimapCtx = this.minimap.getContext('2d');
-        this.minimap.width = 150;
-        this.minimap.height = 150;
-        this.minimapScale = 0.1; // 1/10th scale of the game world
+        this.minimap.width = 200; // Increased size
+        this.minimap.height = 200;
+        this.minimapScale = 0.15; // Increased scale for better visibility
+        this.minimapContainer = document.getElementById('minimap-container');
+        
+        // Add boss direction indicator
+        const bossIndicator = document.createElement('div');
+        bossIndicator.id = 'boss-direction';
+        bossIndicator.className = 'hidden';
+        this.minimapContainer.appendChild(bossIndicator);
+        
+        // Add boss distance display
+        const bossDistance = document.createElement('div');
+        bossDistance.id = 'boss-distance';
+        bossDistance.className = 'hidden';
+        this.minimapContainer.appendChild(bossDistance);
     }
     
     addSoundButton() {
@@ -737,7 +817,7 @@ class GameManager {
         if (!this.game.player) return;
         
         // Clear minimap
-        this.minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         this.minimapCtx.fillRect(0, 0, this.minimap.width, this.minimap.height);
         
         // Center position on player
@@ -747,14 +827,31 @@ class GameManager {
         // Draw player on minimap
         this.minimapCtx.fillStyle = '#3498db';
         this.minimapCtx.beginPath();
-        this.minimapCtx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+        this.minimapCtx.arc(centerX, centerY, 5, 0, Math.PI * 2);
         this.minimapCtx.fill();
         
         // Draw enemies on minimap
+        let bossFound = false;
+        let nearestBoss = null;
+        let minBossDistance = Infinity;
+        
         this.game.enemies.forEach(enemy => {
             // Calculate relative position
             const relX = (enemy.x - this.game.player.x) * this.minimapScale + centerX;
             const relY = (enemy.y - this.game.player.y) * this.minimapScale + centerY;
+            
+            // Track boss
+            if (enemy.isBoss) {
+                bossFound = true;
+                const dx = enemy.x - this.game.player.x;
+                const dy = enemy.y - this.game.player.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < minBossDistance) {
+                    minBossDistance = distance;
+                    nearestBoss = enemy;
+                }
+            }
             
             // Only draw if within minimap bounds
             if (relX >= 0 && relX <= this.minimap.width && relY >= 0 && relY <= this.minimap.height) {
@@ -770,9 +867,15 @@ class GameManager {
                         this.minimapCtx.fillStyle = '#e74c3c'; // Red for regular enemies
                 }
                 
-                const dotSize = enemy.isBoss ? 4 : 2;
+                const dotSize = enemy.isBoss ? 6 : 3; // Increased size for better visibility
                 this.minimapCtx.beginPath();
                 this.minimapCtx.arc(relX, relY, dotSize, 0, Math.PI * 2);
+                this.minimapCtx.fill();
+                
+                // Add glow effect for enemies
+                this.minimapCtx.beginPath();
+                this.minimapCtx.arc(relX, relY, dotSize + 2, 0, Math.PI * 2);
+                this.minimapCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
                 this.minimapCtx.fill();
             }
         });
@@ -785,10 +888,67 @@ class GameManager {
             if (relX >= 0 && relX <= this.minimap.width && relY >= 0 && relY <= this.minimap.height) {
                 this.minimapCtx.fillStyle = '#2ecc71'; // Green for XP orbs
                 this.minimapCtx.beginPath();
-                this.minimapCtx.arc(relX, relY, 1, 0, Math.PI * 2);
+                this.minimapCtx.arc(relX, relY, 2, 0, Math.PI * 2);
+                this.minimapCtx.fill();
+                
+                // Add glow effect for XP orbs
+                this.minimapCtx.beginPath();
+                this.minimapCtx.arc(relX, relY, 4, 0, Math.PI * 2);
+                this.minimapCtx.fillStyle = 'rgba(46, 204, 113, 0.2)';
                 this.minimapCtx.fill();
             }
         });
+        
+        // Update boss tracking
+        const bossDirection = document.getElementById('boss-direction');
+        const bossDistance = document.getElementById('boss-distance');
+        
+        if (bossFound && nearestBoss) {
+            // Show boss direction indicator
+            bossDirection.classList.remove('hidden');
+            bossDistance.classList.remove('hidden');
+            
+            // Calculate angle to boss
+            const dx = nearestBoss.x - this.game.player.x;
+            const dy = nearestBoss.y - this.game.player.y;
+            const angle = Math.atan2(dy, dx);
+            
+            // Update direction indicator
+            bossDirection.style.transform = `rotate(${angle}rad)`;
+            
+            // Update distance display
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            bossDistance.textContent = `${Math.round(distance)}px`;
+            
+            // Add alert effect if boss is close
+            if (distance < 300) {
+                this.minimapContainer.classList.add('minimap-alert');
+            } else {
+                this.minimapContainer.classList.remove('minimap-alert');
+            }
+        } else {
+            bossDirection.classList.add('hidden');
+            bossDistance.classList.add('hidden');
+        }
+        
+        // Add border highlight when enemies are close
+        let nearbyEnemyCount = 0;
+        const alertDistance = 300;
+        const sqAlertDist = alertDistance * alertDistance;
+        
+        this.game.enemies.forEach(enemy => {
+            const dx = enemy.x - this.game.player.x;
+            const dy = enemy.y - this.game.player.y;
+            if (dx * dx + dy * dy < sqAlertDist) {
+                nearbyEnemyCount++;
+            }
+        });
+        
+        if (nearbyEnemyCount > 0) {
+            this.minimapContainer.classList.add('minimap-alert');
+        } else {
+            this.minimapContainer.classList.remove('minimap-alert');
+        }
     }
 
     updateDifficultyScaling() {
@@ -1027,94 +1187,254 @@ class GameManager {
     }
 
     activateBossMode() {
-        this.bossActive = true;
-        
-        // Find the boss
-        this.activeBoss = this.game.enemies.find(enemy => enemy.isBoss);
-        
-        // Show boss health bar
-        const bossHealthBar = document.getElementById('boss-health-container');
-        if (bossHealthBar) {
-            bossHealthBar.classList.remove('hidden');
-            this.bossHealthBarVisible = true;
+        try {
+            this.bossActive = true;
             
-            // Set boss name
-            const bossNameElement = bossHealthBar.querySelector('.boss-name');
-            if (bossNameElement) {
-                bossNameElement.textContent = this.activeBoss && this.activeBoss.isMegaBoss ? 
-                    "MEGA BOSS" : "BOSS";
+            // Find all bosses
+            const bosses = this.game.enemies.filter(enemy => enemy.isBoss);
+            
+            // Clear old boss entries
+            this.activeBosses.clear();
+            
+            // Add each boss to tracking with unique IDs
+            bosses.forEach(boss => {
+                // Ensure boss has an ID
+                if (!boss.id) {
+                    boss.id = Math.random().toString(36).substr(2, 9);
+                }
+                this.activeBosses.set(boss.id, boss);
+            });
+            
+            // Show boss health bars
+            const bossHealthContainer = document.getElementById('boss-health-container');
+            if (bossHealthContainer) {
+                bossHealthContainer.classList.remove('hidden');
+                this.bossHealthBarVisible = true;
+                
+                // Clear existing health bars
+                bossHealthContainer.innerHTML = '';
+                
+                // Create health bar for each boss
+                bosses.forEach(boss => {
+                    const bossEntry = document.createElement('div');
+                    bossEntry.className = 'boss-health-entry';
+                    bossEntry.id = `boss-entry-${boss.id}`;
+                    
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'boss-name';
+                    nameDiv.innerHTML = `${boss.isMegaBoss ? 'MEGA BOSS' : 'BOSS'} 
+                        <span class="boss-type-indicator ${boss.isMegaBoss ? 'mega' : ''}">${boss.isMegaBoss ? '★★★' : '★'}</span>`;
+                    
+                    const healthBar = document.createElement('div');
+                    healthBar.className = `boss-health-bar ${boss.isMegaBoss ? 'mega' : ''}`;
+                    healthBar.id = `boss-health-${boss.id}`;
+                    
+                    bossEntry.appendChild(nameDiv);
+                    bossEntry.appendChild(healthBar);
+                    bossHealthContainer.appendChild(bossEntry);
+                });
             }
+            
+            // Add screen effect for boss presence
+            this.addScreenShake(4, 0.5);
+            
+            // Play boss music and start boss theme
+            if (audioSystem) {
+                audioSystem.play('boss', 0.8);
+                audioSystem.playBossTheme(0.2);
+            }
+            
+            // Add pulsing border effect to screen
+            const gameContainer = document.getElementById('game-container');
+            if (gameContainer) {
+                gameContainer.classList.add('boss-active');
+            }
+            
+            // Initialize boss indicators on minimap
+            this.initializeBossIndicators();
+        } catch (error) {
+            console.error('Error in activateBossMode:', error);
         }
-        
-        // Add screen effect for boss presence
-        this.addScreenShake(4, 0.5);
-        
-        // Play boss music and start boss theme
-        audioSystem.play('boss', 0.8);
-        audioSystem.playBossTheme(0.2);
-        
-        // Add pulsing border effect to screen
-        document.getElementById('game-container').classList.add('boss-active');
     }
     
     deactivateBossMode() {
-        this.bossActive = false;
-        this.activeBoss = null;
+        // Only deactivate if no bosses remain
+        const remainingBosses = this.game.enemies.filter(enemy => enemy.isBoss);
+        if (remainingBosses.length > 0) return;
         
-        // Hide boss health bar
-        const bossHealthBar = document.getElementById('boss-health-container');
-        if (bossHealthBar) {
-            bossHealthBar.classList.add('hidden');
+        this.bossActive = false;
+        this.activeBosses.clear();
+        
+        // Hide boss health bars
+        const bossHealthContainer = document.getElementById('boss-health-container');
+        if (bossHealthContainer) {
+            bossHealthContainer.classList.add('hidden');
             this.bossHealthBarVisible = false;
         }
         
         // Remove boss presence effect
         document.getElementById('game-container').classList.remove('boss-active');
         
-        // Player gets a short invulnerability period after defeating a boss
+        // Player gets a short invulnerability period after defeating all bosses
         if (this.game.player && !this.game.player.isDead) {
             this.game.player.isInvulnerable = true;
             this.game.player.invulnerabilityTimer = 2.0; // 2 seconds of safety
             
-            // Heal player a bit more after defeating boss (in addition to the boss death effect healing)
+            // Heal player a bit more after defeating all bosses
             const healAmount = this.game.player.maxHealth * 0.05;
             this.game.player.heal(healAmount);
         }
-        // Stop boss theme when boss fight ends
+        
+        // Stop boss theme when all bosses are defeated
         audioSystem.stopBossTheme();
+        
+        // Clear boss indicators
+        this.clearBossIndicators();
     }
     
     updateBossUI() {
-        if (!this.bossActive || !this.activeBoss) return;
+        if (!this.bossActive) return;
         
-        // Update boss health bar
-        const healthBar = document.getElementById('boss-health-bar');
-        if (healthBar) {
-            const healthPercent = (this.activeBoss.health / this.activeBoss.maxHealth) * 100;
-            healthBar.style.setProperty('--boss-health-width', `${healthPercent}%`);
-            
-            // Change color based on health percentage
-            if (healthPercent < 30) {
-                healthBar.classList.add('critical');
-            } else {
-                healthBar.classList.remove('critical');
+        // Update boss list from current enemies
+        const currentBosses = this.game.enemies.filter(enemy => enemy.isBoss);
+        
+        // Remove health bars for defeated bosses
+        for (const [bossId, boss] of this.activeBosses) {
+            if (!currentBosses.includes(boss)) {
+                const bossEntry = document.getElementById(`boss-entry-${bossId}`);
+                if (bossEntry) {
+                    bossEntry.remove();
+                }
+                this.activeBosses.delete(bossId);
             }
         }
         
-        // Highlight phase transitions with color flashes
-        if (this.activeBoss.hasPhases && this.activeBoss.phaseThresholds) {
-            const healthPercent = (this.activeBoss.health / this.activeBoss.maxHealth);
-            
-            // Check if we're near a phase threshold for visual effect
-            for (const threshold of this.activeBoss.phaseThresholds) {
-                if (Math.abs(healthPercent - threshold) < 0.01) {
-                    healthBar.classList.add('phase-transition');
-                    setTimeout(() => {
-                        if (healthBar) healthBar.classList.remove('phase-transition');
-                    }, 300);
-                    break;
+        // Update remaining boss health bars
+        currentBosses.forEach(boss => {
+            const healthBar = document.getElementById(`boss-health-${boss.id}`);
+            if (healthBar) {
+                const healthPercent = (boss.health / boss.maxHealth) * 100;
+                healthBar.style.setProperty('--boss-health-width', `${healthPercent}%`);
+                
+                // Update critical state
+                if (healthPercent < 30) {
+                    healthBar.classList.add('critical');
+                } else {
+                    healthBar.classList.remove('critical');
+                }
+                
+                // Check phase transitions
+                if (boss.hasPhases && boss.phaseThresholds) {
+                    const healthRatio = boss.health / boss.maxHealth;
+                    for (const threshold of boss.phaseThresholds) {
+                        if (Math.abs(healthRatio - threshold) < 0.01) {
+                            healthBar.classList.add('phase-transition');
+                            setTimeout(() => {
+                                if (healthBar) healthBar.classList.remove('phase-transition');
+                            }, 300);
+                            break;
+                        }
+                    }
                 }
             }
+        });
+        
+        // Update boss indicators on minimap
+        this.updateBossIndicators();
+    }
+    
+    initializeBossIndicators() {
+        // Create boss indicators container if it doesn't exist
+        let indicatorsContainer = document.querySelector('.boss-indicators');
+        if (!indicatorsContainer) {
+            indicatorsContainer = document.createElement('div');
+            indicatorsContainer.className = 'boss-indicators';
+            document.getElementById('minimap-container').appendChild(indicatorsContainer);
+        }
+        
+        // Clear existing indicators
+        indicatorsContainer.innerHTML = '';
+        
+        // Create indicator for each boss
+        this.activeBosses.forEach((boss, id) => {
+            // Create indicator container
+            const indicator = document.createElement('div');
+            indicator.className = `boss-indicator ${boss.isMegaBoss ? 'mega' : ''}`;
+            indicator.id = `boss-indicator-${id}`;
+            
+            // Create distance label
+            const distanceLabel = document.createElement('div');
+            distanceLabel.className = 'boss-distance-label';
+            distanceLabel.id = `boss-distance-${id}`;
+            
+            indicator.appendChild(distanceLabel);
+            indicatorsContainer.appendChild(indicator);
+        });
+    }
+    
+    updateBossIndicators() {
+        if (!this.game.player) return;
+        
+        this.activeBosses.forEach((boss, id) => {
+            const indicator = document.getElementById(`boss-indicator-${id}`);
+            const distanceLabel = document.getElementById(`boss-distance-${id}`);
+            
+            if (indicator && distanceLabel) {
+                // Calculate angle and distance to boss
+                const dx = boss.x - this.game.player.x;
+                const dy = boss.y - this.game.player.y;
+                const angle = Math.atan2(dy, dx);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Convert distance to a more readable format (in "meters")
+                const displayDistance = Math.round(distance / 10); // Scale down for more reasonable numbers
+                
+                // Position indicator on minimap
+                const minimapRadius = this.minimap.width / 2;
+                const scale = Math.min(1, minimapRadius / distance);
+                
+                // Calculate position, keeping indicator within minimap bounds
+                let x = minimapRadius + (dx * this.minimapScale * scale);
+                let y = minimapRadius + (dy * this.minimapScale * scale);
+                
+                // Clamp positions to minimap bounds with small margin
+                const margin = 10;
+                x = Math.max(margin, Math.min(this.minimap.width - margin, x));
+                y = Math.max(margin, Math.min(this.minimap.height - margin, y));
+                
+                // Update indicator position
+                indicator.style.left = `${x}px`;
+                indicator.style.top = `${y}px`;
+                
+                // Update distance label
+                distanceLabel.textContent = displayDistance;
+                
+                // Add alert effect if boss is close
+                if (distance < 300) {
+                    indicator.classList.add('alert');
+                    // Make distance label more prominent when close
+                    distanceLabel.style.color = '#e74c3c';
+                    distanceLabel.style.fontWeight = 'bold';
+                } else {
+                    indicator.classList.remove('alert');
+                    distanceLabel.style.color = '#fff';
+                    distanceLabel.style.fontWeight = 'normal';
+                }
+                
+                // Special effects for mega boss
+                if (boss.isMegaBoss) {
+                    indicator.classList.add('mega');
+                    // Add pulsing glow effect to distance label for mega boss
+                    distanceLabel.style.textShadow = '0 0 8px rgba(155, 89, 182, 0.8)';
+                }
+            }
+        });
+    }
+    
+    clearBossIndicators() {
+        const indicatorsContainer = document.querySelector('.boss-indicators');
+        if (indicatorsContainer) {
+            indicatorsContainer.innerHTML = '';
         }
     }
 
@@ -1293,9 +1613,255 @@ class GameManager {
         this.metaStars += amount;
         this.saveStarTokens();
         this.updateStarDisplay();
+        
+        // Update star collector achievement
+        if (achievementSystem) {
+            achievementSystem.updateAchievement('star_collector', this.metaStars);
+        }
+        
         if (this.game && this.game.player) {
             this.showFloatingText('+' + amount + ' ⭐', this.game.player.x, this.game.player.y - 60, '#f1c40f', 20);
         }
+    }
+    
+    onEnemyKilled(enemy) {
+        this.enemiesKilled++;
+        achievementSystem.updateAchievement('first_kill', this.enemiesKilled);
+        
+        if (enemy.isBoss) {
+            this.bossesKilled++;
+            achievementSystem.updateAchievement('boss_slayer', this.bossesKilled);
+            
+            if (enemy.isMegaBoss) {
+                achievementSystem.onMegaBossDefeated();
+            }
+        }
+
+        // Track elite kills
+        if (enemy.isElite) {
+            achievementSystem.onEliteKilled();
+        }
+
+        // Track kill streak
+        achievementSystem.onEnemyKilled(Date.now());
+    }
+    
+    onPlayerLevelUp(level) {
+        if (achievementSystem) {
+            achievementSystem.updateAchievement('level_up', level);
+        }
+    }
+    
+    onStarCollected(count) {
+        this.earnStarTokens(count);
+        achievementSystem.updateAchievement('star_collector', count);
+    }
+    
+    onDodge(wasPerfect = false) {
+        this.dodgesPerformed++;
+        achievementSystem.updateAchievement('dodge_master', this.dodgesPerformed);
+        
+        if (wasPerfect) {
+            this.perfectDodges++;
+            achievementSystem.updateAchievement('perfect_dodge', this.perfectDodges);
+        }
+    }
+    
+    onComboUpdate(combo) {
+        this.comboCount = combo;
+        achievementSystem.updateAchievement('combo_master', combo);
+    }
+
+    // Update player damage tracking
+    onPlayerDamaged() {
+        if (achievementSystem) {
+            achievementSystem.onPlayerDamaged();
+        }
+    }
+
+    // Track wave completion
+    onWaveCompleted(waveNumber) {
+        if (achievementSystem) {
+            achievementSystem.onWaveCompleted(waveNumber);
+            achievementSystem.updateAchievement('wave_master', waveNumber);
+            
+            // Also update endless champion achievement
+            if (this.endlessMode) {
+                achievementSystem.updateAchievement('endless_champion', waveNumber);
+            }
+        }
+    }
+
+    // Track critical hits
+    onCriticalHit() {
+        if (achievementSystem) {
+            achievementSystem.onCriticalHit();
+        }
+    }
+
+    // Track chain lightning hits
+    onChainLightningHit(hitCount) {
+        if (achievementSystem) {
+            achievementSystem.onChainLightningHit(hitCount);
+        }
+    }
+
+    // Track ricochet hits
+    onRicochetHit(hitCount) {
+        if (achievementSystem) {
+            achievementSystem.onRicochetHit(hitCount);
+        }
+    }
+
+    // Track orbital projectile count
+    onOrbitalCountChanged(count) {
+        if (achievementSystem) {
+            achievementSystem.onOrbitalCountChanged(count);
+        }
+    }
+
+    // Track vendor upgrade maxed
+    onUpgradeMaxed(upgradeId) {
+        if (achievementSystem) {
+            achievementSystem.onUpgradeMaxed();
+            achievementSystem.updateAchievement('max_upgrade', 1);
+        }
+    }
+
+    // Effect symbols for different shot types
+    static EFFECT_SYMBOLS = {
+        chain: '⚡', // lightning bolt for chain effect
+        critical: '✧', // sparkle for crits
+        explosive: '💥', // explosion for explosive shots
+        ricochet: '↺', // circular arrow for ricochet
+        pierce: '⟶', // arrow for piercing
+        frost: '❄', // snowflake for frost shots
+        poison: '☠', // skull for poison
+        fire: '🔥', // fire for burning
+        vampiric: '🩸', // blood drop for life steal
+        orbital: '☄', // comet for orbital shots
+        split: '⋔', // fork symbol for split shots
+        homing: '⟲', // curved arrow for homing shots
+        combo: '✦', // star for combo hits
+        xp: '✧',          // regular XP
+        xpBonus: '⭐',    // bonus XP
+        xpCrit: '✯',      // critical XP
+        levelUp: '☆',     // level up
+    };
+
+    // Show floating combat text with effects
+    showCombatText(text, x, y, effect = null, size = 16) {
+        let displayText = text;
+        let color = 'white';
+        
+        // Add effect symbol if specified
+        if (effect && GameManager.EFFECT_SYMBOLS[effect]) {
+            const symbol = GameManager.EFFECT_SYMBOLS[effect];
+            
+            // Set color based on effect type
+            switch(effect) {
+                case 'chain':
+                    color = '#3498db'; // blue
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'critical':
+                    color = '#e74c3c'; // red
+                    displayText = `${symbol} ${text} ${symbol}`;
+                    break;
+                case 'explosive':
+                    color = '#e67e22'; // orange
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'ricochet':
+                    color = '#f1c40f'; // yellow
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'pierce':
+                    color = '#9b59b6'; // purple
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'frost':
+                    color = '#00f7ff'; // cyan
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'poison':
+                    color = '#2ecc71'; // green
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'fire':
+                    color = '#e74c3c'; // red
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'vampiric':
+                    color = '#c0392b'; // dark red
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'orbital':
+                    color = '#3498db'; // blue
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'split':
+                    color = '#f39c12'; // orange
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'homing':
+                    color = '#1abc9c'; // turquoise
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'combo':
+                    color = '#f1c40f'; // yellow
+                    displayText = `${symbol}${text}${symbol}`;
+                    break;
+                case 'xp':
+                    color = '#f39c12'; // orange
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'xpBonus':
+                    color = '#2ecc71'; // green
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'xpCrit':
+                    color = '#e74c3c'; // red
+                    displayText = `${symbol} ${text}`;
+                    break;
+                case 'levelUp':
+                    color = '#9b59b6'; // purple
+                    displayText = `${symbol} ${text}`;
+                    break;
+                default:
+                    displayText = `${text}`;
+            }
+        }
+
+        // Create the floating text element
+        const textElement = document.createElement('div');
+        textElement.className = 'floating-text';
+        textElement.textContent = displayText;
+        
+        // Convert game coordinates to screen coordinates
+        const cameraX = -this.game.player.x + this.game.canvas.width / 2;
+        const cameraY = -this.game.player.y + this.game.canvas.height / 2;
+        
+        const screenX = x + cameraX;
+        const screenY = y + cameraY;
+        
+        // Apply styles
+        textElement.style.left = `${screenX}px`;
+        textElement.style.top = `${screenY}px`;
+        textElement.style.color = color;
+        textElement.style.fontSize = `${size}px`;
+        
+        // Add special class for effect animations if needed
+        if (effect) {
+            textElement.classList.add(`effect-${effect}`);
+        }
+        
+        document.getElementById('game-container').appendChild(textElement);
+        
+        // Remove element after animation completes
+        setTimeout(() => {
+            textElement.remove();
+        }, 1000);
     }
 }
 
@@ -1572,13 +2138,13 @@ Enemy.prototype.die = function() {
     gameManager.game.addEntity(orb);
     const kills = gameManager.incrementKills();
     
-    // Show floating kill text
-    gameManager.showFloatingText(`+1`, this.x, this.y - 30, '#e74c3c', 16);
+    // Show floating kill text with effect
+    gameManager.showCombatText('+1', this.x, this.y - 30, 'combo', 16);
     
     // Show milestone messages
     if (kills % 50 === 0) {
-        gameManager.showFloatingText(`${kills} KILLS!`, gameManager.game.player.x, 
-                                    gameManager.game.player.y - 50, '#f39c12', 24);
+        gameManager.showCombatText(`${kills} KILLS!`, gameManager.game.player.x, 
+                                    gameManager.game.player.y - 50, 'critical', 24);
     }
     
     // Play appropriate death sound and award star token on boss kill
@@ -1628,8 +2194,8 @@ Enemy.prototype.die = function() {
         critOrb.radius *= 1.5; // Bigger size
         gameManager.game.addEntity(critOrb);
         
-        // Show critical XP text
-        gameManager.showFloatingText(`BONUS XP!`, this.x, this.y - 40, '#f39c12', 18);
+        // Show critical XP text with ++ notation
+        gameManager.showCombatText(`++${xpValue}`, this.x, this.y - 40, 'xpCrit', 18);
     } else {
         // Create normal XP orb
         const orb = new XPOrb(this.x, this.y, xpValue);
@@ -1642,8 +2208,21 @@ Player.prototype.addXP = function(amount) {
     this.xp += amount;
     gameManager.addXpCollected(amount);
     
-    // Show floating XP text
-    gameManager.showFloatingText(`+${amount} XP`, this.x, this.y - 40, '#2ecc71', 14);
+    // Apply XP multiplier if it exists (from meta upgrades)
+    if (this.xpMultiplier && this.xpMultiplier > 1) {
+        const bonus = Math.floor(amount * (this.xpMultiplier - 1));
+        if (bonus > 0) {
+            // Show bonus XP with ++ notation
+            gameManager.showCombatText(`++${bonus}`, this.x, this.y - 35, 'xpBonus', 16);
+            this.xp += bonus;
+            gameManager.addXpCollected(bonus);
+        }
+        // Show base XP gain
+        gameManager.showCombatText(`+${amount}`, this.x, this.y - 50, 'xp', 14);
+    } else {
+        // Show regular XP gain
+        gameManager.showCombatText(`+${amount}`, this.x, this.y - 40, 'xp', 14);
+    }
     
     // Update XP bar
     const xpBar = document.getElementById('xp-bar');
@@ -1670,14 +2249,14 @@ Player.prototype.takeDamage = function(amount) {
     
     // Apply dodge chance
     if (this.dodgeChance && Math.random() < this.dodgeChance) {
-        gameManager.showFloatingText(`DODGE!`, this.x, this.y - 20, '#3498db', 18);
+        gameManager.showCombatText('DODGE!', this.x, this.y - 20, 'ricochet', 18);
         return;
     }
     
     this.health = Math.max(0, this.health - amount);
     
-    // Show damage text
-    gameManager.showFloatingText(`-${Math.round(amount)}`, this.x, this.y - 20, '#e74c3c', 18);
+    // Show damage text with effect
+    gameManager.showCombatText(`-${Math.round(amount)}`, this.x, this.y - 20, 'critical', 18);
     
     // Update health bar
     const healthBar = document.getElementById('health-bar');
@@ -1769,14 +2348,14 @@ Player.prototype.takeDamage = function(amount) {
     
     // Apply dodge chance
     if (this.dodgeChance && Math.random() < this.dodgeChance) {
-        gameManager.showFloatingText(`DODGE!`, this.x, this.y - 20, '#3498db', 18);
+        gameManager.showCombatText('DODGE!', this.x, this.y - 20, 'ricochet', 18);
         return;
     }
     
     this.health = Math.max(0, this.health - amount);
     
-    // Show damage text
-    gameManager.showFloatingText(`-${Math.round(amount)}`, this.x, this.y - 20, '#e74c3c', 18);
+    // Show damage text with effect
+    gameManager.showCombatText(`-${Math.round(amount)}`, this.x, this.y - 20, 'critical', 18);
     
     // Update health bar
     const healthBar = document.getElementById('health-bar');

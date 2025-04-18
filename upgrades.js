@@ -1,94 +1,68 @@
 class UpgradeSystem {
     constructor() {
         this.availableUpgrades = [
-            // Make early game upgrades more impactful
+            // Core Stats (Common)
             {
                 id: 'attack_speed_1',
                 name: 'Quick Shot',
-                description: '30% faster attacks', // Increased from 25%
+                description: '30% faster attacks',
                 type: 'attackSpeed',
                 multiplier: 1.30,
                 icon: '⚡',
-                rarity: 'common'
-            },
-            {
-                id: 'attack_speed_2',
-                name: 'Lightning Shot',
-                description: '35% faster attacks', // Increased from 30%
-                type: 'attackSpeed',
-                multiplier: 1.35,
-                icon: '⚡⚡',
-                rarity: 'uncommon',
-                requires: ['attack_speed_1']
-            },
-            {
-                id: 'attack_speed_3', // New tier
-                name: 'Thunder Shot',
-                description: '45% faster attacks',
-                type: 'attackSpeed',
-                multiplier: 1.45,
-                icon: '⚡⚡⚡',
-                rarity: 'rare',
-                requires: ['attack_speed_2']
+                rarity: 'common',
+                buildPath: 'core',
+                comboEffects: ['chain', 'orbit'] // These builds benefit more from attack speed
             },
             {
                 id: 'attack_damage_1',
                 name: 'Sharp Shots',
-                description: '35% more damage', // Increased from 30%
+                description: '35% more damage',
                 type: 'attackDamage',
                 multiplier: 1.35,
                 icon: '🗡️',
-                rarity: 'common'
+                rarity: 'common',
+                buildPath: 'core',
+                comboEffects: ['explosive', 'ricochet'] // These builds scale better with damage
             },
             {
-                id: 'attack_damage_2',
-                name: 'Lethal Shots',
-                description: '40% more damage', // Increased from 35%
-                type: 'attackDamage',
-                multiplier: 1.4,
-                icon: '🗡️🗡️',
-                rarity: 'uncommon',
-                requires: ['attack_damage_1']
+                id: 'max_health_1',
+                name: 'Vitality',
+                description: '25% more health',
+                type: 'maxHealth',
+                multiplier: 1.25,
+                icon: '❤️',
+                rarity: 'common',
+                buildPath: 'core',
+                comboEffects: ['orbit', 'support'] // Orbital builds benefit from tankiness
             },
             {
-                id: 'attack_damage_3', // New tier
-                name: 'Deadly Shots',
-                description: '50% more damage',
-                type: 'attackDamage',
-                multiplier: 1.5,
-                icon: '🗡️🗡️🗡️',
-                rarity: 'rare',
-                requires: ['attack_damage_2']
+                id: 'movement_speed_1',
+                name: 'Swift Feet',
+                description: '20% faster movement',
+                type: 'speed',
+                multiplier: 1.2,
+                icon: '👟',
+                rarity: 'common',
+                buildPath: 'core',
+                comboEffects: ['chain', 'ricochet'] // Movement helps with positioning
             },
+
+            // Projectile Modifiers
             {
                 id: 'multi_shot_1',
                 name: 'Split Shot',
-                description: 'Fire an additional projectile (+1 projectile)',
+                description: 'Fire an additional projectile',
                 type: 'projectileCount',
                 value: 1,
                 icon: '🔱',
                 rarity: 'uncommon',
-                stackable: true  // Allow this upgrade to be selected multiple times
-            },
-            {
-                id: 'multi_shot_2',
-                name: 'Triple Shot',
-                description: 'Fire two additional projectiles (+2 projectiles)',
-                type: 'projectileCount',
-                value: 2,
-                icon: '🔱🔱',
-                rarity: 'rare',
-                stackable: true  // Allow this upgrade to be selected multiple times
-            },
-            {
-                id: 'multi_shot_3',
-                name: 'Shotgun Blast',
-                description: 'Fire three additional projectiles (+3 projectiles)',
-                type: 'projectileCount',
-                value: 3,
-                icon: '🔱🔱🔱',
-                rarity: 'epic',
-                stackable: true  // Allow this upgrade to be selected multiple times
+                buildPath: 'core',
+                stackable: true,
+                comboEffects: ['orbit', 'chain', 'explosive'],
+                stackingBonus: {
+                    maxStacks: 3,
+                    bonusPerStack: 0.1 // 10% more damage per stack
+                }
             },
             {
                 id: 'spread_shot_1',
@@ -97,17 +71,10 @@ class UpgradeSystem {
                 type: 'projectileSpread',
                 value: 15,
                 icon: '↔️',
-                rarity: 'common'
-            },
-            {
-                id: 'spread_shot_2', // New upgrade
-                name: 'Wider Spread',
-                description: 'Increase projectile spread by 10° more',
-                type: 'projectileSpread',
-                value: 10,
-                icon: '↔️↔️',
-                rarity: 'uncommon',
-                requires: ['spread_shot_1']
+                rarity: 'common',
+                buildPath: 'core',
+                comboEffects: ['ricochet', 'chain'],
+                specialEffect: 'increased_bounce_angle' // Better ricochet angles
             },
             {
                 id: 'piercing_shot',
@@ -115,223 +82,70 @@ class UpgradeSystem {
                 description: 'Projectiles penetrate through enemies',
                 type: 'piercing',
                 icon: '🔪',
-                rarity: 'rare'
-            },
-            {
-                id: 'movement_speed_1',
-                name: 'Swift Feet',
-                description: '20% faster movement', // Increased from 15%
-                type: 'speed',
-                multiplier: 1.2,
-                icon: '👟',
-                rarity: 'common'
-            },
-            {
-                id: 'movement_speed_2',
-                name: 'Sonic Speed',
-                description: '25% faster movement', // Increased from 20%
-                type: 'speed',
-                multiplier: 1.25,
-                icon: '👟👟',
-                rarity: 'uncommon',
-                requires: ['movement_speed_1']
-            },
-            {
-                id: 'max_health_1',
-                name: 'Vitality',
-                description: '25% more health', // Increased from 20%
-                type: 'maxHealth',
-                multiplier: 1.25,
-                icon: '❤️',
-                rarity: 'common'
-            },
-            {
-                id: 'max_health_2',
-                name: 'Fortitude',
-                description: '30% more health', // Increased from 25%
-                type: 'maxHealth',
-                multiplier: 1.3,
-                icon: '❤️❤️',
-                rarity: 'uncommon',
-                requires: ['max_health_1']
-            },
-            {
-                id: 'max_health_3', // New tier
-                name: 'Iron Constitution',
-                description: '40% more health',
-                type: 'maxHealth',
-                multiplier: 1.4,
-                icon: '❤️❤️❤️',
                 rarity: 'rare',
-                requires: ['max_health_2']
+                buildPath: 'core',
+                comboEffects: ['chain', 'explosive'],
+                specialEffect: 'chain_through_pierced' // Can chain through pierced enemies
             },
+
+            // Chain Lightning Build Path
             {
-                id: 'crit_chance_1',
-                name: 'Keen Eye',
-                description: '+8% critical hit chance', // Increased from 5%
-                type: 'critChance',
-                value: 0.08,
-                icon: '🎯',
-                rarity: 'uncommon'
-            },
-            {
-                id: 'crit_chance_2', // New tier
-                name: 'Eagle Eye',
-                description: '+12% critical hit chance',
-                type: 'critChance',
-                value: 0.12,
-                icon: '🎯🎯',
-                rarity: 'rare',
-                requires: ['crit_chance_1']
-            },
-            {
-                id: 'crit_damage_1',
-                name: 'Lethal Strike',
-                description: '+50% critical damage',
-                type: 'critDamage',
-                value: 0.5,
-                icon: '💥',
-                rarity: 'rare'
-            },
-            {
-                id: 'crit_damage_2', // New tier
-                name: 'Devastating Strike',
-                description: '+75% critical damage',
-                type: 'critDamage',
-                value: 0.75,
-                icon: '💥💥',
-                rarity: 'rare',
-                requires: ['crit_damage_1']
-            },
-            {
-                id: 'regeneration_1',
-                name: 'Regeneration',
-                description: 'Recover 1.5 health per second', // Increased from 1
-                type: 'regeneration',
-                value: 1.5,
-                icon: '🌱',
-                rarity: 'uncommon'
-            },
-            {
-                id: 'regeneration_2',
-                name: 'Enhanced Regeneration',
-                description: 'Recover 2.5 additional health per second', // Increased from 2
-                type: 'regeneration',
-                value: 2.5,
-                icon: '🌿',
-                rarity: 'rare',
-                requires: ['regeneration_1']
-            },
-            {
-                id: 'magnet_1',
-                name: 'Magnetic Field',
-                description: '+75% XP attraction radius', // Increased from 50%
-                type: 'magnet',
-                value: 75,
-                icon: '🧲',
-                rarity: 'uncommon'
-            },
-            {
-                id: 'magnet_2', // New tier
-                name: 'Powerful Magnet',
-                description: '+100% XP attraction radius',
-                type: 'magnet',
-                value: 100,
-                icon: '🧲🧲',
-                rarity: 'rare',
-                requires: ['magnet_1']
-            },
-            {
-                id: 'aoe_attack',
-                name: 'Area Attack',
-                description: 'Periodically damage all enemies around you',
+                id: 'chain_lightning_1',
+                name: 'Chain Lightning',
+                description: 'Projectiles have a 40% chance to chain to a nearby enemy',
                 type: 'special',
-                specialType: 'aoe',
-                icon: '⭕',
-                rarity: 'rare'
+                specialType: 'chain',
+                value: 0.4,
+                chainDamage: 0.8,
+                chainRange: 175,
+                maxChains: 1,
+                icon: '⚡',
+                rarity: 'rare',
+                buildPath: 'chain',
+                synergies: ['attack_speed_1', 'attack_damage_1'],
+                specialEffect: 'chain_visual' // Adds lightning visual effect
             },
             {
-                id: 'projectile_speed', // New upgrade
-                name: 'Swift Projectiles',
-                description: '30% faster projectiles',
-                type: 'projectileSpeed',
-                multiplier: 1.3,
-                icon: '🏹',
-                rarity: 'common'
+                id: 'chain_lightning_2',
+                name: 'Improved Chains',
+                description: 'Chain chance increased to 60% and can hit one more target',
+                type: 'chain',
+                value: 0.6,
+                maxChains: 2,
+                icon: '⚡⚡',
+                rarity: 'rare',
+                requires: ['chain_lightning_1'],
+                buildPath: 'chain',
+                specialEffect: 'chain_visual_enhanced' // Enhanced lightning visuals
             },
             {
-                id: 'projectile_speed_2',
-                name: 'Supersonic Projectiles',
-                description: '40% faster projectiles',
-                type: 'projectileSpeed',
-                multiplier: 1.4,
-                icon: '🏹🏹',
+                id: 'chain_damage',
+                name: 'Conductive Strike',
+                description: 'Chain lightning deals 100% of the original damage',
+                type: 'chainDamage',
+                value: 1.0,
+                icon: '⚡💥',
                 rarity: 'uncommon',
-                requires: ['projectile_speed']
+                requires: ['chain_lightning_1'],
+                buildPath: 'chain',
+                specialEffect: 'chain_explosion' // Small explosion on chain
             },
-            {
-                id: 'damage_reduction', // New upgrade
-                name: 'Armor',
-                description: 'Reduce damage taken by 15%',
-                type: 'damageReduction',
-                value: 0.15,
-                icon: '🛡️',
-                rarity: 'uncommon'
-            },
-            {
-                id: 'damage_reduction_2',
-                name: 'Heavy Armor',
-                description: 'Reduce damage taken by additional 15%',
-                type: 'damageReduction',
-                value: 0.15,
-                icon: '🛡️🛡️',
-                rarity: 'rare',
-                requires: ['damage_reduction']
-            },
-            // Make dodge more useful early
-            {
-                id: 'dodge_cooldown',
-                name: 'Quick Reflexes',
-                description: '35% faster dodge cooldown', // Improved from 30%
-                type: 'dodgeCooldown',
-                multiplier: 0.65, // Reduced from 0.7 (better cooldown reduction)
-                icon: '💨',
-                rarity: 'common' // Changed from uncommon to make available earlier
-            },
-            {
-                id: 'dodge_duration',
-                name: 'Extended Dash',
-                description: '50% longer dodge duration',
-                type: 'dodgeDuration',
-                multiplier: 1.5,
-                icon: '🌪️',
-                rarity: 'rare',
-                requires: ['dodge_cooldown']
-            },
-            {
-                id: 'dodge_invulnerability',
-                name: 'Phase Shift',
-                description: 'Remain invulnerable for 1s after dodge',
-                type: 'dodgeInvulnerability',
-                value: 1, // Extra second of invulnerability
-                icon: '👻',
-                rarity: 'epic',
-                requires: ['dodge_duration']
-            },
-            
-            // Orbit Build Path - projectiles that orbit around the player
+
+            // Orbital Build Path
             {
                 id: 'orbit_attack_1',
-                name: 'Orbital Shield',
-                description: 'Projectiles orbit around you, damaging enemies they contact',
+                name: 'Orbital Projectiles',
+                description: 'Projectiles orbit around you, dealing damage to nearby enemies',
                 type: 'special',
                 specialType: 'orbit',
-                value: 1, // 1 orbiting projectile
-                orbDamage: 0.4, // 40% of base damage
-                orbSpeed: 2, // rotation speed
-                orbRadius: 80, // distance from player
+                orbitRadius: 100,
+                orbitSpeed: 2,
+                damage: 0.5,
                 icon: '🔄',
-                rarity: 'rare'
+                rarity: 'rare',
+                buildPath: 'orbit',
+                synergies: ['attack_speed_1', 'multi_shot_1'],
+                specialEffect: 'orbit_visual' // Adds orbit trail effect
             },
             {
                 id: 'orbit_attack_2',
@@ -341,17 +155,9 @@ class UpgradeSystem {
                 value: 1,
                 icon: '🔄🔄',
                 rarity: 'rare',
-                requires: ['orbit_attack_1']
-            },
-            {
-                id: 'orbit_attack_3',
-                name: 'Orbital Swarm',
-                description: 'Add two more orbiting projectiles',
-                type: 'orbit',
-                value: 2,
-                icon: '🔄🔄🔄',
-                rarity: 'epic',
-                requires: ['orbit_attack_2']
+                requires: ['orbit_attack_1'],
+                buildPath: 'orbit',
+                specialEffect: 'orbit_sync' // Orbits sync for double damage
             },
             {
                 id: 'orbit_damage',
@@ -361,171 +167,12 @@ class UpgradeSystem {
                 multiplier: 1.4,
                 icon: '🔄💥',
                 rarity: 'uncommon',
-                requires: ['orbit_attack_1']
+                requires: ['orbit_attack_1'],
+                buildPath: 'orbit',
+                specialEffect: 'orbit_pulse' // Adds damage pulse effect
             },
-            {
-                id: 'orbit_speed',
-                name: 'Rapid Orbit',
-                description: 'Orbiting projectiles rotate 30% faster',
-                type: 'orbitSpeed',
-                multiplier: 1.3,
-                icon: '🔄⚡',
-                rarity: 'uncommon',
-                requires: ['orbit_attack_1']
-            },
-            {
-                id: 'orbit_size',
-                name: 'Expanded Orbit',
-                description: 'Orbiting projectiles circle at a greater distance',
-                type: 'orbitSize',
-                value: 30, // +30 to orbit radius
-                icon: '🔄↔️',
-                rarity: 'uncommon',
-                requires: ['orbit_attack_1']
-            },
-            
-            // Chain Lightning Build Path
-            {
-            id: 'chain_lightning_1',
-                name: 'Chain Lightning',
-                description: 'Projectiles have a 40% chance to chain to a nearby enemy',
-                type: 'special',
-                specialType: 'chain',
-                value: 0.4, // 40% chain chance (buffed)
-                chainDamage: 0.8, // 80% of original damage (buffed)
-                chainRange: 175, // increased chain distance (buffed)
-                maxChains: 1, // can hit one additional enemy
-                icon: '⚡',
-                rarity: 'rare'
-            },
-            {
-                id: 'chain_lightning_2',
-                name: 'Improved Chains',
-                description: 'Chain chance increased to 60% and can hit one more target',
-                type: 'chain',
-                value: 0.6, // increased from 50%
-                maxChains: 2,
-                icon: '⚡⚡',
-                rarity: 'rare',
-                requires: ['chain_lightning_1']
-            },
-            {
-                id: 'chain_lightning_3',
-                name: 'Lightning Storm',
-                description: 'Chain chance increased to 80% and can hit multiple targets',
-                type: 'chain',
-                value: 0.8, // increased from 70%
-                maxChains: 4, // can hit up to 4 additional enemies
-                icon: '⚡⚡⚡',
-                rarity: 'epic',
-                requires: ['chain_lightning_2']
-            },
-            {
-                id: 'chain_damage',
-                name: 'Conductive Strike',
-                description: 'Chain lightning deals 100% of the original damage instead of 70%',
-                type: 'chainDamage',
-                value: 1.0, // increased from 85%
-                icon: '⚡💥',
-                rarity: 'uncommon',
-                requires: ['chain_lightning_1']
-            },
-            {
-                id: 'chain_range',
-                name: 'Extended Discharge',
-                description: 'Chain lightning can jump 75% further between enemies',
-                type: 'chainRange',
-                multiplier: 1.75, // increased from 1.5
-                icon: '⚡↔️',
-                rarity: 'uncommon',
-                requires: ['chain_lightning_1']
-            },
-            
-            // Explosion Build Path
-            {
-                id: 'explosive_shots_1',
-                name: 'Explosive Rounds',
-                description: 'Projectiles explode on impact, dealing area damage',
-                type: 'special',
-                specialType: 'explosion',
-                explosionRadius: 60,
-                explosionDamage: 0.5, // 50% of hit damage as explosion
-                icon: '💥',
-                rarity: 'rare'
-            },
-            {
-                id: 'explosive_shots_2',
-                name: 'Bigger Explosions',
-                description: 'Explosion radius increased by 40%',
-                type: 'explosionSize',
-                multiplier: 1.4,
-                icon: '💥↔️',
-                rarity: 'uncommon',
-                requires: ['explosive_shots_1']
-            },
-            {
-                id: 'explosive_shots_3',
-                name: 'Devastating Blasts',
-                description: 'Explosions deal 75% of hit damage instead of 50%',
-                type: 'explosionDamage',
-                value: 0.75,
-                icon: '💥💥',
-                rarity: 'rare',
-                requires: ['explosive_shots_1']
-            },
-            {
-                id: 'explosive_chain',
-                name: 'Chain Reaction',
-                description: 'Enemies killed by explosions have a 30% chance to explode',
-                type: 'explosionChain',
-                value: 0.3,
-                icon: '💥🔄',
-                rarity: 'epic',
-                requires: ['explosive_shots_1']
-            },
-            
-            // Lifesteal Build Path
-            {
-                id: 'lifesteal_1',
-                name: 'Life Drain',
-                description: 'Heal for 5% of damage dealt',
-                type: 'lifesteal',
-                value: 0.05,
-                icon: '❤️🧛',
-                rarity: 'rare'
-            },
-            {
-                id: 'lifesteal_2',
-                name: 'Vampiric Touch',
-                description: 'Heal for an additional 7% of damage dealt',
-                type: 'lifesteal',
-                value: 0.07,
-                icon: '❤️🧛🧛',
-                rarity: 'rare',
-                requires: ['lifesteal_1']
-            },
-            {
-                id: 'lifesteal_crit',
-                name: 'Critical Drain',
-                description: 'Critical hits heal for double the lifesteal amount',
-                type: 'lifestealCrit',
-                multiplier: 2,
-                icon: '❤️🎯',
-                rarity: 'epic',
-                requires: ['lifesteal_1', 'crit_chance_1']
-            },
-            {
-                id: 'lifesteal_aoe',
-                name: 'AOE Drain',
-                description: 'AOE attacks also benefit from lifesteal',
-                type: 'lifestealAOE',
-                value: true,
-                icon: '❤️⭕',
-                rarity: 'rare',
-                requires: ['lifesteal_1', 'aoe_attack']
-            },
-            
-            // Ricocheting Build Path
+
+            // Ricochet Build Path
             {
                 id: 'ricochet_1',
                 name: 'Ricochet Shot',
@@ -534,9 +181,12 @@ class UpgradeSystem {
                 specialType: 'ricochet',
                 bounces: 1,
                 bounceRange: 180,
-                bounceDamage: 0.8, // 80% damage on bounce
+                bounceDamage: 0.8,
                 icon: '↩️',
-                rarity: 'rare'
+                rarity: 'rare',
+                buildPath: 'ricochet',
+                synergies: ['attack_damage_1', 'spread_shot_1'],
+                specialEffect: 'ricochet_visual' // Adds bounce trail effect
             },
             {
                 id: 'ricochet_2',
@@ -546,17 +196,9 @@ class UpgradeSystem {
                 value: 1,
                 icon: '↩️↩️',
                 rarity: 'rare',
-                requires: ['ricochet_1']
-            },
-            {
-                id: 'ricochet_3',
-                name: 'Pinball Wizard',
-                description: 'Projectiles can bounce two additional times',
-                type: 'ricochetBounces',
-                value: 2,
-                icon: '↩️↩️↩️',
-                rarity: 'epic',
-                requires: ['ricochet_2']
+                requires: ['ricochet_1'],
+                buildPath: 'ricochet',
+                specialEffect: 'ricochet_chain' // Can chain between bounces
             },
             {
                 id: 'ricochet_damage',
@@ -566,19 +208,84 @@ class UpgradeSystem {
                 value: 1.0,
                 icon: '↩️💥',
                 rarity: 'uncommon',
-                requires: ['ricochet_1']
+                requires: ['ricochet_1'],
+                buildPath: 'ricochet',
+                specialEffect: 'ricochet_explosion' // Small explosion on bounce
             },
-            // Add new fun upgrade option
+
+            // Explosive Build Path
             {
-                id: 'lucky_shots',
-                name: 'Lucky Shots',
-                description: '+5% critical chance and enemies drop more XP',
+                id: 'explosive_shots_1',
+                name: 'Explosive Rounds',
+                description: 'Projectiles explode on impact, dealing area damage',
                 type: 'special',
-                specialType: 'lucky',
-                critBonus: 0.05,
-                xpBonus: 0.2, // 20% more XP from enemies
-                icon: '🍀',
-                rarity: 'uncommon'
+                specialType: 'explosion',
+                explosionRadius: 60,
+                explosionDamage: 0.5,
+                icon: '💥',
+                rarity: 'rare',
+                buildPath: 'explosive',
+                synergies: ['attack_damage_1', 'multi_shot_1'],
+                specialEffect: 'explosion_visual' // Enhanced explosion visuals
+            },
+            {
+                id: 'explosive_shots_2',
+                name: 'Bigger Explosions',
+                description: 'Explosion radius increased by 40%',
+                type: 'explosionSize',
+                multiplier: 1.4,
+                icon: '💥↔️',
+                rarity: 'uncommon',
+                requires: ['explosive_shots_1'],
+                buildPath: 'explosive',
+                specialEffect: 'explosion_knockback' // Adds knockback effect
+            },
+            {
+                id: 'explosive_shots_3',
+                name: 'Devastating Blasts',
+                description: 'Explosions deal 75% of hit damage instead of 50%',
+                type: 'explosionDamage',
+                value: 0.75,
+                icon: '💥💥',
+                rarity: 'rare',
+                requires: ['explosive_shots_1'],
+                buildPath: 'explosive',
+                specialEffect: 'explosion_chain' // Can trigger chain reactions
+            },
+
+            // Support Upgrades
+            {
+                id: 'magnet_1',
+                name: 'Magnetic Field',
+                description: '+75% XP attraction radius',
+                type: 'magnet',
+                value: 75,
+                icon: '🧲',
+                rarity: 'uncommon',
+                buildPath: 'support',
+                specialEffect: 'magnet_visual' // Shows magnet field effect
+            },
+            {
+                id: 'regeneration_1',
+                name: 'Regeneration',
+                description: 'Recover 1.5 health per second',
+                type: 'regeneration',
+                value: 1.5,
+                icon: '🌱',
+                rarity: 'uncommon',
+                buildPath: 'support',
+                specialEffect: 'heal_visual' // Shows healing particles
+            },
+            {
+                id: 'damage_reduction_1',
+                name: 'Armor',
+                description: 'Reduce damage taken by 15%',
+                type: 'damageReduction',
+                value: 0.15,
+                icon: '🛡️',
+                rarity: 'uncommon',
+                buildPath: 'support',
+                specialEffect: 'armor_visual' // Shows damage reduction effect
             }
         ];
         
@@ -587,6 +294,7 @@ class UpgradeSystem {
         this.upgradeOptionsContainer = document.getElementById('upgrade-options');
         this.levelUpActive = false;
         this.levelUpKeyListener = null; // Store reference to listener for cleanup
+        this.comboEffects = new Set();
     }
     
     showUpgradeOptions() {
@@ -666,31 +374,23 @@ class UpgradeSystem {
         return this.levelUpActive;
     }
     
-    // Enhanced method to get better quality random upgrades
+    // Enhanced method to get better quality random upgrades with build path consideration
     getRandomUpgrades(count) {
         // Get all available upgrades that player can select
         const availableUpgrades = this.availableUpgrades.filter(upgrade => {
-            // For stackable upgrades, implement stacking limits
+            // Exclude any non-stackable upgrade already selected
+            if (!upgrade.stackable && this.isUpgradeSelected(upgrade.id)) {
+                return false;
+            }
+            
+            // Allow stackable upgrades to appear multiple times
             if (upgrade.stackable === true) {
-                // Check how many times this upgrade has been selected already
-                const stackCount = this.player.upgrades.filter(u => u.id === upgrade.id).length;
-                
-                // Apply stacking limits based on rarity
-                const stackLimit = this.getStackLimit(upgrade);
-                if (stackCount >= stackLimit) {
-                    return false;
-                }
-                
+                // For stackable upgrades, we don't exclude them even if already selected
                 // Check if required upgrades are met
                 if (upgrade.requires) {
                     return upgrade.requires.every(reqId => this.isUpgradeSelected(reqId));
                 }
                 return true;
-            }
-            
-            // Handle non-stackable upgrades (existing logic)
-            if (this.isUpgradeSelected(upgrade.id)) {
-                return false;
             }
             
             // Exclude already selected one-time upgrades
@@ -711,32 +411,26 @@ class UpgradeSystem {
             return true;
         });
         
-        // Weight upgrades by rarity and current composition
+        // Weight upgrades by rarity and build path
         const weightedOptions = [];
         availableUpgrades.forEach(upgrade => {
-            const rarity = upgrade.rarity || 'common';
-            let weight;
+            let weight = this.getBaseWeight(upgrade);
             
-            switch (rarity) {
-                case 'common': weight = 100; break;
-                case 'uncommon': weight = 50; break;
-                case 'rare': weight = 25; break;
-                case 'epic': weight = 10; break;
-                default: weight = 10;
+            // Increase weight for upgrades in the same build path
+            const currentPath = this.getCurrentBuildPath();
+            if (currentPath && upgrade.buildPath === currentPath) {
+                weight *= 1.5;
             }
             
-            // Adjust weight for stackable upgrades based on how many times they've been chosen
-            if (upgrade.stackable) {
-                const stackCount = this.player.upgrades.filter(u => u.id === upgrade.id).length;
-                if (stackCount > 0) {
-                    // Reduce weight for already stacked upgrades
-                    weight = Math.floor(weight * Math.pow(0.8, stackCount));
-                }
+            // Increase weight for synergistic upgrades
+            if (upgrade.synergies && upgrade.synergies.some(syn => this.isUpgradeSelected(syn))) {
+                weight *= 1.3;
             }
             
-            // Slightly prefer upgrades that complement existing ones
-            if (this.isComplementaryUpgrade(upgrade)) {
-                weight = Math.floor(weight * 1.2);
+            // Increase weight for combo effects
+            if (upgrade.comboEffects && upgrade.comboEffects.some(effect => 
+                this.comboEffects.has(effect))) {
+                weight *= 1.2;
             }
             
             // Add weighted copies to the pool
@@ -754,25 +448,7 @@ class UpgradeSystem {
             // For stackable upgrades, we want to still ensure variety in options
             // by not offering the same upgrade twice in one level-up choice
             if (!selectedIds.has(upgrade.id)) {
-                // Create a deep copy of the upgrade
-                const upgradeCopy = JSON.parse(JSON.stringify(upgrade));
-                
-                // Add stack info for UI display
-                const stackCount = this.player.upgrades.filter(u => u.id === upgrade.id).length;
-                if (stackCount > 0) {
-                    const tiers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-                    upgradeCopy.tier = tiers[Math.min(stackCount, tiers.length - 1)];
-                    upgradeCopy.displayName = `${upgrade.name} ${upgradeCopy.tier}`;
-                    
-                    // Enhance description to show stacking effect
-                    upgradeCopy.description = this.getStackedDescription(upgrade, stackCount + 1);
-                    
-                    // Mark as stacked for UI highlighting
-                    upgradeCopy.isStacked = true;
-                    upgradeCopy.stackCount = stackCount;
-                }
-                
-                selected.push(upgradeCopy);
+                selected.push(upgrade);
                 selectedIds.add(upgrade.id);
                 
                 if (selected.length >= count) {
@@ -784,77 +460,33 @@ class UpgradeSystem {
         return selected;
     }
     
-    // Helper to determine stack limits based on rarity
-    getStackLimit(upgrade) {
+    getBaseWeight(upgrade) {
         const rarity = upgrade.rarity || 'common';
         switch (rarity) {
-            case 'common': return 5;
-            case 'uncommon': return 4;
-            case 'rare': return 3;
-            case 'epic': return 2;
-            default: return 3;
+            case 'common': return 100;
+            case 'uncommon': return 50;
+            case 'rare': return 25;
+            case 'epic': return 10;
+            default: return 10;
         }
     }
     
-    // Helper to check if an upgrade complements existing upgrades
-    isComplementaryUpgrade(upgrade) {
-        // Check if player has upgrades that synergize with this one
-        const playerUpgradeTypes = this.player.upgrades.map(u => u.type);
+    getCurrentBuildPath() {
+        // Get all selected build paths, excluding core and support
+        const selectedPaths = this.selectedUpgrades
+            .map(upgrade => upgrade.buildPath)
+            .filter(path => path && path !== 'core' && path !== 'support');
         
-        // Some example synergies
-        if (upgrade.type === 'critDamage' && playerUpgradeTypes.includes('critChance')) {
-            return true;
-        }
-        if (upgrade.type === 'projectileCount' && playerUpgradeTypes.includes('attackDamage')) {
-            return true;
-        }
-        if (upgrade.type === 'attackSpeed' && playerUpgradeTypes.includes('lifesteal')) {
-            return true;
-        }
-        // Add more synergy checks as needed
+        if (selectedPaths.length === 0) return null;
         
-        return false;
-    }
-    
-    // Generate descriptive text for stacked upgrades
-    getStackedDescription(upgrade, newStack) {
-        let description = upgrade.description || '';
+        // Return the most common build path
+        const pathCounts = {};
+        selectedPaths.forEach(path => {
+            pathCounts[path] = (pathCounts[path] || 0) + 1;
+        });
         
-        // Add stacking info based on upgrade type
-        switch (upgrade.type) {
-            case 'attackSpeed':
-                // Calculate compounded effect
-                const speedMultiplier = Math.pow(upgrade.multiplier, newStack);
-                const percentIncrease = Math.round((speedMultiplier - 1) * 100);
-                description += ` (Total: +${percentIncrease}% attack speed)`;
-                break;
-                
-            case 'attackDamage':
-                // Calculate compounded effect
-                const damageMultiplier = Math.pow(upgrade.multiplier, newStack);
-                const damageIncrease = Math.round((damageMultiplier - 1) * 100);
-                description += ` (Total: +${damageIncrease}% damage)`;
-                break;
-                
-            case 'critChance':
-                const totalCrit = Math.round(upgrade.value * newStack * 100);
-                description += ` (Total: +${totalCrit}% chance)`;
-                break;
-                
-            case 'critDamage':
-                const totalCritDmg = (upgrade.value * newStack).toFixed(1);
-                description += ` (Total: +${totalCritDmg}x)`;
-                break;
-                
-            case 'projectileCount':
-                const totalProjectiles = upgrade.value * newStack;
-                description += ` (Total: ${totalProjectiles})`;
-                break;
-                
-            // Add cases for other stackable upgrade types
-        }
-        
-        return description;
+        return Object.entries(pathCounts)
+            .sort((a, b) => b[1] - a[1])[0][0];
     }
     
     isUpgradeSelected(upgradeId) {
@@ -876,23 +508,18 @@ class UpgradeSystem {
         // Apply upgrade to player
         gameManager.game.player.applyUpgrade(upgrade);
         
-        // Show special notification for certain upgrades
-        if (upgrade.specialType === 'chain') {
-            gameManager.showFloatingText("Chain Lightning Activated!", 
-                gameManager.game.player.x, 
-                gameManager.game.player.y - 50, 
-                '#3498db', 24);
-        } else if (upgrade.specialType === 'ricochet') {
-            gameManager.showFloatingText("Ricochet Shots Activated!", 
-                gameManager.game.player.x, 
-                gameManager.game.player.y - 50, 
-                '#f39c12', 24);
-        } else if (upgrade.specialType === 'explosion') {
-            gameManager.showFloatingText("Explosive Rounds Activated!", 
-                gameManager.game.player.x, 
-                gameManager.game.player.y - 50, 
-                '#e74c3c', 24);
+        // Handle special effects
+        if (upgrade.specialEffect) {
+            this.applySpecialEffect(upgrade);
         }
+
+        // Handle combo effects
+        if (upgrade.comboEffects) {
+            this.updateComboEffects(upgrade);
+        }
+        
+        // Show special notification
+        this.showUpgradeNotification(upgrade);
         
         // Hide the level up UI
         this.levelUpContainer.classList.add('hidden');
@@ -900,13 +527,89 @@ class UpgradeSystem {
         // Clean up keyboard shortcuts
         this.removeKeyboardShortcuts();
         
-        // Reset levelUpActive state BEFORE resuming game
+        // Reset levelUpActive state
         this.levelUpActive = false;
         
-        // Resume game directly without going through togglePause logic
+        // Resume game
         if (gameManager && gameManager.game) {
             gameManager.game.isPaused = false;
         }
+    }
+
+    applySpecialEffect(upgrade) {
+        const player = gameManager.game.player;
+        if (!player) return;
+
+        switch (upgrade.specialEffect) {
+            case 'chain_visual':
+                // Create lightning effect at player position
+                gameManager.createSpecialEffect('lightning', player.x, player.y, upgrade.chainRange || 175, '#74b9ff');
+                break;
+            case 'orbit_visual':
+                // Create orbit effect
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const x = player.x + Math.cos(angle) * (upgrade.orbitRadius || 100);
+                    const y = player.y + Math.sin(angle) * (upgrade.orbitRadius || 100);
+                    gameManager.createSpecialEffect('circle', x, y, 20, '#9b59b6');
+                }
+                break;
+            case 'ricochet_visual':
+                // Create ricochet effect
+                gameManager.createSpecialEffect('ricochet', player.x, player.y, upgrade.bounceRange || 180, '#f39c12');
+                break;
+            case 'explosion_visual':
+                // Create explosion effect
+                gameManager.createSpecialEffect('bossPhase', player.x, player.y, upgrade.explosionRadius || 60, '#e74c3c');
+                break;
+            case 'magnet_visual':
+                // Create magnet field effect
+                for (let i = 0; i < 12; i++) {
+                    const angle = (i / 12) * Math.PI * 2;
+                    const x = player.x + Math.cos(angle) * (upgrade.value || 75);
+                    const y = player.y + Math.sin(angle) * (upgrade.value || 75);
+                    gameManager.createSpecialEffect('circle', x, y, 15, '#3498db');
+                }
+                break;
+            case 'heal_visual':
+                // Create healing effect
+                gameManager.createSpecialEffect('random', player.x, player.y, 40, '#2ecc71');
+                break;
+            case 'armor_visual':
+                // Create armor effect
+                gameManager.createSpecialEffect('circle', player.x, player.y, 50, '#95a5a6');
+                break;
+        }
+    }
+
+    updateComboEffects(upgrade) {
+        if (upgrade.comboEffects) {
+            upgrade.comboEffects.forEach(effect => {
+                this.comboEffects.add(effect);
+            });
+        }
+    }
+
+    showUpgradeNotification(upgrade) {
+        let message = `${upgrade.name} acquired!`;
+        let color = '#3498db';
+        
+        if (upgrade.specialEffect) {
+            message += ` (New effect: ${upgrade.specialEffect})`;
+        }
+        
+        if (this.comboEffects.size > 0) {
+            message += `\nActive combos: ${Array.from(this.comboEffects).join(', ')}`;
+            color = '#9b59b6';
+        }
+        
+        gameManager.showFloatingText(
+            message,
+            gameManager.game.player.x,
+            gameManager.game.player.y - 50,
+            color,
+            24
+        );
     }
 }
 

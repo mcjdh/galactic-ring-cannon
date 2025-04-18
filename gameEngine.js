@@ -225,12 +225,12 @@ class GameEngine {
     
     adjustPerformanceMode() {
         // More aggressive performance adjustments based on GPU usage
-        if (this.gpuUsage > this.criticalGpuThreshold) {
+        if (this.gpuUsage > this.criticalGpuThreshold && !this.performanceMode) {
             // Critical performance mode
             this.enablePerformanceMode();
             this.targetFps = 30; // Reduce FPS target
             this.particleReductionFactor = 0.25; // More aggressive particle reduction
-        } else if (this.gpuUsage > this.highGpuThreshold) {
+        } else if (this.gpuUsage > this.highGpuThreshold && !this.performanceMode) {
             // High performance mode
             this.enablePerformanceMode();
             this.targetFps = 45;
@@ -252,6 +252,8 @@ class GameEngine {
     }
     
     enablePerformanceMode() {
+        if (this.performanceMode) return; // Prevent multiple enables
+        
         this.performanceMode = true;
         this.lowGpuMode = true;
         
@@ -272,6 +274,8 @@ class GameEngine {
     }
     
     disablePerformanceMode() {
+        if (!this.performanceMode) return; // Prevent multiple disables
+        
         this.performanceMode = false;
         this.lowGpuMode = false;
         

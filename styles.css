@@ -295,9 +295,100 @@ body {
     color: white;
     font-weight: bold;
     pointer-events: none;
-    animation: float-up 1s forwards;
     z-index: 20;
     text-shadow: 0 0 3px #000, 0 0 3px #000;
+    white-space: nowrap;
+}
+
+/* Base float-up animation */
+.floating-text {
+    animation: float-up 1s forwards;
+}
+
+/* Chain lightning effect */
+.effect-chain {
+    animation: float-up 1s forwards, lightning-flash 0.3s infinite;
+}
+
+/* Critical hit effect */
+.effect-critical {
+    animation: float-up 1s forwards, critical-pulse 0.5s infinite;
+}
+
+/* Explosive effect */
+.effect-explosive {
+    animation: float-up 1s forwards, explosive-expand 0.5s forwards;
+}
+
+/* Ricochet effect */
+.effect-ricochet {
+    animation: float-up 1s forwards, ricochet-spin 0.5s ease-out;
+}
+
+/* Pierce effect */
+.effect-pierce {
+    animation: float-up 1s forwards, pierce-stretch 0.3s forwards;
+}
+
+/* Frost effect */
+.effect-frost {
+    animation: float-up 1s forwards, frost-sparkle 1s infinite;
+}
+
+/* Poison effect */
+.effect-poison {
+    animation: float-up 1s forwards, poison-pulse 0.8s infinite;
+}
+
+/* Fire effect */
+.effect-fire {
+    animation: float-up 1s forwards, fire-flicker 0.3s infinite;
+}
+
+/* Vampiric effect */
+.effect-vampiric {
+    animation: float-up 1s forwards, vampiric-pulse 0.8s infinite;
+}
+
+/* Orbital effect */
+.effect-orbital {
+    animation: float-up 1s forwards, orbital-spin 1s infinite linear;
+}
+
+/* Split effect */
+.effect-split {
+    animation: float-up 1s forwards, split-expand 0.3s forwards;
+}
+
+/* Homing effect */
+.effect-homing {
+    animation: float-up 1s forwards, homing-wave 0.8s infinite;
+}
+
+/* Combo effect */
+.effect-combo {
+    animation: float-up 1s forwards, combo-bounce 0.5s ease-out;
+}
+
+/* XP gain effects */
+.effect-xp {
+    animation: float-up 1s forwards, xp-sparkle 0.5s ease-out;
+}
+
+.effect-xpBonus {
+    animation: float-up 1s forwards, xp-bonus 0.6s ease-out;
+    font-weight: bold;
+}
+
+.effect-xpCrit {
+    animation: float-up 1s forwards, xp-crit 0.4s infinite;
+    font-weight: bold;
+}
+
+.effect-levelUp {
+    animation: float-up 1.2s forwards, level-up-burst 0.8s ease-out;
+    font-weight: bold;
+    font-size: 150% !important;
 }
 
 @keyframes float-up {
@@ -308,6 +399,132 @@ body {
     100% {
         opacity: 0;
         transform: translateY(-50px);
+    }
+}
+
+@keyframes lightning-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+@keyframes critical-pulse {
+    0%, 100% { transform: translateY(-25px) scale(1); }
+    50% { transform: translateY(-25px) scale(1.2); }
+}
+
+@keyframes explosive-expand {
+    0% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-25px) scale(1.5); }
+    100% { transform: translateY(-50px) scale(1); }
+}
+
+@keyframes ricochet-spin {
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(-50px) rotate(360deg); }
+}
+
+@keyframes pierce-stretch {
+    0% { transform: translateY(0) scaleX(1); }
+    50% { transform: translateY(-25px) scaleX(1.5); }
+    100% { transform: translateY(-50px) scaleX(1); }
+}
+
+@keyframes frost-sparkle {
+    0%, 100% { opacity: 1; filter: brightness(1); }
+    50% { opacity: 0.7; filter: brightness(1.5); }
+}
+
+@keyframes poison-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3) drop-shadow(0 0 2px #2ecc71); }
+}
+
+@keyframes fire-flicker {
+    0% { transform: translateY(-25px) rotate(-2deg); }
+    50% { transform: translateY(-25px) rotate(2deg); }
+    100% { transform: translateY(-25px) rotate(-2deg); }
+}
+
+@keyframes vampiric-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.5) drop-shadow(0 0 3px #c0392b); }
+}
+
+@keyframes orbital-spin {
+    from { transform: translateY(-25px) rotate(0deg); }
+    to { transform: translateY(-25px) rotate(360deg); }
+}
+
+@keyframes split-expand {
+    0% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-25px) scale(1.2); letter-spacing: 2px; }
+    100% { transform: translateY(-50px) scale(1); }
+}
+
+@keyframes homing-wave {
+    0%, 100% { transform: translateY(-25px) translateX(-3px); }
+    50% { transform: translateY(-25px) translateX(3px); }
+}
+
+@keyframes combo-bounce {
+    0% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-35px) scale(1.3); }
+    100% { transform: translateY(-50px) scale(1); }
+}
+
+@keyframes xp-sparkle {
+    0% {
+        transform: translateY(0) scale(0.8);
+        filter: brightness(0.8);
+    }
+    50% {
+        transform: translateY(-25px) scale(1.2);
+        filter: brightness(1.5) drop-shadow(0 0 5px #f39c12);
+    }
+    100% {
+        transform: translateY(-50px) scale(1);
+        filter: brightness(1);
+    }
+}
+
+@keyframes xp-bonus {
+    0% {
+        transform: translateY(0) scale(1);
+        filter: brightness(1);
+    }
+    30% {
+        transform: translateY(-20px) scale(1.4);
+        filter: brightness(1.5) drop-shadow(0 0 8px #2ecc71);
+    }
+    100% {
+        transform: translateY(-50px) scale(1);
+        filter: brightness(1);
+    }
+}
+
+@keyframes xp-crit {
+    0%, 100% {
+        transform: translateY(-25px) scale(1);
+        filter: brightness(1);
+    }
+    50% {
+        transform: translateY(-25px) scale(1.3);
+        filter: brightness(1.5) drop-shadow(0 0 10px #e74c3c);
+    }
+}
+
+@keyframes level-up-burst {
+    0% {
+        transform: translateY(0) scale(0.5);
+        filter: brightness(0.8);
+    }
+    50% {
+        transform: translateY(-40px) scale(1.5);
+        filter: brightness(1.8) drop-shadow(0 0 15px #9b59b6);
+    }
+    100% {
+        transform: translateY(-80px) scale(1);
+        filter: brightness(1);
     }
 }
 
@@ -517,21 +734,71 @@ body {
 
 /* Minimap styles */
 #minimap-container {
-    position: absolute;
+    position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 150px;
-    height: 150px;
-    background-color: rgba(0, 0, 0, 0.7);
-    border: 2px solid #3498db;
-    border-radius: 5px;
-    overflow: hidden;
-    z-index: 50;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+#minimap-container.minimap-alert {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+#boss-direction {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin-left: -10px;
+    margin-top: -10px;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23f1c40f" d="M12 2L4 12h16z"/></svg>') no-repeat center;
+    background-size: contain;
+    transition: transform 0.1s ease;
+    pointer-events: none;
+}
+
+#boss-direction.hidden {
+    display: none;
+}
+
+#boss-distance {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #f1c40f;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+#boss-distance.hidden {
+    display: none;
 }
 
 #minimap {
-    width: 100%;
-    height: 100%;
+    border-radius: 5px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    transition: border-color 0.3s ease;
+}
+
+#minimap-container.minimap-alert #minimap {
+    border-color: rgba(255, 0, 0, 0.5);
 }
 
 /* Skill cooldown indicator */
@@ -724,19 +991,46 @@ body {
     flex-direction: column;
     align-items: center;
     z-index: 100;
+    gap: 10px; /* Add spacing between multiple boss bars */
+}
+
+.boss-health-entry {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 5px;
+    padding: 5px;
+    transition: all 0.3s ease;
 }
 
 .boss-name {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: bold;
     color: #f1c40f;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
     text-shadow: 0 0 8px rgba(231, 76, 60, 0.8);
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
-#boss-health-bar {
+.boss-type-indicator {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(231, 76, 60, 0.3);
+}
+
+.boss-type-indicator.mega {
+    background: rgba(155, 89, 182, 0.3);
+    color: #9b59b6;
+}
+
+.boss-health-bar {
     width: 100%;
-    height: 15px;
+    height: 12px;
     background-color: #333;
     border-radius: 5px;
     position: relative;
@@ -744,7 +1038,7 @@ body {
     overflow: hidden;
 }
 
-#boss-health-bar::after {
+.boss-health-bar::after {
     content: '';
     display: block;
     height: 100%;
@@ -754,19 +1048,60 @@ body {
     transition: width 0.3s;
 }
 
-#boss-health-bar.critical::after {
-    background-color: #c0392b;
+.boss-health-bar.mega::after {
+    background-color: #9b59b6;
+}
+
+.boss-health-bar.critical::after {
     animation: pulse-boss 0.8s infinite;
 }
 
-#boss-health-bar.phase-transition::after {
+.boss-health-bar.phase-transition::after {
     background-color: #f39c12;
 }
 
-@keyframes pulse-boss {
-    0% { background-color: #c0392b; }
-    50% { background-color: #e74c3c; }
-    100% { background-color: #c0392b; }
+/* Boss direction indicators on minimap */
+.boss-indicators {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.boss-indicator {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    margin-top: -8px;
+    transition: transform 0.1s ease, opacity 0.3s ease;
+}
+
+.boss-indicator.regular {
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23e74c3c" d="M12 2L4 12h16z"/></svg>') no-repeat center;
+    background-size: contain;
+}
+
+.boss-indicator.mega {
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%239b59b6" d="M12 2L4 12h16z"/></svg>') no-repeat center;
+    background-size: contain;
+    width: 20px;
+    height: 20px;
+    margin-left: -10px;
+    margin-top: -10px;
+}
+
+.boss-distance-label {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transform: translateY(-20px);
+    white-space: nowrap;
 }
 
 /* Boss mode screen effect */
@@ -1085,4 +1420,176 @@ body {
     font-size: 12px;
     color: #ccc;
     margin-left: 6px;
+}
+
+/* Achievements Panel */
+#achievements-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #444;
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+#achievements-progress {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    color: #fff;
+}
+
+#achievements-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.achievement-item.locked {
+    opacity: 0.6;
+}
+
+.achievement-item.unlocked {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid gold;
+}
+
+.achievement-icon {
+    font-size: 2em;
+    min-width: 50px;
+    text-align: center;
+}
+
+.achievement-info {
+    flex: 1;
+}
+
+.achievement-info h3 {
+    margin: 0 0 5px 0;
+    color: #fff;
+}
+
+.achievement-info p {
+    margin: 0 0 10px 0;
+    color: #ccc;
+    font-size: 0.9em;
+}
+
+.achievement-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    transition: width 0.3s ease;
+}
+
+.achievement-progress span {
+    color: #fff;
+    font-size: 0.8em;
+    min-width: 50px;
+    text-align: right;
+}
+
+/* Achievement Notification */
+.achievement-notification {
+    position: fixed;
+    top: 20px;
+    right: -400px;
+    background: rgba(0, 0, 0, 0.9);
+    border-left: 4px solid gold;
+    border-radius: 5px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    max-width: 350px;
+    transition: right 0.5s ease;
+    z-index: 1000;
+}
+
+/* Important achievement styling */
+.achievement-notification.important-achievement {
+    background: rgba(0, 0, 0, 0.95);
+    border-left: 4px solid #8e44ad;
+    box-shadow: 0 0 20px rgba(142, 68, 173, 0.5);
+    animation: important-achievement-glow 2s infinite alternate;
+}
+
+@keyframes important-achievement-glow {
+    from {
+        box-shadow: 0 0 10px rgba(142, 68, 173, 0.5);
+    }
+    to {
+        box-shadow: 0 0 30px rgba(142, 68, 173, 0.8);
+    }
+}
+
+.important-achievement .achievement-icon {
+    font-size: 3em;
+    animation: important-achievement-bounce 1s infinite;
+}
+
+@keyframes important-achievement-bounce {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+.important-achievement .achievement-content h3 {
+    color: #8e44ad;
+    text-shadow: 0 0 10px rgba(142, 68, 173, 0.5);
+}
+
+.achievement-notification.show {
+    right: 20px;
+}
+
+.achievement-notification .achievement-icon {
+    font-size: 2.5em;
+}
+
+.achievement-notification .achievement-content {
+    color: #fff;
+}
+
+.achievement-notification h3 {
+    margin: 0 0 5px 0;
+    color: gold;
+}
+
+.achievement-notification p {
+    margin: 0;
+    font-size: 0.9em;
 }

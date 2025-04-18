@@ -352,14 +352,18 @@ class Player {
         // Update level display
         document.getElementById('level-display').textContent = `Level: ${this.level}`;
         
+        // Track level up achievement
+        if (gameManager) {
+            gameManager.onPlayerLevelUp(this.level);
+        }
+        
         // Show level up message
         gameManager.showFloatingText(`LEVEL UP!`, this.x, this.y - 50, '#f39c12', 24);
         
-        // Create level up effect (original implementation called in gameManager.js)
+        // Create level up effect
         gameManager.createLevelUpEffect(this.x, this.y);
         
-        // Show upgrade options - make sure it runs last
-        // This will set the pause state internally
+        // Show upgrade options
         setTimeout(() => {
             upgradeSystem.showUpgradeOptions();
         }, 0);
@@ -370,8 +374,27 @@ class Player {
     
     takeDamage(amount) {
         if (this.isInvulnerable) return;
-            
+        
+        // Apply damage reduction if present
+        if (this.damageReduction && this.damageReduction > 0) {
+            amount = amount * (1 - this.damageReduction);
+        }
+        
+        // Apply dodge chance
+        if (this.dodgeChance && Math.random() < this.dodgeChance) {
+            gameManager.showFloatingText(`DODGE!`, this.x, this.y - 20, '#3498db', 18);
+            return;
+        }
+        
         this.health = Math.max(0, this.health - amount);
+        
+        // Notify game manager for achievement tracking
+        if (gameManager) {
+            gameManager.onPlayerDamaged();
+        }
+        
+        // Show damage text
+        gameManager.showFloatingText(`-${Math.round(amount)}`, this.x, this.y - 20, '#e74c3c', 18);
         
         // Update health bar
         const healthBar = document.getElementById('health-bar');
@@ -386,6 +409,9 @@ class Player {
         if (this.health <= 0) {
             this.isDead = true;
         }
+        
+        // Play hit sound
+        audioSystem.play('playerHit', 0.5);
     }
     
     applyUpgrade(upgrade) {
@@ -416,12 +442,14 @@ class Player {
                 this.attackSpeed *= speedMultiplier;
                 this.attackCooldown = 1 / this.attackSpeed;
                 break;
+                
             case 'attackDamage':
                 // Progressive damage scaling for better stacking
                 const damageMultiplier = upgrade.stackCount > 2 ? 
                     1 + ((upgrade.multiplier - 1) * 0.9) : upgrade.multiplier;
                 this.attackDamage *= damageMultiplier;
                 break;
+                
             case 'projectileCount':
                 // Track how many projectiles were added
                 const previousCount = this.projectileCount;
@@ -432,7 +460,6 @@ class Player {
                     this.hasSpreadAttack = true;
                     
                     // Adjust projectile spread based on projectile count
-                    // More projectiles = wider spread needed
                     const baseSpread = 30;
                     const projectilesAdded = upgrade.value;
                     this.projectileSpread = Math.max(
@@ -448,20 +475,25 @@ class Player {
                     );
                 }
                 break;
+                
             case 'projectileSpread':
                 this.projectileSpread += upgrade.value;
                 break;
+                
             case 'piercing':
                 this.piercing = true;
                 break;
+                
             case 'speed':
                 this.speed *= upgrade.multiplier;
                 break;
+                
             case 'maxHealth':
                 const oldMaxHealth = this.maxHealth;
                 this.maxHealth *= upgrade.multiplier;
                 this.health += (this.maxHealth - oldMaxHealth);
                 break;
+                
             case 'critChance':
                 // Diminishing returns for crit chance after getting high
                 if (this.critChance > 0.4) {
@@ -470,6 +502,7 @@ class Player {
                     this.critChance += upgrade.value;
                 }
                 break;
+                
             case 'critDamage':
                 // Crit damage can keep stacking effectively
                 this.critMultiplier += upgrade.value;
@@ -479,31 +512,38 @@ class Player {
                 // Regeneration also scales well with stacking
                 this.regeneration += upgrade.value;
                 break;
+                
             case 'magnet':
                 this.magnetRange += upgrade.value;
                 break;
+                
             case 'projectileSpeed':
                 this.projectileSpeed *= upgrade.multiplier;
                 break;
+                
             case 'damageReduction':
                 this.damageReduction = Math.min(0.75, (this.damageReduction || 0) + upgrade.value);
                 break;
+                
             case 'dodgeCooldown':
                 this.dodgeCooldown *= upgrade.multiplier;
                 break;
+                
             case 'dodgeDuration':
                 this.dodgeDuration *= upgrade.multiplier;
                 break;
+                
             case 'dodgeInvulnerability':
                 this.invulnerabilityTime += upgrade.value;
                 break;
+                
             case 'special':
                 if (upgrade.specialType === 'orbit') {
                     this.hasOrbitalAttack = true;
                     this.orbitCount += upgrade.value || 1;
-                    this.orbitDamage = upgrade.orbDamage || 0.4;
-                    this.orbitSpeed = upgrade.orbSpeed || 2;
-                    this.orbitRadius = upgrade.orbRadius || 80;
+                    this.orbitDamage = upgrade.damage || 0.4;
+                    this.orbitSpeed = upgrade.orbitSpeed || 2;
+                    this.orbitRadius = upgrade.orbitRadius || 80;
                 }
                 else if (upgrade.specialType === 'chain') {
                     this.hasChainLightning = true;
@@ -524,51 +564,53 @@ class Player {
                     this.ricochetDamage = upgrade.bounceDamage || 0.8;
                 }
                 else if (upgrade.specialType === 'aoe') {
-                    // Existing AOE implementation
                     this.hasAOEAttack = true;
                     this.aoeAttackRange = Math.max(150, this.aoeAttackRange);
                     this.aoeAttackTimer = this.aoeAttackCooldown;
                 }
                 break;
                 
-            // Orbital attack enhancements    
             case 'orbit':
                 this.orbitCount += upgrade.value || 1;
                 break;
+                
             case 'orbitDamage':
                 this.orbitDamage *= upgrade.multiplier || 1;
                 break;
+                
             case 'orbitSpeed':
                 this.orbitSpeed *= upgrade.multiplier || 1;
                 break;
+                
             case 'orbitSize':
                 this.orbitRadius += upgrade.value || 0;
                 break;
                 
-            // Chain lightning enhancements
             case 'chain':
                 this.chainChance = upgrade.value || this.chainChance;
                 if (upgrade.maxChains) this.maxChains = upgrade.maxChains;
                 break;
+                
             case 'chainDamage':
                 this.chainDamage = upgrade.value || this.chainDamage;
                 break;
+                
             case 'chainRange':
                 this.chainRange *= upgrade.multiplier || 1;
                 break;
                 
-            // Explosion enhancements
             case 'explosionSize':
                 this.explosionRadius *= upgrade.multiplier || 1;
                 break;
+                
             case 'explosionDamage':
                 this.explosionDamage = upgrade.value || this.explosionDamage;
                 break;
+                
             case 'explosionChain':
                 this.explosionChainChance = upgrade.value || 0;
                 break;
                 
-            // Lifesteal upgrades
             case 'lifesteal':
                 // Diminishing returns for high lifesteal
                 if (this.lifestealAmount > 0.15) {
@@ -577,17 +619,19 @@ class Player {
                     this.lifestealAmount += upgrade.value;
                 }
                 break;
+                
             case 'lifestealCrit':
                 this.lifestealCritMultiplier = upgrade.multiplier || 1;
                 break;
+                
             case 'lifestealAOE':
                 this.lifestealAOE = true;
                 break;
                 
-            // Ricochet enhancements
             case 'ricochetBounces':
                 this.ricochetBounces += upgrade.value || 1;
                 break;
+                
             case 'ricochetDamage':
                 this.ricochetDamage = upgrade.value || this.ricochetDamage;
                 break;
@@ -682,10 +726,26 @@ class Player {
     doDodge() {
         if (!this.canDodge || this.isDodging) return;
         
+        // Check for perfect dodge (dodging just before being hit)
+        let wasPerfectDodge = false;
+        if (gameManager && gameManager.game) {
+            for (const enemy of gameManager.game.enemies) {
+                if (enemy.isAttacking && this.distanceTo(enemy) < 50) {
+                    wasPerfectDodge = true;
+                    break;
+                }
+            }
+        }
+        
         this.isDodging = true;
         this.isInvulnerable = true;
         this.canDodge = false;
         this.dodgeTimer = 0;
+        
+        // Track dodge achievement
+        if (gameManager) {
+            gameManager.onDodge(wasPerfectDodge);
+        }
         
         // Visual effect for dodge
         gameManager.showFloatingText("Dodge!", this.x, this.y - 30, '#3498db', 18);
@@ -700,25 +760,6 @@ class Player {
                 this.radius / 2,
                 this.color,
                 0.3
-            );
-            gameManager.particles.push(particle);
-        }
-        
-        // Create directional motion blur effect
-        const trailCount = 5;
-        const trailSpacing = 0.05;
-        for (let i = 1; i <= trailCount; i++) {
-            const trailX = this.x - (this.dodgeDirection.x * this.speed * trailSpacing * i);
-            const trailY = this.y - (this.dodgeDirection.y * this.speed * trailSpacing * i);
-            const trailSize = this.radius * (1 - (i / (trailCount + 2)));
-            const particle = new Particle(
-                trailX,
-                trailY,
-                0,
-                0,
-                trailSize,
-                this.color,
-                0.2
             );
             gameManager.particles.push(particle);
         }
@@ -899,6 +940,11 @@ class Player {
                 }
             }
         }
+        
+        // Track orbital count for achievement
+        if (gameManager) {
+            gameManager.onOrbitalCountChanged(this.orbitCount);
+        }
     }
     
     processChainLightning(startEnemy, baseDamage, chainsLeft, hitEnemies = new Set()) {
@@ -956,6 +1002,11 @@ class Player {
             
             // Add to hit enemies
             hitEnemies.add(closestEnemy.id);
+            
+            // Track chain hits for achievement
+            if (gameManager) {
+                gameManager.onChainLightningHit(hitEnemies.size);
+            }
             
             // Continue chain IMMEDIATELY instead of using setTimeout
             // This makes the chain lightning appear instantaneous
@@ -1019,6 +1070,11 @@ class Player {
             
             // Add to hit enemies
             hitEnemies.add(closestEnemy.id);
+            
+            // Track ricochet hits for achievement
+            if (gameManager) {
+                gameManager.onRicochetHit(hitEnemies.size);
+            }
             
             // Continue ricochet IMMEDIATELY (no setTimeout)
             // This makes the ricochet appear faster
@@ -1233,8 +1289,8 @@ class Player {
         
         // For critical hits, make projectiles larger and faster
         if (isCrit) {
-            projectile.radius *= 1.3; // Bigger size (was just set to 7)
-            projectile.vx *= 1.15; // 15% faster
+            projectile.radius *= 1.3;
+            projectile.vx *= 1.15;
             projectile.vy *= 1.15;
         }
         
@@ -1244,7 +1300,8 @@ class Player {
                 chance: this.chainChance,
                 damage: this.chainDamage,
                 range: this.chainRange,
-                maxChains: this.maxChains
+                maxChains: this.maxChains,
+                chainsUsed: 0
             };
         }
         
@@ -1253,7 +1310,8 @@ class Player {
             projectile.explosive = {
                 radius: this.explosionRadius,
                 damage: this.explosionDamage,
-                chainChance: this.explosionChainChance
+                chainChance: this.explosionChainChance,
+                exploded: false
             };
         }
         
@@ -1268,22 +1326,13 @@ class Player {
             };
         }
         
-        // Apply lifesteal property
-        if (this.lifestealAmount > 0) {
-            projectile.lifesteal = {
-                amount: this.lifestealAmount,
-                critMultiplier: this.lifestealCritMultiplier,
-                isCrit: isCrit
-            };
-        }
-        
-        // Add projectile to game
+        // Add projectile to game entities
         game.addEntity(projectile);
         
-        // Play sound (using the simple sound method)
-        if (this.fireSound) {
-            this.fireSound();
-        }
+        // Play shooting sound
+        audioSystem.play('shoot', 0.3);
+        
+        return projectile;
     }
 
     createRicochetEffect(fromX, fromY, toX, toY) {
@@ -1355,6 +1404,28 @@ class Player {
         
         // Play ricochet sound
         audioSystem.play('hit', 0.25);
+    }
+
+    dodge() {
+        if (this.dodgeCooldown > 0) return;
+        
+        // Check for perfect dodge (dodging just before being hit)
+        let wasPerfectDodge = false;
+        for (const enemy of this.game.enemies) {
+            if (enemy.isAttacking && this.distanceTo(enemy) < 50) {
+                wasPerfectDodge = true;
+                break;
+            }
+        }
+        
+        this.dodgeCooldown = this.maxDodgeCooldown;
+        this.dodgeVelocity = this.dodgeSpeed;
+        this.dodgeDirection = this.lastMoveDirection;
+        
+        // Notify game manager about the dodge
+        if (typeof gameManager !== 'undefined') {
+            gameManager.onDodge(wasPerfectDodge);
+        }
     }
 }
 

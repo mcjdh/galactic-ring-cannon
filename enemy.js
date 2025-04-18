@@ -388,122 +388,96 @@ class Enemy {
     
     die() {
         this.isDead = true;
-        // Play enemy death sound
-        audioSystem.play('enemyDeath', 0.5);
         
-        // Create XP orb
+        // Create XP orb and increment kill count
         const orb = new XPOrb(this.x, this.y, this.xpValue);
         gameManager.game.addEntity(orb);
-        
-        // Special death effects
-        if (this.deathEffect === 'explosion') {
-            this.createExplosion();
-        }
-        
-        // Boss death effect
-        if (this.isBoss) {
-            this.createBossDeathEffect();
-        }
-        
-        // Track kills and show floating text
         const kills = gameManager.incrementKills();
+        
+        // Handle boss and mega boss achievements
+        if (this.isBoss) {
+            // Track regular boss achievement
+            if (achievementSystem) {
+                const currentBossKills = achievementSystem.achievements.boss_slayer.progress;
+                achievementSystem.updateAchievement('boss_slayer', currentBossKills + 1);
+            }
+            
+            // Track mega boss achievement separately
+            if (this.isMegaBoss && achievementSystem) {
+                achievementSystem.updateAchievement('mega_boss_slayer', 1);
+                
+                // Set game win flag
+                if (gameManager) {
+                    gameManager.gameWon = true;
+                    gameManager.showWinScreen();
+                }
+            }
+            
+            // Play boss death sound and award stars
+            audioSystem.play('boss', 0.8);
+            if (gameManager && typeof gameManager.earnStarTokens === 'function') {
+                gameManager.earnStarTokens(1);
+                // Extra star if Jupiter star drop upgrade is purchased
+                const extra = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
+                if (extra > 0) {
+                    gameManager.earnStarTokens(extra);
+                }
+            }
+            
+            // Create boss death effect
+            if (gameManager && gameManager.createExplosion) {
+                const explosionSize = this.isMegaBoss ? 150 : 100;
+                gameManager.createExplosion(this.x, this.y, explosionSize, this.isMegaBoss ? '#8e44ad' : '#c0392b');
+            }
+            
+            // Show boss defeat message
+            if (gameManager) {
+                const message = this.isMegaBoss ? "MEGA BOSS DEFEATED!" : "BOSS DEFEATED!";
+                const color = this.isMegaBoss ? "#8e44ad" : "#f1c40f";
+                gameManager.showFloatingText(message, 
+                    gameManager.game.player.x, 
+                    gameManager.game.player.y - 50, 
+                    color, 
+                    30);
+            }
+        } else {
+            audioSystem.play('enemyDeath', 0.3);
+        }
+        
+        // Track elite kills
+        if (this.isElite && achievementSystem) {
+            achievementSystem.onEliteKilled();
+        }
+        
+        // Show floating kill text
         gameManager.showFloatingText(`+1`, this.x, this.y - 30, '#e74c3c', 16);
         
         // Show milestone messages
         if (kills % 50 === 0) {
-            gameManager.showFloatingText(`${kills} KILLS!`, 
-                                        gameManager.game.player.x, 
-                                        gameManager.game.player.y - 50, 
-                                        '#f39c12', 24);
+            gameManager.showFloatingText(`${kills} KILLS!`, gameManager.game.player.x, 
+                                       gameManager.game.player.y - 50, '#f39c12', 24);
         }
-    }
-    
-    createExplosion() {
-        const explosionRadius = this.radius * 3;
-        const explosionDamage = this.maxHealth * 0.6;
         
-        // Damage player if in range
-        const player = gameManager.game.player;
-        if (player) {
-            const dx = player.x - this.x;
-            const dy = player.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        // Reset and increment combo
+        if (gameManager) {
+            gameManager.comboTimer = 0;
+            gameManager.comboCount++;
             
-            if (distance < explosionRadius + player.radius) {
-                player.takeDamage(explosionDamage);
-            }
-        }
-        
-        // Add visual explosion effect
-        gameManager.createExplosion(this.x, this.y, explosionRadius, '#d35400');
-    }
-    
-    createBossDeathEffect() {
-        // Boss death creates many XP orbs
-        for (let i = 0; i < 15; i++) { // Increased from 10 to 15
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 100; // Increased from 80
-            
-            const x = this.x + Math.cos(angle) * distance;
-            const y = this.y + Math.sin(angle) * distance;
-            
-            const orbValue = Math.random() < 0.3 ? 40 : 20; // 30% chance for double value
-            const orb = new XPOrb(x, y, orbValue);
-            
-            // Make boss XP orbs more attractive
-            orb.color = Math.random() < 0.5 ? '#f1c40f' : '#e67e22';
-            gameManager.game.addEntity(orb);
-        }
-        
-        // Visual explosion
-        gameManager.createExplosion(this.x, this.y, 120, '#c0392b'); // Bigger explosion (100 -> 120)
-        
-        // Add screen shake for boss defeat
-        if (gameManager.addScreenShake) {
-            gameManager.addScreenShake(10, 0.7);
-        }
-        
-        // Heal player when defeating a boss (15% of max health)
-        if (gameManager.game.player) {
-            const healAmount = gameManager.game.player.maxHealth * 0.15;
-            gameManager.game.player.heal(healAmount);
-            gameManager.showFloatingText(`BOSS BONUS: +${Math.round(healAmount)} HP`, 
-                gameManager.game.player.x, 
-                gameManager.game.player.y - 70, 
-                "#2ecc71", 
-                22);
-        }
-        
-        // Show message
-        gameManager.showFloatingText("BOSS DEFEATED!", 
-                                   gameManager.game.player.x, 
-                                   gameManager.game.player.y - 50, 
-                                   "#f1c40f", 
-                                   30);
-                                   
-        // Check if this was a mega boss
-        if (this.isMegaBoss) {
-            // Set game win flag immediately
-            if (gameManager) {
-                // Set these flags immediately
-                gameManager.gameWon = true;
-                gameManager.gameOver = true;
+            // Show combo counter for 3+ combos
+            if (gameManager.comboCount >= 3) {
+                gameManager.showFloatingText(`${gameManager.comboCount}x COMBO!`, 
+                                           this.x, this.y - 50, '#f1c40f', 18);
                 
-                // Pause the game to stop enemy spawning
-                if (gameManager.game) {
-                    gameManager.game.isPaused = true;
+                // Add minor screen shake for high combos
+                if (gameManager.comboCount >= 5 && gameManager.comboCount % 5 === 0) {
+                    gameManager.addScreenShake(3, 0.2);
                 }
-                
-                // Force immediate win screen display
-                gameManager.showWinScreen();
-                
-                // Double-ensure win screen appears with a delayed backup call
-                setTimeout(() => {
-                    if (gameManager && !gameManager.winScreenDisplayed) {
-                        gameManager.showWinScreen();
-                    }
-                }, 500);
             }
+        }
+        
+        // Create death effect
+        if (gameManager && gameManager.createExplosion) {
+            gameManager.createExplosion(this.x, this.y, this.radius * 1.5, '#e74c3c');
         }
     }
     
@@ -1124,6 +1098,11 @@ class EnemySpawner {
         if (!this.game.player) return;
         
         this.waveCount++;
+        // Notify game manager of wave completion
+        if (gameManager) {
+            gameManager.onWaveCompleted(this.waveCount);
+        }
+        
         // Scaling wave size based on difficulty and wave count
         const difficultyMod = gameManager ? gameManager.difficultyFactor : 1;
         const waveSize = Math.floor(8 + (this.waveCount * 1.5) + (difficultyMod * 3));
