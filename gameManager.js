@@ -151,6 +151,10 @@ class GameManager {
         document.getElementById('restart-button-pause').addEventListener('click', () => {
             window.location.reload();
         });
+        // Add return to main menu button functionality
+        document.getElementById('return-button-pause').addEventListener('click', () => {
+            window.location.reload();
+        });
     }
     
     startGame() {

@@ -20,12 +20,14 @@
         <p id="loading-tip">Tip: Use WASD or Arrow Keys to move</p>
     </div>
     
-    <!-- Main Menu: Choose Game Mode -->
+    <!-- Main Menu: Title / Mode Selection -->
     <div id="main-menu" class="hidden">
-        <h1>Galactic Ring: Cannon</h1>
-        <p>Select Mode:</p>
+        <h1 id="menu-title">Galactic Ring: Cannon</h1>
+        <div id="star-menu-display">⭐ 0</div>
+        <p id="menu-subtitle">Select Mode:</p>
         <button id="btn-normal" class="menu-button">Normal Mode</button>
         <button id="btn-endless" class="menu-button">Endless Mode</button>
+        <button id="btn-settings" class="menu-button">Settings</button>
     </div>
     
     <div id="game-container" class="hidden">
@@ -67,12 +69,42 @@
     <div id="pause-menu" class="hidden">
         <div class="pause-content">
             <h2>Game Paused</h2>
-            <button id="resume-button" class="menu-button">Resume</button>
-            <button id="restart-button-pause" class="menu-button">Restart</button>
+        <button id="resume-button" class="menu-button">Resume</button>
+        <button id="restart-button-pause" class="menu-button">Restart</button>
+        <button id="return-button-pause" class="menu-button">Main Menu</button>
             <h3>Controls:</h3>
             <p>WASD or Arrow Keys = Move</p>
             <p>P or ESC = Pause Game</p>
-            <p>M = Toggle Sound</p>
+        <p>M = Toggle Sound</p>
+        <p>L = Toggle Low Quality</p>
+        </div>
+    </div>
+    
+    <!-- Settings Panel -->
+    <div id="settings-panel" class="hidden">
+        <div class="settings-content">
+            <h2>Settings</h2>
+            <div class="setting-item">
+                <label for="mute-checkbox">Mute</label>
+                <input type="checkbox" id="mute-checkbox">
+            </div>
+            <div class="setting-item">
+                <label for="volume-range">Volume</label>
+                <input type="range" id="volume-range" min="0" max="1" step="0.01">
+            </div>
+            <div class="setting-item">
+                <label for="lowquality-checkbox">Low Quality</label>
+                <input type="checkbox" id="lowquality-checkbox">
+            </div>
+            <div class="setting-item">
+                <label for="difficulty-select">Difficulty</label>
+                <select id="difficulty-select">
+                    <option value="easy">Easy</option>
+                    <option value="normal">Normal</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+            <button id="settings-close" class="menu-button">Apply & Close</button>
         </div>
     </div>
     
@@ -118,7 +150,14 @@
                     clearInterval(interval);
                     setTimeout(() => {
                         document.getElementById('loading-screen').classList.add('hidden');
-                        document.getElementById('main-menu').classList.remove('hidden');
+                        const menu = document.getElementById('main-menu');
+                        menu.classList.remove('hidden');
+                        // Update star count in main menu
+                        const starDisplay = document.getElementById('star-menu-display');
+                        // gameManager is a global variable (declared via const in gameManager.js)
+                        if (starDisplay && typeof gameManager !== 'undefined') {
+                            starDisplay.textContent = '⭐ ' + gameManager.metaStars;
+                        }
                     }, 500);
                 }
             }, 100);
@@ -135,6 +174,70 @@
             document.getElementById('game-container').classList.remove('hidden');
             gameManager.endlessMode = true;
             gameManager.startGame();
+        });
+        // Settings button handler
+        document.getElementById('btn-settings').addEventListener('click', () => {
+            const panel = document.getElementById('settings-panel');
+            // Populate current settings
+            const muteCheckbox = document.getElementById('mute-checkbox');
+            muteCheckbox.checked = audioSystem.isMuted;
+            if (!audioSystem.masterGainNode) audioSystem.initializeAudioContext();
+            // Volume (load stored or current)
+            const volumeEl = document.getElementById('volume-range');
+            const storedVol = parseFloat(localStorage.getItem('volume'));
+            if (!isNaN(storedVol)) {
+                volumeEl.value = storedVol;
+                if (audioSystem.masterGainNode) audioSystem.masterGainNode.gain.value = storedVol;
+            } else {
+                volumeEl.value = audioSystem.masterGainNode
+                    ? audioSystem.masterGainNode.gain.value : 0.5;
+            }
+            document.getElementById('lowquality-checkbox').checked = gameManager.lowQuality;
+            document.getElementById('difficulty-select').value = localStorage.getItem('difficulty') || 'normal';
+            panel.classList.remove('hidden');
+        });
+        // Settings close/apply handler
+        document.getElementById('settings-close').addEventListener('click', () => {
+            // Mute
+            const muted = document.getElementById('mute-checkbox').checked;
+            audioSystem.isMuted = muted;
+            localStorage.setItem('muted', muted);
+            // Volume
+            const vol = parseFloat(document.getElementById('volume-range').value);
+            if (audioSystem.masterGainNode) audioSystem.masterGainNode.gain.value = vol;
+            localStorage.setItem('volume', vol);
+            // Low Quality
+            const lowQ = document.getElementById('lowquality-checkbox').checked;
+            gameManager.lowQuality = lowQ;
+            localStorage.setItem('lowQuality', lowQ);
+            const minimap = document.getElementById('minimap-container');
+            if (minimap) minimap.classList.toggle('hidden', lowQ);
+            // Difficulty
+            const diff = document.getElementById('difficulty-select').value;
+            localStorage.setItem('difficulty', diff);
+            let factor = 1.0;
+            if (diff === 'easy') factor = 0.8;
+            else if (diff === 'hard') factor = 1.2;
+            gameManager.difficultyFactor = factor;
+            document.getElementById('settings-panel').classList.add('hidden');
+        });
+        // Apply stored settings on load
+        window.addEventListener('load', () => {
+            // Volume & mute
+            const storedVol = parseFloat(localStorage.getItem('volume'));
+            if (!isNaN(storedVol) && audioSystem.masterGainNode) {
+                audioSystem.masterGainNode.gain.value = storedVol;
+            }
+            audioSystem.isMuted = localStorage.getItem('muted') === 'true';
+            // Low Quality
+            const storedLowQ = localStorage.getItem('lowQuality') === 'true';
+            gameManager.lowQuality = storedLowQ;
+            const minimapCont = document.getElementById('minimap-container');
+            if (minimapCont) minimapCont.classList.toggle('hidden', storedLowQ);
+            // Difficulty
+            const storedDiff = localStorage.getItem('difficulty') || 'normal';
+            const factors = { easy: 0.8, normal: 1.0, hard: 1.2 };
+            gameManager.difficultyFactor = factors[storedDiff] || 1.0;
         });
     </script>
 </body>

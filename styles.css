@@ -945,3 +945,83 @@ body {
         box-shadow: 0 0 30px rgba(241, 196, 15, 1);
     }
 }
+
+/* Main Menu Styles */
+#main-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+}
+
+#main-menu h1 {
+    font-size: 48px;
+    color: #2ecc71;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px rgba(46, 204, 113, 0.7);
+    animation: title-glow 2s infinite alternate;
+}
+
+#star-menu-display {
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+.menu-button {
+    background-color: #2ecc71;
+    border: none;
+    color: #111;
+    padding: 12px 24px;
+    font-size: 18px;
+    border-radius: 5px;
+    margin: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.menu-button:hover {
+    background-color: #27ae60;
+    transform: translateY(-2px);
+}
+/* Settings Panel Styles */
+#settings-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 600;
+}
+
+#settings-panel .settings-content {
+    background-color: #222;
+    padding: 20px 30px;
+    border-radius: 10px;
+    color: white;
+    min-width: 300px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+}
+
+.setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 12px 0;
+}
+
+#settings-panel h2 {
+    margin-top: 0;
+    color: #2ecc71;
+    text-align: center;
+}
