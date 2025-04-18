@@ -158,8 +158,56 @@ class GameManager {
     }
     
     startGame() {
-        // Create player at center of screen
-        this.game.addEntity(new Player(0, 0));
+        // Load and apply meta upgrades
+        this.loadMetaUpgrades();
+        // Create player at center of screen with meta boosts
+        const player = new Player(0, 0);
+        // Mercury upgrades
+        if (this.meta_mercury_speed) {
+            player.speed += this.meta_mercury_speed * 20;
+        }
+        if (this.meta_mercury_dodge_cd) {
+            player.dodgeCooldown = Math.max(0, player.dodgeCooldown - this.meta_mercury_dodge_cd * 0.1);
+        }
+        // Venus upgrades
+        if (this.meta_venus_hp) {
+            player.maxHealth += this.meta_venus_hp * 10;
+            player.health += this.meta_venus_hp * 10;
+        }
+        if (this.meta_venus_regen) {
+            player.regeneration += this.meta_venus_regen * 0.5;
+        }
+        // Mars upgrades
+        if (this.meta_mars_damage) {
+            player.attackDamage *= 1 + this.meta_mars_damage * 0.05;
+        }
+        if (this.meta_mars_attack_speed) {
+            player.attackSpeed *= 1 + this.meta_mars_attack_speed * 0.05;
+            player.attackCooldown = 1 / player.attackSpeed;
+        }
+        // Saturn upgrades
+        if (this.meta_saturn_magnet) {
+            player.magnetRange += this.meta_saturn_magnet * 25;
+        }
+        if (this.meta_saturn_extra_projectile) {
+            player.projectileCount += this.meta_saturn_extra_projectile;
+        }
+        // Neptune upgrades
+        if (this.meta_neptune_crit) {
+            player.critChance += this.meta_neptune_crit * 0.01;
+        }
+        if (this.meta_neptune_aoe_boost) {
+            player.aoeDamageMultiplier += this.meta_neptune_aoe_boost * 0.1;
+        }
+        // Pluto upgrades
+        if (this.meta_pluto_damage_reduction) {
+            player.damageReduction += this.meta_pluto_damage_reduction * 0.05;
+        }
+        if (this.meta_pluto_start_level) {
+            player.level += this.meta_pluto_start_level;
+        }
+        // Jupiter star drop and XP gain handled in respective systems
+        this.game.addEntity(player);
         
         // Update UI elements with initial values
         document.getElementById('level-display').textContent = `Level: ${this.game.player.level}`;
@@ -1166,6 +1214,24 @@ class GameManager {
     saveStarTokens() {
         localStorage.setItem('starTokens', this.metaStars);
     }
+    
+    // Meta progression: persistent upgrades across runs
+    loadMetaUpgrades() {
+        this.meta_mercury_speed = parseInt(localStorage.getItem('meta_mercury_speed') || '0', 10);
+        this.meta_mercury_dodge_cd = parseInt(localStorage.getItem('meta_mercury_dodge_cd') || '0', 10);
+        this.meta_venus_hp = parseInt(localStorage.getItem('meta_venus_hp') || '0', 10);
+        this.meta_venus_regen = parseInt(localStorage.getItem('meta_venus_regen') || '0', 10);
+        this.meta_mars_damage = parseInt(localStorage.getItem('meta_mars_damage') || '0', 10);
+        this.meta_mars_attack_speed = parseInt(localStorage.getItem('meta_mars_attack_speed') || '0', 10);
+        this.meta_jupiter_xp_gain = parseInt(localStorage.getItem('meta_jupiter_xp_gain') || '0', 10);
+        this.meta_jupiter_star_drop = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
+        this.meta_saturn_magnet = parseInt(localStorage.getItem('meta_saturn_magnet') || '0', 10);
+        this.meta_saturn_extra_projectile = parseInt(localStorage.getItem('meta_saturn_extra_projectile') || '0', 10);
+        this.meta_neptune_crit = parseInt(localStorage.getItem('meta_neptune_crit') || '0', 10);
+        this.meta_neptune_aoe_boost = parseInt(localStorage.getItem('meta_neptune_aoe_boost') || '0', 10);
+        this.meta_pluto_damage_reduction = parseInt(localStorage.getItem('meta_pluto_damage_reduction') || '0', 10);
+        this.meta_pluto_start_level = parseInt(localStorage.getItem('meta_pluto_start_level') || '0', 10);
+    }
 
     updateStarDisplay() {
         if (this.starDisplayElement) {
@@ -1472,6 +1538,11 @@ Enemy.prototype.die = function() {
         // Award 1 star token per boss defeated
         if (gameManager && typeof gameManager.earnStarTokens === 'function') {
             gameManager.earnStarTokens(1);
+            // Extra star if Jupiter star drop upgrade is purchased
+            const extra = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
+            if (extra > 0) {
+                gameManager.earnStarTokens(extra);
+            }
         }
     } else {
         audioSystem.play('enemyDeath', 0.3);

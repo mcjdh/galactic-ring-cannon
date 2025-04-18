@@ -683,7 +683,13 @@ class XPOrb {
         this.x = x;
         this.y = y;
         // Allow for value adjustments in gameManager.js
+        // Base XP value (may be increased by meta XP gain upgrades)
         this.value = value;
+        // Apply Jupiter XP gain bonus
+        const xpBonusTier = parseInt(localStorage.getItem('meta_jupiter_xp_gain') || '0', 10);
+        if (xpBonusTier > 0) {
+            this.value = Math.floor(this.value * (1 + xpBonusTier * 0.05));
+        }
         this.type = 'xpOrb';
         this.radius = 5;
         this.isDead = false;

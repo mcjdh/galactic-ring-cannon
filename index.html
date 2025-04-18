@@ -28,6 +28,7 @@
         <button id="btn-normal" class="menu-button">Normal Mode</button>
         <button id="btn-endless" class="menu-button">Endless Mode</button>
         <button id="btn-settings" class="menu-button">Settings</button>
+        <button id="btn-shop" class="menu-button">Star Vendor</button>
     </div>
     
     <div id="game-container" class="hidden">
@@ -80,6 +81,17 @@
         </div>
     </div>
     
+    <!-- Shop Panel -->
+    <div id="shop-panel" class="hidden">
+        <div class="settings-content">
+            <h2>Star Vendor</h2>
+            <!-- Show current star balance -->
+            <div id="vendor-star-display">⭐ 0</div>
+            <!-- List of purchasable upgrades -->
+            <div id="shop-items"></div>
+            <button id="shop-close" class="menu-button">Close</button>
+        </div>
+    </div>
     <!-- Settings Panel -->
     <div id="settings-panel" class="hidden">
         <div class="settings-content">
@@ -239,6 +251,77 @@
             const factors = { easy: 0.8, normal: 1.0, hard: 1.2 };
             gameManager.difficultyFactor = factors[storedDiff] || 1.0;
         });
+        // Star Vendor UI
+        const metaUpgrades = [
+            { id: 'mercury_speed', name: 'Mercury - Agile: +20 Move Speed', desc: 'Increase base movement speed by 20px', cost: 5, value: 20, maxTier: 2 },
+            { id: 'mercury_dodge_cd', name: 'Mercury - Agile: -0.1s Dodge Cooldown', desc: 'Reduce dodge cooldown by 0.1s', cost: 5, value: 0.1, maxTier: 2 },
+            { id: 'venus_hp', name: 'Venus - Fortified: +10 Max HP', desc: 'Increase maximum health by 10', cost: 5, value: 10, maxTier: 3 },
+            { id: 'venus_regen', name: 'Venus - Fortified: +0.5 HP/sec Regen', desc: 'Increase health regeneration rate by 0.5 HP/s', cost: 5, value: 0.5, maxTier: 2 },
+            { id: 'mars_damage', name: 'Mars - Warlike: +5% Attack Damage', desc: 'Increase base attack damage by 5%', cost: 5, value: 0.05, maxTier: 3 },
+            { id: 'mars_attack_speed', name: 'Mars - Warlike: +0.05 Attacks/sec', desc: 'Increase attack speed by 0.05 attacks/sec', cost: 5, value: 0.05, maxTier: 2 },
+            { id: 'jupiter_xp_gain', name: 'Jupiter - Prosperity: +5% XP Gain', desc: 'Increase XP gained by 5%', cost: 8, value: 0.05, maxTier: 2 },
+            { id: 'jupiter_star_drop', name: 'Jupiter - Prosperity: Boss +1⭐', desc: 'Bosses drop 1 extra star', cost: 15, value: 1, maxTier: 1 },
+            { id: 'saturn_magnet', name: 'Saturn - Magnetism: +25px XP Magnet', desc: 'Increase XP orb magnet range by 25px', cost: 3, value: 25, maxTier: 3 },
+            { id: 'saturn_extra_projectile', name: 'Saturn - Magnetism: +1 Projectile', desc: 'Unlock an extra projectile (spread shot)', cost: 10, value: 1, maxTier: 1 },
+            { id: 'neptune_crit', name: 'Neptune - Stormbringer: +1% Crit Chance', desc: 'Increase critical hit chance by 1%', cost: 5, value: 0.01, maxTier: 3 },
+            { id: 'neptune_aoe_boost', name: 'Neptune - Stormbringer: +10% AoE Damage', desc: 'Increase AoE damage multiplier by 10%', cost: 8, value: 0.1, maxTier: 1 },
+            { id: 'pluto_damage_reduction', name: 'Pluto - Underworld: +5% Damage Reduction', desc: 'Reduce incoming damage by 5%', cost: 3, value: 0.05, maxTier: 2 },
+            { id: 'pluto_start_level', name: 'Pluto - Underworld: +1 Starting Level', desc: 'Start each run at Level 2', cost: 10, value: 1, maxTier: 1 }
+        ];
+        
+        // Attach shop event listeners on DOMContentLoaded
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btn-shop')
+                .addEventListener('click', renderShop);
+            document.getElementById('shop-close')
+                .addEventListener('click', () => document.getElementById('shop-panel').classList.add('hidden'));
+        });
+        
+        function renderShop() {
+            const panel = document.getElementById('shop-panel');
+            // Update vendor star display
+            const vendorDisplay = document.getElementById('vendor-star-display');
+            if (vendorDisplay && typeof gameManager !== 'undefined') {
+                vendorDisplay.textContent = '⭐ ' + gameManager.metaStars;
+            }
+            const items = document.getElementById('shop-items');
+            items.innerHTML = '';
+            metaUpgrades.forEach(u => {
+                const key = 'meta_' + u.id;
+                const current = parseInt(localStorage.getItem(key) || '0', 10);
+                const tiered = u.maxTier > 1;
+                const unlocked = tiered ? current >= u.maxTier : current > 0;
+                const div = document.createElement('div');
+                div.className = 'shop-item';
+                const tierText = tiered ? ` <span class="tier-info">(${current}/${u.maxTier})</span>` : '';
+                div.innerHTML = `<h3>${u.name}${tierText}</h3><p>${u.desc}</p><p>Cost: ${u.cost} ⭐</p>`;
+                const btn = document.createElement('button');
+                btn.className = 'menu-button';
+                btn.textContent = unlocked ? 'Maxed' : 'Buy';
+                btn.disabled = unlocked || gameManager.metaStars < u.cost;
+                btn.addEventListener('click', () => {
+                    if (!unlocked && gameManager.metaStars >= u.cost) {
+                        // Deduct stars and update displays
+                        gameManager.metaStars -= u.cost;
+                        gameManager.saveStarTokens();
+                        gameManager.updateStarDisplay();
+                        const menuStar = document.getElementById('star-menu-display');
+                        if (menuStar) menuStar.textContent = '⭐ ' + gameManager.metaStars;
+                        // Update vendor panel star count
+                        if (vendorDisplay) vendorDisplay.textContent = '⭐ ' + gameManager.metaStars;
+                        if (tiered) {
+                            localStorage.setItem(key, (current + 1).toString());
+                        } else {
+                            localStorage.setItem(key, '1');
+                        }
+                        renderShop();
+                    }
+                });
+                div.appendChild(btn);
+                items.appendChild(div);
+            });
+            panel.classList.remove('hidden');
+        }
     </script>
 </body>
 </html>
