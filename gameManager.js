@@ -33,11 +33,11 @@ class GameManager {
         // Add sound toggle button
         this.addSoundButton();
 
-        // Dynamic difficulty scaling system
+        // Dynamic difficulty scaling system - adjusted for 3-minute runs
         this.difficultyFactor = 1.0;
         this.difficultyTimer = 0;
-        this.difficultyInterval = 45; // Increase difficulty every 45 seconds
-        this.maxDifficultyFactor = 5.0; // Cap difficulty scaling
+        this.difficultyInterval = 20; // Increase difficulty every 20 seconds (down from 45)
+        this.maxDifficultyFactor = 4.0; // Cap difficulty scaling (down from 5.0)
         
         // Track game progression stats
         this.gameStats = {
@@ -49,14 +49,12 @@ class GameManager {
         // Add combo system
         this.comboCount = 0;
         this.comboTimer = 0;
-        this.comboTimeout = 1.0; // seconds before combo resets (shorter for faster reset)
-        // Number of kills needed to fill combo bar
-        this.comboTarget = 10;
-        // Track highest combo achieved this run
+        this.comboTimeout = 0.8; // seconds before combo resets (shorter for faster gameplay)
+        this.comboTarget = 8; // Lower combo target for faster progression
         this.highestCombo = 0;
         
         // Critical XP chance
-        this.critXpChance = 0.1; // 10% chance for critical XP drops
+        this.critXpChance = 0.15; // 15% chance for critical XP drops (up from 10%)
         
         // Screen shake effect
         this.screenShakeAmount = 0;
@@ -514,13 +512,131 @@ class GameManager {
         if (this.particles.length > this.maxParticles) {
             this.particles.splice(0, this.particles.length - this.maxParticles);
         }
+        
+        // Use object pooling for particles
+        const deadParticles = [];
         for (let i = this.particles.length - 1; i >= 0; i--) {
-            this.particles[i].update(deltaTime);
+            const particle = this.particles[i];
+            particle.update(deltaTime);
             
-            if (this.particles[i].isDead) {
+            if (particle.isDead) {
+                deadParticles.push(particle);
                 this.particles.splice(i, 1);
             }
         }
+        
+        // Reuse dead particles instead of creating new ones
+        this.particlePool = deadParticles;
+    }
+    
+    createExplosion(x, y, radius, color) {
+        // Use object pooling for explosion particles
+        const particleCount = Math.min(Math.floor(radius * 0.8), 50); // Cap particle count
+        
+        for (let i = 0; i < particleCount; i++) {
+            let particle;
+            if (this.particlePool.length > 0) {
+                particle = this.particlePool.pop();
+                // Reset particle properties
+                particle.x = x;
+                particle.y = y;
+                particle.isDead = false;
+                particle.age = 0;
+            } else {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 50 + Math.random() * 100;
+                const size = 2 + Math.random() * 6;
+                const lifetime = 0.5 + Math.random() * 0.5;
+                
+                particle = new Particle(
+                    x,
+                    y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    size,
+                    color,
+                    lifetime
+                );
+            }
+            
+            this.particles.push(particle);
+        }
+        
+        // Add shockwave effect with reduced complexity
+        const shockwave = new ShockwaveParticle(x, y, radius * 1.5, color, 0.5);
+        this.particles.push(shockwave);
+    }
+    
+    createHitEffect(x, y, amount) {
+        // Use object pooling for hit particles
+        const particleCount = Math.min(10, Math.floor(amount / 5));
+        
+        for (let i = 0; i < particleCount; i++) {
+            let particle;
+            if (this.particlePool.length > 0) {
+                particle = this.particlePool.pop();
+                // Reset particle properties
+                particle.x = x;
+                particle.y = y;
+                particle.isDead = false;
+                particle.age = 0;
+            } else {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 30 + Math.random() * 70;
+                const size = 1 + Math.random() * 3;
+                const lifetime = 0.3 + Math.random() * 0.3;
+                
+                particle = new Particle(
+                    x,
+                    y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    size,
+                    '#e74c3c',
+                    lifetime
+                );
+            }
+            
+            this.particles.push(particle);
+        }
+    }
+    
+    createLevelUpEffect(x, y) {
+        // Use object pooling for level up particles
+        const particleCount = 30;
+        
+        for (let i = 0; i < particleCount; i++) {
+            let particle;
+            if (this.particlePool.length > 0) {
+                particle = this.particlePool.pop();
+                // Reset particle properties
+                particle.x = x;
+                particle.y = y;
+                particle.isDead = false;
+                particle.age = 0;
+            } else {
+                const angle = (i / particleCount) * Math.PI * 2;
+                const speed = 50 + Math.random() * 50;
+                const size = 2 + Math.random() * 4;
+                const lifetime = 1 + Math.random() * 0.5;
+                
+                particle = new Particle(
+                    x,
+                    y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    size,
+                    '#f39c12',
+                    lifetime
+                );
+            }
+            
+            this.particles.push(particle);
+        }
+        
+        // Add shockwave effect with reduced complexity
+        const shockwave = new ShockwaveParticle(x, y, 100, '#f39c12', 0.7);
+        this.particles.push(shockwave);
     }
     
     renderParticles(ctx) {
@@ -531,90 +647,23 @@ class GameManager {
             ctx.translate(shakeX, shakeY);
         }
         
+        // Batch render particles by type
+        const particleGroups = new Map();
+        
         for (const particle of this.particles) {
-            particle.render(ctx);
-        }
-    }
-    
-    createExplosion(x, y, radius, color) {
-        // Create particle explosion effect
-        const particleCount = Math.floor(radius * 0.8);
-        
-        for (let i = 0; i < particleCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 50 + Math.random() * 100;
-            const size = 2 + Math.random() * 6;
-            const lifetime = 0.5 + Math.random() * 0.5;
-            
-            const particle = new Particle(
-                x,
-                y,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
-                size,
-                color,
-                lifetime
-            );
-            
-            this.particles.push(particle);
+            const type = particle.constructor.name;
+            if (!particleGroups.has(type)) {
+                particleGroups.set(type, []);
+            }
+            particleGroups.get(type).push(particle);
         }
         
-        // Add shockwave effect
-        const shockwave = new ShockwaveParticle(x, y, radius * 1.5, color, 0.5);
-        this.particles.push(shockwave);
-    }
-    
-    // Create blood particles when an enemy is hit
-    createHitEffect(x, y, amount) {
-        const particleCount = Math.min(10, Math.floor(amount / 5));
-        
-        for (let i = 0; i < particleCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 30 + Math.random() * 70;
-            const size = 1 + Math.random() * 3;
-            const lifetime = 0.3 + Math.random() * 0.3;
-            
-            const particle = new Particle(
-                x,
-                y,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
-                size,
-                '#e74c3c',
-                lifetime
-            );
-            
-            this.particles.push(particle);
+        // Render each group
+        for (const [type, group] of particleGroups) {
+            for (const particle of group) {
+                particle.render(ctx);
+            }
         }
-    }
-    
-    // Create level up effect
-    createLevelUpEffect(x, y) {
-        // Spiral particles
-        const particleCount = 30;
-        
-        for (let i = 0; i < particleCount; i++) {
-            const angle = (i / particleCount) * Math.PI * 2;
-            const speed = 50 + Math.random() * 50;
-            const size = 2 + Math.random() * 4;
-            const lifetime = 1 + Math.random() * 0.5;
-            
-            const particle = new Particle(
-                x,
-                y,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
-                size,
-                '#f39c12',
-                lifetime
-            );
-            
-            this.particles.push(particle);
-        }
-        
-        // Shockwave effect
-        const shockwave = new ShockwaveParticle(x, y, 100, '#f39c12', 0.7);
-        this.particles.push(shockwave);
     }
     
     handleKeyDown(e) {
@@ -747,23 +796,23 @@ class GameManager {
         
         // Dynamically scale max enemies based on difficulty and player level
         const playerLevelFactor = this.game.player ? 
-            (1 + this.game.player.level / 15) : 1; // 6.7% more enemies per level (adjusted from 5%)
+            (1 + this.game.player.level / 15) : 1; // 6.7% more enemies per level (more balanced)
             
-        // More aggressive time-based enemy scaling
+        // More balanced time-based enemy scaling for both modes
         const gameMinutes = this.gameTime / 60;
-        const timeBasedLimit = Math.min(500, Math.floor(50 + (gameMinutes * 20))); // +20 enemies per minute
+        const timeBasedLimit = Math.min(450, Math.floor(45 + (gameMinutes * 25))); // +25 enemies per minute
         
         // Early game is more approachable, late game more challenging
-        const earlyStageFactor = Math.min(1, gameMinutes / 3); // Reaches max effect after 3 minutes
+        const earlyStageFactor = Math.min(1, gameMinutes / 2.5); // Reaches max effect after 2.5 minutes
         
         // Calculate new max enemies - combines base value, difficulty scaling, time and level factors
         const newMaxEnemies = Math.floor(
-            Math.min(600, // Higher upper limit for more challenge in late game
-                (40 + // Lower base value to start easier
-                (this.difficultyFactor * 40) + // More impact from difficulty (increased from 30)
-                (Math.pow(gameMinutes, 1.2) * 15)) * // Non-linear time scaling for more challenge later
+            Math.min(550, // Higher upper limit for endless mode
+                (40 + // Balanced base value
+                (this.difficultyFactor * 30) + // Less impact from difficulty
+                (Math.pow(gameMinutes, 1.2) * 15)) * // More balanced time scaling
                 playerLevelFactor * // Player level factor
-                (0.7 + (0.3 * earlyStageFactor)) // Smoother early game ramp-up
+                (0.75 + (0.25 * earlyStageFactor)) // Smoother early game ramp-up
             )
         );
         
@@ -776,44 +825,44 @@ class GameManager {
         );
         
         // Dynamic spawn rate scaling with diminishing returns at higher levels
-        const baseSpawnRate = 1.0 + (this.difficultyFactor * 0.8);
-        const spawnRateCap = 10.0; // Higher cap for more intense late game (up from 8)
+        const baseSpawnRate = 1.1 + (this.difficultyFactor * 0.8); // More balanced base spawn rate
+        const spawnRateCap = 10.0; // Lower cap for better control
         
         this.enemySpawner.spawnRate = Math.min(
             spawnRateCap,
-            baseSpawnRate * (1 + Math.pow(gameMinutes / 10, 0.7)) // Non-linear scaling
+            baseSpawnRate * (1 + Math.pow(gameMinutes / 10, 0.7)) // More balanced scaling
         );
         this.enemySpawner.spawnCooldown = 1 / this.enemySpawner.spawnRate;
         
         // Adjust elite chance based on time and difficulty with better scaling
         if (this.enemySpawner.eliteChance !== undefined) {
-            const baseEliteChance = 0.05; // Start at 5%
-            const maxEliteChance = 0.40; // Cap at 40% (up from 35%)
-            const eliteScaling = this.difficultyFactor * 0.06; // More elites at higher difficulty
+            const baseEliteChance = 0.06; // Start at 6% (more balanced)
+            const maxEliteChance = 0.40; // Cap at 40% (more balanced)
+            const eliteScaling = this.difficultyFactor * 0.07; // More balanced elite scaling
             
             this.enemySpawner.eliteChance = Math.min(
                 maxEliteChance, 
-                baseEliteChance + eliteScaling + (gameMinutes * 0.01) // Additional 1% per minute
+                baseEliteChance + eliteScaling + (gameMinutes * 0.012) // Additional 1.2% per minute
             );
         }
         
         // Adjust wave interval to make waves more frequent later with better progression
         if (this.enemySpawner.waveInterval !== undefined) {
-            const minWaveInterval = 12; // Minimum 12 seconds between waves (down from 15)
+            const minWaveInterval = 12; // Minimum 12 seconds between waves (more balanced)
             
             this.enemySpawner.waveInterval = Math.max(
                 minWaveInterval,
-                35 - (this.difficultyFactor * 3.5) - (gameMinutes * 0.5) // Faster waves over time
+                35 - (this.difficultyFactor * 3.5) - (gameMinutes * 0.6) // More balanced wave timing
             );
         }
         
         // Make bosses more frequent at higher difficulties with better scaling
         if (this.enemySpawner.bossInterval !== undefined) {
-            const minBossInterval = 45; // Minimum 45 seconds between bosses (down from 60)
+            const minBossInterval = 40; // Minimum 40 seconds between bosses (more balanced)
             
             this.enemySpawner.bossInterval = Math.max(
                 minBossInterval,
-                60 - (this.difficultyFactor * 6) - (gameMinutes * 0.75) // Boss every 1 minute, scaling down with difficulty
+                55 - (this.difficultyFactor * 7) - (gameMinutes * 1.0) // More balanced boss timing
             );
         }
         
@@ -822,10 +871,10 @@ class GameManager {
             this.enemySpawner.enemyHealthMultiplier = 1.0;
         }
         
-        // Increase enemy health multiplier over time
+        // Increase enemy health multiplier over time with better scaling
         this.enemySpawner.enemyHealthMultiplier = 1.0 + 
-            (this.difficultyFactor * 0.2) + 
-            (Math.min(2.0, gameMinutes / 10) * 0.5);
+            (this.difficultyFactor * 0.2) + // Less impact from difficulty
+            (Math.min(2.0, gameMinutes / 10) * 0.5); // More balanced time scaling
     }
     
     // Add a helper method for creating special combat effects
