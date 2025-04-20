@@ -248,8 +248,17 @@ class GameManager {
         if (!this.endlessMode && this.checkMegaBossDefeated()) {
             console.log("Mega boss defeated detected in update cycle");
             this.gameWon = true;
-            this.showWinScreen();
-            return;
+            this.gameOver = true; // Explicitly set gameOver too
+
+            // Ensure achievement is awarded when win condition met
+            if (achievementSystem) {
+                achievementSystem.onMegaBossDefeated();
+            }
+
+            if (!this.winScreenDisplayed) {
+                this.showWinScreen();
+            }
+            return; // Stop further updates once won
         }
         
         this.gameTime += deltaTime;
