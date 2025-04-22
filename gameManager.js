@@ -812,7 +812,7 @@ class GameManager {
         document.getElementById('game-container').appendChild(soundButton);
         
         soundButton.addEventListener('click', () => {
-            const isMuted = audioSystem.toggleMute();
+            const isMuted = audioSystem?.toggleMute?.();
             soundButton.innerHTML = isMuted ? '🔇' : '🔊';
             this.showFloatingText(
                 isMuted ? "Sound Off" : "Sound On", 
@@ -1270,8 +1270,8 @@ class GameManager {
             
             // Play boss music and start boss theme
             if (audioSystem) {
-                audioSystem.play('boss', 0.8);
-                audioSystem.playBossTheme(0.2);
+                audioSystem?.play?.('boss', 0.8);
+                audioSystem?.playBossTheme?.(0.2);
             }
             
             // Add pulsing border effect to screen
@@ -1316,7 +1316,7 @@ class GameManager {
         }
         
         // Stop boss theme when all bosses are defeated
-        audioSystem.stopBossTheme();
+        audioSystem?.stopBossTheme?.();
         
         // Clear boss indicators
         this.clearBossIndicators();
@@ -1576,7 +1576,7 @@ class GameManager {
             
             // Play victory sound
             if (audioSystem && audioSystem.play) {
-                audioSystem.play('levelUp', 0.8); // Use level up sound as victory sound
+                audioSystem?.play?.('levelUp', 0.8); // Use level up sound as victory sound
             }
         }, 100); // Short delay to ensure DOM is ready
         this._timers.push(winScreenTimeout);
@@ -1935,7 +1935,7 @@ class GameManager {
         }
         // Cleanup audio
         if (typeof audioSystem !== 'undefined' && audioSystem && typeof audioSystem.cleanup === 'function') {
-            audioSystem.cleanup();
+            audioSystem?.cleanup?.();
         }
         // Cleanup UI enhancements
         if (typeof uiEnhancements !== 'undefined' && uiEnhancements && typeof uiEnhancements.cleanup === 'function') {
@@ -2231,7 +2231,7 @@ Enemy.prototype.die = function() {
     
     // Play appropriate death sound and award star token on boss kill
     if (this.isBoss) {
-        audioSystem.play('boss', 0.8);
+        audioSystem?.play?.('boss', 0.8);
         // Award 1 star token per boss defeated
         if (gameManager && typeof gameManager.earnStarTokens === 'function') {
             gameManager.earnStarTokens(1);
@@ -2242,7 +2242,7 @@ Enemy.prototype.die = function() {
             }
         }
     } else {
-        audioSystem.play('enemyDeath', 0.3);
+        audioSystem?.play?.('enemyDeath', 0.3);
     }
 
     // Reset and increment combo
@@ -2317,7 +2317,7 @@ Player.prototype.addXP = function(amount) {
     }
     
     // Play pickup sound
-    audioSystem.play('pickup', 0.2);
+    audioSystem?.play?.('pickup', 0.2);
 };
 
 // Override player takeDamage method to show damage numbers and update health bar
@@ -2355,7 +2355,7 @@ Player.prototype.takeDamage = function(amount) {
     }
     
     // Play hit sound
-    audioSystem.play('playerHit', 0.5);
+    audioSystem?.play?.('playerHit', 0.5);
 };
 
 // Override the original GameEngine.render to incorporate low-quality mode
@@ -2403,7 +2403,7 @@ Enemy.prototype.takeDamage = function(amount) {
     originalEnemyTakeDamage.call(this, amount);
     
     // Play hit sound
-    audioSystem.play('hit', 0.2);
+    audioSystem?.play?.('hit', 0.2);
 };
 
 // Override Player levelUp method to create particles
@@ -2416,7 +2416,7 @@ Player.prototype.levelUp = function() {
     originalPlayerLevelUp.call(this);
     
     // Play level up sound
-    audioSystem.play('levelUp', 0.6);
+    audioSystem?.play?.('levelUp', 0.6);
 };
 
 // Override player takeDamage to incorporate damage reduction
@@ -2454,7 +2454,7 @@ Player.prototype.takeDamage = function(amount) {
     }
     
     // Play hit sound
-    audioSystem.play('playerHit', 0.5);
+    audioSystem?.play?.('playerHit', 0.5);
 };
 
 // Override player doDodge method to add sound
@@ -2465,14 +2465,14 @@ Player.prototype.doDodge = function() {
     originalPlayerDoDodge.call(this);
     
     // Play dodge sound
-    audioSystem.play('dodge', 0.7);
+    audioSystem?.play?.('dodge', 0.7);
 };
 
 // ADD THIS AT THE BOTTOM OF THE FILE
 
 // Play shooting sound when player fires
 Player.prototype.fireSound = function() {
-    audioSystem.play('shoot', 0.3);
+    audioSystem?.play?.('shoot', 0.3);
 };
 
 // Override Enemy.prototype.createBossDeathEffect to properly trigger the win screen
@@ -2629,7 +2629,7 @@ GameManager.prototype.showWinScreen = function() {
     
     // Play victory sound
     if (audioSystem && audioSystem.play) {
-        audioSystem.play('levelUp', 0.8); // Use level up sound as victory sound
+        audioSystem?.play?.('levelUp', 0.8); // Use level up sound as victory sound
     }
     
     // Ensure enemies stop spawning after victory

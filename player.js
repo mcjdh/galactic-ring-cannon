@@ -188,7 +188,7 @@ class Player {
         );
         
         // Add to game particles
-        gameManager.particles.push(particle);
+        if (gameManager?.particles) gameManager.particles.push(particle);
     }
     
     handleAttacks(deltaTime, game) {
@@ -196,8 +196,8 @@ class Player {
         if (this.attackTimer >= this.attackCooldown) {
             this.attackTimer = 0;
             // Play shooting sound and boss beat
-            audioSystem.play('shoot', 0.3);
-            audioSystem.playBossBeat();
+            audioSystem?.play?.('shoot', 0.3);
+            audioSystem?.playBossBeat?.();
             this.attack(game);
         }
         
@@ -236,7 +236,7 @@ class Player {
                 console.warn('health-bar element not found');
             }
             // Show healing text
-            gameManager.showFloatingText(`+${Math.round(this.health - oldHealth)}`, this.x, this.y - 30, '#2ecc71', 16);
+            if (gameManager) gameManager.showFloatingText(`+${Math.round(this.health - oldHealth)}`, this.x, this.y - 30, '#2ecc71', 16);
         }
     }
     
@@ -316,7 +316,7 @@ class Player {
         });
         
         // Play AOE attack sound
-        audioSystem.play('aoeAttack', 0.4);
+        audioSystem?.play?.('aoeAttack', 0.4);
     }
     
     createAOEEffect() {
@@ -366,18 +366,18 @@ class Player {
         }
         
         // Show level up message
-        gameManager.showFloatingText(`LEVEL UP!`, this.x, this.y - 50, '#f39c12', 24);
+        if (gameManager) gameManager.showFloatingText(`LEVEL UP!`, this.x, this.y - 50, '#f39c12', 24);
         
         // Create level up effect
-        gameManager.createLevelUpEffect(this.x, this.y);
+        if (gameManager) gameManager.createLevelUpEffect(this.x, this.y);
         
         // Show upgrade options
         setTimeout(() => {
-            upgradeSystem.showUpgradeOptions();
+            upgradeSystem?.showUpgradeOptions?.();
         }, 0);
         
         // Play level up sound
-        audioSystem.play('levelUp', 0.6);
+        audioSystem?.play?.('levelUp', 0.6);
     }
     
     takeDamage(amount) {

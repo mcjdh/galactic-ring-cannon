@@ -338,7 +338,7 @@ class AchievementSystem {
         }, displayTime);
         
         // Play achievement sound
-        if (audioSystem) {
+        if (audioSystem?.play) {
             // Play special sound for important achievements
             if (achievement.important) {
                 audioSystem.play('boss', 0.4);

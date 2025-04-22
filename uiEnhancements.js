@@ -249,7 +249,7 @@ class UIEnhancements {
         if (!gameManager) return;
         
         const intensity = amount * this.screenShakeIntensity;
-        gameManager.addScreenShake(intensity, duration);
+        gameManager?.addScreenShake?.(intensity, duration);
     }
     
     // Cleanup method to remove all damage numbers and container

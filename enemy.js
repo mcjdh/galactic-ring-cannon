@@ -238,7 +238,7 @@ class Enemy {
         
         game.addEntity(projectile);
         // Play enemy shooting sound
-        audioSystem.play('shoot', 0.2);
+        audioSystem?.play?.('shoot', 0.2);
     }
     
     spawnMinions(game) {
@@ -391,8 +391,8 @@ class Enemy {
         
         // Create XP orb and increment kill count
         const orb = new XPOrb(this.x, this.y, this.xpValue);
-        gameManager.game.addEntity(orb);
-        const kills = gameManager.incrementKills();
+        if (gameManager?.game?.addEntity) gameManager.game.addEntity(orb);
+        const kills = gameManager?.incrementKills?.();
         
         // Handle boss and mega boss achievements
         if (this.isBoss) {
@@ -401,21 +401,18 @@ class Enemy {
                 const currentBossKills = achievementSystem.achievements.boss_slayer.progress;
                 achievementSystem.updateAchievement('boss_slayer', currentBossKills + 1);
             }
-            
             // Track mega boss achievement separately
             if (this.isMegaBoss && achievementSystem) {
                 achievementSystem.updateAchievement('mega_boss_slayer', 1);
-                
                 // Set game win flag
                 if (gameManager) {
                     gameManager.gameWon = true;
-                    gameManager.showWinScreen();
+                    gameManager.showWinScreen?.();
                 }
             }
-            
             // Play boss death sound and award stars
-            audioSystem.play('boss', 0.8);
-            if (gameManager && typeof gameManager.earnStarTokens === 'function') {
+            audioSystem?.play?.('boss', 0.8);
+            if (gameManager?.earnStarTokens) {
                 gameManager.earnStarTokens(1);
                 // Extra star if Jupiter star drop upgrade is purchased
                 const extra = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
@@ -423,13 +420,11 @@ class Enemy {
                     gameManager.earnStarTokens(extra);
                 }
             }
-            
             // Create boss death effect
-            if (gameManager && gameManager.createExplosion) {
+            if (gameManager?.createExplosion) {
                 const explosionSize = this.isMegaBoss ? 150 : 100;
                 gameManager.createExplosion(this.x, this.y, explosionSize, this.isMegaBoss ? '#8e44ad' : '#c0392b');
             }
-            
             // Show boss defeat message
             if (gameManager) {
                 const message = this.isMegaBoss ? "MEGA BOSS DEFEATED!" : "BOSS DEFEATED!";
@@ -441,7 +436,7 @@ class Enemy {
                     30);
             }
         } else {
-            audioSystem.play('enemyDeath', 0.3);
+            audioSystem?.play?.('enemyDeath', 0.3);
         }
         
         // Track elite kills
