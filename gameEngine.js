@@ -68,39 +68,27 @@ class GameEngine {
         
         // Input handling with additional pause key support and error handling
         this.keys = {};
-        try {
-            window.addEventListener('keydown', e => {
-                this.keys[e.key] = true;
-                
-                // Pause game when pressing P or Escape
-                if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-                    this.togglePause();
-                }
-                
-                // Toggle debug mode with F3
-                if (e.key === 'F3') {
-                    this.debugMode = !this.debugMode;
-                }
-                
-                // Add performance mode toggle
-                if (e.key === 'p' || e.key === 'P') {
-                    this.togglePerformanceMode();
-                }
-            });
-            window.addEventListener('keyup', e => this.keys[e.key] = false);
-        } catch (error) {
-            console.error('Error setting up input handling:', error);
-        }
+        
+        // Store handler references for cleanup
+        this._resizeHandler = this.resizeCanvas.bind(this);
+        this._keydownHandler = this.handleKeyDown.bind(this);
+        this._keyupHandler = this.handleKeyUp.bind(this);
+        this._visibilityHandler = this.handleVisibilityChange.bind(this);
+        this._focusHandler = this.handleFocusChange.bind(this);
+        this._blurHandler = this.handleBlurChange.bind(this);
+        
+        // Register event listeners (restored)
+        window.addEventListener('resize', this._resizeHandler);
+        window.addEventListener('keydown', this._keydownHandler);
+        window.addEventListener('keyup', this._keyupHandler);
+        document.addEventListener('visibilitychange', this._visibilityHandler);
+        window.addEventListener('focus', this._focusHandler);
+        window.addEventListener('blur', this._blurHandler);
         
         // Visibility state tracking
         this.isVisible = true;
         this.isMinimized = false;
         this.lastVisibilityChange = 0;
-        
-        // Add visibility change handlers
-        document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-        window.addEventListener('focus', this.handleFocusChange.bind(this));
-        window.addEventListener('blur', this.handleBlurChange.bind(this));
         
         // Resource management
         this.resourceCleanupInterval = 5000; // 5 seconds
@@ -714,5 +702,32 @@ class GameEngine {
         
         // Rebuild spatial grid
         this.updateSpatialGrid();
+    }
+
+    // New: Named handlers for input
+    handleKeyDown(e) {
+        this.keys[e.key] = true;
+        if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+            this.togglePause();
+        }
+        if (e.key === 'F3') {
+            this.debugMode = !this.debugMode;
+        }
+        if (e.key === 'p' || e.key === 'P') {
+            this.togglePerformanceMode();
+        }
+    }
+    handleKeyUp(e) {
+        this.keys[e.key] = false;
+    }
+
+    // New: Cleanup method to remove all listeners
+    cleanup() {
+        window.removeEventListener('resize', this._resizeHandler);
+        window.removeEventListener('keydown', this._keydownHandler);
+        window.removeEventListener('keyup', this._keyupHandler);
+        document.removeEventListener('visibilitychange', this._visibilityHandler);
+        window.removeEventListener('focus', this._focusHandler);
+        window.removeEventListener('blur', this._blurHandler);
     }
 }

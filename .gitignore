@@ -1,0 +1,23 @@
+# Ignore Cursor rules and bugfix task list
+.cursor/rules/
+bugfix-task-list.md
+
+# Node modules (if any)
+node_modules/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Ignore other temp files
+*.tmp
+*.temp 
