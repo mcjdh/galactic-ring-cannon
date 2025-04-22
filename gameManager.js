@@ -96,6 +96,8 @@ class GameManager {
         this.gameStartTime = 0;
         this.currentWave = 0;
         this.lastKillCount = 0;
+        // Timer tracking for cleanup
+        this._timers = [];
     }
     
     initializeUI() {
@@ -533,6 +535,7 @@ class GameManager {
             tipElement.textContent = 'Tip: Try to focus on increasing your attack speed and damage early on';
             gameOverDiv.appendChild(tipElement);
         }
+        this.cleanupTimers();
     }
     
     // Increment kill count when enemy is killed
@@ -578,9 +581,10 @@ class GameManager {
         document.getElementById('game-container').appendChild(textElement);
         
         // Remove element after animation completes
-        setTimeout(() => {
+        const combatTextTimeout = setTimeout(() => {
             textElement.remove();
         }, 1000);
+        this._timers.push(combatTextTimeout);
     }
     
     updateParticles(deltaTime) {
@@ -1484,7 +1488,7 @@ class GameManager {
         }
         
         // Create win screen UI (with slight delay to ensure it displays properly)
-        setTimeout(() => {
+        const winScreenTimeout = setTimeout(() => {
             const winDiv = document.createElement('div');
             winDiv.id = 'win-screen';
             
@@ -1557,6 +1561,7 @@ class GameManager {
                 audioSystem.play('levelUp', 0.8); // Use level up sound as victory sound
             }
         }, 100); // Short delay to ensure DOM is ready
+        this._timers.push(winScreenTimeout);
     }
 
     // Add helper method to check if mega boss was defeated
@@ -1868,9 +1873,22 @@ class GameManager {
         document.getElementById('game-container').appendChild(textElement);
         
         // Remove element after animation completes
-        setTimeout(() => {
+        const combatTextTimeout = setTimeout(() => {
             textElement.remove();
         }, 1000);
+        this._timers.push(combatTextTimeout);
+    }
+
+    // Timer cleanup method
+    cleanupTimers() {
+        // Clear all tracked timeouts/intervals
+        if (this._timers) {
+            for (const id of this._timers) {
+                clearTimeout(id);
+                clearInterval(id);
+            }
+            this._timers.length = 0;
+        }
     }
 }
 
