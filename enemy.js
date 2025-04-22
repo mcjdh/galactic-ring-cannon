@@ -191,22 +191,24 @@ class Enemy {
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
                     if (distance < this.radius + other.radius) {
-                        // Enemies damage each other on collision
-                        const damage = this.damage * 0.2; // 20% of normal damage
-                        other.takeDamage(damage);
+                        // Prevent enemies from damaging each other
+                        // const damage = this.damage * 0.2; // 20% of normal damage
+                        // other.takeDamage(damage); 
                         
                         // Add collision cooldown
                         this.collisionCooldown = 0.5;
                         this.collidedThisFrame = true;
                         
-                        // Visual effect for collision
+                        // Remove visual effect for enemy-enemy collision
+                        /*
                         if (gameManager && gameManager.createHitEffect) {
                             gameManager.createHitEffect(
                                 this.x + dx/2, 
                                 this.y + dy/2, 
-                                damage
+                                damage // damage variable no longer exists here
                             );
                         }
+                        */
                         
                         break;
                     }

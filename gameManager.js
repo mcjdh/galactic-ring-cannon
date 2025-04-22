@@ -1947,6 +1947,37 @@ class GameManager {
     }
 }
 
+// Helper function to convert color string to rgba with alpha
+function makeColorWithAlpha(color, alpha) {
+    // Handle hex colors
+    if (color.startsWith('#')) {
+        // Convert hex to RGB
+        if (color.length === 4) { // #rgb
+            const r = parseInt(color.substring(1, 2).repeat(2), 16);
+            const g = parseInt(color.substring(2, 3).repeat(2), 16);
+            const b = parseInt(color.substring(3, 4).repeat(2), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        } else if (color.length === 7) { // #rrggbb
+            const r = parseInt(color.substring(1, 3), 16);
+            const g = parseInt(color.substring(3, 5), 16);
+            const b = parseInt(color.substring(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        } else {
+             console.warn(`Unsupported hex color format: ${color}`);
+             return `rgba(255, 255, 255, ${alpha})`; // Default white
+        }
+    } else if (color.startsWith('rgb')) {
+        // Handle rgb/rgba colors
+        const parts = color.match(/\d+/g);
+        if (parts && parts.length >= 3) {
+            return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+        }
+    }
+    // Fallback if color format is unknown
+    console.warn(`Unknown color format for alpha adjustment: ${color}`);
+    return `rgba(255, 255, 255, ${alpha})`; // Default to white with alpha
+}
+
 // Particle class for visual effects
 class Particle {
     constructor(x, y, vx, vy, size, color, lifetime) {
@@ -1989,23 +2020,8 @@ class Particle {
         
         // Make particles fade out
         const alpha = lifePercent;
-        ctx.fillStyle = this.makeColorWithAlpha(this.color, alpha);
+        ctx.fillStyle = makeColorWithAlpha(this.color, alpha); // Use standalone function
         ctx.fill();
-    }
-    
-    makeColorWithAlpha(color, alpha) {
-        // Handle hex colors
-        if (color.startsWith('#')) {
-            // Convert hex to RGB
-            const r = parseInt(color.substring(1, 3), 16);
-            const g = parseInt(color.substring(3, 5), 16);
-            const b = parseInt(color.substring(5, 7), 16);
-            
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-        
-        // Already rgba or similar
-        return color;
     }
 }
 
@@ -2039,24 +2055,9 @@ class ShockwaveParticle {
         
         // Make particles fade out
         const alpha = lifePercent * 0.5;
-        ctx.strokeStyle = this.makeColorWithAlpha(this.color, alpha);
+        ctx.strokeStyle = makeColorWithAlpha(this.color, alpha); // Use standalone function
         ctx.lineWidth = 2;
         ctx.stroke();
-    }
-    
-    makeColorWithAlpha(color, alpha) {
-        // Handle hex colors
-        if (color.startsWith('#')) {
-            // Convert hex to RGB
-            const r = parseInt(color.substring(1, 3), 16);
-            const g = parseInt(color.substring(3, 5), 16);
-            const b = parseInt(color.substring(5, 7), 16);
-            
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-        
-        // Already rgba or similar
-        return color;
     }
 }
 
