@@ -158,10 +158,12 @@ class GameManager {
         
         // Add restart button functionality from pause menu
         document.getElementById('restart-button-pause').addEventListener('click', () => {
+            if (typeof this.cleanupAll === 'function') this.cleanupAll();
             window.location.reload();
         });
         // Add return to main menu button functionality
         document.getElementById('return-button-pause').addEventListener('click', () => {
+            if (typeof this.cleanupAll === 'function') this.cleanupAll();
             window.location.reload();
         });
     }
@@ -525,6 +527,7 @@ class GameManager {
         
         // Add restart button functionality
         document.getElementById('restart-button').addEventListener('click', () => {
+            if (typeof this.cleanupAll === 'function') this.cleanupAll();
             window.location.reload();
         });
         
@@ -1553,6 +1556,7 @@ class GameManager {
             
             // Add play again button functionality
             document.getElementById('play-again-button').addEventListener('click', () => {
+                if (typeof this.cleanupAll === 'function') this.cleanupAll();
                 window.location.reload();
             });
             
@@ -1889,6 +1893,43 @@ class GameManager {
             }
             this._timers.length = 0;
         }
+    }
+
+    // Master cleanup method for all resources
+    cleanupAll() {
+        // Clear particles and pools
+        this.particles = [];
+        this.particlePool = [];
+        if (this.game) {
+            this.game.projectilePool = [];
+            this.game.particlePool = [];
+            if (typeof this.game.cleanup === 'function') {
+                this.game.cleanup(); // Remove event listeners
+            }
+        }
+        // Clear entities and arrays
+        if (this.game) {
+            this.game.entities = [];
+            this.game.enemies = [];
+            this.game.xpOrbs = [];
+            this.game.projectiles = [];
+            this.game.enemyProjectiles = [];
+        }
+        // Cleanup timers
+        if (typeof this.cleanupTimers === 'function') {
+            this.cleanupTimers();
+        }
+        // Cleanup audio
+        if (typeof audioSystem !== 'undefined' && audioSystem && typeof audioSystem.cleanup === 'function') {
+            audioSystem.cleanup();
+        }
+        // Cleanup UI enhancements
+        if (typeof uiEnhancements !== 'undefined' && uiEnhancements && typeof uiEnhancements.cleanup === 'function') {
+            uiEnhancements.cleanup();
+        }
+        // Remove dynamically created overlays (e.g., game over, win screen)
+        const overlays = document.querySelectorAll('#game-over, #win-screen');
+        overlays.forEach(el => el.remove());
     }
 }
 
@@ -2568,6 +2609,7 @@ GameManager.prototype.showWinScreen = function() {
     
     // Add play again button functionality
     document.getElementById('play-again-button').addEventListener('click', () => {
+        if (typeof this.cleanupAll === 'function') this.cleanupAll();
         window.location.reload();
     });
     

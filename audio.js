@@ -500,6 +500,16 @@ class AudioSystem {
         
         return buffer;
     }
+    
+    // Cleanup method to close audio context and null references
+    cleanup() {
+        if (this.audioContext && typeof this.audioContext.close === 'function' && this.audioContext.state !== 'closed') {
+            this.audioContext.close();
+        }
+        this.audioContext = null;
+        this.masterGain = null;
+        this.initialized = false;
+    }
 }
 
 // Create global audio system instance with error handling

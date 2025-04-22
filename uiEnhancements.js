@@ -216,6 +216,17 @@ class UIEnhancements {
         const intensity = amount * this.screenShakeIntensity;
         gameManager.addScreenShake(intensity, duration);
     }
+    
+    // Cleanup method to remove all damage numbers and container
+    cleanup() {
+        const container = document.getElementById('damage-numbers-container');
+        if (container) {
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+            container.remove();
+        }
+    }
 }
 
 // Create SVG filters for colorblind modes
