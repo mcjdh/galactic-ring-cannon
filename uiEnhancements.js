@@ -96,23 +96,38 @@ class UIEnhancements {
             settingsContent.appendChild(colorblindSetting);
             
             // Add event listeners
-            document.getElementById('damage-numbers-checkbox').addEventListener('change', (e) => {
-                this.damageNumbersEnabled = e.target.checked;
-                localStorage.setItem('damageNumbers', this.damageNumbersEnabled);
-            });
+            const damageNumbersCheckbox = document.getElementById('damage-numbers-checkbox');
+            if (damageNumbersCheckbox) {
+                damageNumbersCheckbox.addEventListener('change', (e) => {
+                    this.damageNumbersEnabled = e.target.checked;
+                    localStorage.setItem('damageNumbers', this.damageNumbersEnabled);
+                });
+            } else {
+                console.warn('damage-numbers-checkbox element not found');
+            }
             
-            document.getElementById('screen-shake-range').addEventListener('input', (e) => {
-                this.screenShakeIntensity = parseFloat(e.target.value);
-                localStorage.setItem('screenShakeIntensity', this.screenShakeIntensity);
-            });
+            const screenShakeRange = document.getElementById('screen-shake-range');
+            if (screenShakeRange) {
+                screenShakeRange.addEventListener('input', (e) => {
+                    this.screenShakeIntensity = parseFloat(e.target.value);
+                    localStorage.setItem('screenShakeIntensity', this.screenShakeIntensity);
+                });
+            } else {
+                console.warn('screen-shake-range element not found');
+            }
             
-            document.getElementById('colorblind-select').addEventListener('change', (e) => {
-                this.colorblindMode = e.target.value !== 'none';
-                this.colorblindType = e.target.value;
-                this.applyColorblindMode();
-                localStorage.setItem('colorblindMode', this.colorblindMode);
-                localStorage.setItem('colorblindType', this.colorblindType);
-            });
+            const colorblindSelect = document.getElementById('colorblind-select');
+            if (colorblindSelect) {
+                colorblindSelect.addEventListener('change', (e) => {
+                    this.colorblindMode = e.target.value !== 'none';
+                    this.colorblindType = e.target.value;
+                    this.applyColorblindMode();
+                    localStorage.setItem('colorblindMode', this.colorblindMode);
+                    localStorage.setItem('colorblindType', this.colorblindType);
+                });
+            } else {
+                console.warn('colorblind-select element not found');
+            }
             
             // Load saved settings
             this.loadSettings();
@@ -124,14 +139,24 @@ class UIEnhancements {
         const damageNumbers = localStorage.getItem('damageNumbers');
         if (damageNumbers !== null) {
             this.damageNumbersEnabled = damageNumbers === 'true';
-            document.getElementById('damage-numbers-checkbox').checked = this.damageNumbersEnabled;
+            const damageNumbersCheckbox = document.getElementById('damage-numbers-checkbox');
+            if (damageNumbersCheckbox) {
+                damageNumbersCheckbox.checked = this.damageNumbersEnabled;
+            } else {
+                console.warn('damage-numbers-checkbox element not found');
+            }
         }
         
         // Load screen shake intensity
         const screenShake = localStorage.getItem('screenShakeIntensity');
         if (screenShake !== null) {
             this.screenShakeIntensity = parseFloat(screenShake);
-            document.getElementById('screen-shake-range').value = this.screenShakeIntensity;
+            const screenShakeRange = document.getElementById('screen-shake-range');
+            if (screenShakeRange) {
+                screenShakeRange.value = this.screenShakeIntensity;
+            } else {
+                console.warn('screen-shake-range element not found');
+            }
         }
         
         // Load colorblind mode
@@ -140,8 +165,13 @@ class UIEnhancements {
         if (colorblindMode !== null && colorblindType !== null) {
             this.colorblindMode = colorblindMode === 'true';
             this.colorblindType = colorblindType;
-            document.getElementById('colorblind-select').value = this.colorblindType;
-            this.applyColorblindMode();
+            const colorblindSelect = document.getElementById('colorblind-select');
+            if (colorblindSelect) {
+                colorblindSelect.value = this.colorblindType;
+                this.applyColorblindMode();
+            } else {
+                console.warn('colorblind-select element not found');
+            }
         }
     }
     
@@ -163,7 +193,12 @@ class UIEnhancements {
         number.style.left = `${x}px`;
         number.style.top = `${y}px`;
         
-        document.getElementById('damage-numbers-container').appendChild(number);
+        const damageNumbersContainer = document.getElementById('damage-numbers-container');
+        if (damageNumbersContainer) {
+            damageNumbersContainer.appendChild(number);
+        } else {
+            console.warn('damage-numbers-container element not found');
+        }
         
         // Animate and remove
         setTimeout(() => {

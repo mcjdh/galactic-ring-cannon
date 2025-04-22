@@ -1,6 +1,7 @@
 # Ignore Cursor rules and bugfix task list
 .cursor/rules/
 bugfix-task-list.md
+bugfix-tasks.md
 
 # Node modules (if any)
 node_modules/

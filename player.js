@@ -229,9 +229,12 @@ class Player {
         // Update health bar if health actually changed
         if (oldHealth !== this.health) {
             const healthBar = document.getElementById('health-bar');
-            const healthPercentage = (this.health / this.maxHealth) * 100;
-            healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
-            
+            if (healthBar) {
+                const healthPercentage = (this.health / this.maxHealth) * 100;
+                healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+            } else {
+                console.warn('health-bar element not found');
+            }
             // Show healing text
             gameManager.showFloatingText(`+${Math.round(this.health - oldHealth)}`, this.x, this.y - 30, '#2ecc71', 16);
         }
@@ -350,7 +353,12 @@ class Player {
         this.heal(this.maxHealth * 0.3); // Heal 30% of max health (increased from 20%)
         
         // Update level display
-        document.getElementById('level-display').textContent = `Level: ${this.level}`;
+        const levelDisplay = document.getElementById('level-display');
+        if (levelDisplay) {
+            levelDisplay.textContent = `Level: ${this.level}`;
+        } else {
+            console.warn('level-display element not found');
+        }
         
         // Track level up achievement
         if (gameManager) {
@@ -398,8 +406,12 @@ class Player {
         
         // Update health bar
         const healthBar = document.getElementById('health-bar');
-        const healthPercentage = (this.health / this.maxHealth) * 100;
-        healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+        if (healthBar) {
+            const healthPercentage = (this.health / this.maxHealth) * 100;
+            healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+        } else {
+            console.warn('health-bar element not found');
+        }
         
         // Trigger invulnerability
         this.isInvulnerable = true;

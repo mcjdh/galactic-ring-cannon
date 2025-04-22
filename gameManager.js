@@ -103,37 +103,37 @@ class GameManager {
     initializeUI() {
         // Initialize health bar
         const healthBar = document.getElementById('health-bar');
-        healthBar.style.setProperty('--health-width', '100%');
+        if (healthBar) {
+            healthBar.style.setProperty('--health-width', '100%');
+        } else {
+            console.warn('health-bar element not found');
+        }
         
         // Initialize XP bar
         const xpBar = document.getElementById('xp-bar');
-        xpBar.style.setProperty('--xp-width', '0%');
+        if (xpBar) {
+            xpBar.style.setProperty('--xp-width', '0%');
+        } else {
+            console.warn('xp-bar element not found');
+        }
         
         // Create timer display
         const timerDisplay = document.createElement('div');
         timerDisplay.id = 'timer-display';
         timerDisplay.textContent = '00:00';
-        document.getElementById('game-container').appendChild(timerDisplay);
-        
         // Create score display
         const scoreDisplay = document.createElement('div');
         scoreDisplay.id = 'score-display';
         scoreDisplay.textContent = 'Kills: 0';
-        document.getElementById('game-container').appendChild(scoreDisplay);
-        
         // Add enemy counter display
         const enemyCounter = document.createElement('div');
         enemyCounter.id = 'enemy-counter';
         enemyCounter.textContent = 'Enemies: 0';
-        document.getElementById('game-container').appendChild(enemyCounter);
         // Meta progression: display star tokens
         this.loadStarTokens();
         const starDisplay = document.createElement('div');
         starDisplay.id = 'star-token-display';
         starDisplay.textContent = '⭐ ' + this.metaStars;
-        document.getElementById('game-container').appendChild(starDisplay);
-        this.starDisplayElement = starDisplay;
-
         // Add boss health bar (initially hidden)
         const bossHealthBarContainer = document.createElement('div');
         bossHealthBarContainer.id = 'boss-health-container';
@@ -142,7 +142,16 @@ class GameManager {
             <div class="boss-name">BOSS</div>
             <div id="boss-health-bar"></div>
         `;
-        document.getElementById('game-container').appendChild(bossHealthBarContainer);
+        const gameContainer = document.getElementById('game-container');
+        if (gameContainer) {
+            gameContainer.appendChild(timerDisplay);
+            gameContainer.appendChild(scoreDisplay);
+            gameContainer.appendChild(enemyCounter);
+            gameContainer.appendChild(starDisplay);
+            gameContainer.appendChild(bossHealthBarContainer);
+        } else {
+            console.warn('game-container element not found');
+        }
     }
     
     initializePauseControls() {
@@ -221,7 +230,12 @@ class GameManager {
         this.game.addEntity(player);
         
         // Update UI elements with initial values
-        document.getElementById('level-display').textContent = `Level: ${this.game.player.level}`;
+        const levelDisplay = document.getElementById('level-display');
+        if (levelDisplay) {
+            levelDisplay.textContent = `Level: ${this.game.player.level}`;
+        } else {
+            console.warn('level-display element not found');
+        }
         
         // Start the game loop
         this.game.start();
