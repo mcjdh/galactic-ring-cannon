@@ -181,19 +181,23 @@ class Enemy {
         if (this.collisionCooldown > 0) {
             this.collisionCooldown -= deltaTime;
         }
-        
-        // Check for collisions with other enemies
+          // Check for collisions with other enemies (with improved safety)
         if (!this.isDead && this.collisionCooldown <= 0 && game.enemies) {
             for (const other of game.enemies) {
-                if (other !== this && !other.isDead && !other.collidedThisFrame) {
+                if (other !== this && !other.isDead && !other.collidedThisFrame && 
+                    typeof other.x === 'number' && typeof other.y === 'number') {
                     const dx = other.x - this.x;
                     const dy = other.y - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const distanceSquared = dx * dx + dy * dy;
+                    const radiusSum = this.radius + other.radius;
                     
-                    if (distance < this.radius + other.radius) {
+                    // Use squared distance to avoid expensive sqrt and prevent division by zero
+                    if (distanceSquared > 0 && distanceSquared < radiusSum * radiusSum) {
                         // Enemies damage each other on collision
-                        const damage = this.damage * 0.2; // 20% of normal damage
-                        other.takeDamage(damage);
+                        const damage = (this.damage || 0) * 0.2; // 20% of normal damage
+                        if (typeof other.takeDamage === 'function' && damage > 0) {
+                            other.takeDamage(damage);
+                        }
                         
                         // Add collision cooldown
                         this.collisionCooldown = 0.5;
@@ -1581,18 +1585,24 @@ Enemy.prototype.activateShield = function() {
             }
         }
     }
+      // Return to normal damage resistance when shield expires (with proper cleanup)
+    if (this.shieldTimeout) {
+        clearTimeout(this.shieldTimeout);
+    }
     
-    // Return to normal damage resistance when shield expires
-    setTimeout(() => {
+    this.shieldTimeout = setTimeout(() => {
         if (this && !this.isDead) {
             this.shieldActive = false;
             this.damageResistance = this.damageReductionBackup;
             
-            if (gameManager) {
+            if (gameManager && typeof gameManager.showFloatingText === 'function') {
                 gameManager.showFloatingText("SHIELD DOWN!", this.x, this.y - 30, "#e74c3c", 18);
             }
+            
+            // Clear the timeout reference
+            this.shieldTimeout = null;
         }
-    }, this.shieldDuration * 1000);
+    }, (this.shieldDuration || 3) * 1000);
 };
 
 // Add teleport mechanism

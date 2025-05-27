@@ -130,17 +130,17 @@ class GameManager {
         starDisplay.id = 'star-token-display';
         starDisplay.textContent = '⭐ ' + this.metaStars;
         document.getElementById('game-container').appendChild(starDisplay);
-        this.starDisplayElement = starDisplay;
-
-        // Add boss health bar (initially hidden)
-        const bossHealthBarContainer = document.createElement('div');
-        bossHealthBarContainer.id = 'boss-health-container';
-        bossHealthBarContainer.className = 'hidden';
-        bossHealthBarContainer.innerHTML = `
-            <div class="boss-name">BOSS</div>
-            <div id="boss-health-bar"></div>
-        `;
-        document.getElementById('game-container').appendChild(bossHealthBarContainer);
+        this.starDisplayElement = starDisplay;        // Add boss health bar (initially hidden) - prevent duplicates
+        if (!document.getElementById('boss-health-container')) {
+            const bossHealthBarContainer = document.createElement('div');
+            bossHealthBarContainer.id = 'boss-health-container';
+            bossHealthBarContainer.className = 'hidden';
+            bossHealthBarContainer.innerHTML = `
+                <div class="boss-name">BOSS</div>
+                <div id="boss-health-bar"></div>
+            `;
+            document.getElementById('game-container').appendChild(bossHealthBarContainer);
+        }
     }
     
     initializePauseControls() {
@@ -262,13 +262,39 @@ class GameManager {
         }
         
         this.gameTime += deltaTime;
-        
-        // Update difficulty scaling
+          // Update difficulty scaling with improved progression
         this.difficultyTimer += deltaTime;
         if (this.difficultyTimer >= this.difficultyInterval) {
             this.difficultyTimer = 0;
+            
+            // More balanced difficulty scaling based on game time and mode
+            const gameMinutes = this.gameTime / 60;
+            let difficultyIncrease = 1.12; // Reduced from 1.15 for better balance
+            
+            // Adaptive scaling based on game mode and progress
+            if (this.endlessMode) {
+                // Endless mode: slower scaling in early game, faster later
+                difficultyIncrease = gameMinutes < 3 ? 1.08 : 1.15;
+            } else {
+                // Normal mode: consistent moderate scaling
+                difficultyIncrease = 1.10;
+            }
+            
+            // Apply player performance-based adjustment
+            if (this.game.player) {
+                const playerHealthPercentage = this.game.player.health / this.game.player.maxHealth;
+                // If player is struggling (low health), reduce difficulty increase
+                if (playerHealthPercentage < 0.3) {
+                    difficultyIncrease *= 0.85; // Reduce scaling when player is low on health
+                }
+                // If player is doing well (high level), increase scaling slightly
+                if (this.game.player.level > 10) {
+                    difficultyIncrease *= 1.05;
+                }
+            }
+            
             this.difficultyFactor = Math.min(this.maxDifficultyFactor, 
-                this.difficultyFactor * 1.15); // 15% increase per interval
+                this.difficultyFactor * difficultyIncrease);
             
             // Scale enemy spawning based on difficulty
             this.updateDifficultyScaling();
@@ -582,27 +608,56 @@ class GameManager {
             textElement.remove();
         }, 1000);
     }
-    
-    updateParticles(deltaTime) {
-        // Cap total particles to avoid performance issues
-        if (this.particles.length > this.maxParticles) {
-            this.particles.splice(0, this.particles.length - this.maxParticles);
+      updateParticles(deltaTime) {
+        // Enforce particle limit to prevent memory issues
+        const maxParticles = this.maxParticles || 150;
+        
+        // If we exceed the limit, remove the oldest particles first
+        if (this.particles.length > maxParticles) {
+            const excessCount = this.particles.length - maxParticles;
+            this.particles.splice(0, excessCount);
         }
         
-        // Use object pooling for particles
         const deadParticles = [];
+        
+        // Update particles and collect dead ones for reuse
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const particle = this.particles[i];
-            particle.update(deltaTime);
             
-            if (particle.isDead) {
+            if (!particle) {
+                this.particles.splice(i, 1);
+                continue;
+            }
+            
+            if (typeof particle.update === 'function') {
+                particle.update(deltaTime);
+            }
+            
+            // Check if particle is dead
+            if (particle.isDead || (particle.age !== undefined && particle.lifetime !== undefined && particle.age >= particle.lifetime)) {
                 deadParticles.push(particle);
                 this.particles.splice(i, 1);
             }
         }
         
-        // Reuse dead particles instead of creating new ones
-        this.particlePool = deadParticles;
+        // Maintain particle pool size limit
+        if (!this.particlePool) {
+            this.particlePool = [];
+        }
+        
+        const maxPoolSize = 50; // Reasonable pool size
+        const availablePoolSlots = maxPoolSize - this.particlePool.length;
+        
+        // Add dead particles to pool (up to limit)
+        for (let i = 0; i < Math.min(deadParticles.length, availablePoolSlots); i++) {
+            const particle = deadParticles[i];
+            // Reset particle for reuse
+            if (particle) {
+                particle.isDead = false;
+                particle.age = 0;
+                this.particlePool.push(particle);
+            }
+        }
     }
     
     createExplosion(x, y, radius, color) {
@@ -761,14 +816,17 @@ class GameManager {
     isMenuActive() {
         return this.game.isPaused || (upgradeSystem && upgradeSystem.isLevelUpActive());
     }
-    
-    initializeMinimap() {
+      initializeMinimap() {
         this.minimap = document.getElementById('minimap');
         this.minimapCtx = this.minimap.getContext('2d');
         this.minimap.width = 200; // Increased size
         this.minimap.height = 200;
         this.minimapScale = 0.15; // Increased scale for better visibility
         this.minimapContainer = document.getElementById('minimap-container');
+        
+        // Add minimap throttling for performance
+        this.lastMinimapUpdate = 0;
+        this.minimapUpdateInterval = 50; // Update every 50ms (20 FPS)
         
         // Add boss direction indicator
         const bossIndicator = document.createElement('div');
@@ -821,9 +879,15 @@ class GameManager {
             }
         }
     }
-    
-    updateMinimap() {
+      updateMinimap() {
         if (!this.game.player) return;
+        
+        // Throttle minimap updates for performance
+        const now = Date.now();
+        if (now - this.lastMinimapUpdate < this.minimapUpdateInterval) {
+            return;
+        }
+        this.lastMinimapUpdate = now;
         
         // Clear minimap
         this.minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -1445,16 +1509,21 @@ class GameManager {
         if (indicatorsContainer) {
             indicatorsContainer.innerHTML = '';
         }
-    }
-
-    // Show win screen method
+    }    // Show win screen method
     showWinScreen() {
         console.log("Showing win screen called!");
 
-        // Prevent multiple win screens
-        if (this.winScreenDisplayed) {
-            console.log("Win screen already displayed, not showing again");
-            return;
+        // Prevent multiple win screens with stronger validation
+        if (this.winScreenDisplayed || this.gameWon) {
+            console.log("Win screen already displayed or game already won, not showing again");
+            return false;
+        }
+        
+        // Check if win screen element already exists
+        const existingWinScreen = document.getElementById('win-screen');
+        if (existingWinScreen) {
+            console.log("Win screen element already exists, not creating another");
+            return false;
         }
         
         // Flag states immediately to prevent race conditions
@@ -1469,7 +1538,7 @@ class GameManager {
             this.game.isPaused = true;
         }
         
-        // Stop enemy spawning completely
+        // Stop enemy spawning completely with safety checks
         if (this.enemySpawner) {
             this.enemySpawner.spawnRate = 0;
             this.enemySpawner.maxEnemies = 0;
@@ -1478,13 +1547,18 @@ class GameManager {
         }
         
         // Create massive victory explosion effect at player position
-        if (this.game.player) {
+        if (this.game && this.game.player) {
             this.createSpecialEffect('bossPhase', this.game.player.x, this.game.player.y, 150, '#f1c40f');
             this.addScreenShake(8, 1.0);
         }
         
         // Create win screen UI (with slight delay to ensure it displays properly)
         setTimeout(() => {
+            // Double-check we haven't already created the win screen
+            if (document.getElementById('win-screen')) {
+                return;
+            }
+            
             const winDiv = document.createElement('div');
             winDiv.id = 'win-screen';
             
@@ -1493,11 +1567,11 @@ class GameManager {
             const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
             const seconds = (totalSeconds % 60).toString().padStart(2, '0');
             
-            // Calculate score based on various factors
+            // Calculate score based on various factors with safety checks
             const timeScore = Math.floor(totalSeconds * 10);
             const killScore = this.killCount * 100;
-            const levelScore = this.game.player.level * 500;
-            const bossScore = (this.gameStats.bossesSpawned || 0) * 1000;
+            const levelScore = (this.game?.player?.level || 0) * 500;
+            const bossScore = (this.gameStats?.bossesSpawned || 0) * 1000;
             const totalScore = timeScore + killScore + levelScore + bossScore;
             // Calculate meta star tokens earned this run
             const earnedStars = Math.floor(this.killCount / 50) + (this.gameStats.bossesSpawned || 0);

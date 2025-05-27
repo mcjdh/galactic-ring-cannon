@@ -884,23 +884,31 @@ class Player {
             orb.angle = this.orbitAngle + (i * angleStep);
             orb.x = this.x + Math.cos(orb.angle) * this.orbitRadius;
             orb.y = this.y + Math.sin(orb.angle) * this.orbitRadius;
+              // Reduce cooldown for orbital hits
+            if (orb.cooldown > 0) {
+                orb.cooldown -= deltaTime;
+            }
             
-            // Reset hit enemies when projectile has moved enough
-            if (i === 0 && Math.abs(orb.angle % (Math.PI / 2)) < 0.1) {
-                for (const orb of this.orbitProjectiles) {
-                    orb.hitEnemies.clear();
+            // Reset hit enemies when projectile has moved enough (more frequent reset)
+            if (i === 0 && Math.abs(orb.angle % (Math.PI / 4)) < 0.05) {
+                for (const orbProjectile of this.orbitProjectiles) {
+                    orbProjectile.hitEnemies.clear();
+                    orbProjectile.cooldown = 0;
                 }
             }
             
-            // Check for enemy collisions
+            // Check for enemy collisions with improved detection
+            if (!game?.enemies || !Array.isArray(game.enemies)) continue;
+            
             for (const enemy of game.enemies) {
-                if (enemy.isDead || orb.hitEnemies.has(enemy.id)) continue;
-                
-                const dx = enemy.x - orb.x;
+                if (!enemy || enemy.isDead || orb.hitEnemies.has(enemy.id) || orb.cooldown > 0) continue;
+                  const dx = enemy.x - orb.x;
                 const dy = enemy.y - orb.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+                // Use squared distance to avoid expensive sqrt
+                const distanceSquared = dx * dx + dy * dy;
+                const collisionRadius = enemy.radius + 10; // 10 = orbital projectile size
                 
-                if (distance < enemy.radius + 10) { // 10 = orbital projectile size
+                if (distanceSquared < collisionRadius * collisionRadius) {
                     // Calculate damage
                     let damage = this.attackDamage * this.orbitDamage;
                     const isCrit = Math.random() < this.critChance;
@@ -926,9 +934,9 @@ class Player {
                             (isCrit ? this.lifestealCritMultiplier : 1);
                         this.heal(healAmount);
                     }
-                    
-                    // Add to set of hit enemies for this orbit
+                      // Add to set of hit enemies for this orbit with cooldown
                     orb.hitEnemies.add(enemy.id);
+                    orb.cooldown = 0.1; // Small cooldown to prevent rapid repeated hits
                     
                     // Create hit effect
                     if (gameManager.createHitEffect) {
@@ -946,33 +954,46 @@ class Player {
             gameManager.onOrbitalCountChanged(this.orbitCount);
         }
     }
-    
-    processChainLightning(startEnemy, baseDamage, chainsLeft, hitEnemies = new Set()) {
-        if (chainsLeft <= 0 || !startEnemy) return;
+      processChainLightning(startEnemy, baseDamage, chainsLeft, hitEnemies = new Set()) {
+        // Enhanced safety checks to prevent infinite loops
+        if (chainsLeft <= 0 || !startEnemy || hitEnemies.size > 20) return;
+        
+        // Add recursion depth limit as backup safety
+        if (!this._chainDepth) this._chainDepth = 0;
+        this._chainDepth++;
+        if (this._chainDepth > 10) {
+            this._chainDepth = 0;
+            return;
+        }
         
         // Find closest enemy that hasn't been hit
         let closestEnemy = null;
         let closestDistance = this.chainRange;
         
-        // Make sure we're accessing the enemies array correctly
+        // Make sure we're accessing the enemies array correctly with validation
         const enemies = gameManager?.game?.enemies || [];
+        if (!Array.isArray(enemies) || enemies.length === 0) {
+            this._chainDepth--;
+            return;
+        }
         
         for (const enemy of enemies) {
-            // Skip if already hit or dead
-            if (hitEnemies.has(enemy.id) || enemy.isDead) continue;
+            // Enhanced validation and skip conditions
+            if (!enemy || hitEnemies.has(enemy.id) || enemy.isDead || 
+                typeof enemy.x !== 'number' || typeof enemy.y !== 'number') continue;
             
             const dx = enemy.x - startEnemy.x;
             const dy = enemy.y - startEnemy.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance < closestDistance) {
+            if (distance < closestDistance && distance > 0) { // Ensure distance > 0
                 closestDistance = distance;
                 closestEnemy = enemy;
             }
         }
         
         // If we found an enemy to chain to
-        if (closestEnemy) {
+        if (closestEnemy && !hitEnemies.has(closestEnemy.id)) {
             // Calculate damage for chain hit
             const chainDamage = baseDamage * this.chainDamage;
             const isCrit = Math.random() < this.critChance;
@@ -1007,15 +1028,22 @@ class Player {
             if (gameManager) {
                 gameManager.onChainLightningHit(hitEnemies.size);
             }
-            
-            // Continue chain IMMEDIATELY instead of using setTimeout
-            // This makes the chain lightning appear instantaneous
-            this.processChainLightning(closestEnemy, baseDamage, chainsLeft - 1, hitEnemies);
+              // Continue chain with safety checks
+            if (chainsLeft > 1 && hitEnemies.size < 15) {
+                this.processChainLightning(closestEnemy, baseDamage, chainsLeft - 1, hitEnemies);
+            }
         }
-    }
-
-    processRicochet(sourceX, sourceY, damage, bouncesLeft, hitEnemies = new Set()) {
+        
+        // Reset recursion depth counter
+        this._chainDepth = Math.max(0, this._chainDepth - 1);
+    }processRicochet(sourceX, sourceY, damage, bouncesLeft, hitEnemies = new Set()) {
         if (bouncesLeft <= 0) return;
+        
+        // Safety checks for parameters
+        if (typeof sourceX !== 'number' || typeof sourceY !== 'number' || 
+            typeof damage !== 'number' || damage <= 0) {
+            return;
+        }
         
         // Make sure we're accessing the enemies array correctly
         const enemies = gameManager?.game?.enemies || [];
@@ -1023,17 +1051,20 @@ class Player {
         
         // Find closest enemy that hasn't been hit
         let closestEnemy = null;
-        let closestDistance = this.ricochetRange;
+        let closestDistance = this.ricochetRange || 200; // Fallback range
         
         for (const enemy of enemies) {
-            // Skip if already hit or dead
-            if (hitEnemies.has(enemy.id) || enemy.isDead) continue;
+            // Skip if already hit, dead, or invalid
+            if (!enemy || hitEnemies.has(enemy.id) || enemy.isDead || 
+                typeof enemy.x !== 'number' || typeof enemy.y !== 'number') continue;
             
             const dx = enemy.x - sourceX;
             const dy = enemy.y - sourceY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distanceSquared = dx * dx + dy * dy;
+            const distance = Math.sqrt(distanceSquared);
             
-            if (distance < closestDistance) {
+            // Prevent division by zero or invalid distance
+            if (distance > 0 && distance < closestDistance) {
                 closestDistance = distance;
                 closestEnemy = enemy;
             }
@@ -1041,13 +1072,19 @@ class Player {
         
         // If we found an enemy to ricochet to
         if (closestEnemy) {
-            // Calculate ricochet damage
-            const isCrit = Math.random() < this.critChance;
-            const ricochetDamage = damage * this.ricochetDamage * 
-                (isCrit ? this.critMultiplier : 1);
+            // Calculate ricochet damage with safety checks
+            const critChance = this.critChance || 0;
+            const critMultiplier = this.critMultiplier || 1;
+            const ricochetDamageMultiplier = this.ricochetDamage || 0.5;
             
-            // Create ricochet visual effect
-            this.createRicochetEffect(sourceX, sourceY, closestEnemy.x, closestEnemy.y);
+            const isCrit = Math.random() < critChance;
+            const ricochetDamage = damage * ricochetDamageMultiplier * 
+                (isCrit ? critMultiplier : 1);
+            
+            // Create ricochet visual effect with safety checks
+            if (typeof this.createRicochetEffect === 'function') {
+                this.createRicochetEffect(sourceX, sourceY, closestEnemy.x, closestEnemy.y);
+            }
             
             // Apply damage to enemy
             closestEnemy.takeDamage(ricochetDamage);
@@ -1243,21 +1280,24 @@ class Player {
         
         // Play lightning sound
         audioSystem.play('hit', 0.3);
-    }
-
-    findNearestEnemy(enemies) {
+    }    findNearestEnemy(enemies) {
         if (!enemies || enemies.length === 0) return null;
         
         let nearestEnemy = null;
-        let shortestDistance = Infinity;
+        let shortestDistanceSquared = Infinity;
         
         for (const enemy of enemies) {
+            // Validate enemy object
+            if (!enemy || typeof enemy.x !== 'number' || typeof enemy.y !== 'number' || 
+                enemy.isDead) continue;
+            
             const dx = enemy.x - this.x;
             const dy = enemy.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distanceSquared = dx * dx + dy * dy;
             
-            if (distance < shortestDistance) {
-                shortestDistance = distance;
+            // Use squared distance to avoid expensive sqrt calculation
+            if (distanceSquared < shortestDistanceSquared && distanceSquared > 0) {
+                shortestDistanceSquared = distanceSquared;
                 nearestEnemy = enemy;
             }
         }

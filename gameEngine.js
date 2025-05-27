@@ -65,8 +65,7 @@ class GameEngine {
         // Spatial partitioning with error handling
         this.gridSize = 100;
         this.spatialGrid = new Map();
-        
-        // Input handling with additional pause key support and error handling
+          // Input handling with additional pause key support and error handling
         this.keys = {};
         try {
             window.addEventListener('keydown', e => {
@@ -82,8 +81,8 @@ class GameEngine {
                     this.debugMode = !this.debugMode;
                 }
                 
-                // Add performance mode toggle
-                if (e.key === 'p' || e.key === 'P') {
+                // Toggle performance mode with 'O' key (O for Optimize)
+                if (e.key === 'o' || e.key === 'O') {
                     this.togglePerformanceMode();
                 }
             });
@@ -114,6 +113,11 @@ class GameEngine {
         // Initialize performance monitoring
         this.performanceHistory = [];
         this.maxHistorySize = 100;
+        
+        // Add canvas context loss handling
+        this.canvas.addEventListener('webglcontextlost', this.handleContextLoss.bind(this));
+        this.canvas.addEventListener('webglcontextrestored', this.handleContextRestore.bind(this));
+        this.contextLost = false;
     }
     
     resizeCanvas() {
@@ -353,52 +357,98 @@ class GameEngine {
             }
         }
     }
-    
-    handleCollision(entity1, entity2) {
+      handleCollision(entity1, entity2) {
         if (!entity1 || !entity2) {
             console.error('Invalid collision entities!');
+            return;
+        }
+        
+        // Prevent entities from colliding with themselves
+        if (entity1 === entity2 || (entity1.id && entity1.id === entity2.id)) {
+            return;
+        }
+        
+        // Check if entities are already dead
+        if (entity1.isDead || entity2.isDead) {
             return;
         }
         
         try {
             // Player collision with XP orbs
             if (entity1.type === 'player' && entity2.type === 'xpOrb') {
-                entity1.addXP(entity2.value);
-                entity2.isDead = true;
+                if (typeof entity1.addXP === 'function' && typeof entity2.value === 'number') {
+                    entity1.addXP(entity2.value);
+                    entity2.isDead = true;
+                }
             } else if (entity2.type === 'player' && entity1.type === 'xpOrb') {
-                entity2.addXP(entity1.value);
-                entity1.isDead = true;
+                if (typeof entity2.addXP === 'function' && typeof entity1.value === 'number') {
+                    entity2.addXP(entity1.value);
+                    entity1.isDead = true;
+                }
             }
             
             // Player collision with enemies
             if (entity1.type === 'player' && entity2.type === 'enemy' && !entity1.isInvulnerable) {
-                entity1.takeDamage(entity2.damage);
+                if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
+                    entity1.takeDamage(entity2.damage);
+                }
             } else if (entity2.type === 'player' && entity1.type === 'enemy' && !entity2.isInvulnerable) {
-                entity2.takeDamage(entity1.damage);
+                if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
+                    entity2.takeDamage(entity1.damage);
+                }
             }
             
             // Projectile collision with enemies
             if (entity1.type === 'projectile' && entity2.type === 'enemy' && !entity2.isDead) {
-                const hitSuccessful = entity1.hit(entity2);
-                entity2.takeDamage(entity1.damage);
+                let hitSuccessful = true;
+                if (typeof entity1.hit === 'function') {
+                    hitSuccessful = entity1.hit(entity2);
+                }
+                if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
+                    entity2.takeDamage(entity1.damage);
+                }
                 if (hitSuccessful && !entity1.piercing) {
                     entity1.isDead = true;
                 }
             } else if (entity2.type === 'projectile' && entity1.type === 'enemy' && !entity1.isDead) {
-                const hitSuccessful = entity2.hit(entity1);
-                entity1.takeDamage(entity2.damage);
+                let hitSuccessful = true;
+                if (typeof entity2.hit === 'function') {
+                    hitSuccessful = entity2.hit(entity1);
+                }
+                if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
+                    entity1.takeDamage(entity2.damage);
+                }
                 if (hitSuccessful && !entity2.piercing) {
                     entity2.isDead = true;
                 }
             }
+            
+            // Enemy projectile collision with player
+            if (entity1.type === 'enemyProjectile' && entity2.type === 'player' && !entity2.isInvulnerable) {
+                if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
+                    entity2.takeDamage(entity1.damage);
+                    entity1.isDead = true;
+                }
+            } else if (entity2.type === 'enemyProjectile' && entity1.type === 'player' && !entity1.isInvulnerable) {
+                if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
+                    entity1.takeDamage(entity2.damage);
+                    entity2.isDead = true;
+                }
+            }
         } catch (error) {
-            console.error('Error handling collision:', error);
+            console.error('Error handling collision:', error, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
         }
     }
-    
-    render() {
-        // Clear canvas with optimized method
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      render() {
+        // Check for context loss before rendering
+        if (this.contextLost || !this.ctx) {
+            console.warn('Canvas context unavailable, skipping render');
+            return;
+        }
+        
+        try {
+            // Clear canvas with optimized method
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Set camera with optimized transform
         this.ctx.save();
@@ -429,13 +479,20 @@ class GameEngine {
             // Batch render similar entities
             this.batchRenderEntities(group);
         }
-        
-        // Render debug information if enabled
+          // Render debug information if enabled
         if (this.debugMode) {
             this.renderDebugInfo();
         }
         
         this.ctx.restore();
+        
+        } catch (error) {
+            console.error('Render error:', error);
+            // Try to recover context if possible
+            if (!this.ctx || this.contextLost) {
+                this.handleContextLoss(new Event('webglcontextlost'));
+            }
+        }
     }
     
     batchRenderEntities(entities) {
@@ -503,36 +560,85 @@ class GameEngine {
         
         this.ctx.restore();
     }
-    
-    isColliding(entity1, entity2) {
+      isColliding(entity1, entity2) {
+        // Validate entities have required properties
+        if (!entity1 || !entity2 || 
+            typeof entity1.x !== 'number' || typeof entity1.y !== 'number' || 
+            typeof entity2.x !== 'number' || typeof entity2.y !== 'number' ||
+            typeof entity1.radius !== 'number' || typeof entity2.radius !== 'number') {
+            return false;
+        }
+        
         // Use squared distance to avoid costly sqrt per collision check
         const dx = entity1.x - entity2.x;
         const dy = entity1.y - entity2.y;
         const r = entity1.radius + entity2.radius;
+        
+        // Ensure radius sum is positive to avoid division issues
+        if (r <= 0) return false;
+        
         return (dx * dx + dy * dy) < (r * r);
     }
-    
-    cleanupEntities() {
-        this.entities = this.entities.filter(entity => !entity.isDead);
-        this.enemies = this.enemies.filter(enemy => !enemy.isDead);
-        this.xpOrbs = this.xpOrbs.filter(orb => !orb.isDead);
-        this.projectiles = this.projectiles.filter(projectile => !projectile.isDead);
+      cleanupEntities() {
+        // Track entities before cleanup for debugging
+        const entitiesBefore = this.entities.length;
+        
+        // Use more efficient filtering with proper null checks
+        this.entities = this.entities.filter(entity => entity && !entity.isDead);
+        this.enemies = this.enemies.filter(enemy => enemy && !enemy.isDead);
+        this.xpOrbs = this.xpOrbs.filter(orb => orb && !orb.isDead);
+        this.projectiles = this.projectiles.filter(projectile => projectile && !projectile.isDead);
+        
         if (this.enemyProjectiles) {
-            this.enemyProjectiles = this.enemyProjectiles.filter(projectile => !projectile.isDead);
+            this.enemyProjectiles = this.enemyProjectiles.filter(projectile => projectile && !projectile.isDead);
+        }
+        
+        // Enforce entity limits to prevent memory issues
+        const maxEntities = 2000; // Reasonable limit
+        if (this.entities.length > maxEntities) {
+            console.warn(`Entity count exceeded limit (${this.entities.length}), removing oldest entities`);
+            // Remove oldest non-player entities
+            const nonPlayerEntities = this.entities.filter(e => e && e.type !== 'player');
+            const toRemove = this.entities.length - maxEntities;
+            for (let i = 0; i < toRemove && i < nonPlayerEntities.length; i++) {
+                nonPlayerEntities[i].isDead = true;
+            }
+            // Re-filter after marking for removal
+            this.entities = this.entities.filter(entity => entity && !entity.isDead);
+        }
+        
+        // Log cleanup stats in debug mode
+        if (this.debugMode && entitiesBefore !== this.entities.length) {
+            console.log(`Cleaned up ${entitiesBefore - this.entities.length} entities (${this.entities.length} remaining)`);
         }
     }
-    
-    // Add error handling to addEntity
+      // Add error handling to addEntity
     addEntity(entity) {
         if (!entity) {
-            console.error('Attempted to add null entity!');
+            console.error('Attempted to add null/undefined entity!');
+            return null;
+        }
+        
+        // Validate entity has required properties
+        if (typeof entity.x !== 'number' || typeof entity.y !== 'number') {
+            console.error('Entity missing required position properties:', entity);
+            return null;
+        }
+        
+        if (!entity.type || typeof entity.type !== 'string') {
+            console.error('Entity missing or invalid type property:', entity);
             return null;
         }
         
         try {
+            // Add to main entities array
             this.entities.push(entity);
             
+            // Add to specific type arrays with validation
             if (entity.type === 'player') {
+                if (this.player) {
+                    console.warn('Player already exists, replacing...');
+                }
                 this.player = entity;
             } else if (entity.type === 'enemy') {
                 this.enemies.push(entity);
@@ -547,9 +653,14 @@ class GameEngine {
                 this.enemyProjectiles.push(entity);
             }
             
+            // Assign unique ID if not present
+            if (!entity.id) {
+                entity.id = `${entity.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            }
+            
             return entity;
         } catch (error) {
-            console.error('Error adding entity:', error);
+            console.error('Error adding entity:', error, entity);
             return null;
         }
     }
@@ -695,8 +806,7 @@ class GameEngine {
             audioSystem.audioContext.resume();
         }
     }
-    
-    cleanupResources() {
+      cleanupResources() {
         // Clean up dead entities
         this.cleanupEntities();
         
@@ -714,5 +824,73 @@ class GameEngine {
         
         // Rebuild spatial grid
         this.updateSpatialGrid();
+        
+        // Clean up event listeners if shutting down
+        if (this.isShuttingDown) {
+            this.cleanupEventListeners();
+        }
+    }
+    
+    handleContextLoss(event) {
+        event.preventDefault();
+        this.contextLost = true;
+        console.warn('Canvas context lost - game paused');
+        this.isPaused = true;
+    }
+    
+    handleContextRestore(event) {
+        console.log('Canvas context restored - resuming game');
+        this.contextLost = false;
+        
+        // Reinitialize canvas context
+        this.ctx = this.canvas.getContext('2d', { 
+            alpha: false,
+            willReadFrequently: false
+        });
+        
+        if (this.ctx) {
+            this.isPaused = false;
+            console.log('Game context successfully restored');
+        } else {
+            console.error('Failed to restore canvas context');
+        }
+    }
+    
+    cleanupEventListeners() {
+        // Remove event listeners to prevent memory leaks
+        try {
+            window.removeEventListener('resize', this.resizeCanvas.bind(this));
+            this.canvas.removeEventListener('webglcontextlost', this.handleContextLoss.bind(this));
+            this.canvas.removeEventListener('webglcontextrestored', this.handleContextRestore.bind(this));
+            document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+            window.removeEventListener('focus', this.handleFocusChange.bind(this));
+            window.removeEventListener('blur', this.handleBlurChange.bind(this));
+            
+            console.log('Event listeners cleaned up successfully');
+        } catch (error) {
+            console.error('Error cleaning up event listeners:', error);
+        }
+    }
+    
+    shutdown() {
+        console.log('Shutting down game engine...');
+        this.isShuttingDown = true;
+        this.isPaused = true;
+        
+        // Clean up all resources
+        this.cleanupResources();
+        
+        // Clear all entities
+        this.entities = [];
+        this.enemies = [];
+        this.projectiles = [];
+        this.enemyProjectiles = [];
+        this.xpOrbs = [];
+        
+        // Clear pools
+        this.projectilePool = [];
+        this.particlePool = [];
+        
+        console.log('Game engine shutdown complete');
     }
 }
