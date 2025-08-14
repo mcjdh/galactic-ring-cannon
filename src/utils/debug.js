@@ -1,4 +1,9 @@
 // Debug utilities for development and testing
+
+/**
+ * Debug Manager for development tools and cheats
+ * @class DebugManager
+ */
 class DebugManager {
     constructor() {
         this.enabled = false;
@@ -268,4 +273,4 @@ Commands:
 }
 
 // Auto-initialize
-DebugManager.init();
+const debugManager = new DebugManager();

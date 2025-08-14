@@ -4,11 +4,9 @@
   "description": "A 2D survival game with bullet-hell mechanics and RPG progression",
   "main": "index.html",
   "scripts": {
-    "start": "python -m http.server 8000",
-    "dev": "python -m http.server 8000",
-    "build": "echo 'No build process yet - static files only'",
-    "test": "echo 'No tests yet'",
-    "lint": "echo 'No linting yet'",
+    "start": "echo 'Open index.html in your browser or use VS Code Live Server'",
+    "dev": "echo 'Use VS Code Live Server extension for development'",
+    "serve": "python -m http.server 8000 || npx http-server",
     "docs": "echo 'Documentation available in docs/ folder'"
   },
   "repository": {

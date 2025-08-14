@@ -1,6 +1,6 @@
 // Mathematical utility functions for game calculations
 
-export const MathUtils = {
+const MathUtils = {
     /**
      * Linear interpolation between two values
      * @param {number} a - Start value

@@ -1,6 +1,6 @@
 // Collision detection utilities
 
-export const CollisionUtils = {
+const CollisionUtils = {
     /**
      * Check collision between two circular entities
      * @param {Object} entity1 - First entity with x, y, radius

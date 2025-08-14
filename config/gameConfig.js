@@ -1,5 +1,5 @@
 // Game Configuration
-export const GAME_CONFIG = {
+const GAME_CONFIG = {
     // Canvas & Rendering
     CANVAS: {
         TARGET_FPS: 60,
@@ -81,7 +81,7 @@ export const GAME_CONFIG = {
 };
 
 // Game Constants
-export const CONSTANTS = {
+const CONSTANTS = {
     // Entity Types
     ENTITY_TYPES: {
         PLAYER: 'player',
@@ -146,5 +146,6 @@ export const CONSTANTS = {
     }
 };
 
-// Export default configuration
-export default GAME_CONFIG;
+// Make configuration available globally
+window.GAME_CONFIG = GAME_CONFIG;
+window.CONSTANTS = CONSTANTS;
