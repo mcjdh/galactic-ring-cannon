@@ -1,9 +1,15 @@
 /**
- * Particle Manager - Handles all particle effects and visual feedback
- * Extracted from GameManager for better organization
- * TODO: Implement particle LOD (Level of Detail) based on distance
- * TODO: Add particle batching for better GPU performance
- * FIX: Particle pool could be more intelligent about type-based pooling
+ * ⚠️ DEPRECATED: ParticleManager - Use ParticleHelpers instead
+ * 
+ * This class is being phased out in favor of the unified ParticleHelpers system.
+ * 
+ * Migration Guide:
+ * - Replace ParticleManager with ParticleHelpers
+ * - Use ParticleHelpers.createHitEffect() instead of createHitEffect()
+ * - Use ParticleHelpers.createExplosion() instead of createExplosion()
+ * 
+ * This class will be removed in a future update.
+ * TODO: Remove this file once all references are migrated
  */
 class ParticleManager {
     constructor() {
