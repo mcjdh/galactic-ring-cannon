@@ -860,7 +860,7 @@ class Enemy {
     }
 }
 
-class EnemySpawner {
+class LegacyEnemySpawner {
     constructor(game) {
         this.game = game;
         this.spawnRate = 1; // enemies per second

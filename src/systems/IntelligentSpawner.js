@@ -211,7 +211,7 @@ class IntelligentSpawner {
         // Use existing enemy spawner but with calculated position and type
         const enemy = this.game.enemySpawner.createEnemy(spawn.type, spawn.position.x, spawn.position.y);
         if (enemy) {
-            this.game.enemies.push(enemy);
+            this.game.addEntity(enemy);
         }
     }
 }

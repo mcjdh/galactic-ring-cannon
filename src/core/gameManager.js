@@ -126,6 +126,13 @@ class GameManager {
                 render: function () {}
             };
         }
+
+        // Intelligent spawner (optional, uses EnemySpawner for creation)
+        if (typeof IntelligentSpawner !== 'undefined') {
+            this.intelligentSpawner = new IntelligentSpawner(this.game);
+        } else {
+            this.intelligentSpawner = null;
+        }
     }
     
     initializeUI() {
@@ -344,8 +351,11 @@ class GameManager {
             }
         }
         
-        // Update enemy spawner
+        // Update enemy spawners
         this.enemySpawner.update(deltaTime);
+        if (this.intelligentSpawner) {
+            this.intelligentSpawner.update(deltaTime);
+        }
         
     // Update particles (skip in low-quality mode)
         if (this.particleManager) {
