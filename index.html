@@ -173,7 +173,7 @@
             try {
                 uiEnhancements = new UIEnhancements();
                 achievementSystem = new AchievementSystem();
-                gameManager = new GameManager();
+                if (!window.gameManager) { window.gameManager = new GameManager(); } gameManager = window.gameManager;
                 
                 // Initialize the rest of the application
                 initializeApp();
@@ -248,16 +248,16 @@
             // Populate current settings
             const muteCheckbox = document.getElementById('mute-checkbox');
             muteCheckbox.checked = audioSystem.isMuted;
-            if (!audioSystem.masterGainNode) audioSystem.initializeAudioContext();
+            if (!audioSystem.masterGain) audioSystem.initializeAudioContext();
             // Volume (load stored or current)
             const volumeEl = document.getElementById('volume-range');
             const storedVol = parseFloat(localStorage.getItem('volume'));
             if (!isNaN(storedVol)) {
                 volumeEl.value = storedVol;
-                if (audioSystem.masterGainNode) audioSystem.masterGainNode.gain.value = storedVol;
+                if (audioSystem.masterGain) audioSystem.masterGain.gain.value = storedVol;
             } else {
-                volumeEl.value = audioSystem.masterGainNode
-                    ? audioSystem.masterGainNode.gain.value : 0.5;
+                volumeEl.value = audioSystem.masterGain
+                    ? audioSystem.masterGain.gain.value : 0.5;
             }
             document.getElementById('lowquality-checkbox').checked = gameManager.lowQuality;
             document.getElementById('difficulty-select').value = localStorage.getItem('difficulty') || 'normal';
@@ -271,7 +271,7 @@
             localStorage.setItem('muted', muted);
             // Volume
             const vol = parseFloat(document.getElementById('volume-range').value);
-            if (audioSystem.masterGainNode) audioSystem.masterGainNode.gain.value = vol;
+            if (audioSystem.masterGain) audioSystem.masterGain.gain.value = vol;
             localStorage.setItem('volume', vol);
             // Low Quality
             const lowQ = document.getElementById('lowquality-checkbox').checked;
@@ -292,8 +292,8 @@
         window.addEventListener('load', () => {
             // Volume & mute
             const storedVol = parseFloat(localStorage.getItem('volume'));
-            if (!isNaN(storedVol) && audioSystem.masterGainNode) {
-                audioSystem.masterGainNode.gain.value = storedVol;
+            if (!isNaN(storedVol) && audioSystem.masterGain) {
+                audioSystem.masterGain.gain.value = storedVol;
             }
             audioSystem.isMuted = localStorage.getItem('muted') === 'true';
             // Low Quality

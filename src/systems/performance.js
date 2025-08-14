@@ -215,7 +215,6 @@ class PerformanceManager {
                 <div>FPS: <span style="color:${fpsColor}">${this.fps}</span></div>
                 <div>Mode: ${this.performanceMode}</div>
                 <div>Memory: ${this.memoryUsage.toFixed(1)} MB</div>
-                <div>Particles: ${this.optimizations.reducedParticles ? 'Reduced' : 'Normal'}</div>
             `;
         }, 1000);
     }

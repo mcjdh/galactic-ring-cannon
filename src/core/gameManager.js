@@ -952,7 +952,7 @@ class GameManager {
         
         // Throttle minimap updates for performance
         const now = Date.now();
-        const interval = (this.lowQuality || (window.performanceManager && window.performanceManager.mode !== 'normal'))
+        const interval = (this.lowQuality || (window.performanceManager && window.performanceManager.performanceMode !== 'normal'))
             ? this.minimapUpdateIntervalLow : this.minimapUpdateInterval;
         if (now - this.lastMinimapUpdate < interval) {
             return;
@@ -978,7 +978,7 @@ class GameManager {
         let nearestBoss = null;
         let minBossDistance = Infinity;
         
-    const simpleMarkers = this.lowQuality || (window.performanceManager && window.performanceManager.mode === 'critical');
+    const simpleMarkers = this.lowQuality || (window.performanceManager && window.performanceManager.performanceMode === 'critical');
     this.game.enemies.forEach(enemy => {
             // Calculate relative position
             const relX = (enemy.x - this.game.player.x) * this.minimapScale + centerX;
@@ -2127,16 +2127,18 @@ upgradeSystem.renderUpgradeOption = function(upgrade, index) {
     return optionDiv;
 };
 
-// Create global game manager instance
-const gameManager = new GameManager();
 
-// Add update function to game loop
-const originalUpdate = gameManager.game.update;
-gameManager.game.update = function(deltaTime) {
-    originalUpdate.call(gameManager.game, deltaTime);
-    gameManager.update(deltaTime);
-};
 
+// Ensure global instance exists exactly once
+if (!window.gameManager) {
+    window.gameManager = new GameManager();
+    // Hook engine update to also tick GameManager
+    const originalUpdate = window.gameManager.game.update.bind(window.gameManager.game);
+    window.gameManager.game.update = function(deltaTime) {
+        originalUpdate(deltaTime);
+        window.gameManager.update(deltaTime);
+    };
+}
 
 // Override enemy die method to track kills and show floating text
 Enemy.prototype.die = function() {
