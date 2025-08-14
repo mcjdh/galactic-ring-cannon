@@ -10,14 +10,16 @@ const CollisionUtils = {
     circleCollision(entity1, entity2) {
         if (!entity1 || !entity2) return false;
         
+        // Use squared distance to avoid expensive sqrt
         const dx = entity2.x - entity1.x;
         const dy = entity2.y - entity1.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distanceSquared = dx * dx + dy * dy;
         
         const radius1 = entity1.radius || entity1.size || 10;
         const radius2 = entity2.radius || entity2.size || 10;
+        const combinedRadiusSquared = (radius1 + radius2) * (radius1 + radius2);
         
-        return distance < (radius1 + radius2);
+        return distanceSquared < combinedRadiusSquared;
     },
 
     /**
@@ -130,13 +132,19 @@ const CollisionUtils = {
         
         const dx = entity2.x - entity1.x;
         const dy = entity2.y - entity1.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distanceSquared = dx * dx + dy * dy;
         
         const radius1 = entity1.radius || entity1.size || 10;
         const radius2 = entity2.radius || entity2.size || 10;
         const combinedRadius = radius1 + radius2;
         
-        return Math.max(0, combinedRadius - distance);
+        // Only calculate sqrt when we know there's an overlap
+        if (distanceSquared >= combinedRadius * combinedRadius) {
+            return 0;
+        }
+        
+        const distance = Math.sqrt(distanceSquared);
+        return combinedRadius - distance;
     },
 
     /**

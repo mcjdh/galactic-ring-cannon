@@ -82,22 +82,12 @@ class DebugManager {
         this.enabled = true;
         localStorage.setItem('debugMode', 'true');
         this.createOverlay();
-        console.log('Debug mode enabled');
-        console.log('Debug commands:');
-        console.log('  Ctrl+D: Toggle debug overlay');
-        console.log('  Ctrl+G: Toggle god mode');
-        console.log('  Ctrl+X: Give 1000 XP');
-        console.log('  Ctrl+K: Kill all enemies');
-        console.log('  Ctrl+B: Spawn boss');
-        console.log('  Ctrl+L: Level up');
-        console.log('  Ctrl+S: Give 100 stars');
     }
     
     disable() {
         this.enabled = false;
         localStorage.setItem('debugMode', 'false');
         this.removeOverlay();
-        console.log('Debug mode disabled');
     }
     
     toggle() {
@@ -208,10 +198,8 @@ Commands:
                 player.originalTakeDamage = player.takeDamage;
                 player.takeDamage = () => {}; // No damage
                 player.health = player.maxHealth;
-                console.log('God mode enabled');
             } else {
                 player.takeDamage = player.originalTakeDamage;
-                console.log('God mode disabled');
             }
         }
     }
@@ -220,7 +208,6 @@ Commands:
         const player = window.gameManager?.game?.player;
         if (player) {
             player.addExperience(amount);
-            console.log(`Gave ${amount} XP`);
         }
     }
     
@@ -228,7 +215,6 @@ Commands:
         const gameManager = window.gameManager;
         if (gameManager) {
             gameManager.earnStarTokens(amount);
-            console.log(`Gave ${amount} stars`);
         }
     }
     
@@ -242,7 +228,6 @@ Commands:
                     killed++;
                 }
             });
-            console.log(`Killed ${killed} enemies`);
         }
     }
     
@@ -250,7 +235,6 @@ Commands:
         const gameManager = window.gameManager;
         if (gameManager && gameManager.activateBossMode) {
             gameManager.activateBossMode();
-            console.log('Boss spawned');
         }
     }
     
@@ -259,7 +243,6 @@ Commands:
         if (player) {
             const xpNeeded = player.experienceToNext - player.experience;
             player.addExperience(xpNeeded);
-            console.log('Leveled up');
         }
     }
     

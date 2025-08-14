@@ -1,41 +1,36 @@
 // Performance monitoring and optimization utilities
+// TODO: Implement WebGL performance monitoring for GPU-intensive operations  
+// TODO: Add memory pressure detection for mobile devices
+// FIX: Performance thresholds should be device-adaptive, not fixed
+
 class PerformanceManager {
     constructor() {
         this.frameCount = 0;
         this.lastTime = 0;
         this.fps = 0;
         this.fpsHistory = [];
-        this.maxHistorySize = 60;
+        this.maxHistorySize = 30; // Reduced from 60
         
-        // Performance thresholds - more aggressive switching
-        this.lowFpsThreshold = 50; // Raised from 45
-        this.criticalFpsThreshold = 35; // Raised from 30
+        // Simplified performance thresholds
+        // TODO: Make thresholds adaptive based on device capabilities
+        // FIX: Fixed thresholds don't work well across different devices
+        this.lowFpsThreshold = 45;
+        this.criticalFpsThreshold = 30;
         
         // Current performance mode
-        this.performanceMode = 'normal'; // normal, low, critical
+        this.performanceMode = 'normal';
         
-        // Memory monitoring
+        // Memory monitoring (simplified)
+        // TODO: Implement proper memory leak detection
+        // TODO: Add garbage collection timing optimization
         this.memoryUsage = 0;
         this.lastMemoryCheck = 0;
-        this.memoryCheckInterval = 3000; // Check every 3 seconds (faster)
+        this.memoryCheckInterval = 5000; // Check less frequently
         
-        // Optimization flags
-        this.optimizations = {
-            reducedParticles: false,
-            simplifiedRendering: false,
-            culledOffscreenEntities: false,
-            reducedUpdateFrequency: false
-        };
-        
-        // Add hysteresis to prevent rapid mode switching - tighter windows
-        this.modeChangeThreshold = {
-            critical: { enter: 25, exit: 40 }, // More aggressive critical mode
-            low: { enter: 40, exit: 55 }, // Quicker low mode activation
-        };
-        
-        // Cooldown between mode changes - reduced for faster response
-        this.minModeChangeCooldown = 2000; // 2 seconds instead of 3
+        // Mode change cooldown to prevent thrashing
+        // FIX: Cooldown should be based on stability, not fixed time
         this.lastModeChange = 0;
+        this.modeChangeCooldown = 3000;
         
         this.init();
     }
@@ -51,8 +46,6 @@ class PerformanceManager {
                 this.togglePerformanceMode();
             }
         });
-        
-        console.log('Performance Manager initialized. Press F1 or Ctrl+P to toggle performance mode.');
     }
     
     update(deltaTime) {
@@ -71,10 +64,13 @@ class PerformanceManager {
             this.lastTime = currentTime;
             
             // Check and adjust performance
+            // TODO: Use weighted moving average for smoother performance transitions
+            // FIX: Current implementation can cause performance mode oscillation
             this.checkPerformance();
         }
         
         // Memory monitoring
+        // TODO: Add memory pressure callbacks for proactive cleanup
         if (currentTime - this.lastMemoryCheck > this.memoryCheckInterval) {
             this.checkMemoryUsage();
             this.lastMemoryCheck = currentTime;
@@ -83,14 +79,23 @@ class PerformanceManager {
     
     checkPerformance() {
         const avgFps = this.getAverageFps();
-        const currentTime = performance.now();
+        const currentTime = Date.now();
         
         // Don't change modes too frequently
-        if (currentTime - this.lastModeChange < this.minModeChangeCooldown) {
+        if (currentTime - this.lastModeChange < this.modeChangeCooldown) {
             return;
         }
         
-        const newMode = this.determinePerformanceModeWithHysteresis(avgFps);
+        let newMode = this.performanceMode;
+        
+        // Simple threshold-based mode switching
+        if (avgFps < this.criticalFpsThreshold) {
+            newMode = 'critical';
+        } else if (avgFps < this.lowFpsThreshold) {
+            newMode = 'low';
+        } else if (avgFps > this.lowFpsThreshold + 10) { // Add buffer for switching back
+            newMode = 'normal';
+        }
         
         if (newMode !== this.performanceMode) {
             this.changePerformanceMode(newMode);
@@ -101,41 +106,6 @@ class PerformanceManager {
     getAverageFps() {
         if (this.fpsHistory.length === 0) return 60;
         return this.fpsHistory.reduce((sum, fps) => sum + fps, 0) / this.fpsHistory.length;
-    }
-    
-    determinePerformanceModeWithHysteresis(avgFps) {
-        const current = this.performanceMode;
-        
-        // Use different thresholds for entering vs exiting modes
-        switch (current) {
-            case 'normal':
-                if (avgFps <= this.modeChangeThreshold.low.enter) {
-                    return avgFps <= this.modeChangeThreshold.critical.enter ? 'critical' : 'low';
-                }
-                return 'normal';
-                
-            case 'low':
-                if (avgFps <= this.modeChangeThreshold.critical.enter) {
-                    return 'critical';
-                } else if (avgFps >= this.modeChangeThreshold.low.exit) {
-                    return 'normal';
-                }
-                return 'low';
-                
-            case 'critical':
-                if (avgFps >= this.modeChangeThreshold.critical.exit) {
-                    return avgFps >= this.modeChangeThreshold.low.exit ? 'normal' : 'low';
-                }
-                return 'critical';
-                
-            default:
-                return 'normal';
-        }
-    }
-    
-    // Legacy method for compatibility
-    determinePerformanceMode(avgFps) {
-        return this.determinePerformanceModeWithHysteresis(avgFps);
     }
     
     changePerformanceMode(newMode) {
@@ -154,8 +124,6 @@ class PerformanceManager {
                 break;
         }
         
-        console.log(`Performance mode changed: ${oldMode} -> ${newMode} (FPS: ${this.getAverageFps().toFixed(1)})`);
-        
         // Notify game manager of performance change
         if (window.gameManager && typeof window.gameManager.onPerformanceModeChange === 'function') {
             window.gameManager.onPerformanceModeChange(newMode);
@@ -163,49 +131,23 @@ class PerformanceManager {
     }
     
     enableCriticalOptimizations() {
-        this.optimizations.reducedParticles = true;
-        this.optimizations.simplifiedRendering = true;
-        this.optimizations.culledOffscreenEntities = true;
-        this.optimizations.reducedUpdateFrequency = true;
-        
-        // Very aggressive particle reduction
+        // Simplified critical optimizations
         if (window.gameManager) {
-            window.gameManager.maxParticles = Math.min(window.gameManager.maxParticles || 200, 30);
-            window.gameManager.particleReductionFactor = 0.15; // Even more aggressive
-            
-            // Clear excess particles immediately
-            if (window.gameManager.particles && window.gameManager.particles.length > 30) {
-                window.gameManager.particles.splice(30);
-            }
-        }
-        
-        // Force low-quality rendering mode
-        if (window.gameEngine && window.gameEngine.ctx) {
-            window.gameEngine.ctx.imageSmoothingEnabled = false;
-            window.gameEngine.targetFps = 30; // Reduce target FPS
+            window.gameManager.maxParticles = 30;
+            window.gameManager.particleReductionFactor = 0.25;
         }
     }
     
     enableLowOptimizations() {
-        this.optimizations.reducedParticles = true;
-        this.optimizations.simplifiedRendering = false;
-        this.optimizations.culledOffscreenEntities = true;
-        this.optimizations.reducedUpdateFrequency = false;
-        
-        // Reduce particle limits moderately
+        // Simplified low optimizations
         if (window.gameManager) {
-            window.gameManager.maxParticles = Math.min(window.gameManager.maxParticles || 200, 100);
-            window.gameManager.particleReductionFactor = 0.5;
+            window.gameManager.maxParticles = 100;
+            window.gameManager.particleReductionFactor = 0.6;
         }
     }
     
     disableOptimizations() {
-        this.optimizations.reducedParticles = false;
-        this.optimizations.simplifiedRendering = false;
-        this.optimizations.culledOffscreenEntities = false;
-        this.optimizations.reducedUpdateFrequency = false;
-        
-        // Restore normal particle limits
+        // Restore normal limits
         if (window.gameManager) {
             window.gameManager.maxParticles = 200;
             window.gameManager.particleReductionFactor = 1.0;

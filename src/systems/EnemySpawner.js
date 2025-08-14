@@ -1,19 +1,26 @@
 /**
  * Enemy Spawner - Manages enemy spawning, waves, and difficulty progression
  * Extracted from enemy.js for better organization
+ * TODO: Implement enemy budget system for performance optimization
+ * TODO: Add spawn prediction to prevent frame drops
+ * FIX: Difficulty scaling uses magic numbers - should be configurable
  */
 class EnemySpawner {
     constructor(game) {
         this.game = game;
         
         // Basic spawning parameters
+        // TODO: Make spawning parameters configurable via game settings
+        // TODO: Implement adaptive spawn rate based on player performance
         this.spawnRate = 1; // enemies per second
         this.spawnTimer = 0;
         this.spawnCooldown = 1 / this.spawnRate;
-        this.maxEnemies = 50;
+        this.maxEnemies = 50; // TODO: Scale based on device performance
         this.spawnRadius = 800; // Distance from player to spawn enemies
         
         // Enemy types progression
+        // TODO: Move enemy unlock data to configuration file
+        // FIX: Hard-coded unlock times should be based on difficulty curves
         this.enemyTypes = ['basic'];
         this.enemyTypeUnlockTimes = {
             'fast': 0.5,      // 30 seconds
@@ -29,31 +36,40 @@ class EnemySpawner {
         };
         
         // Difficulty scaling
+        // TODO: Implement exponential difficulty curves with proper balancing
+        // FIX: Linear difficulty increase becomes too harsh at higher levels
         this.difficultyTimer = 0;
         this.difficultyInterval = 30; // Increase difficulty every 30 seconds
         
         // Boss spawning
+        // TODO: Make boss spawning more dynamic based on player progress
+        // TODO: Add boss variety and scaling
         this.bossTimer = 0;
         this.bossInterval = 60; // Boss every 1 minute
         this.bossScaleFactor = 1.0;
         this.bossesKilled = 0;
         
         // Wave system
+        // TODO: Implement more sophisticated wave patterns
+        // FIX: Wave system could be more engaging with themed waves
         this.wavesEnabled = true;
         this.waveTimer = 0;
         this.waveInterval = 30; // Wave every 30 seconds
         this.waveCount = 0;
         
         // Elite enemies
+        // TODO: Add more elite enemy variety and abilities
         this.eliteChance = 0.05; // 5% base chance
         this.eliteTimer = 0;
         this.eliteInterval = 40; // Increase elite chance every 40 seconds
         
         // Statistics
+        // TODO: Move statistics tracking to GameStats manager
         this.totalEnemiesSpawned = 0;
         this.enemiesKilledThisWave = 0;
         
         // Health scaling for sustained challenge
+        // FIX: Health multiplier makes enemies too tanky at high levels
         this.enemyHealthMultiplier = 1.0;
         
         console.log('👹 Enemy Spawner initialized');

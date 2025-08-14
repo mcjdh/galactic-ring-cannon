@@ -17,10 +17,7 @@ class EnemyProjectile {
         
         // Visual properties
         this.color = '#9b59b6';
-        this.glowColor = 'rgba(155, 89, 182, 0.3)';
         this.trailLength = 0.02; // Trail length multiplier
-        
-        console.log(`🔴 Enemy projectile created at (${x.toFixed(1)}, ${y.toFixed(1)}) with damage ${damage}`);
     }
     
     /**
@@ -40,8 +37,7 @@ class EnemyProjectile {
             return;
         }
         
-        // Check collision with player
-        this.checkPlayerCollision(game);
+        // Collision with player is handled centrally by the CollisionSystem/GameEngine
         
         // Check if projectile is off-screen (performance optimization)
         this.checkBounds();
@@ -51,28 +47,8 @@ class EnemyProjectile {
      * Check collision with player
      * @param {Game} game - Game instance
      */
-    checkPlayerCollision(game) {
-        if (!game.player || game.player.isInvulnerable || game.player.isDead) {
-            return;
-        }
-        
-        const dx = game.player.x - this.x;
-        const dy = game.player.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < game.player.radius + this.radius) {
-            // Hit player
-            game.player.takeDamage(this.damage);
-            this.isDead = true;
-            
-            // Create hit effect
-            if (window.gameManager && window.gameManager.particleManager) {
-                window.gameManager.particleManager.createHitEffect(this.x, this.y, this.color);
-            }
-            
-            console.log(`💥 Enemy projectile hit player for ${this.damage} damage`);
-        }
-    }
+    // Deprecated: Collision handled centrally
+    checkPlayerCollision(game) { /* no-op */ }
     
     /**
      * Check if projectile is outside reasonable bounds

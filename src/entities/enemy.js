@@ -1,9 +1,17 @@
+// TODO: Split Enemy class into base class and specific enemy type classes
+// FIX: This file is 2000+ lines - too large for maintainability
+// TODO: Extract enemy AI behaviors into separate Strategy classes  
+// TODO: Implement enemy state machine for better behavior management
+
 class Enemy {
     constructor(x, y, type = 'basic') {
         this.x = x;
         this.y = y;
         this.type = 'enemy';
         this.enemyType = type;
+        
+        // TODO: Move default stats to configuration file
+        // FIX: Hard-coded stats should be data-driven
         this.radius = 15;
         this.health = 30;
         this.maxHealth = 30;
@@ -15,6 +23,7 @@ class Enemy {
         this.id = Math.random().toString(36).substr(2, 9); // Unique ID for each enemy
         
         // Special attack properties
+        // TODO: Group related properties into ability objects
         this.canRangeAttack = false;
         this.rangeAttackCooldown = 0;
         this.rangeAttackTimer = 0;
@@ -22,6 +31,7 @@ class Enemy {
         this.projectileDamage = 5;
         
         // Special movement properties
+        // TODO: Extract movement behaviors to MovementComponent
         this.dashCooldown = 0;
         this.dashTimer = 0;
         this.dashSpeed = 0;
@@ -29,6 +39,7 @@ class Enemy {
         this.isDashing = false;
         
         // Boss specific properties
+        // TODO: Move boss logic to separate BossEnemy class
         this.isBoss = false;
         this.spawnMinionCooldown = 0;
         this.spawnMinionTimer = 0;
@@ -263,18 +274,30 @@ class Enemy {
             
             const dx = game.player.x - this.x;
             const dy = game.player.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distanceSquared = dx * dx + dy * dy;
+            const distance = Math.sqrt(distanceSquared);
             
-            // Ranged enemies maintain distance
-            if (this.canRangeAttack && distance < 300 && distance > 100) {
-                // Don't move if in ideal range
+            // Ranged enemies maintain optimal distance (use squared for efficiency)
+            if (this.canRangeAttack && distanceSquared < 90000 && distanceSquared > 10000) { // 300² and 100²
+                // Strafe behavior for ranged enemies
+                if (Math.random() < 0.3) {
+                    const strafeAngle = Math.atan2(dy, dx) + Math.PI/2 * (Math.random() > 0.5 ? 1 : -1);
+                    this.x += Math.cos(strafeAngle) * this.speed * deltaTime * 0.5;
+                    this.y += Math.sin(strafeAngle) * this.speed * deltaTime * 0.5;
+                }
                 return;
             }
             
             if (distance > 0) {
                 const speed = this.isDashing ? this.dashSpeed : this.speed;
-                const vx = (dx / distance) * speed * deltaTime;
-                const vy = (dy / distance) * speed * deltaTime;
+                
+                // Add slight randomness to movement for more interesting behavior
+                const randomOffset = 0.1;
+                const angleOffset = (Math.random() - 0.5) * randomOffset;
+                const angle = Math.atan2(dy, dx) + angleOffset;
+                
+                const vx = Math.cos(angle) * speed * deltaTime;
+                const vy = Math.sin(angle) * speed * deltaTime;
                 
                 this.x += vx;
                 this.y += vy;
@@ -834,160 +857,6 @@ class Enemy {
                 2
             );
         }
-    }
-}
-
-class EnemyProjectile {
-    constructor(x, y, vx, vy, damage) {
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.type = 'enemyProjectile';
-        this.radius = 5;
-        this.damage = damage;
-        this.isDead = false;
-        this.lifetime = 3; // seconds
-        this.timer = 0;
-    }
-    
-    update(deltaTime, game) {
-        this.x += this.vx * deltaTime;
-        this.y += this.vy * deltaTime;
-        
-        this.timer += deltaTime;
-        if (this.timer >= this.lifetime) {
-            this.isDead = true;
-            return;
-        }
-        
-        // Check collision with player
-        if (game.player && !game.player.isInvulnerable && !game.player.isDead) {
-            const dx = game.player.x - this.x;
-            const dy = game.player.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < game.player.radius + this.radius) {
-                game.player.takeDamage(this.damage);
-                this.isDead = true;
-            }
-        }
-    }
-    
-    render(ctx) {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#9b59b6';
-        ctx.fill();
-        
-        // Trail effect
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x - this.vx * 0.02, this.y - this.vy * 0.02);
-        ctx.strokeStyle = '#9b59b6';
-        ctx.lineWidth = this.radius * 1.5;
-        ctx.stroke();
-    }
-}
-
-// Removed earlier Enemy.prototype overrides to avoid double-wrapping.
-
-class XPOrb {
-    constructor(x, y, value) {
-        this.x = x;
-        this.y = y;
-        // Allow for value adjustments in gameManager.js
-        // Base XP value (may be increased by meta XP gain upgrades)
-        this.value = value;
-        // Apply Jupiter XP gain bonus
-        const xpBonusTier = parseInt(localStorage.getItem('meta_jupiter_xp_gain') || '0', 10);
-        if (xpBonusTier > 0) {
-            this.value = Math.floor(this.value * (1 + xpBonusTier * 0.05));
-        }
-        this.type = 'xpOrb';
-        this.radius = 5;
-        this.isDead = false;
-        this.color = '#2ecc71';
-        
-        // Add some random scatter
-        this.x += (Math.random() - 0.5) * 40;
-        this.y += (Math.random() - 0.5) * 40;
-        
-        // Make bigger XP orbs for higher values
-        if (value > 20) {
-            this.radius = 8;
-        } else if (value > 50) {
-            this.radius = 12;
-        }
-        
-        // Animation properties
-        this.bobAmplitude = 3;
-        this.bobSpeed = 3;
-        this.bobOffset = Math.random() * Math.PI * 2;
-        this.rotation = 0;
-    }
-    
-    update(deltaTime, game) {
-        // Animation
-        this.bobOffset += this.bobSpeed * deltaTime;
-        this.rotation += deltaTime * 2;
-        
-        // Magnetism when player is close
-        if (game.player) {
-            const dx = game.player.x - this.x;
-            const dy = game.player.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            // Magnetism range (use player's magnetRange property)
-            const magnetRange = game.player.magnetRange || 100;
-            
-            if (distance < magnetRange) {
-                const pullFactor = 1 - (distance / magnetRange); // Stronger pull when closer
-                const pullStrength = 300 * pullFactor;
-                const speed = pullStrength * deltaTime;
-                
-                if (distance > 0) {
-                    const vx = (dx / distance) * speed;
-                    const vy = (dy / distance) * speed;
-                    
-                    this.x += vx;
-                    this.y += vy;
-                }
-            }
-        }
-    }
-    
-    render(ctx) {
-        const bobY = Math.sin(this.bobOffset) * this.bobAmplitude;
-        
-        // Draw glow
-        ctx.beginPath();
-        ctx.arc(this.x, this.y + bobY, this.radius * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(46, 204, 113, 0.3)`;
-        ctx.fill();
-        
-        // Draw orb
-        ctx.beginPath();
-        ctx.arc(this.x, this.y + bobY, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.fill();
-        
-        // Draw XP symbol inside orb
-        ctx.save();
-        ctx.translate(this.x, this.y + bobY);
-        ctx.rotate(this.rotation);
-        
-        ctx.beginPath();
-        ctx.moveTo(-this.radius/2, -this.radius/2);
-        ctx.lineTo(this.radius/2, this.radius/2);
-        ctx.moveTo(-this.radius/2, this.radius/2);
-        ctx.lineTo(this.radius/2, -this.radius/2);
-        
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        ctx.restore();
     }
 }
 

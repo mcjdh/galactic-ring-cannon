@@ -1,6 +1,13 @@
 // Game Configuration
+// TODO: Expand this configuration system to include all game constants
+// TODO: Add environment-specific configurations (dev/prod)
+// FIX: Many magic numbers throughout codebase should be moved here
+// TODO: Implement configuration validation system
+// TODO: Add runtime configuration modification capabilities
+
 const GAME_CONFIG = {
     // Canvas & Rendering
+    // TODO: Add device-specific rendering optimizations
     CANVAS: {
         TARGET_FPS: 60,
         ENABLE_VSYNC: true,
@@ -9,16 +16,19 @@ const GAME_CONFIG = {
     },
     
     // Performance Settings
+    // TODO: Make performance settings adaptive based on device capabilities
+    // FIX: Static limits should be dynamic based on available resources
     PERFORMANCE: {
         MAX_ENTITIES: 2000,
-        MAX_PARTICLES: 150,
-        GRID_SIZE: 100,
+        MAX_PARTICLES: 150, // TODO: Should scale with device performance
+        GRID_SIZE: 100, // TODO: Implement adaptive grid sizing
         MAX_POOL_SIZE: 100,
         UI_UPDATE_INTERVAL: 16.67, // ~60fps
         RESOURCE_CLEANUP_INTERVAL: 5000
     },
     
     // Player Settings
+    // TODO: Add player progression curves and scaling formulas
     PLAYER: {
         BASE_HEALTH: 100,
         BASE_SPEED: 150,

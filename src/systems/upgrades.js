@@ -10,8 +10,7 @@ class UpgradeSystem {
                 multiplier: 1.30,
                 icon: '⚡',
                 rarity: 'common',
-                buildPath: 'core',
-                comboEffects: ['chain', 'orbit'] // These builds benefit more from attack speed
+                buildPath: 'core'
             },
             {
                 id: 'attack_damage_1',
@@ -21,8 +20,7 @@ class UpgradeSystem {
                 multiplier: 1.35,
                 icon: '🗡️',
                 rarity: 'common',
-                buildPath: 'core',
-                comboEffects: ['explosive', 'ricochet'] // These builds scale better with damage
+                buildPath: 'core'
             },
             {
                 id: 'max_health_1',
@@ -32,8 +30,7 @@ class UpgradeSystem {
                 multiplier: 1.25,
                 icon: '❤️',
                 rarity: 'common',
-                buildPath: 'core',
-                comboEffects: ['orbit', 'support'] // Orbital builds benefit from tankiness
+                buildPath: 'core'
             },
             {
                 id: 'movement_speed_1',
@@ -43,8 +40,7 @@ class UpgradeSystem {
                 multiplier: 1.2,
                 icon: '👟',
                 rarity: 'common',
-                buildPath: 'core',
-                comboEffects: ['chain', 'ricochet'] // Movement helps with positioning
+                buildPath: 'core'
             },
 
             // Projectile Modifiers
@@ -57,12 +53,7 @@ class UpgradeSystem {
                 icon: '🔱',
                 rarity: 'uncommon',
                 buildPath: 'core',
-                stackable: true,
-                comboEffects: ['orbit', 'chain', 'explosive'],
-                stackingBonus: {
-                    maxStacks: 3,
-                    bonusPerStack: 0.1 // 10% more damage per stack
-                }
+                stackable: true
             },
             {
                 id: 'spread_shot_1',

@@ -1,9 +1,20 @@
+// TODO: Split this massive Player class into components:
+//       - PlayerMovement for movement and physics
+//       - PlayerCombat for attack systems
+//       - PlayerProgression for XP and upgrades
+//       - PlayerAbilities for special skills
+// FIX: Too many properties and methods - violates Single Responsibility
+// TODO: Use composition over inheritance for player abilities
+
 class Player {
     constructor(x, y) {
         this.x = x;
         this.y = y;
         this.type = 'player';
         this.radius = 20;
+        
+        // TODO: Move all gameplay constants to gameConfig.js
+        // FIX: Magic numbers should be defined as named constants
         this.speed = 220; // Slightly faster base speed
         this.health = 120; // More starting health
         this.maxHealth = 120;
@@ -17,6 +28,7 @@ class Player {
         this.color = '#3498db';
         
         // Attack properties
+        // TODO: Extract attack system to PlayerCombat component
         this.attackSpeed = 1.2; // Slightly faster base attack speed
         this.attackDamage = 25; // Increased from 15 for better early game balance
         this.attackRange = 300;
@@ -24,6 +36,7 @@ class Player {
         this.attackCooldown = 1 / this.attackSpeed;
         
         // Replace single attackType with separate flags
+        // TODO: Use a proper ability system instead of boolean flags
         this.hasBasicAttack = true;
         this.hasSpreadAttack = false;
         this.hasAOEAttack = false;
@@ -42,18 +55,23 @@ class Player {
         this.aoeDamageMultiplier = 0.6; // AOE does less damage per hit than projectiles
         
         // Defensive properties
+        // TODO: Group related properties into configuration objects
         this.damageReduction = 0; // percentage (0-1)
         this.dodgeChance = 0; // percentage (0-1)
         this.regeneration = 0; // health per second
         this.regenTimer = 0;
         
         // Special abilities
+        // TODO: Replace magic number with named constant
         this.magnetRange = 120; // Increased base XP attraction radius
         
         // Upgrade-related properties
+        // TODO: Move upgrade system to separate UpgradeManager
         this.upgrades = [];
         
         // Dodge ability
+        // TODO: Extract dodge system to PlayerAbilities component
+        // FIX: Dodge properties scattered, should be grouped
         this.canDodge = true;
         this.dodgeCooldown = 2; // seconds
         this.dodgeTimer = 0;
@@ -63,6 +81,7 @@ class Player {
         this.dodgeDirection = { x: 0, y: 0 };
         
         // Trail effect properties
+        // TODO: Move visual effects to PlayerRenderer component
         this.lastTrailPos = { x: 0, y: 0 };
         this.trailDistance = 15; // Distance before creating a new trail particle
         this.isMoving = false;
@@ -129,48 +148,70 @@ class Player {
     }
     
     handleMovement(deltaTime, game) {
-        let dx = 0;
-        let dy = 0;
+        let inputX = 0;
+        let inputY = 0;
         
         // Get keys from the game engine (fix for movement bug)
         const keys = game.keys || {};
         
-        if (keys['w'] || keys['W']) dy -= 1;
-        if (keys['s'] || keys['S']) dy += 1;
-        if (keys['a'] || keys['A']) dx -= 1;
-        if (keys['d'] || keys['D']) dx += 1;
-        // Alternative arrow key controls
-        if (keys['ArrowUp']) dy -= 1;
-        if (keys['ArrowDown']) dy += 1;
-        if (keys['ArrowLeft']) dx -= 1;
-        if (keys['ArrowRight']) dx += 1;
+        if (keys['w'] || keys['W'] || keys['ArrowUp']) inputY -= 1;
+        if (keys['s'] || keys['S'] || keys['ArrowDown']) inputY += 1;
+        if (keys['a'] || keys['A'] || keys['ArrowLeft']) inputX -= 1;
+        if (keys['d'] || keys['D'] || keys['ArrowRight']) inputX += 1;
         
-        // Store movement direction for dodge
-        if (dx !== 0 || dy !== 0) {
-            this.dodgeDirection.x = dx;
-            this.dodgeDirection.y = dy;
+        // Enhanced movement physics with acceleration and momentum
+        const acceleration = 1200; // pixels/sec²
+        const friction = 0.85; // friction coefficient
+        const maxSpeed = this.speed;
+        
+        // Initialize velocity if not exists
+        if (!this.velocity) {
+            this.velocity = { x: 0, y: 0 };
+        }
+        
+        // Apply input acceleration
+        if (inputX !== 0 || inputY !== 0) {
+            // Normalize diagonal input
+            const inputMagnitude = Math.sqrt(inputX * inputX + inputY * inputY);
+            if (inputMagnitude > 0) {
+                inputX /= inputMagnitude;
+                inputY /= inputMagnitude;
+            }
+            
+            // Accelerate towards input direction
+            this.velocity.x += inputX * acceleration * deltaTime;
+            this.velocity.y += inputY * acceleration * deltaTime;
+            
+            // Store movement direction for dodge
+            this.dodgeDirection.x = inputX;
+            this.dodgeDirection.y = inputY;
             this.isMoving = true;
         } else {
-            this.isMoving = false;
+            // Apply friction when no input
+            this.velocity.x *= Math.pow(friction, deltaTime * 60);
+            this.velocity.y *= Math.pow(friction, deltaTime * 60);
+            this.isMoving = Math.abs(this.velocity.x) > 5 || Math.abs(this.velocity.y) > 5;
         }
         
-        // Normalize diagonal movement
-        if (dx !== 0 && dy !== 0) {
-            const norm = 1 / Math.sqrt(dx * dx + dy * dy);
-            dx *= norm;
-            dy *= norm;
+        // Clamp velocity to max speed
+        const currentSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
+        if (currentSpeed > maxSpeed) {
+            const scale = maxSpeed / currentSpeed;
+            this.velocity.x *= scale;
+            this.velocity.y *= scale;
         }
         
-        // Use dodge speed if dodging
-        const speed = this.isDodging ? this.dodgeSpeed : this.speed;
+        // Apply movement with improved responsiveness
+        const moveX = this.velocity.x * deltaTime;
+        const moveY = this.velocity.y * deltaTime;
         
         // Store previous position
         const oldX = this.x;
         const oldY = this.y;
         
-        // Update position
-        this.x += dx * speed * deltaTime;
-        this.y += dy * speed * deltaTime;
+        // Update position directly (velocity already accounts for speed)
+        this.x += moveX;
+        this.y += moveY;
         
         // Create trail effect when moving
         if (this.isMoving || this.isDodging) {
@@ -724,44 +765,32 @@ class Player {
     }
     
     createUpgradeStackEffect() {
-        if (!gameManager || !gameManager.particles || gameManager.lowQuality) return;
-        const gm = gameManager;
-        const factor = (gm.particleReductionFactor || 1.0);
-        const baseCount = 16;
-        const remaining = Math.max(0, (gm.maxParticles || 150) - (gm.particles?.length || 0));
-        const count = Math.max(0, Math.min(Math.floor(baseCount * factor), remaining));
+        if (!gameManager?.particles || gameManager.lowQuality) return;
+        
+        // Use simplified budget calculation
+        const count = MathUtils.budget(16, gameManager.particleReductionFactor,
+                                     gameManager.maxParticles, gameManager.particles.length);
         if (count <= 0) return;
         
-        // Create spiral effect with upgrade color
+        // Create simple spiral effect
         for (let i = 0; i < count; i++) {
-            const angle = (i / 16) * Math.PI * 2;
-            const distance = 20 + (i % 4) * 10;
+            const angle = (i / count) * Math.PI * 2;
+            const distance = 30;
             
-            const x = this.x + Math.cos(angle) * distance;
-            const y = this.y + Math.sin(angle) * distance;
-            
-            // Create outward moving particles with spiral pattern
             const particle = new Particle(
-                x, y,
+                this.x + Math.cos(angle) * distance,
+                this.y + Math.sin(angle) * distance,
                 Math.cos(angle) * 60,
                 Math.sin(angle) * 60,
-                3 + Math.random() * 3,
-                '#e67e22', // Orange for upgrade stacks
-                0.5
+                4, '#e67e22', 0.5
             );
             
-            gm.tryAddParticle(particle);
+            gameManager.tryAddParticle(particle);
         }
         
-        // Add screen shake for powerful feeling
-        if (gameManager.addScreenShake) {
-            gameManager.addScreenShake(2, 0.2);
-        }
-        
-        // Play sound effect
-        if (audioSystem && audioSystem.play) {
-            audioSystem.play('levelUp', 0.3);
-        }
+        // Simple effects
+        gameManager.addScreenShake?.(2, 0.2);
+        audioSystem.play?.('levelUp', 0.3);
     }
     
     handleDodge(deltaTime, game) {

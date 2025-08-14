@@ -39,8 +39,6 @@ class XPOrb {
         // Physics properties
         this.isBeingMagnetized = false;
         this.magnetSpeed = 300;
-        
-        console.log(`✨ XP Orb created with value ${this.value} (base: ${value})`);
     }
     
     /**
@@ -104,9 +102,9 @@ class XPOrb {
         
         // Handle magnetism
         this.updateMagnetism(deltaTime, game);
-        
-        // Check for collection
-        this.checkCollection(game);
+    // Do NOT perform direct collection checks here.
+    // Centralized collision handling (CollisionSystem/GameEngine) awards XP
+    // and marks the orb dead to ensure single-source-of-truth logic.
     }
     
     /**
@@ -179,36 +177,17 @@ class XPOrb {
      * @param {Game} game - Game instance
      */
     collect(game) {
+        // Fallback/manual collection method (not used in normal flow).
+        // Central collision system should handle XP and visuals.
         if (this.collected) return;
-        
         this.collected = true;
         this.isDead = true;
-        
-        // Award XP to player
-        if (game.player && typeof game.player.gainXP === 'function') {
-            game.player.gainXP(this.value);
+        // Award XP via Player API if called manually
+        if (game?.player && typeof game.player.addXP === 'function' && typeof this.value === 'number') {
+            game.player.addXP(this.value);
         }
-        
-        // Update game manager XP tracking
-        if (window.gameManager && typeof window.gameManager.addXpCollected === 'function') {
-            window.gameManager.addXpCollected(this.value);
-        }
-        
-        // Create collection effect
+        // Optional: small collection effect without duplicating UI text
         this.createCollectionEffect();
-        
-        // Show floating text
-        if (window.gameManager && window.gameManager.uiManager) {
-            window.gameManager.uiManager.showFloatingText(
-                `+${this.value} XP`, 
-                this.x, 
-                this.y - 20, 
-                this.color, 
-                14
-            );
-        }
-        
-        console.log(`✨ XP Orb collected: +${this.value} XP`);
     }
     
     /**

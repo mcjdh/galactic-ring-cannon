@@ -1,6 +1,9 @@
 /**
  * Particle Manager - Handles all particle effects and visual feedback
  * Extracted from GameManager for better organization
+ * TODO: Implement particle LOD (Level of Detail) based on distance
+ * TODO: Add particle batching for better GPU performance
+ * FIX: Particle pool could be more intelligent about type-based pooling
  */
 class ParticleManager {
     constructor() {
@@ -8,12 +11,15 @@ class ParticleManager {
         this.particlePool = [];
         
         // Performance settings
+        // TODO: Make particle limits adaptive based on device performance
+        // FIX: Static limits don't work well across different devices
         this.maxParticles = 150;
         this.maxPoolSize = 100;
         this.particleReductionFactor = 1.0;
         this.lowQuality = false;
         
         // Performance monitoring
+        // TODO: Add particle render cost tracking
         this.lastPoolCleanup = 0;
         this.poolCleanupInterval = 5000; // Clean pool every 5 seconds
     }
@@ -21,9 +27,11 @@ class ParticleManager {
     /**
      * Update all particles and manage memory
      * @param {number} deltaTime - Time since last frame
+     * TODO: Implement spatial partitioning for particles to skip off-screen updates
      */
     update(deltaTime) {
         // Skip particle updates in low quality mode
+        // FIX: Should selectively update important particles even in low quality
         if (this.lowQuality) {
             this.particles.length = 0;
             return;
@@ -309,4 +317,9 @@ class ParticleManager {
         this.particles.length = 0;
         // Don't clear the pool - keep it for reuse
     }
+}
+
+// Expose globally for legacy access
+if (typeof window !== 'undefined') {
+    window.ParticleManager = window.ParticleManager || ParticleManager;
 }

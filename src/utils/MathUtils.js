@@ -1,12 +1,7 @@
 // Mathematical utility functions for game calculations
-
 const MathUtils = {
     /**
      * Linear interpolation between two values
-     * @param {number} a - Start value
-     * @param {number} b - End value  
-     * @param {number} t - Interpolation factor (0-1)
-     * @returns {number} Interpolated value
      */
     lerp(a, b, t) {
         return a + (b - a) * t;
@@ -18,9 +13,23 @@ const MathUtils = {
      * @param {number} min - Minimum value
      * @param {number} max - Maximum value
      * @returns {number} Clamped value
+     * FIX: Could use Math.max/Math.min for single operation when possible
      */
     clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
+    },
+
+    /**
+     * Simplified budget calculation - replaces complex nested Math operations
+     * @param {number} baseAmount - Base amount to calculate
+     * @param {number} factor - Reduction factor (0-1)
+     * @param {number} maxAllowed - Maximum allowed amount
+     * @param {number} currentUsed - Currently used amount
+     * TODO: Add validation for negative values and edge cases
+     * @returns {number} Safe budget amount
+     */
+    budget(baseAmount, factor = 1, maxAllowed = 100, currentUsed = 0) {
+        return Math.min(baseAmount * factor, maxAllowed - currentUsed);
     },
 
     /**
@@ -178,5 +187,28 @@ const MathUtils = {
      */
     pointInRect(px, py, rx, ry, width, height) {
         return px >= rx && px <= rx + width && py >= ry && py <= ry + height;
+    },
+
+    /**
+     * Format game time to MM:SS string - eliminates duplicate time formatting code
+     * @param {number} totalSeconds - Total seconds to format
+     * @returns {string} Formatted time string (MM:SS)
+     */
+    formatTime(totalSeconds) {
+        const seconds = Math.floor(totalSeconds);
+        const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const secs = (seconds % 60).toString().padStart(2, '0');
+        return `${minutes}:${secs}`;
+    },
+
+    /**
+     * Generate consistent particle angle and speed - eliminates duplicate particle creation
+     * @returns {Object} Object with angle and speed properties
+     */
+    randomParticleMotion() {
+        return {
+            angle: Math.random() * Math.PI * 2,
+            speed: 50 + Math.random() * 100
+        };
     }
 };

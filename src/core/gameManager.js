@@ -18,8 +18,13 @@ class GameManager {
         // Timer for updating UI elements
         this.uiUpdateTimer = 0;
         
-        // Particles system
-        this.particles = [];
+        // Particles system (delegate to ParticleManager when available)
+        if (window.ParticleManager) {
+            this.particleManager = new ParticleManager();
+        } else {
+            this.particleManager = null;
+            this.particles = [];
+        }
         
         // Initialize pause button
         this.initializePauseControls();
@@ -47,6 +52,7 @@ class GameManager {
         };
 
         // Add combo system
+        // TODO: Extract combo system to separate ComboManager class
         this.comboCount = 0;
         this.comboTimer = 0;
         this.comboTimeout = 0.8; // seconds before combo resets (shorter for faster gameplay)
@@ -54,9 +60,11 @@ class GameManager {
         this.highestCombo = 0;
         
         // Critical XP chance
+        // TODO: Move gameplay constants to gameConfig.js
         this.critXpChance = 0.15; // 15% chance for critical XP drops (up from 10%)
         
         // Screen shake effect
+        // TODO: Move screen shake to dedicated EffectsManager
         this.screenShakeAmount = 0;
         this.screenShakeDuration = 0;
         this.screenShakeTimer = 0;
@@ -69,25 +77,27 @@ class GameManager {
         // Track if mega boss has appeared
         this.megaBossTracked = false;
         // Performance: cap maximum particles to prevent overload (reduced for lower-end devices)
+        // TODO: Make particle limits configurable based on device capabilities
+        // TODO: Implement particle LOD (Level of Detail) system
         this.maxParticles = 150;
     // Initialize particle reduction factor (used to scale visual effects by perf mode)
+    // FIX: This should be managed by PerformanceManager, not here
     this.particleReductionFactor = 1.0;
 
     // UI update throttling (tuned by performance mode)
+    // TODO: Adaptive UI refresh rate based on content changes, not fixed intervals
     this.uiUpdateIntervalNormal = 0.25; // seconds
     this.uiUpdateIntervalLow = 0.5;
     this.uiUpdateIntervalCritical = 1.0;
     this.uiUpdateIntervalCurrent = this.uiUpdateIntervalNormal;
         // Endless mode and quality settings from URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        this.endlessMode = urlParams.get('mode') === 'endless';
-        // Low-quality mode: skip heavy visual effects when '?quality=low'
-        this.lowQuality = urlParams.get('quality') === 'low';
+        this.endlessMode = urlParams.getBoolean('mode') && urlParams.get('mode') === 'endless';
+        this.lowQuality = urlParams.getBoolean('quality') && urlParams.get('quality') === 'low';
         // Toggle low-quality mode at runtime with 'L' key
         window.addEventListener('keydown', e => {
             if (e.key === 'l' || e.key === 'L') {
                 this.lowQuality = !this.lowQuality;
-                console.log('Low Quality Mode:', this.lowQuality);
+                logger.log('Low Quality Mode:', this.lowQuality);
                 // Hide or show minimap in low-quality mode
                 const minimapContainer = document.getElementById('minimap-container');
                 if (minimapContainer) {
@@ -104,6 +114,18 @@ class GameManager {
         this.gameStartTime = 0;
         this.currentWave = 0;
         this.lastKillCount = 0;
+
+        // Floating text system (pooled) - delegates to a shared instance
+        if (window.FloatingTextSystem) {
+            this.floatingText = window.floatingTextSystem || (window.floatingTextSystem = new window.FloatingTextSystem());
+        } else {
+            // Fallback no-op implementation if system hasn't loaded yet
+            this.floatingText = {
+                spawn: function () {},
+                update: function () {},
+                render: function () {}
+            };
+        }
     }
     
     initializeUI() {
@@ -242,7 +264,7 @@ class GameManager {
     update(deltaTime) {
         // Check for win condition first
         if (this.gameWon && !this.winScreenDisplayed) {
-            console.log("Game won but win screen not displayed, showing now");
+            logger.log("Game won but win screen not displayed, showing now");
             this.showWinScreen();
             return;
         }
@@ -254,7 +276,7 @@ class GameManager {
         
         // Check if mega boss exists and was just defeated (skip if endless mode)
         if (!this.endlessMode && this.checkMegaBossDefeated()) {
-            console.log("Mega boss defeated detected in update cycle");
+            logger.log("Mega boss defeated detected in update cycle");
             this.gameWon = true;
             this.gameOver = true; // Explicitly set gameOver too
 
@@ -326,11 +348,20 @@ class GameManager {
         this.enemySpawner.update(deltaTime);
         
     // Update particles (skip in low-quality mode)
-        if (this.lowQuality) {
-            // Clear particles immediately
-            this.particles.length = 0;
+        if (this.particleManager) {
+            this.particleManager.setPerformanceSettings({
+                lowQuality: this.lowQuality,
+                maxParticles: this.maxParticles,
+                particleReductionFactor: this.particleReductionFactor
+            });
+            this.particleManager.update(deltaTime);
         } else {
-            this.updateParticles(deltaTime);
+            if (this.lowQuality) {
+                // Clear particles immediately
+                this.particles.length = 0;
+            } else {
+                this.updateParticles(deltaTime);
+            }
         }
         
     // Update UI periodically (interval adapts with performance mode)
@@ -506,8 +537,7 @@ class GameManager {
         gameOverDiv.id = 'game-over';
         
         const totalSeconds = Math.floor(this.gameTime);
-        const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+        const timeString = MathUtils.formatTime(this.gameTime);
         
         // Get difficulty level based on time
         let difficultyLabel = "Beginner";
@@ -529,7 +559,7 @@ class GameManager {
         gameOverDiv.innerHTML = `
             <h1>Game Over</h1>
             <p>Difficulty reached: <span class="stats-highlight">${difficultyLabel}</span></p>
-            <p>You survived for <span class="stats-highlight">${minutes}:${seconds}</span></p>
+            <p>You survived for <span class="stats-highlight">${timeString}</span></p>
             <p>Kills: <span class="stats-highlight">${this.killCount}</span></p>
             <p>Level reached: <span class="stats-highlight">${this.game.player.level}</span></p>
             <p>XP collected: <span class=\"stats-highlight\">${this.xpCollected}</span></p>
@@ -592,74 +622,41 @@ class GameManager {
         achievementSystem.updateAchievement('star_collector', this.xpCollected);
         return this.xpCollected;
     }
-    
-    // Pooled floating text, drawn on canvas to avoid DOM churn
-    _ensureTextPool() {
-        if (this._textPool) return;
-        this._textPool = [];
-        this._activeTexts = [];
-        this._textMax = 80; // cap active texts
-        this._textPoolSize = 120;
-        for (let i = 0; i < this._textPoolSize; i++) this._textPool.push({active:false});
-    }
-    _spawnText(entry) {
-        this._ensureTextPool();
-        const t = this._textPool.pop() || {active:false};
-        Object.assign(t, entry, {active:true, age:0, lifetime:0.9, vy:-30});
-        this._activeTexts.push(t);
-        if (this._activeTexts.length > this._textMax) {
-            const old = this._activeTexts.shift();
-            if (old) { old.active = false; this._textPool.push(old); }
-        }
-    }
+    // Delegate floating text APIs to system
     _updateTexts(dt) {
-        if (!this._activeTexts || this._activeTexts.length === 0) return;
-        for (let i = this._activeTexts.length - 1; i >= 0; i--) {
-            const t = this._activeTexts[i];
-            t.age += dt;
-            if (t.age >= t.lifetime) {
-                this._activeTexts.splice(i,1);
-                t.active = false; this._textPool.push(t);
-                continue;
-            }
-            // simple upward drift and fade
-            t.y += t.vy * dt;
+        if (this.floatingText && typeof this.floatingText.update === 'function') {
+            this.floatingText.update(dt);
         }
     }
     _renderTexts(ctx) {
-        if (!this._activeTexts || this._activeTexts.length === 0) return;
-        ctx.save();
-        ctx.textAlign = 'center';
-        for (const t of this._activeTexts) {
-            const a = 1 - (t.age / t.lifetime);
-            ctx.globalAlpha = Math.max(0, a);
-            ctx.fillStyle = t.color || 'white';
-            ctx.font = `${t.size || 16}px Arial`;
-            ctx.fillText(t.text, t.x, t.y);
+        if (this.floatingText && typeof this.floatingText.render === 'function') {
+            this.floatingText.render(ctx);
         }
-        ctx.globalAlpha = 1;
-        ctx.restore();
     }
     showFloatingText(text, x, y, color = 'white', size = 16) {
-        // Enqueue world-space text; camera transform is applied during render
-        this._spawnText({ text, color, size, x, y });
+        if (this.floatingText && typeof this.floatingText.spawn === 'function') {
+            this.floatingText.spawn({ text, color, size, x, y });
+        }
     }
-      updateParticles(deltaTime) {
-        // Enforce particle limit to prevent memory issues
-        const maxParticles = this.maxParticles || 150;
-        
-        // If we exceed the limit, remove the oldest particles first
-        if (this.particles.length > maxParticles) {
-            const excessCount = this.particles.length - maxParticles;
-            this.particles.splice(0, excessCount);
+    updateParticles(deltaTime) {
+        // Delegate to ParticleManager if available
+        if (this.particleManager && typeof this.particleManager.update === 'function') {
+            this.particleManager.update(deltaTime);
+            return;
         }
         
-        const deadParticles = [];
+        // Simple fallback particle management
+        if (!this.particles || this.particles.length === 0) return;
         
-        // Update particles and collect dead ones for reuse
+        // Enforce particle limit
+        const maxParticles = this.maxParticles || 150;
+        if (this.particles.length > maxParticles) {
+            this.particles.splice(0, this.particles.length - maxParticles);
+        }
+        
+        // Update and remove dead particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const particle = this.particles[i];
-            
             if (!particle) {
                 this.particles.splice(i, 1);
                 continue;
@@ -669,34 +666,15 @@ class GameManager {
                 particle.update(deltaTime);
             }
             
-            // Check if particle is dead
-            if (particle.isDead || (particle.age !== undefined && particle.lifetime !== undefined && particle.age >= particle.lifetime)) {
-                deadParticles.push(particle);
+            if (particle.isDead || (particle.age >= particle.lifetime)) {
                 this.particles.splice(i, 1);
             }
-        }
-        
-        // Maintain particle pool size limit
-        if (!this.particlePool) {
-            this.particlePool = [];
-        }
-        
-        const maxPoolSize = 100; // Increased pool size for better performance
-        const availablePoolSlots = maxPoolSize - this.particlePool.length;
-        
-        // Add dead particles to pool (up to available slots)
-        for (let i = 0; i < Math.min(deadParticles.length, availablePoolSlots); i++) {
-            const particle = deadParticles[i];
-            // Reset particle state for reuse
-            particle.isDead = false;
-            particle.age = 0;
-            particle.opacity = 1.0;
-            this.particlePool.push(particle);
         }
     }
     
     // Try to add a particle while respecting performance settings and caps
     tryAddParticle(particle) {
+        if (this.particleManager) return this.particleManager.tryAddParticle(particle);
         if (this.lowQuality) return false;
         if (!this.particles) return false;
         if (this.particles.length >= this.maxParticles) return false;
@@ -705,13 +683,12 @@ class GameManager {
     }
 
     createExplosion(x, y, radius, color) {
-        // Respect global particle cap aggressively
+        if (this.particleManager) return this.particleManager.createExplosion(x, y, radius, color);
+        // Use simplified budget calculation
         if (this.particles.length >= this.maxParticles) return;
-        // Use object pooling for explosion particles
-        const baseCount = Math.min(Math.floor(radius * 0.8), 50);
-        // Scale count by reduction factor and remaining budget
-        const remainingBudget = Math.max(0, this.maxParticles - this.particles.length);
-        const particleCount = Math.max(0, Math.min(Math.floor(baseCount * (this.particleReductionFactor || 1.0)), remainingBudget));
+        
+        const particleCount = MathUtils.budget(radius * 0.8, this.particleReductionFactor, 
+                                             this.maxParticles, this.particles.length);
         
         for (let i = 0; i < particleCount; i++) {
             let particle;
@@ -725,17 +702,17 @@ class GameManager {
                 particle.opacity = 1.0;
                 
                 // Update particle properties for explosion
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 50 + Math.random() * 100;
-                particle.vx = Math.cos(angle) * speed;
-                particle.vy = Math.sin(angle) * speed;
+                const motion = MathUtils.randomParticleMotion();
+                particle.vx = Math.cos(motion.angle) * motion.speed;
+                particle.vy = Math.sin(motion.angle) * motion.speed;
                 particle.color = color || '#ff6b35';
                 particle.size = 2 + Math.random() * 6;
                 particle.lifetime = 0.5 + Math.random() * 0.5;
             } else {
                 // Create new particle if pool is empty
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 50 + Math.random() * 100;
+                const motion = MathUtils.randomParticleMotion();
+                const angle = motion.angle;
+                const speed = motion.speed;
                 const size = 2 + Math.random() * 6;
                 const lifetime = 0.5 + Math.random() * 0.5;
                 
@@ -761,12 +738,13 @@ class GameManager {
     }
     
     createHitEffect(x, y, amount) {
+        if (this.particleManager) return this.particleManager.createHitEffect(x, y, amount);
         // Respect global particle cap aggressively
         if (this.particles.length >= this.maxParticles) return;
-        // Use object pooling for hit particles
-        const baseCount = Math.min(10, Math.floor(amount / 5));
-        const remainingBudget = Math.max(0, this.maxParticles - this.particles.length);
-        const particleCount = Math.max(0, Math.min(Math.floor(baseCount * (this.particleReductionFactor || 1.0)), remainingBudget));
+        
+        // Use simplified budget calculation
+        const particleCount = MathUtils.budget(amount / 5, this.particleReductionFactor,
+                                             this.maxParticles, this.particles.length);
         
         for (let i = 0; i < particleCount; i++) {
             let particle;
@@ -778,8 +756,9 @@ class GameManager {
                 particle.isDead = false;
                 particle.age = 0;
             } else {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 30 + Math.random() * 70;
+                const motion = MathUtils.randomParticleMotion();
+                const angle = motion.angle;
+                const speed = (motion.speed * 0.7) + 30; // Scale to 30-100 range
                 const size = 1 + Math.random() * 3;
                 const lifetime = 0.3 + Math.random() * 0.3;
                 
@@ -798,6 +777,7 @@ class GameManager {
     }
     
     createLevelUpEffect(x, y) {
+        if (this.particleManager) return this.particleManager.createLevelUpEffect(x, y);
         // Respect global particle cap aggressively
         if (this.particles.length >= this.maxParticles) return;
         // Use object pooling for level up particles
@@ -856,6 +836,7 @@ class GameManager {
     }
     
     renderParticles(ctx) {
+        if (this.particleManager) return this.particleManager.render(ctx);
         // Apply screen shake if active
         if (this.screenShakeAmount > 0) {
             const shakeX = (Math.random() - 0.5) * this.screenShakeAmount;
@@ -1613,18 +1594,18 @@ class GameManager {
         }
     }    // Show win screen method
     showWinScreen() {
-        console.log("Showing win screen called!");
+        logger.log("Showing win screen called!");
 
         // Prevent multiple win screens with stronger validation
         if (this.winScreenDisplayed || this.gameWon) {
-            console.log("Win screen already displayed or game already won, not showing again");
+            logger.log("Win screen already displayed or game already won, not showing again");
             return false;
         }
         
         // Check if win screen element already exists
         const existingWinScreen = document.getElementById('win-screen');
         if (existingWinScreen) {
-            console.log("Win screen element already exists, not creating another");
+            logger.log("Win screen element already exists, not creating another");
             return false;
         }
         
@@ -1633,7 +1614,7 @@ class GameManager {
         this.gameOver = true;
         this.winScreenDisplayed = true;
         
-        console.log("Win screen flags set, displaying screen now");
+        logger.log("Win screen flags set, displaying screen now");
         
         // Pause the game immediately
         if (this.game) {
@@ -1721,7 +1702,7 @@ class GameManager {
             document.getElementById('game-container').appendChild(winDiv);
             // Award and display star tokens
             this.earnStarTokens(earnedStars);
-            console.log("Win screen DOM element added");
+            logger.log("Win screen DOM element added");
             
             // Add play again button functionality
             document.getElementById('play-again-button').addEventListener('click', () => {
@@ -1769,22 +1750,18 @@ class GameManager {
         localStorage.setItem('starTokens', this.metaStars);
     }
     
-    // Meta progression: persistent upgrades across runs
+    // Simplified meta progression loading - using object iteration
     loadMetaUpgrades() {
-        this.meta_mercury_speed = parseInt(localStorage.getItem('meta_mercury_speed') || '0', 10);
-        this.meta_mercury_dodge_cd = parseInt(localStorage.getItem('meta_mercury_dodge_cd') || '0', 10);
-        this.meta_venus_hp = parseInt(localStorage.getItem('meta_venus_hp') || '0', 10);
-        this.meta_venus_regen = parseInt(localStorage.getItem('meta_venus_regen') || '0', 10);
-        this.meta_mars_damage = parseInt(localStorage.getItem('meta_mars_damage') || '0', 10);
-        this.meta_mars_attack_speed = parseInt(localStorage.getItem('meta_mars_attack_speed') || '0', 10);
-        this.meta_jupiter_xp_gain = parseInt(localStorage.getItem('meta_jupiter_xp_gain') || '0', 10);
-        this.meta_jupiter_star_drop = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
-        this.meta_saturn_magnet = parseInt(localStorage.getItem('meta_saturn_magnet') || '0', 10);
-        this.meta_saturn_extra_projectile = parseInt(localStorage.getItem('meta_saturn_extra_projectile') || '0', 10);
-        this.meta_neptune_crit = parseInt(localStorage.getItem('meta_neptune_crit') || '0', 10);
-        this.meta_neptune_aoe_boost = parseInt(localStorage.getItem('meta_neptune_aoe_boost') || '0', 10);
-        this.meta_pluto_damage_reduction = parseInt(localStorage.getItem('meta_pluto_damage_reduction') || '0', 10);
-        this.meta_pluto_start_level = parseInt(localStorage.getItem('meta_pluto_start_level') || '0', 10);
+        const metaKeys = [
+            'mercury_speed', 'mercury_dodge_cd', 'venus_hp', 'venus_regen',
+            'mars_damage', 'mars_attack_speed', 'jupiter_xp_gain', 'jupiter_star_drop',
+            'saturn_magnet', 'saturn_extra_projectile', 'neptune_crit', 'neptune_aoe_boost',
+            'pluto_damage_reduction', 'pluto_start_level'
+        ];
+        
+        metaKeys.forEach(key => {
+            this[`meta_${key}`] = parseInt(localStorage.getItem(`meta_${key}`) || '0', 10);
+        });
     }
 
     updateStarDisplay() {
@@ -1917,7 +1894,7 @@ class GameManager {
     
     // Performance mode callback
     onPerformanceModeChange(mode) {
-        console.log(`Game performance mode changed to: ${mode}`);
+        logger.log(`Game performance mode changed to: ${mode}`);
         
         switch (mode) {
             case 'critical':
@@ -1950,35 +1927,24 @@ class GameManager {
         }
         
         // Clean up existing particles if we're over the new limit
-        if (this.particles.length > this.maxParticles) {
-            // Remove oldest particles first
+        if (this.particles && this.particles.length > this.maxParticles) {
             this.particles.splice(0, this.particles.length - this.maxParticles);
-        }
-        
-        // Force garbage collection if available
-        if (window.gc && mode === 'critical') {
-            window.gc();
         }
     }
     
     // New method to clean up distant projectiles in critical performance mode
     cleanupDistantProjectiles() {
-        if (!this.game || !this.game.player || !this.game.projectiles) return;
+        if (!this.game?.player?.projectiles) return;
         
         const player = this.game.player;
-        const maxDistance = 800; // Cleanup projectiles beyond this distance
+        const maxDistanceSquared = 800 * 800; // Pre-square to avoid sqrt
         
-        for (let i = this.game.projectiles.length - 1; i >= 0; i--) {
-            const projectile = this.game.projectiles[i];
-            const distance = Math.sqrt(
-                (projectile.x - player.x) ** 2 + 
-                (projectile.y - player.y) ** 2
-            );
-            
-            if (distance > maxDistance) {
-                this.game.projectiles.splice(i, 1);
-            }
-        }
+        this.game.projectiles = this.game.projectiles.filter(projectile => {
+            const dx = projectile.x - player.x;
+            const dy = projectile.y - player.y;
+            const distanceSquared = dx * dx + dy * dy;
+            return distanceSquared <= maxDistanceSquared;
+        });
     }
 
     // Effect symbols for different shot types
@@ -2029,7 +1995,8 @@ class GameManager {
                 default: displayText = `${text}`;
             }
         }
-    this._spawnText({ text: displayText, color, size, x, y });
+    // Delegate to pooled floating text system
+    this.showFloatingText(displayText, x, y, color, size);
     }
 }
 
@@ -2086,41 +2053,28 @@ upgradeSystem.getRandomUpgrades = function(count) {
         return true;
     });
     
-    // Weight upgrades by rarity
+    // Weight upgrades by rarity (simplified)
     const weightedOptions = [];
     availableUpgrades.forEach(upgrade => {
         const rarity = upgrade.rarity || 'common';
-        let weight;
+        const weights = { common: 10, uncommon: 5, rare: 2, epic: 1 };
+        const weight = weights[rarity] || 1;
         
-        switch (rarity) {
-            case 'common': weight = 100; break;
-            case 'uncommon': weight = 50; break;
-            case 'rare': weight = 25; break;
-            case 'epic': weight = 10; break;
-            default: weight = 10;
-        }
-        
-        // Add weighted copies to the pool
+        // Simple weighted selection
         for (let i = 0; i < weight; i++) {
             weightedOptions.push(upgrade);
         }
     });
     
-    // Shuffle and select unique upgrades
+    // Select unique upgrades
     const shuffled = this.shuffleArray([...weightedOptions]);
     const selected = [];
     const selectedIds = new Set();
     
     for (const upgrade of shuffled) {
-        // For stackable upgrades, we want to still ensure variety in options
-        // by not offering the same upgrade twice in one level-up choice
-        if (!selectedIds.has(upgrade.id)) {
+        if (!selectedIds.has(upgrade.id) && selected.length < count) {
             selected.push(upgrade);
             selectedIds.add(upgrade.id);
-            
-            if (selected.length >= count) {
-                break;
-            }
         }
     }
     
@@ -2372,108 +2326,5 @@ Enemy.prototype.createBossDeathEffect = function() {
                 }
             }, 1500);
         }
-    }
-};
-
-// Remove the duplicate showWinScreen method at the bottom and use the proper one
-GameManager.prototype.showWinScreen = function() {
-    console.log("Showing win screen called!");
-
-    // Prevent multiple win screens
-    if (this.winScreenDisplayed) {
-        console.log("Win screen already displayed, not showing again");
-        return;
-    }
-    
-    // Flag states immediately to prevent race conditions
-    this.gameWon = true;
-    this.gameOver = true;
-    this.winScreenDisplayed = true;
-    
-    console.log("Win screen flags set, displaying screen now");
-    
-    // Pause the game immediately
-    if (this.game) {
-        this.game.isPaused = true;
-    }
-    
-    // Create massive victory explosion effect at player position
-    if (this.game.player) {
-        this.createSpecialEffect('bossPhase', this.game.player.x, this.game.player.y, 150, '#f1c40f');
-        this.addScreenShake(8, 1.0);
-    }
-    
-    // Create win screen UI
-    const winDiv = document.createElement('div');
-    winDiv.id = 'win-screen';
-    
-    // Rest of the win screen creation code remains the same
-    const totalSeconds = Math.floor(this.gameTime);
-    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-    
-    // Calculate score based on various factors
-    const timeScore = Math.floor(totalSeconds * 10);
-    const killScore = this.killCount * 100;
-    const levelScore = this.game.player.level * 500;
-    const bossScore = (this.gameStats.bossesSpawned || 0) * 1000;
-    const totalScore = timeScore + killScore + levelScore + bossScore;
-    
-    // Get player upgrades for display
-    const upgrades = this.game.player.upgrades || [];
-    let upgradeList = '';
-    const upgradeCounts = {};
-    
-    upgrades.forEach(upgrade => {
-        const name = upgrade.displayName || upgrade.name;
-        if (!upgradeCounts[name]) {
-            upgradeCounts[name] = 1;
-        } else {
-            upgradeCounts[name]++;
-        }
-    });
-    
-    // Create upgrade list HTML
-    for (const [name, count] of Object.entries(upgradeCounts)) {
-        upgradeList += `<li>${name}${count > 1 ? ` x${count}` : ''}</li>`;
-    }
-    
-    // Set victory content with mega boss defeat message
-    winDiv.innerHTML = `
-        <h1>VICTORY!</h1>
-        <h2>You've Defeated the Mega Boss!</h2>
-        <p>Final Score: <span class="stats-highlight">${totalScore}</span></p>
-        <p>Survived for: <span class="stats-highlight">${minutes}:${seconds}</span></p>
-        <p>Level reached: <span class="stats-highlight">${this.game.player.level}</span></p>
-        <p>Enemies defeated: <span class="stats-highlight">${this.killCount}</span></p>
-        <p>Bosses conquered: <span class="stats-highlight">${this.gameStats.bossesSpawned || 0}</span></p>
-        <p>Highest Combo: <span class="stats-highlight">${this.highestCombo}</span></p>
-        <div class="upgrades-container">
-            <h3>Your Build</h3>
-            <ul class="upgrade-list">
-                ${upgradeList}
-            </ul>
-        </div>
-        <button id="play-again-button">Play Again</button>
-        <p class="victory-message">Congratulations on your victory over the Mega Boss!</p>
-    `;
-    
-    document.getElementById('game-container').appendChild(winDiv);
-    console.log("Win screen DOM element added");
-    
-    // Add play again button functionality
-    document.getElementById('play-again-button').addEventListener('click', () => {
-        window.location.reload();
-    });
-    
-    // Play victory sound
-    if (audioSystem && audioSystem.play) {
-        audioSystem.play('levelUp', 0.8); // Use level up sound as victory sound
-    }
-    
-    // Ensure enemies stop spawning after victory
-    if (this.enemySpawner) {
-        this.enemySpawner.spawnRate = 0;
-        this.enemySpawner.maxEnemies = 0;
     }
 };

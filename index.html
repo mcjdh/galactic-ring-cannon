@@ -6,7 +6,8 @@
     <meta name="description" content="A 2D survival game">
     <meta name="author" content="mcjdh">
     <meta name="theme-color" content="#111111">
-    <title>Galactic Ring:Cannon</title>
+    <title>Galactic Ring Cannon</title>
+    <link rel="preload" href="assets/css/styles.css" as="style">
     <link rel="stylesheet" href="assets/css/styles.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
 </head>
@@ -22,7 +23,7 @@
     
     <!-- Main Menu: Title / Mode Selection -->
     <div id="main-menu" class="hidden">
-        <h1 id="menu-title">Galactic Ring: Cannon</h1>
+        <h1 id="menu-title">Galactic Ring Cannon</h1>
         <div id="star-menu-display">⭐ 0</div>
         <p id="menu-subtitle">Select Mode:</p>
         <button id="btn-normal" class="menu-button">Normal Mode</button>
@@ -133,76 +134,101 @@
         </div>
     </div>
     
-    <!-- Audio system uses procedural sound synthesis now -->
-    
     <!-- Configuration and utilities -->
-    <script src="config/gameConfig.js"></script>
+    <script src="src/config/config.js"></script>
+    <script src="src/utils/Logger.js"></script>
+    <script src="src/utils/URLParams.js"></script>
     <script src="src/utils/MathUtils.js"></script>
     <script src="src/utils/CollisionUtils.js"></script>
     <script src="src/systems/audio.js"></script>
     <script src="src/systems/performance.js"></script>
+    <script src="src/systems/ResonanceSystem.js"></script>
+    <script src="src/systems/OptimizedParticlePool.js"></script>
+    <script src="src/systems/IntelligentSpawner.js"></script>
     <script src="src/utils/debug.js"></script>
     <script src="src/entities/particle.js"></script>
     <script src="src/entities/projectile.js"></script>
     <script src="src/entities/damageZone.js"></script>
-    <script src="src/entities/enemy.js"></script>
+    <!-- Use dedicated entities to avoid duplicate class definitions -->
+    <script src="src/entities/EnemyProjectile.js"></script>
+    <script src="src/entities/XPOrb.js"></script>
+    <script src="src/entities/PlayerUpgrades.js"></script>
+    <script src="src/entities/Enemy.js"></script>
     <script src="src/entities/player.js"></script>
+    <script src="src/systems/ParticleManager.js"></script>
     <script src="src/systems/upgrades.js"></script>
     <script src="src/systems/achievements.js"></script>
+    <script src="src/core/systems/CollisionSystem.js"></script>
     <script src="src/core/gameEngine.js"></script>
+    <script src="src/core/systems/FloatingTextSystem.js"></script>
+    <script src="src/ui/UIManager.js"></script>
     <script src="src/core/gameManager.js"></script>
     <script src="src/ui/uiEnhancements.js"></script>
     <script>
-        // Initialize UI enhancements
-        const uiEnhancements = new UIEnhancements();
+        // Initialize global systems after all scripts are loaded
+        let uiEnhancements, achievementSystem, gameManager;
         
-        // Initialize achievements system
-        const achievementSystem = new AchievementSystem();
-        
-        // Game tips
-        const tips = [
-            "Use WASD or Arrow Keys to move",
-            "Enemies drop XP orbs when defeated",
-            "Collect XP to level up and choose upgrades",
-            "Press SPACE to dodge incoming enemies",
-            "Bosses appear every 3 minutes",
-            "Watch out for explosive enemies!",
-            "Ranged enemies will shoot projectiles at you",
-            "The game gets harder over time",
-            "Piercing projectiles can hit multiple enemies",
-            "Press P or ESC to pause the game",
-            "The minimap shows nearby enemies and XP orbs"
-        ];
-        
-        // Simple loading simulation with random tips
-        window.addEventListener('load', () => {
-            // Display random tip
-            const tipElem = document.getElementById('loading-tip');
-            tipElem.textContent = "Tip: " + tips[Math.floor(Math.random() * tips.length)];
-            
-            const loadingBar = document.getElementById('loading-progress');
-            let progress = 0;
-            
-            const interval = setInterval(() => {
-                progress += 5;
-                loadingBar.style.width = `${progress}%`;
+        // Wait for DOM to be ready before initializing
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                uiEnhancements = new UIEnhancements();
+                achievementSystem = new AchievementSystem();
+                gameManager = new GameManager();
                 
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        document.getElementById('loading-screen').classList.add('hidden');
-                        const menu = document.getElementById('main-menu');
-                        menu.classList.remove('hidden');
-                        // Update star count in main menu
-                        const starDisplay = document.getElementById('star-menu-display');
-                        // gameManager is a global variable (declared via const in gameManager.js)
-                        if (starDisplay && typeof gameManager !== 'undefined') {
-                            starDisplay.textContent = '⭐ ' + gameManager.metaStars;
-                        }
-                    }, 500);
-                }
-            }, 100);
+                // Initialize the rest of the application
+                initializeApp();
+            } catch (error) {
+                console.error('Error initializing game systems:', error);
+            }
         });
+        
+        function initializeApp() {
+            const tips = [
+                "Use WASD or Arrow Keys to move",
+                "Enemies drop XP orbs when defeated",
+                "Collect XP to level up and choose upgrades",
+                "Press SPACE to dodge incoming enemies",
+                "Bosses appear every 3 minutes",
+                "Watch out for explosive enemies!",
+                "Ranged enemies will shoot projectiles at you",
+                "The game gets harder over time",
+                "Piercing projectiles can hit multiple enemies",
+                "Press P or ESC to pause the game",
+                "The minimap shows nearby enemies and XP orbs"
+            ];
+            
+            // Simple loading simulation with random tips
+            // TODO: Implement real asset loading progress tracking
+            // FIX: Loading bar animation could be smoother with requestAnimationFrame
+            window.addEventListener('load', () => {
+                // Display random tip
+                const tipElem = document.getElementById('loading-tip');
+                tipElem.textContent = "Tip: " + tips[Math.floor(Math.random() * tips.length)];
+                
+                const loadingBar = document.getElementById('loading-progress');
+                let progress = 0;
+                
+                // TODO: Replace fixed interval with actual asset loading progress
+                const interval = setInterval(() => {
+                    progress += 5;
+                    loadingBar.style.width = `${progress}%`;
+                    
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            document.getElementById('loading-screen').classList.add('hidden');
+                            const menu = document.getElementById('main-menu');
+                            menu.classList.remove('hidden');
+                            // Update star count in main menu
+                            const starDisplay = document.getElementById('star-menu-display');
+                            // gameManager is a global variable (declared via const in gameManager.js)
+                            if (starDisplay && typeof gameManager !== 'undefined') {
+                                starDisplay.textContent = '⭐ ' + gameManager.metaStars;
+                            }
+                        }, 500);
+                    }
+                }, 100);
+            });
         // Main menu button handlers
         document.getElementById('btn-normal').addEventListener('click', () => {
             document.getElementById('main-menu').classList.add('hidden');
@@ -396,6 +422,8 @@
         document.getElementById('achievements-close').addEventListener('click', () => {
             document.getElementById('achievements-panel').classList.add('hidden');
         });
+        
+        } // End of initializeApp function
     </script>
 </body>
 </html>

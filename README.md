@@ -19,7 +19,7 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
    npx http-server
    ```
 
-3. **Play the game**: Open `http://localhost:8000` in your browser
+3. **Play the game**: Open `http://localhost:8000/index.html` in your browser
 
 ## 🌟 Features
 
@@ -62,7 +62,7 @@ galactic-ring-cannon/
 │   ├── API_DOCUMENTATION.md # Code documentation
 │   ├── GAME_DESIGN.md     # Design document
 │   └── DEPLOYMENT.md      # Deployment guide
-└── index.html             # Main game file
+└── index.html             # Single entry point (unified)
 ```
 
 ## 🛠️ Development
