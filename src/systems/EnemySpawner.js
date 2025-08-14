@@ -202,6 +202,23 @@ class EnemySpawner {
     }
     
     /**
+     * Create an enemy instance at a position without adding it to the game
+     * For use by systems like IntelligentSpawner
+     * @param {string} type - Enemy type key
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @returns {Enemy} Configured enemy instance
+     */
+    createEnemy(type, x, y) {
+        const enemy = new Enemy(x, y, type || this.getRandomEnemyType());
+        this.applyDifficultyScaling(enemy);
+        if (Math.random() < this.eliteChance) {
+            this.makeElite(enemy);
+        }
+        return enemy;
+    }
+    
+    /**
      * Spawn a regular enemy
      */
     spawnEnemy() {
