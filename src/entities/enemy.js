@@ -860,7 +860,7 @@ class Enemy {
     }
 }
 
-class EnemySpawner {
+class EnemySpawnerLegacy {
     constructor(game) {
         this.game = game;
         this.spawnRate = 1; // enemies per second
@@ -994,8 +994,10 @@ class EnemySpawner {
         // Create and add enemy
         const enemy = new Enemy(x, y, enemyType);
         
-        // Apply difficulty scaling to enemy stats
-        if (gameManager && gameManager.difficultyFactor) {
+        // Prefer centralized spawner scaling if available
+        if (this.game?.enemySpawner && typeof this.game.enemySpawner.applyDifficultyScaling === 'function') {
+            this.game.enemySpawner.applyDifficultyScaling(enemy);
+        } else if (gameManager && gameManager.difficultyFactor) {
             // Use the new health multiplier for more precise scaling
             const healthMultiplier = gameManager.enemySpawner?.enemyHealthMultiplier || 
                 (1 + ((gameManager.difficultyFactor - 1) * 0.5));
