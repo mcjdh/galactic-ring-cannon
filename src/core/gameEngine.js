@@ -317,22 +317,20 @@ class GameEngine {
     }
     
     adjustPerformanceMode() {
-        // More aggressive performance adjustments based on GPU usage
+        // Defer to centralized performance manager if present
+        if (window.performanceManager) {
+            return;
+        }
+        // Local fallback: adjust only FPS targets; leave particles/UI to GameManager
         if (this.gpuUsage > this.criticalGpuThreshold && !this.performanceMode) {
-            // Critical performance mode
             this.enablePerformanceMode();
-            this.targetFps = 30; // Reduce FPS target
-            this.particleReductionFactor = 0.25; // More aggressive particle reduction
+            this.targetFps = 30;
         } else if (this.gpuUsage > this.highGpuThreshold && !this.performanceMode) {
-            // High performance mode
             this.enablePerformanceMode();
             this.targetFps = 45;
-            this.particleReductionFactor = 0.5;
         } else if (this.gpuUsage < this.lowGpuThreshold && this.performanceMode) {
-            // Restore normal mode
             this.disablePerformanceMode();
             this.targetFps = 60;
-            this.particleReductionFactor = 1.0;
         }
     }
     
@@ -345,45 +343,21 @@ class GameEngine {
     }
     
     enablePerformanceMode() {
-        if (this.performanceMode) return; // Prevent multiple enables
-        
+        if (this.performanceMode) return;
         this.performanceMode = true;
         this.lowGpuMode = true;
-        
-        // Reduce visual effects
-        this.particleReductionFactor = 0.5;
-        this.maxParticles = Math.floor(this.maxParticles * 0.5);
-        
         // Optimize rendering
         this.ctx.imageSmoothingEnabled = false;
         this.ctx.globalCompositeOperation = 'source-over';
-        
-        // Reduce update frequency for non-critical entities
-        if (gameManager) {
-            gameManager.updateInterval = 0.1; // Update every 100ms instead of every frame
-        }
-        
         console.log('Performance mode enabled');
     }
     
     disablePerformanceMode() {
-        if (!this.performanceMode) return; // Prevent multiple disables
-        
+        if (!this.performanceMode) return;
         this.performanceMode = false;
         this.lowGpuMode = false;
-        
-        // Restore visual effects
-        this.particleReductionFactor = 1.0;
-        this.maxParticles = 150;
-        
         // Restore rendering quality
         this.ctx.imageSmoothingEnabled = true;
-        
-        // Restore update frequency
-        if (gameManager) {
-            gameManager.updateInterval = 0;
-        }
-        
         console.log('Performance mode disabled');
     }
     

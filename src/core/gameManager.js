@@ -3,6 +3,7 @@ class GameManager {
         // Initialize game systems
         this.game = new GameEngine();
         this.enemySpawner = new EnemySpawner(this.game);
+        this.intelligentSpawner = new IntelligentSpawner(this.game);
         this.gameTime = 0;
         this.gameOver = false;
         this.gameWon = false; // Add explicit win state flag
@@ -344,10 +345,13 @@ class GameManager {
             }
         }
         
-        // Update enemy spawner
+                // Update spawners
         this.enemySpawner.update(deltaTime);
+        if (this.intelligentSpawner) {
+            this.intelligentSpawner.update(deltaTime);
+        }
         
-    // Update particles (skip in low-quality mode)
+        // Update particles (skip in low-quality mode)
         if (this.particleManager) {
             this.particleManager.setPerformanceSettings({
                 lowQuality: this.lowQuality,

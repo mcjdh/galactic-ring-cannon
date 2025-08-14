@@ -206,29 +206,25 @@ class EnemySpawner {
      */
     spawnEnemy() {
         if (!this.game.player) return;
-        
-        // Generate spawn position around player
         const spawnPos = this.getSpawnPosition();
-        
-        // Pick random enemy type
         const enemyType = this.getRandomEnemyType();
-        
-        // Create enemy
-        const enemy = new Enemy(spawnPos.x, spawnPos.y, enemyType);
-        
-        // Apply difficulty scaling
+        const enemy = this.createEnemy(enemyType, spawnPos.x, spawnPos.y);
+        if (!enemy) return;
+        this.game.addEntity(enemy);
+        this.totalEnemiesSpawned++;
+        console.log(`👹 Spawned ${enemy.isElite ? 'Elite ' : ''}${enemyType} enemy`);
+    }
+
+    /**
+     * Factory to create an enemy by type at a position
+     */
+    createEnemy(type, x, y) {
+        const enemy = new Enemy(x, y, type);
         this.applyDifficultyScaling(enemy);
-        
-        // Chance for elite
         if (Math.random() < this.eliteChance) {
             this.makeElite(enemy);
         }
-        
-        // Add to game
-        this.game.addEntity(enemy);
-        this.totalEnemiesSpawned++;
-        
-        console.log(`👹 Spawned ${enemy.isElite ? 'Elite ' : ''}${enemyType} enemy`);
+        return enemy;
     }
     
     /**
