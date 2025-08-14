@@ -70,6 +70,14 @@ class GameManager {
         this.megaBossTracked = false;
         // Performance: cap maximum particles to prevent overload (reduced for lower-end devices)
         this.maxParticles = 150;
+    // Initialize particle reduction factor (used to scale visual effects by perf mode)
+    this.particleReductionFactor = 1.0;
+
+    // UI update throttling (tuned by performance mode)
+    this.uiUpdateIntervalNormal = 0.25; // seconds
+    this.uiUpdateIntervalLow = 0.5;
+    this.uiUpdateIntervalCritical = 1.0;
+    this.uiUpdateIntervalCurrent = this.uiUpdateIntervalNormal;
         // Endless mode and quality settings from URL params
         const urlParams = new URLSearchParams(window.location.search);
         this.endlessMode = urlParams.get('mode') === 'endless';
@@ -317,7 +325,7 @@ class GameManager {
         // Update enemy spawner
         this.enemySpawner.update(deltaTime);
         
-        // Update particles (skip in low-quality mode)
+    // Update particles (skip in low-quality mode)
         if (this.lowQuality) {
             // Clear particles immediately
             this.particles.length = 0;
@@ -325,9 +333,9 @@ class GameManager {
             this.updateParticles(deltaTime);
         }
         
-        // Update UI periodically (every 0.25 seconds)
-        this.uiUpdateTimer += deltaTime;
-        if (this.uiUpdateTimer >= 0.25) {
+    // Update UI periodically (interval adapts with performance mode)
+    this.uiUpdateTimer += deltaTime;
+    if (this.uiUpdateTimer >= this.uiUpdateIntervalCurrent) {
             this.uiUpdateTimer = 0;
             this.updateUI();
         }
@@ -585,29 +593,56 @@ class GameManager {
         return this.xpCollected;
     }
     
-    // Show floating text (damage numbers, XP gained, etc.)
+    // Pooled floating text, drawn on canvas to avoid DOM churn
+    _ensureTextPool() {
+        if (this._textPool) return;
+        this._textPool = [];
+        this._activeTexts = [];
+        this._textMax = 80; // cap active texts
+        this._textPoolSize = 120;
+        for (let i = 0; i < this._textPoolSize; i++) this._textPool.push({active:false});
+    }
+    _spawnText(entry) {
+        this._ensureTextPool();
+        const t = this._textPool.pop() || {active:false};
+        Object.assign(t, entry, {active:true, age:0, lifetime:0.9, vy:-30});
+        this._activeTexts.push(t);
+        if (this._activeTexts.length > this._textMax) {
+            const old = this._activeTexts.shift();
+            if (old) { old.active = false; this._textPool.push(old); }
+        }
+    }
+    _updateTexts(dt) {
+        if (!this._activeTexts || this._activeTexts.length === 0) return;
+        for (let i = this._activeTexts.length - 1; i >= 0; i--) {
+            const t = this._activeTexts[i];
+            t.age += dt;
+            if (t.age >= t.lifetime) {
+                this._activeTexts.splice(i,1);
+                t.active = false; this._textPool.push(t);
+                continue;
+            }
+            // simple upward drift and fade
+            t.y += t.vy * dt;
+        }
+    }
+    _renderTexts(ctx) {
+        if (!this._activeTexts || this._activeTexts.length === 0) return;
+        ctx.save();
+        ctx.textAlign = 'center';
+        for (const t of this._activeTexts) {
+            const a = 1 - (t.age / t.lifetime);
+            ctx.globalAlpha = Math.max(0, a);
+            ctx.fillStyle = t.color || 'white';
+            ctx.font = `${t.size || 16}px Arial`;
+            ctx.fillText(t.text, t.x, t.y);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
     showFloatingText(text, x, y, color = 'white', size = 16) {
-        // Convert game coordinates to screen coordinates
-        const cameraX = -this.game.player.x + this.game.canvas.width / 2;
-        const cameraY = -this.game.player.y + this.game.canvas.height / 2;
-        
-        const screenX = x + cameraX;
-        const screenY = y + cameraY;
-        
-        const textElement = document.createElement('div');
-        textElement.className = 'floating-text';
-        textElement.textContent = text;
-        textElement.style.left = `${screenX}px`;
-        textElement.style.top = `${screenY}px`;
-        textElement.style.color = color;
-        textElement.style.fontSize = `${size}px`;
-        
-        document.getElementById('game-container').appendChild(textElement);
-        
-        // Remove element after animation completes
-        setTimeout(() => {
-            textElement.remove();
-        }, 1000);
+        // Enqueue world-space text; camera transform is applied during render
+        this._spawnText({ text, color, size, x, y });
     }
       updateParticles(deltaTime) {
         // Enforce particle limit to prevent memory issues
@@ -660,9 +695,23 @@ class GameManager {
         }
     }
     
+    // Try to add a particle while respecting performance settings and caps
+    tryAddParticle(particle) {
+        if (this.lowQuality) return false;
+        if (!this.particles) return false;
+        if (this.particles.length >= this.maxParticles) return false;
+        this.particles.push(particle);
+        return true;
+    }
+
     createExplosion(x, y, radius, color) {
+        // Respect global particle cap aggressively
+        if (this.particles.length >= this.maxParticles) return;
         // Use object pooling for explosion particles
-        const particleCount = Math.min(Math.floor(radius * 0.8), 50); // Cap particle count
+        const baseCount = Math.min(Math.floor(radius * 0.8), 50);
+        // Scale count by reduction factor and remaining budget
+        const remainingBudget = Math.max(0, this.maxParticles - this.particles.length);
+        const particleCount = Math.max(0, Math.min(Math.floor(baseCount * (this.particleReductionFactor || 1.0)), remainingBudget));
         
         for (let i = 0; i < particleCount; i++) {
             let particle;
@@ -700,23 +749,24 @@ class GameManager {
                     lifetime
                 );
             }
-            
-            // Apply performance reduction factor
-            if (Math.random() < this.particleReductionFactor) {
-                this.particles.push(particle);
-            }
+            // Push respecting remaining budget
+            this.tryAddParticle(particle);
         }
         
         // Add shockwave effect with reduced complexity
-        if (Math.random() < this.particleReductionFactor) {
+        if (this.particles.length < this.maxParticles && Math.random() < (this.particleReductionFactor || 1.0)) {
             const shockwave = new ShockwaveParticle(x, y, radius * 1.5, color || '#ff6b35', 0.5);
-            this.particles.push(shockwave);
+            this.tryAddParticle(shockwave);
         }
     }
     
     createHitEffect(x, y, amount) {
+        // Respect global particle cap aggressively
+        if (this.particles.length >= this.maxParticles) return;
         // Use object pooling for hit particles
-        const particleCount = Math.min(10, Math.floor(amount / 5));
+        const baseCount = Math.min(10, Math.floor(amount / 5));
+        const remainingBudget = Math.max(0, this.maxParticles - this.particles.length);
+        const particleCount = Math.max(0, Math.min(Math.floor(baseCount * (this.particleReductionFactor || 1.0)), remainingBudget));
         
         for (let i = 0; i < particleCount; i++) {
             let particle;
@@ -743,14 +793,17 @@ class GameManager {
                     lifetime
                 );
             }
-            
-            this.particles.push(particle);
+            this.tryAddParticle(particle);
         }
     }
     
     createLevelUpEffect(x, y) {
+        // Respect global particle cap aggressively
+        if (this.particles.length >= this.maxParticles) return;
         // Use object pooling for level up particles
-        const particleCount = 30;
+        const baseCount = 30;
+        const remainingBudget = Math.max(0, this.maxParticles - this.particles.length);
+        const particleCount = Math.max(0, Math.min(Math.floor(baseCount * (this.particleReductionFactor || 1.0)), remainingBudget));
         
         for (let i = 0; i < particleCount; i++) {
             let particle;
@@ -777,18 +830,18 @@ class GameManager {
                     lifetime
                 );
             }
-            
-            this.particles.push(particle);
+            this.tryAddParticle(particle);
         }
         
         // Add shockwave effect with reduced complexity
         try {
             const shockwave = new ShockwaveParticle(x, y, 100, '#f39c12', 0.7);
-            this.particles.push(shockwave);
+            this.tryAddParticle(shockwave);
         } catch (error) {
             console.warn('Failed to create ShockwaveParticle:', error);
             // Fallback: create a regular particle burst
-            for (let i = 0; i < 8; i++) {
+            const fallbackCount = Math.min(8, Math.max(0, this.maxParticles - this.particles.length));
+            for (let i = 0; i < fallbackCount; i++) {
                 const angle = (i / 8) * Math.PI * 2;
                 const speed = 80;
                 const particle = new Particle(
@@ -797,7 +850,7 @@ class GameManager {
                     Math.sin(angle) * speed,
                     6, '#f39c12', 0.8
                 );
-                this.particles.push(particle);
+                this.tryAddParticle(particle);
             }
         }
     }
@@ -811,7 +864,8 @@ class GameManager {
         }
         
         // Batch render particles by type
-        const particleGroups = new Map();
+    if (!this.particles || this.particles.length === 0) return;
+    const particleGroups = new Map();
         
         for (const particle of this.particles) {
             const type = particle.constructor.name;
@@ -856,9 +910,10 @@ class GameManager {
         this.minimapScale = 0.15; // Increased scale for better visibility
         this.minimapContainer = document.getElementById('minimap-container');
         
-        // Add minimap throttling for performance
-        this.lastMinimapUpdate = 0;
-        this.minimapUpdateInterval = 50; // Update every 50ms (20 FPS)
+    // Add minimap throttling for performance
+    this.lastMinimapUpdate = 0;
+    this.minimapUpdateInterval = 50; // normal: every 50ms (20 FPS)
+    this.minimapUpdateIntervalLow = 120; // low/critical: slower updates
         
         // Add boss direction indicator
         const bossIndicator = document.createElement('div');
@@ -916,7 +971,9 @@ class GameManager {
         
         // Throttle minimap updates for performance
         const now = Date.now();
-        if (now - this.lastMinimapUpdate < this.minimapUpdateInterval) {
+        const interval = (this.lowQuality || (window.performanceManager && window.performanceManager.mode !== 'normal'))
+            ? this.minimapUpdateIntervalLow : this.minimapUpdateInterval;
+        if (now - this.lastMinimapUpdate < interval) {
             return;
         }
         this.lastMinimapUpdate = now;
@@ -940,7 +997,8 @@ class GameManager {
         let nearestBoss = null;
         let minBossDistance = Infinity;
         
-        this.game.enemies.forEach(enemy => {
+    const simpleMarkers = this.lowQuality || (window.performanceManager && window.performanceManager.mode === 'critical');
+    this.game.enemies.forEach(enemy => {
             // Calculate relative position
             const relX = (enemy.x - this.game.player.x) * this.minimapScale + centerX;
             const relY = (enemy.y - this.game.player.y) * this.minimapScale + centerY;
@@ -972,35 +1030,41 @@ class GameManager {
                         this.minimapCtx.fillStyle = '#e74c3c'; // Red for regular enemies
                 }
                 
-                const dotSize = enemy.isBoss ? 6 : 3; // Increased size for better visibility
-                this.minimapCtx.beginPath();
-                this.minimapCtx.arc(relX, relY, dotSize, 0, Math.PI * 2);
-                this.minimapCtx.fill();
-                
-                // Add glow effect for enemies
-                this.minimapCtx.beginPath();
-                this.minimapCtx.arc(relX, relY, dotSize + 2, 0, Math.PI * 2);
-                this.minimapCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                this.minimapCtx.fill();
+                const dotSize = enemy.isBoss ? 6 : 3;
+                if (simpleMarkers) {
+                    // Simple rectangle markers in constrained modes
+                    this.minimapCtx.fillRect(relX - 1, relY - 1, dotSize, dotSize);
+                } else {
+                    this.minimapCtx.beginPath();
+                    this.minimapCtx.arc(relX, relY, dotSize, 0, Math.PI * 2);
+                    this.minimapCtx.fill();
+                    // Subtle glow
+                    this.minimapCtx.beginPath();
+                    this.minimapCtx.arc(relX, relY, dotSize + 2, 0, Math.PI * 2);
+                    this.minimapCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                    this.minimapCtx.fill();
+                }
             }
         });
         
         // Draw XP orbs on minimap
-        this.game.xpOrbs.forEach(orb => {
+    this.game.xpOrbs.forEach(orb => {
             const relX = (orb.x - this.game.player.x) * this.minimapScale + centerX;
             const relY = (orb.y - this.game.player.y) * this.minimapScale + centerY;
             
             if (relX >= 0 && relX <= this.minimap.width && relY >= 0 && relY <= this.minimap.height) {
-                this.minimapCtx.fillStyle = '#2ecc71'; // Green for XP orbs
-                this.minimapCtx.beginPath();
-                this.minimapCtx.arc(relX, relY, 2, 0, Math.PI * 2);
-                this.minimapCtx.fill();
-                
-                // Add glow effect for XP orbs
-                this.minimapCtx.beginPath();
-                this.minimapCtx.arc(relX, relY, 4, 0, Math.PI * 2);
-                this.minimapCtx.fillStyle = 'rgba(46, 204, 113, 0.2)';
-                this.minimapCtx.fill();
+                this.minimapCtx.fillStyle = '#2ecc71';
+                if (simpleMarkers) {
+                    this.minimapCtx.fillRect(relX - 1, relY - 1, 2, 2);
+                } else {
+                    this.minimapCtx.beginPath();
+                    this.minimapCtx.arc(relX, relY, 2, 0, Math.PI * 2);
+                    this.minimapCtx.fill();
+                    this.minimapCtx.beginPath();
+                    this.minimapCtx.arc(relX, relY, 4, 0, Math.PI * 2);
+                    this.minimapCtx.fillStyle = 'rgba(46, 204, 113, 0.2)';
+                    this.minimapCtx.fill();
+                }
             }
         });
         
@@ -1144,10 +1208,14 @@ class GameManager {
     
     // Add a helper method for creating special combat effects
     createSpecialEffect(type, x, y, size, color) {
+        if (this.lowQuality) return;
+        const factor = (this.particleReductionFactor || 1.0);
         switch (type) {
-            case 'lightning':
+            case 'lightning': {
                 // Create a lightning strike effect
-                for (let i = 0; i < 12; i++) {
+                const base = 12;
+                const count = Math.max(0, Math.floor(base * factor));
+                for (let i = 0; i < count; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 50 + Math.random() * 150;
                     const distance = Math.random() * size;
@@ -1160,9 +1228,8 @@ class GameManager {
                         color || '#3498db',
                         0.2 + Math.random() * 0.2
                     );
-                    this.particles.push(particle);
+                    this.tryAddParticle(particle);
                 }
-                
                 // Create central flash
                 const flash = new Particle(
                     x, y,
@@ -1171,12 +1238,13 @@ class GameManager {
                     color || '#3498db',
                     0.15
                 );
-                this.particles.push(flash);
+                this.tryAddParticle(flash);
                 break;
-            
-            case 'ricochet':
-                // Create a bounce effect - particles flying outward
-                for (let i = 0; i < 10; i++) {
+            }
+            case 'ricochet': {
+                const base = 10;
+                const count = Math.max(0, Math.floor(base * factor));
+                for (let i = 0; i < count; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 60 + Math.random() * 120;
                     const particle = new Particle(
@@ -1188,9 +1256,8 @@ class GameManager {
                         color || '#f39c12',
                         0.2 + Math.random() * 0.2
                     );
-                    this.particles.push(particle);
+                    this.tryAddParticle(particle);
                 }
-                
                 // Create a small flash
                 const bounceFlash = new Particle(
                     x, y,
@@ -1199,13 +1266,14 @@ class GameManager {
                     color || '#f39c12',
                     0.1
                 );
-                this.particles.push(bounceFlash);
+                this.tryAddParticle(bounceFlash);
                 break;
-
-            case 'spread':
-                // Create spread attack effect
-                for (let i = 0; i < 15; i++) {
-                    const angle = -Math.PI/8 + (Math.PI/4) * (i/14);
+            }
+            case 'spread': {
+                const base = 15;
+                const count = Math.max(0, Math.floor(base * factor));
+                for (let i = 0; i < count; i++) {
+                    const angle = -Math.PI/8 + (Math.PI/4) * (i/Math.max(1, count-1));
                     const speed = 80 + Math.random() * 40;
                     const particle = new Particle(
                         x, y,
@@ -1215,14 +1283,15 @@ class GameManager {
                         color || '#9b59b6',
                         0.3 + Math.random() * 0.2
                     );
-                    this.particles.push(particle);
+                    this.tryAddParticle(particle);
                 }
                 break;
-                
-            case 'circle':
-                // Create circle attack effect
-                for (let i = 0; i < 16; i++) {
-                    const angle = (i / 16) * Math.PI * 2;
+            }
+            case 'circle': {
+                const base = 16;
+                const count = Math.max(0, Math.floor(base * factor));
+                for (let i = 0; i < count; i++) {
+                    const angle = (i / Math.max(1, count)) * Math.PI * 2;
                     const speed = 70 + Math.random() * 30;
                     const particle = new Particle(
                         x, y,
@@ -1232,13 +1301,14 @@ class GameManager {
                         color || '#9b59b6',
                         0.4
                     );
-                    this.particles.push(particle);
+                    this.tryAddParticle(particle);
                 }
                 break;
-                
-            case 'random':
-                // Create random attack effect
-                for (let i = 0; i < 12; i++) {
+            }
+            case 'random': {
+                const base = 12;
+                const count = Math.max(0, Math.floor(base * factor));
+                for (let i = 0; i < count; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 50 + Math.random() * 100;
                     const particle = new Particle(
@@ -1249,14 +1319,15 @@ class GameManager {
                         color || '#9b59b6',
                         0.2 + Math.random() * 0.3
                     );
-                    this.particles.push(particle);
+                    this.tryAddParticle(particle);
                 }
                 break;
-                
-            case 'bossPhase':
-                // Create boss phase transition effect (more dramatic)
+            }
+            case 'bossPhase': {
                 // Central explosion
-                for (let i = 0; i < 30; i++) {
+                const base = 30;
+                const count = Math.max(0, Math.floor(base * factor));
+                for (let i = 0; i < count; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 100 + Math.random() * 200;
                     const particle = new Particle(
@@ -1267,9 +1338,8 @@ class GameManager {
                         color || '#e74c3c',
                         0.4 + Math.random() * 0.3
                     );
-                    this.particles.push(particle);
+                    this.tryAddParticle(particle);
                 }
-                
                 // Add shockwave
                 const shockwave = new ShockwaveParticle(
                     x, y, 
@@ -1277,11 +1347,11 @@ class GameManager {
                     color || '#e74c3c',
                     0.8
                 );
-                this.particles.push(shockwave);
-                
+                this.tryAddParticle(shockwave);
                 // Add screen shake
                 this.addScreenShake(8, 0.5);
                 break;
+            }
         }
     }
 
@@ -1851,24 +1921,29 @@ class GameManager {
         
         switch (mode) {
             case 'critical':
-                this.maxParticles = 50;
-                this.particleReductionFactor = 0.25;
-                // Reduce enemy count slightly
+                this.maxParticles = 30; // Even more aggressive
+                this.particleReductionFactor = 0.2;
+                this.uiUpdateIntervalCurrent = this.uiUpdateIntervalCritical;
+                // Reduce enemy count significantly
                 if (this.enemySpawner) {
-                    this.enemySpawner.maxEnemies = Math.min(this.enemySpawner.maxEnemies, 20);
+                    this.enemySpawner.maxEnemies = Math.min(this.enemySpawner.maxEnemies, 15);
                 }
+                // Clear projectiles that are far from player
+                this.cleanupDistantProjectiles();
                 break;
             case 'low':
-                this.maxParticles = 100;
+                this.maxParticles = 75; // Reduced further
                 this.particleReductionFactor = 0.5;
+                this.uiUpdateIntervalCurrent = this.uiUpdateIntervalLow;
                 // Moderate reduction
                 if (this.enemySpawner) {
-                    this.enemySpawner.maxEnemies = Math.min(this.enemySpawner.maxEnemies, 30);
+                    this.enemySpawner.maxEnemies = Math.min(this.enemySpawner.maxEnemies, 25);
                 }
                 break;
             case 'normal':
-                this.maxParticles = 200;
+                this.maxParticles = 150; // Reduced from 200 for better baseline
                 this.particleReductionFactor = 1.0;
+                this.uiUpdateIntervalCurrent = this.uiUpdateIntervalNormal;
                 // Restore normal limits based on difficulty
                 this.updateDifficultyScaling();
                 break;
@@ -1876,7 +1951,33 @@ class GameManager {
         
         // Clean up existing particles if we're over the new limit
         if (this.particles.length > this.maxParticles) {
+            // Remove oldest particles first
             this.particles.splice(0, this.particles.length - this.maxParticles);
+        }
+        
+        // Force garbage collection if available
+        if (window.gc && mode === 'critical') {
+            window.gc();
+        }
+    }
+    
+    // New method to clean up distant projectiles in critical performance mode
+    cleanupDistantProjectiles() {
+        if (!this.game || !this.game.player || !this.game.projectiles) return;
+        
+        const player = this.game.player;
+        const maxDistance = 800; // Cleanup projectiles beyond this distance
+        
+        for (let i = this.game.projectiles.length - 1; i >= 0; i--) {
+            const projectile = this.game.projectiles[i];
+            const distance = Math.sqrt(
+                (projectile.x - player.x) ** 2 + 
+                (projectile.y - player.y) ** 2
+            );
+            
+            if (distance > maxDistance) {
+                this.game.projectiles.splice(i, 1);
+            }
         }
     }
 
@@ -1901,119 +2002,34 @@ class GameManager {
         levelUp: '☆',     // level up
     };
 
-    // Show floating combat text with effects
+    // Show floating combat text with effects (canvas based)
     showCombatText(text, x, y, effect = null, size = 16) {
         let displayText = text;
         let color = 'white';
-        
-        // Add effect symbol if specified
         if (effect && GameManager.EFFECT_SYMBOLS[effect]) {
             const symbol = GameManager.EFFECT_SYMBOLS[effect];
-            
-            // Set color based on effect type
             switch(effect) {
-                case 'chain':
-                    color = '#3498db'; // blue
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'critical':
-                    color = '#e74c3c'; // red
-                    displayText = `${symbol} ${text} ${symbol}`;
-                    break;
-                case 'explosive':
-                    color = '#e67e22'; // orange
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'ricochet':
-                    color = '#f1c40f'; // yellow
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'pierce':
-                    color = '#9b59b6'; // purple
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'frost':
-                    color = '#00f7ff'; // cyan
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'poison':
-                    color = '#2ecc71'; // green
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'fire':
-                    color = '#e74c3c'; // red
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'vampiric':
-                    color = '#c0392b'; // dark red
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'orbital':
-                    color = '#3498db'; // blue
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'split':
-                    color = '#f39c12'; // orange
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'homing':
-                    color = '#1abc9c'; // turquoise
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'combo':
-                    color = '#f1c40f'; // yellow
-                    displayText = `${symbol}${text}${symbol}`;
-                    break;
-                case 'xp':
-                    color = '#f39c12'; // orange
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'xpBonus':
-                    color = '#2ecc71'; // green
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'xpCrit':
-                    color = '#e74c3c'; // red
-                    displayText = `${symbol} ${text}`;
-                    break;
-                case 'levelUp':
-                    color = '#9b59b6'; // purple
-                    displayText = `${symbol} ${text}`;
-                    break;
-                default:
-                    displayText = `${text}`;
+                case 'chain': color = '#3498db'; displayText = `${symbol} ${text}`; break;
+                case 'critical': color = '#e74c3c'; displayText = `${symbol} ${text} ${symbol}`; break;
+                case 'explosive': color = '#e67e22'; displayText = `${symbol} ${text}`; break;
+                case 'ricochet': color = '#f1c40f'; displayText = `${symbol} ${text}`; break;
+                case 'pierce': color = '#9b59b6'; displayText = `${symbol} ${text}`; break;
+                case 'frost': color = '#00f7ff'; displayText = `${symbol} ${text}`; break;
+                case 'poison': color = '#2ecc71'; displayText = `${symbol} ${text}`; break;
+                case 'fire': color = '#e74c3c'; displayText = `${symbol} ${text}`; break;
+                case 'vampiric': color = '#c0392b'; displayText = `${symbol} ${text}`; break;
+                case 'orbital': color = '#3498db'; displayText = `${symbol} ${text}`; break;
+                case 'split': color = '#f39c12'; displayText = `${symbol} ${text}`; break;
+                case 'homing': color = '#1abc9c'; displayText = `${symbol} ${text}`; break;
+                case 'combo': color = '#f1c40f'; displayText = `${symbol}${text}${symbol}`; break;
+                case 'xp': color = '#f39c12'; displayText = `${symbol} ${text}`; break;
+                case 'xpBonus': color = '#2ecc71'; displayText = `${symbol} ${text}`; break;
+                case 'xpCrit': color = '#e74c3c'; displayText = `${symbol} ${text}`; break;
+                case 'levelUp': color = '#9b59b6'; displayText = `${symbol} ${text}`; break;
+                default: displayText = `${text}`;
             }
         }
-
-        // Create the floating text element
-        const textElement = document.createElement('div');
-        textElement.className = 'floating-text';
-        textElement.textContent = displayText;
-        
-        // Convert game coordinates to screen coordinates
-        const cameraX = -this.game.player.x + this.game.canvas.width / 2;
-        const cameraY = -this.game.player.y + this.game.canvas.height / 2;
-        
-        const screenX = x + cameraX;
-        const screenY = y + cameraY;
-        
-        // Apply styles
-        textElement.style.left = `${screenX}px`;
-        textElement.style.top = `${screenY}px`;
-        textElement.style.color = color;
-        textElement.style.fontSize = `${size}px`;
-        
-        // Add special class for effect animations if needed
-        if (effect) {
-            textElement.classList.add(`effect-${effect}`);
-        }
-        
-        document.getElementById('game-container').appendChild(textElement);
-        
-        // Remove element after animation completes
-        setTimeout(() => {
-            textElement.remove();
-        }, 1000);
+    this._spawnText({ text: displayText, color, size, x, y });
     }
 }
 
@@ -2294,143 +2310,10 @@ Player.prototype.takeDamage = function(amount) {
     
     this.health = Math.max(0, this.health - amount);
     
-    // Show damage text with effect
-    gameManager.showCombatText(`-${Math.round(amount)}`, this.x, this.y - 20, 'critical', 18);
-    
-    // Update health bar
-    const healthBar = document.getElementById('health-bar');
-    const healthPercentage = (this.health / this.maxHealth) * 100;
-    healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
-    
-    // Trigger invulnerability
-    this.isInvulnerable = true;
-    this.invulnerabilityTimer = this.invulnerabilityTime;
-    
-    // Check if player died
-    if (this.health <= 0) {
-        this.isDead = true;
-    }
-    
-    // Play hit sound
-    audioSystem.play('playerHit', 0.5);
 };
 
-// Override the original GameEngine.render to incorporate low-quality mode
-const originalGameEngineRender = GameEngine.prototype.render;
-GameEngine.prototype.render = function() {
-    // Clear canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    // Set camera to follow player
-    this.ctx.save();
-    if (this.player) {
-        const cameraX = -this.player.x + this.canvas.width / 2;
-        const cameraY = -this.player.y + this.canvas.height / 2;
-        this.ctx.translate(cameraX, cameraY);
-    }
-
-    // Render particles below entities if not in low-quality mode
-    if (gameManager && gameManager.particles && !gameManager.lowQuality) {
-        gameManager.renderParticles(this.ctx);
-    }
-
-    // Render all entities
-    if (gameManager && gameManager.lowQuality) {
-        // Low-quality: draw in insertion order
-        for (let i = 0, len = this.entities.length; i < len; i++) {
-            this.entities[i].render(this.ctx);
-        }
-    } else {
-        // Normal-quality: sort by y for proper layering
-        [...this.entities].sort((a, b) => a.y - b.y).forEach(entity => {
-            entity.render(this.ctx);
-        });
-    }
-
-    this.ctx.restore();
-};
-
-// Override Enemy takeDamage method to create particle effect
-const originalEnemyTakeDamage = Enemy.prototype.takeDamage;
-Enemy.prototype.takeDamage = function(amount) {
-    // Create hit particles
-    gameManager.createHitEffect(this.x, this.y, amount);
-    
-    // Call original method
-    originalEnemyTakeDamage.call(this, amount);
-    
-    // Play hit sound
-    audioSystem.play('hit', 0.2);
-};
-
-// Override Player levelUp method to create particles
-const originalPlayerLevelUp = Player.prototype.levelUp;
-Player.prototype.levelUp = function() {
-    // Create level up effect
-    gameManager.createLevelUpEffect(this.x, this.y);
-    
-    // Call original method
-    originalPlayerLevelUp.call(this);
-    
-    // Play level up sound
-    audioSystem.play('levelUp', 0.6);
-};
-
-// Override player takeDamage to incorporate damage reduction
-Player.prototype.takeDamage = function(amount) {
-    if (this.isInvulnerable) return;
-    
-    // Apply damage reduction if present
-    if (this.damageReduction && this.damageReduction > 0) {
-        amount = amount * (1 - this.damageReduction);
-    }
-    
-    // Apply dodge chance
-    if (this.dodgeChance && Math.random() < this.dodgeChance) {
-        gameManager.showCombatText('DODGE!', this.x, this.y - 20, 'ricochet', 18);
-        return;
-    }
-    
-    this.health = Math.max(0, this.health - amount);
-    
-    // Show damage text with effect
-    gameManager.showCombatText(`-${Math.round(amount)}`, this.x, this.y - 20, 'critical', 18);
-    
-    // Update health bar
-    const healthBar = document.getElementById('health-bar');
-    const healthPercentage = (this.health / this.maxHealth) * 100;
-    healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
-    
-    // Trigger invulnerability
-    this.isInvulnerable = true;
-    this.invulnerabilityTimer = this.invulnerabilityTime;
-    
-    // Check if player died
-    if (this.health <= 0) {
-        this.isDead = true;
-    }
-    
-    // Play hit sound
-    audioSystem.play('playerHit', 0.5);
-};
-
-// Override player doDodge method to add sound
-const originalPlayerDoDodge = Player.prototype.doDodge;
-Player.prototype.doDodge = function() {
-    if (!this.canDodge || this.isDodging) return;
-    
-    originalPlayerDoDodge.call(this);
-    
-    // Play dodge sound
-    audioSystem.play('dodge', 0.7);
-};
-
-// ADD THIS AT THE BOTTOM OF THE FILE
-
-// Play shooting sound when player fires
-Player.prototype.fireSound = function() {
-    audioSystem.play('shoot', 0.3);
-};
+// Removed runtime prototype overrides for render, levelUp, and takeDamage.
+// These behaviors now rely on the native class methods for clarity and performance.
 
 // Override Enemy.prototype.createBossDeathEffect to properly trigger the win screen
 Enemy.prototype.createBossDeathEffect = function() {

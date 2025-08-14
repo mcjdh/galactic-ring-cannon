@@ -412,15 +412,14 @@ class Enemy {
         const dy = game.player.y - this.y;
         const angle = Math.atan2(dy, dx);
         
-        const projectile = new EnemyProjectile(
+        // Use engine pooling for enemy projectiles
+        game.spawnEnemyProjectile(
             this.x,
             this.y,
             Math.cos(angle) * this.projectileSpeed,
             Math.sin(angle) * this.projectileSpeed,
             this.projectileDamage
         );
-        
-        game.addEntity(projectile);
         // Play enemy shooting sound
         audioSystem.play('shoot', 0.2);
     }
@@ -891,65 +890,7 @@ class EnemyProjectile {
     }
 }
 
-// Fix enemy projectiles tracking in game engine
-const originalPerformRangeAttack = Enemy.prototype.performRangeAttack;
-Enemy.prototype.performRangeAttack = function(game) {
-    if (!game.player || game.player.isDead) return;
-    
-    // Calculate direction to player
-    const dx = game.player.x - this.x;
-    const dy = game.player.y - this.y;
-    const angle = Math.atan2(dy, dx);
-    
-    const projectile = new EnemyProjectile(
-        this.x,
-        this.y,
-        Math.cos(angle) * this.projectileSpeed,
-        Math.sin(angle) * this.projectileSpeed,
-        this.projectileDamage
-    );
-    
-    // Track enemy projectiles separately
-    if (!game.enemyProjectiles) {
-        game.enemyProjectiles = [];
-    }
-    
-    game.enemyProjectiles.push(projectile);
-    game.addEntity(projectile);
-};
-
-// Make boss enemies more distinctive
-const originalEnemyRender = Enemy.prototype.render;
-Enemy.prototype.render = function(ctx) {
-    // Call the original render method
-    originalEnemyRender.call(this, ctx);
-    
-    // Add special effects for boss
-    if (this.isBoss) {
-        // Pulsing aura
-        const pulseSize = 1 + Math.sin(gameManager.gameTime / 200) * 0.1;
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius * pulseSize + 8, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(192, 57, 43, 0.2)';
-        ctx.fill();
-        
-        // Crown or boss indicator
-        ctx.save();
-        ctx.translate(this.x, this.y - this.radius - 15);
-        
-        ctx.beginPath();
-        ctx.moveTo(-10, 0);
-        ctx.lineTo(-5, -8);
-        ctx.lineTo(0, 0);
-        ctx.lineTo(5, -8);
-        ctx.lineTo(10, 0);
-        ctx.fillStyle = '#f1c40f';
-        ctx.fill();
-        
-        ctx.restore();
-    }
-};
+// Removed earlier Enemy.prototype overrides to avoid double-wrapping.
 
 class XPOrb {
     constructor(x, y, value) {
@@ -1524,26 +1465,41 @@ class EnemySpawner {
 // Override boss render to show mega boss visual difference
 const originalBossRender = Enemy.prototype.render;
 Enemy.prototype.render = function(ctx) {
-    // Call the original render method
+    // Base render
     originalBossRender.call(this, ctx);
-    
-    // Additional visual effects for mega bosses
-    if (this.isBoss && this.isMegaBoss) {
-        // Extra aura for mega bosses
+    if (!this.isBoss) return;
+
+    // General boss aura and crown
+    const pulseBase = 1 + Math.sin((gameManager.gameTime || 0) / 200) * 0.1;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius * pulseBase + 8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(192, 57, 43, 0.2)';
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(this.x, this.y - this.radius - 15);
+    ctx.beginPath();
+    ctx.moveTo(-10, 0);
+    ctx.lineTo(-5, -8);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(5, -8);
+    ctx.lineTo(10, 0);
+    ctx.fillStyle = '#f1c40f';
+    ctx.fill();
+    ctx.restore();
+
+    // Mega-boss extras
+    if (this.isMegaBoss) {
         const pulseSize = 1 + Math.sin((gameManager.gameTime || 0) / 150) * 0.15;
-        
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius * pulseSize + 15, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(142, 68, 173, 0.2)'; // Purple aura
+        ctx.fillStyle = 'rgba(142, 68, 173, 0.2)';
         ctx.fill();
-        
-        // Add sparkle effects around mega boss
         for (let i = 0; i < 3; i++) {
             const angle = ((gameManager.gameTime || 0) / 200 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
             const distance = this.radius * 1.5;
             const sparkleX = this.x + Math.cos(angle) * distance;
             const sparkleY = this.y + Math.sin(angle) * distance;
-            
             ctx.beginPath();
             ctx.arc(sparkleX, sparkleY, 3, 0, Math.PI * 2);
             ctx.fillStyle = '#f1c40f';
@@ -1588,20 +1544,13 @@ Enemy.prototype.performBasicAttack = function(game) {
     const dy = game.player.y - this.y;
     const angle = Math.atan2(dy, dx);
     
-    const projectile = new EnemyProjectile(
+    game.spawnEnemyProjectile(
         this.x,
         this.y,
         Math.cos(angle) * this.projectileSpeed,
         Math.sin(angle) * this.projectileSpeed,
         this.projectileDamage
     );
-    
-    if (!game.enemyProjectiles) {
-        game.enemyProjectiles = [];
-    }
-    
-    game.enemyProjectiles.push(projectile);
-    game.addEntity(projectile);
 };
 
 Enemy.prototype.performSpreadAttack = function(game, count) {
@@ -1614,20 +1563,13 @@ Enemy.prototype.performSpreadAttack = function(game, count) {
     for (let i = 0; i < count; i++) {
         const angle = baseAngle - (spread/2) + (spread / (count - 1)) * i;
         
-        const projectile = new EnemyProjectile(
+        game.spawnEnemyProjectile(
             this.x,
             this.y,
             Math.cos(angle) * this.projectileSpeed,
             Math.sin(angle) * this.projectileSpeed,
             this.projectileDamage * 0.8 // Slightly reduced damage for multi-projectile attacks
         );
-        
-        if (!game.enemyProjectiles) {
-            game.enemyProjectiles = [];
-        }
-        
-        game.enemyProjectiles.push(projectile);
-        game.addEntity(projectile);
     }
     
     // Visual effect
@@ -1641,20 +1583,13 @@ Enemy.prototype.performCircleAttack = function(game, count) {
     for (let i = 0; i < count; i++) {
         const angle = (i / count) * Math.PI * 2;
         
-        const projectile = new EnemyProjectile(
+        game.spawnEnemyProjectile(
             this.x,
             this.y,
             Math.cos(angle) * this.projectileSpeed,
             Math.sin(angle) * this.projectileSpeed,
             this.projectileDamage * 0.7 // Reduced damage for circle attacks
         );
-        
-        if (!game.enemyProjectiles) {
-            game.enemyProjectiles = [];
-        }
-        
-        game.enemyProjectiles.push(projectile);
-        game.addEntity(projectile);
     }
     
     // Visual effect
@@ -1668,20 +1603,13 @@ Enemy.prototype.performRandomAttack = function(game, count) {
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         
-        const projectile = new EnemyProjectile(
+        game.spawnEnemyProjectile(
             this.x,
             this.y,
             Math.cos(angle) * this.projectileSpeed,
             Math.sin(angle) * this.projectileSpeed,
             this.projectileDamage * 0.9
         );
-        
-        if (!game.enemyProjectiles) {
-            game.enemyProjectiles = [];
-        }
-        
-        game.enemyProjectiles.push(projectile);
-        game.addEntity(projectile);
     }
     
     // Visual effect
@@ -1887,7 +1815,13 @@ Enemy.prototype.activateShield = function() {
         gameManager.showFloatingText("SHIELD UP!", this.x, this.y - 30, "#3498db", 20);
         
         // Create shield effect
-        for (let i = 0; i < 20; i++) {
+        const gm = gameManager;
+        if (!gm.lowQuality) {
+        const factor = (gm.particleReductionFactor || 1.0);
+        const baseCount = 20;
+        const remaining = Math.max(0, (gm.maxParticles || 150) - (gm.particles?.length || 0));
+        const count = Math.max(0, Math.min(Math.floor(baseCount * factor), remaining));
+        for (let i = 0; i < count; i++) {
             const angle = (i / 20) * Math.PI * 2;
             const particle = new Particle(
                 this.x + Math.cos(angle) * this.radius,
@@ -1898,10 +1832,8 @@ Enemy.prototype.activateShield = function() {
                 '#3498db',
                 0.4
             );
-            
-            if (gameManager.particles) {
-                gameManager.particles.push(particle);
-            }
+            gm.tryAddParticle(particle);
+        }
         }
     }
       // Return to normal damage resistance when shield expires (with proper cleanup)

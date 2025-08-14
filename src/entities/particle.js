@@ -53,9 +53,17 @@ class Particle {
     }
     
     render(ctx) {
-        if (this.isDead || this.alpha <= 0) return;
+        if (this.isDead || this.alpha <= 0 || this.size <= 0.1) return;
         
-        ctx.save();
+        // Use simplified rendering for small particles
+        if (this.size < 2) {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+            return;
+        }
+        
+        // Full circle rendering for larger particles
+        const previousAlpha = ctx.globalAlpha;
         ctx.globalAlpha = this.alpha;
         
         ctx.beginPath();
@@ -63,7 +71,7 @@ class Particle {
         ctx.fillStyle = this.color;
         ctx.fill();
         
-        ctx.restore();
+        ctx.globalAlpha = previousAlpha;
     }
 }
 

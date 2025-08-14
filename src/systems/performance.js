@@ -7,9 +7,9 @@ class PerformanceManager {
         this.fpsHistory = [];
         this.maxHistorySize = 60;
         
-        // Performance thresholds
-        this.lowFpsThreshold = 45;
-        this.criticalFpsThreshold = 30;
+        // Performance thresholds - more aggressive switching
+        this.lowFpsThreshold = 50; // Raised from 45
+        this.criticalFpsThreshold = 35; // Raised from 30
         
         // Current performance mode
         this.performanceMode = 'normal'; // normal, low, critical
@@ -17,7 +17,7 @@ class PerformanceManager {
         // Memory monitoring
         this.memoryUsage = 0;
         this.lastMemoryCheck = 0;
-        this.memoryCheckInterval = 5000; // Check every 5 seconds
+        this.memoryCheckInterval = 3000; // Check every 3 seconds (faster)
         
         // Optimization flags
         this.optimizations = {
@@ -27,14 +27,15 @@ class PerformanceManager {
             reducedUpdateFrequency: false
         };
         
-        // Add hysteresis to prevent rapid mode switching
+        // Add hysteresis to prevent rapid mode switching - tighter windows
         this.modeChangeThreshold = {
-            critical: { enter: 20, exit: 30 },
-            low: { enter: 35, exit: 50 },
-            normal: { enter: 55, exit: 40 }
+            critical: { enter: 25, exit: 40 }, // More aggressive critical mode
+            low: { enter: 40, exit: 55 }, // Quicker low mode activation
         };
+        
+        // Cooldown between mode changes - reduced for faster response
+        this.minModeChangeCooldown = 2000; // 2 seconds instead of 3
         this.lastModeChange = 0;
-        this.minModeChangeCooldown = 3000; // 3 seconds minimum between changes
         
         this.init();
     }
@@ -167,10 +168,21 @@ class PerformanceManager {
         this.optimizations.culledOffscreenEntities = true;
         this.optimizations.reducedUpdateFrequency = true;
         
-        // Reduce particle limits
+        // Very aggressive particle reduction
         if (window.gameManager) {
-            window.gameManager.maxParticles = Math.min(window.gameManager.maxParticles || 200, 50);
-            window.gameManager.particleReductionFactor = 0.25;
+            window.gameManager.maxParticles = Math.min(window.gameManager.maxParticles || 200, 30);
+            window.gameManager.particleReductionFactor = 0.15; // Even more aggressive
+            
+            // Clear excess particles immediately
+            if (window.gameManager.particles && window.gameManager.particles.length > 30) {
+                window.gameManager.particles.splice(30);
+            }
+        }
+        
+        // Force low-quality rendering mode
+        if (window.gameEngine && window.gameEngine.ctx) {
+            window.gameEngine.ctx.imageSmoothingEnabled = false;
+            window.gameEngine.targetFps = 30; // Reduce target FPS
         }
     }
     

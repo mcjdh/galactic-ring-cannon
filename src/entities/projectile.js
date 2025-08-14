@@ -11,8 +11,11 @@ class Projectile {
         this.type = 'projectile'; // CRITICAL: Add type property
         this.active = true;
         this.isDead = false; // CRITICAL: Add isDead property
-        this.trail = [];
-        this.maxTrailLength = 10;
+    // Circular buffer trail (no push/shift allocations)
+    this.maxTrailLength = 10;
+    this.trail = new Array(this.maxTrailLength);
+    this.trailWrite = 0;
+    this.trailCount = 0;
         this.lifetime = 5.0; // Projectiles die after 5 seconds
         this.age = 0;
         this.hitEnemies = new Set(); // Track hit enemies for piercing
@@ -108,15 +111,17 @@ class Projectile {
             }
         }
 
-        // Update trail
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > this.maxTrailLength) {
-            this.trail.shift();
-        }
+    // Update circular trail (reuse objects)
+    const idx = this.trailWrite;
+    let pt = this.trail[idx];
+    if (!pt) { pt = this.trail[idx] = { x: this.x, y: this.y }; }
+    else { pt.x = this.x; pt.y = this.y; }
+    this.trailWrite = (this.trailWrite + 1) % this.maxTrailLength;
+    this.trailCount = Math.min(this.trailCount + 1, this.maxTrailLength);
     }
     
     acquireHomingTarget(game) {
-        if (!game.enemies || game.enemies.length === 0) return;
+    if (!game.enemies || game.enemies.length === 0) return;
         
         // If we already have a valid target that's still alive and reasonably close, keep it
         if (this.homing.target && !this.homing.target.isDead) {
@@ -135,24 +140,19 @@ class Projectile {
         let closestEnemy = null;
         let closestDistance = this.homing.range;
         
-        for (const enemy of game.enemies) {
+        const candidates = this._getNearbyEnemies(game, this.homing.range);
+        for (const enemy of candidates) {
             if (enemy.isDead) continue;
-            
             const dx = enemy.x - this.x;
             const dy = enemy.y - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            
             if (distance < closestDistance) {
-                // Additional check: prefer targets somewhat in front of projectile
                 const currentAngle = Math.atan2(this.vy, this.vx);
                 const targetAngle = Math.atan2(dy, dx);
                 let angleDiff = Math.abs(targetAngle - currentAngle);
                 if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-                
-                // Prefer targets within 90 degrees in front, but don't exclude others
                 const anglePreference = angleDiff < Math.PI * 0.5 ? 1.0 : 0.7;
                 const effectiveDistance = distance / anglePreference;
-                
                 if (effectiveDistance < closestDistance) {
                     closestEnemy = enemy;
                     closestDistance = effectiveDistance;
@@ -226,6 +226,7 @@ class Projectile {
         }
         
         // Damage enemies in explosion radius with improved calculation
+        const impactedEnemies = [];
         if (game.enemies) {
             let enemiesHit = 0;
             for (const enemy of game.enemies) {
@@ -243,11 +244,39 @@ class Projectile {
                     
                     enemy.takeDamage(explosionDamage);
                     enemiesHit++;
+                    impactedEnemies.push(enemy);
                     
                     // Show explosion damage
                     if (gameManager) {
                         gameManager.showFloatingText(`${Math.round(explosionDamage)}`, 
                             enemy.x, enemy.y - 30, '#ff8800', 16);
+                    }
+                }
+            }
+        }
+
+        // Optional: chain reaction explosions (smaller) if player has upgrade
+        const player = game?.player;
+        if (player && player.explosionChainChance > 0 && impactedEnemies.length > 0) {
+            if (Math.random() < player.explosionChainChance) {
+                const target = impactedEnemies[Math.floor(Math.random() * impactedEnemies.length)];
+                if (target && !target.isDead) {
+                    // Visual mini-explosion
+                    if (gameManager && gameManager.createExplosion) {
+                        gameManager.createExplosion(target.x, target.y, (this.explosive.radius || 60) * 0.6, '#ffbb66');
+                    }
+                    // Apply small extra damage in a tight radius
+                    for (const e of game.enemies) {
+                        if (!e || e.isDead) continue;
+                        const dx2 = e.x - target.x; const dy2 = e.y - target.y;
+                        const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+                        const range2 = (this.explosive.radius || 60) * 0.6 + e.radius;
+                        if (dist2 <= range2) {
+                            const fall = Math.max(0.3, 1 - (dist2 / range2));
+                            const dmg2 = Math.max(1, (this.explosive.damage || this.damage * 0.5) * 0.5 * fall);
+                            e.takeDamage(dmg2);
+                            if (gameManager) gameManager.showFloatingText(`${Math.round(dmg2)}`, e.x, e.y - 24, '#ffbb66', 12);
+                        }
                     }
                 }
             }
@@ -263,18 +292,16 @@ class Projectile {
         
         // Find nearby enemies for chaining
         let chainTargets = [];
-        
-        if (game.enemies) {
-            for (const enemy of game.enemies) {
-                if (enemy.isDead || enemy === hitEnemy || this.hitEnemies.has(enemy.id)) continue;
-                
-                const dx = enemy.x - this.x;
-                const dy = enemy.y - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance <= this.chainLightning.chainRange) {
-                    chainTargets.push({ enemy, distance });
-                }
+        const candidates = this._getNearbyEnemies(game, this.chainLightning.chainRange);
+        for (const enemy of candidates) {
+            if (enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
+            // Allow chaining through the just-hit enemy if projectile has piercing remaining
+            if (enemy === hitEnemy && (!this.piercing || this.piercing <= 0)) continue;
+            const dx = enemy.x - this.x;
+            const dy = enemy.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance <= this.chainLightning.chainRange) {
+                chainTargets.push({ enemy, distance });
             }
         }
         
@@ -304,10 +331,12 @@ class Projectile {
     }
     
     createLightningEffect(x1, y1, x2, y2) {
-        if (!gameManager || !gameManager.particles) return;
+        const gm = gameManager;
+        if (!gm || !gm.particles || gm.lowQuality) return;
         
         // Create lightning particles between points
-        const segments = 8;
+        const factor = (gm.particleReductionFactor || 1.0);
+        const segments = Math.max(3, Math.floor(8 * factor));
         for (let i = 0; i <= segments; i++) {
             const t = i / segments;
             const x = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 20;
@@ -322,7 +351,7 @@ class Projectile {
                 0.3
             );
             
-            gameManager.particles.push(particle);
+            gm.tryAddParticle(particle);
         }
     }
     
@@ -334,19 +363,15 @@ class Projectile {
         // Find nearby enemy to bounce to
         let bounceTarget = null;
         let closestDistance = this.ricochet.range;
-        
-        if (game.enemies) {
-            for (const enemy of game.enemies) {
-                if (enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
-                
-                const dx = enemy.x - this.x;
-                const dy = enemy.y - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < closestDistance) {
-                    bounceTarget = enemy;
-                    closestDistance = distance;
-                }
+        const candidates = this._getNearbyEnemies(game, this.ricochet.range);
+        for (const enemy of candidates) {
+            if (enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
+            const dx = enemy.x - this.x;
+            const dy = enemy.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < closestDistance) {
+                bounceTarget = enemy;
+                closestDistance = distance;
             }
         }
         
@@ -392,11 +417,18 @@ class Projectile {
 
     render(ctx) {
         // Draw trail with special colors based on type
-        if (this.trail.length > 1) {
+        if (this.trailCount > 1) {
             ctx.beginPath();
-            ctx.moveTo(this.trail[0].x, this.trail[0].y);
-            for (let i = 1; i < this.trail.length; i++) {
-                ctx.lineTo(this.trail[i].x, this.trail[i].y);
+            // Render from oldest to newest across circular buffer
+            const count = this.trailCount;
+            const start = (this.trailWrite - count + this.maxTrailLength) % this.maxTrailLength;
+            let first = true;
+            for (let i = 0; i < count; i++) {
+                const idx = (start + i) % this.maxTrailLength;
+                const p = this.trail[idx];
+                if (!p) continue;
+                if (first) { ctx.moveTo(p.x, p.y); first = false; }
+                else { ctx.lineTo(p.x, p.y); }
             }
             
             // Different trail colors for different types
@@ -520,3 +552,21 @@ class Projectile {
                this.y < screenTop || this.y > screenBottom;
     }
 } 
+
+// Helper: get nearby enemies using GameEngine.spatialGrid if available
+Projectile.prototype._getNearbyEnemies = function(game, range) {
+    if (!game || !game.spatialGrid || !game.gridSize) return game.enemies || [];
+    const gridRange = Math.ceil(range / game.gridSize);
+    const gx = Math.floor(this.x / game.gridSize);
+    const gy = Math.floor(this.y / game.gridSize);
+    const out = [];
+    for (let dx = -gridRange; dx <= gridRange; dx++) {
+        for (let dy = -gridRange; dy <= gridRange; dy++) {
+            const key = `${gx + dx},${gy + dy}`;
+            const bucket = game.spatialGrid.get(key);
+            if (!bucket) continue;
+            for (const e of bucket) if (e && e.type === 'enemy') out.push(e);
+        }
+    }
+    return out.length ? out : (game.enemies || []);
+};

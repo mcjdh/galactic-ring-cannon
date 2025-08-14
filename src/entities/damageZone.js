@@ -62,8 +62,8 @@ class DamageZone {
     }
     
     createParticle() {
-        // Only create particle if gameManager exists
-        if (!gameManager || !gameManager.particles) return;
+        // Only create particle if gameManager exists and visuals are allowed
+        if (!gameManager || !gameManager.particles || gameManager.lowQuality) return;
         
         // Random position within the zone
         const angle = Math.random() * Math.PI * 2;
@@ -81,8 +81,8 @@ class DamageZone {
             0.5 + Math.random() * 0.5
         );
         
-        // Add to game particles
-        gameManager.particles.push(particle);
+    // Add to game particles respecting caps
+    if (gameManager.tryAddParticle) gameManager.tryAddParticle(particle);
     }
     
     render(ctx) {

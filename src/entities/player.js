@@ -87,7 +87,7 @@ class Player {
         this.hasExplosiveShots = false;
         this.explosionRadius = 0;
         this.explosionDamage = 0;
-        this.explosionChainChance = 0;
+    this.explosionChainChance = 0;
         
         // Lifesteal properties
         this.lifestealAmount = 0;
@@ -189,24 +189,27 @@ class Player {
     }
         
     createTrailParticle(x, y) {
-        // Create trail particle
+        // Respect performance settings
+        if (!gameManager || gameManager.lowQuality) return;
         const trailSize = this.isDodging ? this.radius * 0.8 : this.radius * 0.5;
-        const duration = this.isDodging ? 0.4 : 0.3;
-        
+        // Slightly shorten in constrained modes
+        const baseDuration = this.isDodging ? 0.4 : 0.3;
+        const factor = (gameManager.particleReductionFactor || 1.0);
+        const duration = baseDuration * (factor < 1 ? Math.max(0.6, factor + 0.4) : 1);
+
         const particle = new Particle(
             x, y, 0, 0, trailSize, this.color, duration
         );
         
-        // Add to game particles
-        gameManager.particles.push(particle);
+        // Add respecting budget/caps
+        gameManager.tryAddParticle(particle);
     }
     
     handleAttacks(deltaTime, game) {
         this.attackTimer += deltaTime;
         if (this.attackTimer >= this.attackCooldown) {
             this.attackTimer = 0;
-            // Play shooting sound and boss beat
-            audioSystem.play('shoot', 0.3);
+            // Play boss beat on attack cadence; shooting SFX plays once per volley inside attack()
             audioSystem.playBossBeat();
             this.attack(game);
         }
@@ -253,8 +256,8 @@ class Player {
         
         this.xp += amount;
         
-        // Track XP collected for achievements
-        if (gameManager) {
+        // Track XP collected for achievements (guarded)
+        if (gameManager && typeof gameManager.addXpCollected === 'function') {
             gameManager.addXpCollected(amount);
         }
         
@@ -289,38 +292,7 @@ class Player {
         }
     }
     
-    levelUp() {
-        this.xp -= this.xpToNextLevel;
-        this.level++;
-        
-        // Increase stats
-        this.maxHealth += 10;
-        this.health = this.maxHealth; // Full heal on level up
-        
-        // Scale XP requirement
-        this.xpToNextLevel = Math.floor(this.xpToNextLevel * 1.15);
-        
-        // Show level up effect
-        gameManager.createLevelUpEffect(this.x, this.y);
-        gameManager.showFloatingText('LEVEL UP!', this.x, this.y - 40, '#e74c3c', 20);
-        
-        // Play level up sound
-        if (audioSystem) {
-            audioSystem.play('levelUp', 0.6);
-        }
-        
-        // Track achievement
-        if (achievementSystem) {
-            achievementSystem.updateAchievement('level_up', this.level);
-        }
-        
-        // Trigger upgrade selection
-        if (upgradeSystem) {
-            upgradeSystem.showUpgradeChoice();
-        }
-        
-        this.updateXPBar();
-    }
+    
     
     attack(game) {
         // Find nearest enemy
@@ -403,7 +375,13 @@ class Player {
     
     createAOEEffect() {
         // Visual effect for AOE attack
-        const particleCount = 24;
+        const gm = gameManager;
+        if (!gm || gm.lowQuality) return;
+        const factor = (gm.particleReductionFactor || 1.0);
+        const baseCount = 24;
+        const remaining = Math.max(0, (gm.maxParticles || 150) - (gm.particles?.length || 0));
+        const particleCount = Math.max(0, Math.min(Math.floor(baseCount * factor), remaining));
+        if (particleCount <= 0) return;
         const radius = this.aoeAttackRange;
         
         for (let i = 0; i < particleCount; i++) {
@@ -421,8 +399,7 @@ class Player {
                 '#3498db',
                 0.3
             );
-            
-            gameManager.particles.push(particle);
+            gm.tryAddParticle(particle);
         }
     }
     
@@ -747,10 +724,16 @@ class Player {
     }
     
     createUpgradeStackEffect() {
-        if (!gameManager || !gameManager.particles) return;
+        if (!gameManager || !gameManager.particles || gameManager.lowQuality) return;
+        const gm = gameManager;
+        const factor = (gm.particleReductionFactor || 1.0);
+        const baseCount = 16;
+        const remaining = Math.max(0, (gm.maxParticles || 150) - (gm.particles?.length || 0));
+        const count = Math.max(0, Math.min(Math.floor(baseCount * factor), remaining));
+        if (count <= 0) return;
         
         // Create spiral effect with upgrade color
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < count; i++) {
             const angle = (i / 16) * Math.PI * 2;
             const distance = 20 + (i % 4) * 10;
             
@@ -767,7 +750,7 @@ class Player {
                 0.5
             );
             
-            gameManager.particles.push(particle);
+            gm.tryAddParticle(particle);
         }
         
         // Add screen shake for powerful feeling
@@ -839,7 +822,13 @@ class Player {
         gameManager.showFloatingText("Dodge!", this.x, this.y - 30, '#3498db', 18);
         
         // Create dodge effect
-        for (let i = 0; i < 10; i++) {
+        const gm = gameManager;
+        if (gm && !gm.lowQuality) {
+            const factor = (gm.particleReductionFactor || 1.0);
+            const baseCount = 10;
+            const remaining = Math.max(0, (gm.maxParticles || 150) - (gm.particles?.length || 0));
+            const count = Math.max(0, Math.min(Math.floor(baseCount * factor), remaining));
+            for (let i = 0; i < count; i++) {
             const particle = new Particle(
                 this.x, 
                 this.y,
@@ -849,7 +838,8 @@ class Player {
                 this.color,
                 0.3
             );
-            gameManager.particles.push(particle);
+                gm.tryAddParticle(particle);
+            }
         }
         
         // Play dodge sound
@@ -1213,15 +1203,18 @@ class Player {
     }
 
     createLightningEffect(from, to) {
-        // Create more dramatic lightning particles
-        const segments = 8; // Increased from 5 for more detailed lightning
+        // Create lightning particles within performance budget
+        const gm = gameManager;
+        if (!gm || gm.lowQuality) return;
+        const factor = (gm.particleReductionFactor || 1.0);
+        const segments = Math.max(3, Math.floor(8 * factor)); // scale detail by perf factor
         const baseX = from.x;
         const baseY = from.y;
         const targetX = to.x;
         const targetY = to.y;
         
         // Add initial spark effect at the source
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0, n = Math.max(0, Math.floor(5 * factor)); i < n; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 20 + Math.random() * 40;
             const size = 2 + Math.random() * 2;
@@ -1233,7 +1226,7 @@ class Player {
                 '#81ecec', // Lighter blue for the spark
                 0.15
             );
-            gameManager.particles.push(sparkParticle);
+            gm.tryAddParticle(sparkParticle);
         }
         
         // Calculate main lightning path with increased randomization
@@ -1260,7 +1253,7 @@ class Player {
                 '#74b9ff', // Vibrant blue
                 0.2
             );
-            gameManager.particles.push(mainParticle);
+            gm.tryAddParticle(mainParticle);
             
             // Create parallel faint lightning traces for glow effect
             const offsetDist = 3;
@@ -1278,7 +1271,7 @@ class Player {
                     'rgba(116, 185, 255, 0.4)', // Semi-transparent blue
                     0.15
                 );
-                gameManager.particles.push(glowParticle);
+                gm.tryAddParticle(glowParticle);
             }
             
             // Store points for branches
@@ -1288,7 +1281,7 @@ class Player {
         }
         
         // Create random branches (forks) in the lightning
-        const branchCount = 1 + Math.floor(Math.random() * 2); // 1-2 branches
+        const branchCount = Math.max(0, Math.floor((1 + Math.floor(Math.random() * 2)) * factor));
         for (let i = 0; i < branchCount; i++) {
             if (points.length < 3) continue; // Need enough points for branching
             
@@ -1299,7 +1292,7 @@ class Player {
             // Create a short branch (2-3 segments)
             let branchX = source.x;
             let branchY = source.y;
-            const branchSegments = 2 + Math.floor(Math.random());
+            const branchSegments = Math.max(1, Math.floor((2 + Math.floor(Math.random())) * factor));
             
             for (let j = 0; j < branchSegments; j++) {
                 // Random angle deviation within 60 degrees of main bolt
@@ -1318,7 +1311,7 @@ class Player {
                     '#0984e3', // Slightly darker blue for branches
                     0.15
                 );
-                gameManager.particles.push(branchParticle);
+                gm.tryAddParticle(branchParticle);
                 
                 branchX = nextX;
                 branchY = nextY;
@@ -1333,7 +1326,7 @@ class Player {
             '#74b9ff',
             0.2 // Longer duration (was 0.15)
         );
-        gameManager.particles.push(flash);
+        gm.tryAddParticle(flash);
         
         // Add secondary expanding ring for impact
         const impactRing = new ShockwaveParticle(
@@ -1342,10 +1335,10 @@ class Player {
             '#0984e3',
             0.3 // Duration
         );
-        gameManager.particles.push(impactRing);
+        gm.tryAddParticle(impactRing);
         
         // Add small sparks at impact point
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0, n = Math.max(0, Math.floor(8 * factor)); i < n; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 30 + Math.random() * 60;
             const size = 1 + Math.random() * 3;
@@ -1358,7 +1351,7 @@ class Player {
                 i % 2 === 0 ? '#74b9ff' : '#0984e3', // Alternate colors
                 0.2 + Math.random() * 0.2
             );
-            gameManager.particles.push(sparkParticle);
+            gm.tryAddParticle(sparkParticle);
         }
         
         // Add subtle screen shake for impact
@@ -1435,8 +1428,8 @@ class Player {
             // Select primary special type (first one takes priority for display/behavior)
             let specialType = specialTypes.length > 0 ? specialTypes[0] : null;
             
-            // Create projectile with special type
-            const projectile = new Projectile(
+            // Create projectile via engine pool
+            const projectile = game.spawnProjectile(
                 this.x,
                 this.y,
                 vx,
@@ -1495,12 +1488,11 @@ class Player {
                 }
             }
             
-            // Add projectile to game entities
-            game.addEntity(projectile);
+            // Entity already added by spawnProjectile
         }
         
-        // Play shooting sound (once per volley)
-        audioSystem.play('shoot', 0.3);
+    // Play shooting sound (once per volley)
+    audioSystem.play('shoot', 0.3);
     }
 
     createRicochetEffect(fromX, fromY, toX, toY) {
@@ -1512,7 +1504,10 @@ class Player {
         const normalizedDy = dy / distance;
         
         // Create tracer line with multiple particles
-        const particleCount = Math.min(15, Math.floor(distance / 10));
+        const gm = gameManager;
+        if (gm && gm.lowQuality) return;
+        const factor = gm ? (gm.particleReductionFactor || 1.0) : 1.0;
+        const particleCount = Math.max(0, Math.floor(Math.min(15, Math.floor(distance / 10)) * factor));
         for (let i = 0; i < particleCount; i++) {
             const ratio = i / particleCount;
             const x = fromX + dx * ratio;
@@ -1526,7 +1521,7 @@ class Player {
                 '#f39c12',        // Orange color
                 0.2 + ratio * 0.1 // Duration increases along path
             );
-            gameManager.particles.push(tracerParticle);
+            gm?.tryAddParticle(tracerParticle);
         }
         
         // Create impact flash at destination
@@ -1537,10 +1532,10 @@ class Player {
             '#e67e22', // Darker orange
             0.2
         );
-        gameManager.particles.push(flash);
+        gm?.tryAddParticle(flash);
         
         // Add small spark particles at ricochet point
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0, n = Math.max(0, Math.floor(6 * (factor || 1.0))); i < n; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 40 + Math.random() * 60;
             const size = 2 + Math.random() * 2;
@@ -1553,7 +1548,7 @@ class Player {
                 '#f39c12',
                 0.3
             );
-            gameManager.particles.push(sparkParticle);
+            gm?.tryAddParticle(sparkParticle);
         }
         
         // Create small shockwave at ricochet point
@@ -1563,7 +1558,7 @@ class Player {
             '#f39c12',
             0.25 // Duration
         );
-        gameManager.particles.push(shockwave);
+        gm?.tryAddParticle(shockwave);
         
         // Add subtle screen shake for ricochet impact
         if (gameManager.addScreenShake) {

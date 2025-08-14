@@ -1,0 +1,44 @@
+{
+  "name": "galactic-ring-cannon",
+  "version": "1.0.0",
+  "description": "A 2D survival game with bullet-hell mechanics and RPG progression",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "dev": "python -m http.server 8000",
+    "build": "echo 'No build process yet - static files only'",
+    "test": "echo 'No tests yet'",
+    "lint": "echo 'No linting yet'",
+    "docs": "echo 'Documentation available in docs/ folder'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcjdh/galactic-ring-cannon.git"
+  },
+  "keywords": [
+    "game",
+    "javascript",
+    "html5",
+    "canvas",
+    "survival",
+    "bullet-hell",
+    "space",
+    "arcade"
+  ],
+  "author": "mcjdh",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mcjdh/galactic-ring-cannon/issues"
+  },
+  "homepage": "https://github.com/mcjdh/galactic-ring-cannon#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "last 2 versions",
+    "> 1%",
+    "not dead"
+  ],
+  "devDependencies": {},
+  "dependencies": {}
+}

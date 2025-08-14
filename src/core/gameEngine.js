@@ -38,6 +38,7 @@ class GameEngine {
         this.xpOrbs = [];
         this.projectiles = [];
         this.enemyProjectiles = [];
+    this.enemyProjectilePool = [];
         this.lastTime = 0;
         this.gameTime = 0;
         this.isPaused = false;
@@ -153,8 +154,18 @@ class GameEngine {
         // Cap deltaTime to prevent large jumps (e.g., when tab is inactive)
         const cappedDeltaTime = Math.min(deltaTime, 1/30); // Max 30fps equivalent
         
+        // Frame pacing to prevent black flashes
+        const targetFrameTime = 1000 / this.targetFps;
+        const actualFrameTime = timestamp - this.lastFrameTime;
+        
+        // Skip frame if we're running too fast (prevents black flashes)
+        if (actualFrameTime < targetFrameTime - 2) {
+            requestAnimationFrame(this.gameLoop.bind(this));
+            return;
+        }
+        
         // Update performance metrics
-        this.updatePerformanceMetrics(timestamp - this.lastFrameTime);
+        this.updatePerformanceMetrics(actualFrameTime);
         
         // Adjust performance mode based on GPU usage
         this.adjustPerformanceMode();
@@ -162,7 +173,13 @@ class GameEngine {
         // Update game state only if not paused
         if (!this.isPaused) {
             this.update(cappedDeltaTime);
-            this.render();
+            
+            // Only render if enough time has passed since last render
+            const timeSinceLastRender = timestamp - (this.lastRenderTime || 0);
+            if (timeSinceLastRender >= targetFrameTime * 0.8) {
+                this.render();
+                this.lastRenderTime = timestamp;
+            }
         }
         
         this.lastFrameTime = timestamp;
@@ -181,10 +198,7 @@ class GameEngine {
             window.performanceManager.update(deltaTime);
         }
         
-        // Update spatial grid BEFORE updating entities
-        this.updateSpatialGrid();
-        
-        // Update all entities with proper error handling
+    // Update all entities with proper error handling
         if (this.entities && Array.isArray(this.entities)) {
             // Create a safe copy to avoid modification during iteration
             const entitiesToUpdate = [...this.entities];
@@ -201,7 +215,15 @@ class GameEngine {
             });
         }
         
-        // Check collisions with error handling
+    // Rebuild spatial grid AFTER entities have moved so culling/collisions are accurate
+    this.updateSpatialGrid();
+        
+        // Update pooled floating/combat texts each frame
+        if (window.gameManager && typeof window.gameManager._updateTexts === 'function') {
+            window.gameManager._updateTexts(deltaTime);
+        }
+
+    // Check collisions with error handling (uses up-to-date spatial grid)
         try {
             this.checkCollisions();
         } catch (error) {
@@ -424,6 +446,13 @@ class GameEngine {
             } else if (entity2.type === 'player' && entity1.type === 'enemy' && !entity2.isInvulnerable) {
                 if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
                     entity2.takeDamage(entity1.damage);
+                    // Visual/audio feedback for enemy hit
+                    if (window.gameManager) {
+                        window.gameManager.createHitEffect(entity2.x, entity2.y, entity1.damage);
+                    }
+                    if (window.audioSystem && window.audioSystem.play) {
+                        window.audioSystem.play('hit', 0.2);
+                    }
                 }
             }
             
@@ -511,6 +540,13 @@ class GameEngine {
                 }
                 if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
                     entity1.takeDamage(entity2.damage);
+                    // Visual/audio feedback for enemy hit
+                    if (window.gameManager) {
+                        window.gameManager.createHitEffect(entity1.x, entity1.y, entity2.damage);
+                    }
+                    if (window.audioSystem && window.audioSystem.play) {
+                        window.audioSystem.play('hit', 0.2);
+                    }
                 }
                 
                 // Track hit enemy for piercing
@@ -591,6 +627,13 @@ class GameEngine {
                 return;
             }
             
+            // Performance optimization: skip render if FPS is too low
+            const now = performance.now();
+            if (this.lastRenderTime && (now - this.lastRenderTime) < 8) { // Cap at 120fps max
+                return;
+            }
+            this.lastRenderTime = now;
+            
             // Clear canvas with optimized method
             this.ctx.save();
             this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
@@ -603,20 +646,26 @@ class GameEngine {
                 const cameraX = -this.player.x + this.canvas.width / 2;
                 const cameraY = -this.player.y + this.canvas.height / 2;
                 this.ctx.translate(cameraX, cameraY);
-            }            // Simple entity rendering with better validation
-            for (const entity of this.entities) {
-                if (!entity || entity.isDead) continue; // Skip null/dead entities
-                
-                // Validate entity has required render properties
-                if (typeof entity.render !== 'function') continue;
-                if (typeof entity.x !== 'number' || typeof entity.y !== 'number') continue;
-                
-                try {
-                    entity.render(this.ctx);
-                } catch (error) {
-                    console.error('Error rendering entity:', error, entity.type || 'unknown');
-                    // Continue rendering other entities
-                }
+            }
+            
+            // Use frustum culling to only render visible entities
+            const visibleEntities = this.getVisibleEntities();
+            
+            // Render particles first (below entities)
+            if (window.gameManager && !window.gameManager.lowQuality && typeof window.gameManager.renderParticles === 'function') {
+                window.gameManager.renderParticles(this.ctx);
+            }
+
+            // Batch render by entity type for better performance
+            this.batchRenderEntitiesByType(visibleEntities);
+            // Ensure player is drawn last on top as a safety net
+            if (this.player && typeof this.player.render === 'function') {
+                try { this.player.render(this.ctx); } catch(e) { console.error('Player render error', e); }
+            }
+            
+            // Render pooled floating/combat texts on top of entities
+            if (window.gameManager && typeof window.gameManager._renderTexts === 'function') {
+                window.gameManager._renderTexts(this.ctx);
             }
             
             // Render debug information if enabled
@@ -635,32 +684,61 @@ class GameEngine {
         }
     }
     
-    batchRenderEntities(entities) {
+    batchRenderEntitiesByType(entities) {
         if (entities.length === 0) return;
         
-        // Get the first entity to determine rendering properties
-        const firstEntity = entities[0];
+        // Group entities by type for batch rendering
+        const entityGroups = new Map();
         
-        // Set up common rendering properties
-        this.ctx.fillStyle = firstEntity.color || '#ffffff';
-        this.ctx.strokeStyle = firstEntity.strokeColor || '#000000';
-        this.ctx.lineWidth = firstEntity.lineWidth || 1;
-        
-        // Batch render similar entities
         for (const entity of entities) {
-            // Only update context if properties changed
-            if (entity.color !== this.ctx.fillStyle) {
-                this.ctx.fillStyle = entity.color;
-            }
-            if (entity.strokeColor !== this.ctx.strokeStyle) {
-                this.ctx.strokeStyle = entity.strokeColor;
-            }
-            if (entity.lineWidth !== this.ctx.lineWidth) {
-                this.ctx.lineWidth = entity.lineWidth;
-            }
+            if (!entity || entity.isDead) continue;
             
-            // Render the entity
-            entity.render(this.ctx);
+            // Validate entity has required render properties
+            if (typeof entity.render !== 'function') continue;
+            if (typeof entity.x !== 'number' || typeof entity.y !== 'number') continue;
+            
+            const type = entity.constructor.name || entity.type || 'unknown';
+            if (!entityGroups.has(type)) {
+                entityGroups.set(type, []);
+            }
+            entityGroups.get(type).push(entity);
+        }
+        
+        // Render groups in optimized order (static objects first, then dynamic)
+        const renderOrder = ['Particle', 'XPOrb', 'Projectile', 'Enemy', 'Player'];
+        
+        for (const type of renderOrder) {
+            const group = entityGroups.get(type);
+            if (group && group.length > 0) {
+                this.batchRenderGroup(group);
+            }
+        }
+        
+        // Render any remaining types not in the ordered list
+        for (const [type, group] of entityGroups) {
+            if (!renderOrder.includes(type) && group.length > 0) {
+                this.batchRenderGroup(group);
+            }
+        }
+    }
+    
+    batchRenderGroup(entities) {
+        if (entities.length === 0) return;
+        
+        // Pre-sort by depth if needed (for proper layering)
+        const needsDepthSort = entities.some(e => e.z !== undefined);
+        if (needsDepthSort) {
+            entities.sort((a, b) => (a.z || 0) - (b.z || 0));
+        }
+        
+        // Render each entity with error handling
+        for (const entity of entities) {
+            try {
+                entity.render(this.ctx);
+            } catch (error) {
+                console.error(`Error rendering ${entity.constructor.name}:`, error);
+                // Continue rendering other entities
+            }
         }
     }
     
@@ -745,20 +823,27 @@ class GameEngine {
             typeof orb.y === 'number'
         );
         
-        this.projectiles = this.projectiles.filter(projectile => 
-            projectile && 
-            !projectile.isDead && 
-            typeof projectile.x === 'number' && 
-            typeof projectile.y === 'number'
-        );
+        // Return dead projectiles to pool before filtering
+        const liveProjectiles = [];
+        for (const p of this.projectiles) {
+            if (!p || p.isDead || typeof p.x !== 'number' || typeof p.y !== 'number') {
+                if (p && p.type === 'projectile') this._releaseProjectile(p);
+                continue;
+            }
+            liveProjectiles.push(p);
+        }
+        this.projectiles = liveProjectiles;
         
         if (this.enemyProjectiles) {
-            this.enemyProjectiles = this.enemyProjectiles.filter(projectile => 
-                projectile && 
-                !projectile.isDead && 
-                typeof projectile.x === 'number' && 
-                typeof projectile.y === 'number'
-            );
+            const liveEnemyProjectiles = [];
+            for (const ep of this.enemyProjectiles) {
+                if (!ep || ep.isDead || typeof ep.x !== 'number' || typeof ep.y !== 'number') {
+                    if (ep && ep.type === 'enemyProjectile') this._releaseEnemyProjectile(ep);
+                    continue;
+                }
+                liveEnemyProjectiles.push(ep);
+            }
+            this.enemyProjectiles = liveEnemyProjectiles;
         }
         
         // Enforce entity limits to prevent memory issues
@@ -778,6 +863,65 @@ class GameEngine {
         // Log cleanup stats in debug mode
         if (this.debugMode && entitiesBefore !== this.entities.length) {
             console.log(`Cleaned up ${entitiesBefore - this.entities.length} entities (${this.entities.length} remaining)`);
+        }
+    }
+
+    // Projectile pooling helpers
+    spawnProjectile(x, y, vx, vy, damage, piercing = 0, isCrit = false, specialType = null) {
+        let proj = this.projectilePool.pop();
+        if (!proj) {
+            proj = new Projectile(x, y, vx, vy, damage, piercing, isCrit, specialType);
+        } else {
+            // Reset pooled projectile
+            proj.x = x; proj.y = y; proj.vx = vx; proj.vy = vy;
+            proj.damage = damage; proj.piercing = piercing; proj.isCrit = isCrit;
+            proj.radius = 5; proj.type = 'projectile';
+            proj.active = true; proj.isDead = false;
+            proj.lifetime = 5.0; proj.age = 0;
+            if (proj.hitEnemies && typeof proj.hitEnemies.clear === 'function') proj.hitEnemies.clear(); else proj.hitEnemies = new Set();
+            proj.specialType = null;
+            proj.chainLightning = null; proj.explosive = null; proj.ricochet = null; proj.homing = null;
+            // reset trail circular buffer
+            if (Array.isArray(proj.trail)) {
+                proj.trailWrite = 0; proj.trailCount = 0;
+            } else {
+                proj.trail = new Array(proj.maxTrailLength || 10); proj.trailWrite = 0; proj.trailCount = 0;
+            }
+            // Initialize primary special type if provided
+            if (specialType) {
+                proj.specialType = specialType;
+                if (typeof proj.initializeSpecialType === 'function') proj.initializeSpecialType(specialType);
+            }
+        }
+        this.addEntity(proj);
+        return proj;
+    }
+
+    _releaseProjectile(p) {
+        // Basic sanitize of projectile before pooling
+        p.isDead = true; p.active = false; p.homing && (p.homing.target = null); // break references
+        if (this.projectilePool.length < this.maxPoolSize) {
+            this.projectilePool.push(p);
+        }
+    }
+
+    spawnEnemyProjectile(x, y, vx, vy, damage) {
+        let ep = this.enemyProjectilePool.pop();
+        if (!ep) {
+            ep = new EnemyProjectile(x, y, vx, vy, damage);
+        } else {
+            ep.x = x; ep.y = y; ep.vx = vx; ep.vy = vy; ep.damage = damage;
+            ep.type = 'enemyProjectile'; ep.radius = 5; ep.isDead = false; ep.timer = 0; ep.lifetime = 3;
+        }
+    // Rely on addEntity to manage enemyProjectiles list membership
+    this.addEntity(ep);
+        return ep;
+    }
+
+    _releaseEnemyProjectile(ep) {
+        ep.isDead = true;
+        if (this.enemyProjectilePool.length < this.maxPoolSize) {
+            this.enemyProjectilePool.push(ep);
         }
     }
       // Add error handling to addEntity
@@ -889,18 +1033,20 @@ class GameEngine {
         const margin = 200; // Extra margin for entities about to enter view
         
         // Use spatial grid for faster culling
-        const visibleEntities = [];
+    const visibleEntities = [];
         const startX = Math.floor((this.player.x - viewportWidth/2 - margin) / this.gridSize);
         const startY = Math.floor((this.player.y - viewportHeight/2 - margin) / this.gridSize);
         const endX = Math.ceil((this.player.x + viewportWidth/2 + margin) / this.gridSize);
         const endY = Math.ceil((this.player.y + viewportHeight/2 + margin) / this.gridSize);
         
-        // Check only relevant grid cells
+    // Check only relevant grid cells
+    let anyCellFound = false;
         for (let x = startX; x <= endX; x++) {
             for (let y = startY; y <= endY; y++) {
                 const key = `${x},${y}`;
                 const cellEntities = this.spatialGrid.get(key);
                 if (cellEntities) {
+            anyCellFound = true;
                     for (const entity of cellEntities) {
                         const dx = Math.abs(entity.x - this.player.x);
                         const dy = Math.abs(entity.y - this.player.y);
@@ -913,7 +1059,36 @@ class GameEngine {
                 }
             }
         }
-        
+        // If grid returned nothing (edge case), fall back to scanning all entities
+        if (!anyCellFound && Array.isArray(this.entities)) {
+            const halfW = viewportWidth/2 + margin, halfH = viewportHeight/2 + margin;
+            for (const e of this.entities) {
+                if (!e || e.isDead) continue;
+                const dx = Math.abs(e.x - this.player.x);
+                const dy = Math.abs(e.y - this.player.y);
+                if (dx < halfW && dy < halfH) {
+                    visibleEntities.push(e);
+                }
+            }
+        }
+        // Ensure player is always visible and rendered
+        if (this.player && !visibleEntities.includes(this.player)) {
+            visibleEntities.push(this.player);
+        }
+
+        // Fallback: if grid missed some active entities near the edges (rare), do a quick direct pass
+        if (visibleEntities.length < 10 && Array.isArray(this.entities)) {
+            const halfW = viewportWidth/2 + margin, halfH = viewportHeight/2 + margin;
+            for (const e of this.entities) {
+                if (!e || e.isDead) continue;
+                const dx = Math.abs(e.x - this.player.x);
+                const dy = Math.abs(e.y - this.player.y);
+                if (dx < halfW && dy < halfH && !visibleEntities.includes(e)) {
+                    visibleEntities.push(e);
+                }
+            }
+        }
+
         return visibleEntities;
     }
     

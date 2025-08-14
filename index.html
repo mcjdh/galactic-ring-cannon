@@ -7,7 +7,7 @@
     <meta name="author" content="mcjdh">
     <meta name="theme-color" content="#111111">
     <title>Galactic Ring:Cannon</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
 </head>
 <body>
@@ -135,19 +135,19 @@
     
     <!-- Audio system uses procedural sound synthesis now -->
     
-    <script src="audio.js"></script>
-    <script src="performance.js"></script>
-    <script src="debug.js"></script>
-    <script src="particle.js"></script>
-    <script src="projectile.js"></script>
-    <script src="damageZone.js"></script>
-    <script src="enemy.js"></script>
-    <script src="player.js"></script>
-    <script src="upgrades.js"></script>
-    <script src="achievements.js"></script>
-    <script src="gameEngine.js"></script>
-    <script src="gameManager.js"></script>
-    <script src="uiEnhancements.js"></script>
+    <script src="src/systems/audio.js"></script>
+    <script src="src/systems/performance.js"></script>
+    <script src="src/utils/debug.js"></script>
+    <script src="src/entities/particle.js"></script>
+    <script src="src/entities/projectile.js"></script>
+    <script src="src/entities/damageZone.js"></script>
+    <script src="src/entities/enemy.js"></script>
+    <script src="src/entities/player.js"></script>
+    <script src="src/systems/upgrades.js"></script>
+    <script src="src/systems/achievements.js"></script>
+    <script src="src/core/gameEngine.js"></script>
+    <script src="src/core/gameManager.js"></script>
+    <script src="src/ui/uiEnhancements.js"></script>
     <script>
         // Initialize UI enhancements
         const uiEnhancements = new UIEnhancements();
