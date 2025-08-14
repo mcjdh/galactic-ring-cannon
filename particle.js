@@ -1,0 +1,109 @@
+class Particle {
+    constructor(x, y, vx, vy, size, color, lifetime) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.size = size;
+        this.color = color;
+        this.lifetime = lifetime;
+        this.age = 0;
+        this.isDead = false;
+        this.type = 'particle';
+        
+        // Physics
+        this.gravity = 0;
+        this.friction = 0.95;
+        
+        // Visual effects
+        this.alpha = 1.0;
+        this.startSize = size;
+    }
+    
+    update(deltaTime) {
+        // Update age
+        this.age += deltaTime;
+        
+        if (this.age >= this.lifetime) {
+            this.isDead = true;
+            return;
+        }
+        
+        // Update position
+        this.x += this.vx * deltaTime;
+        this.y += this.vy * deltaTime;
+        
+        // Apply gravity
+        if (this.gravity !== 0) {
+            this.vy += this.gravity * deltaTime;
+        }
+        
+        // Apply friction
+        if (this.friction !== 1) {
+            this.vx *= this.friction;
+            this.vy *= this.friction;
+        }
+        
+        // Fade out over lifetime
+        const ageRatio = this.age / this.lifetime;
+        this.alpha = 1 - ageRatio;
+        
+        // Shrink over time
+        this.size = this.startSize * (1 - ageRatio * 0.5);
+    }
+    
+    render(ctx) {
+        if (this.isDead || this.alpha <= 0) return;
+        
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ShockwaveParticle class for level-up effects
+class ShockwaveParticle {
+    constructor(x, y, maxRadius, color, lifetime) {
+        this.x = x;
+        this.y = y;
+        this.maxRadius = maxRadius;
+        this.color = color;
+        this.lifetime = lifetime;
+        this.age = 0;
+        this.currentRadius = 0;
+        this.isDead = false;
+    }
+
+    update(deltaTime) {
+        this.age += deltaTime;
+        
+        if (this.age >= this.lifetime) {
+            this.isDead = true;
+            return;
+        }
+
+        // Expand the shockwave radius over time
+        const progress = this.age / this.lifetime;
+        this.currentRadius = this.maxRadius * progress;
+    }
+
+    render(ctx) {
+        if (this.isDead) return;
+        
+        const alpha = 1 - (this.age / this.lifetime);
+        
+        ctx.save();
+        ctx.strokeStyle = this.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.currentRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}

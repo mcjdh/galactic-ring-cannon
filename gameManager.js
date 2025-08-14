@@ -580,7 +580,8 @@ class GameManager {
     // Track XP collected
     addXpCollected(amount) {
         this.xpCollected += amount;
-        achievementSystem.updateAchievement('star_collector', this.metaStars);
+        // Fix: Track actual XP collected for star_collector achievement
+        achievementSystem.updateAchievement('star_collector', this.xpCollected);
         return this.xpCollected;
     }
     
@@ -645,18 +646,17 @@ class GameManager {
             this.particlePool = [];
         }
         
-        const maxPoolSize = 50; // Reasonable pool size
+        const maxPoolSize = 100; // Increased pool size for better performance
         const availablePoolSlots = maxPoolSize - this.particlePool.length;
         
-        // Add dead particles to pool (up to limit)
+        // Add dead particles to pool (up to available slots)
         for (let i = 0; i < Math.min(deadParticles.length, availablePoolSlots); i++) {
             const particle = deadParticles[i];
-            // Reset particle for reuse
-            if (particle) {
-                particle.isDead = false;
-                particle.age = 0;
-                this.particlePool.push(particle);
-            }
+            // Reset particle state for reuse
+            particle.isDead = false;
+            particle.age = 0;
+            particle.opacity = 1.0;
+            this.particlePool.push(particle);
         }
     }
     
@@ -666,14 +666,25 @@ class GameManager {
         
         for (let i = 0; i < particleCount; i++) {
             let particle;
-            if (this.particlePool.length > 0) {
+            if (this.particlePool && this.particlePool.length > 0) {
                 particle = this.particlePool.pop();
                 // Reset particle properties
                 particle.x = x;
                 particle.y = y;
                 particle.isDead = false;
                 particle.age = 0;
+                particle.opacity = 1.0;
+                
+                // Update particle properties for explosion
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 50 + Math.random() * 100;
+                particle.vx = Math.cos(angle) * speed;
+                particle.vy = Math.sin(angle) * speed;
+                particle.color = color || '#ff6b35';
+                particle.size = 2 + Math.random() * 6;
+                particle.lifetime = 0.5 + Math.random() * 0.5;
             } else {
+                // Create new particle if pool is empty
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 50 + Math.random() * 100;
                 const size = 2 + Math.random() * 6;
@@ -685,17 +696,22 @@ class GameManager {
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed,
                     size,
-                    color,
+                    color || '#ff6b35',
                     lifetime
                 );
             }
             
-            this.particles.push(particle);
+            // Apply performance reduction factor
+            if (Math.random() < this.particleReductionFactor) {
+                this.particles.push(particle);
+            }
         }
         
         // Add shockwave effect with reduced complexity
-        const shockwave = new ShockwaveParticle(x, y, radius * 1.5, color, 0.5);
-        this.particles.push(shockwave);
+        if (Math.random() < this.particleReductionFactor) {
+            const shockwave = new ShockwaveParticle(x, y, radius * 1.5, color || '#ff6b35', 0.5);
+            this.particles.push(shockwave);
+        }
     }
     
     createHitEffect(x, y, amount) {
@@ -766,8 +782,24 @@ class GameManager {
         }
         
         // Add shockwave effect with reduced complexity
-        const shockwave = new ShockwaveParticle(x, y, 100, '#f39c12', 0.7);
-        this.particles.push(shockwave);
+        try {
+            const shockwave = new ShockwaveParticle(x, y, 100, '#f39c12', 0.7);
+            this.particles.push(shockwave);
+        } catch (error) {
+            console.warn('Failed to create ShockwaveParticle:', error);
+            // Fallback: create a regular particle burst
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const speed = 80;
+                const particle = new Particle(
+                    x, y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    6, '#f39c12', 0.8
+                );
+                this.particles.push(particle);
+            }
+        }
     }
     
     renderParticles(ctx) {
@@ -1697,9 +1729,9 @@ class GameManager {
         this.saveStarTokens();
         this.updateStarDisplay();
         
-        // Update star collector achievement
+        // Update meta star collector achievement
         if (achievementSystem) {
-            achievementSystem.updateAchievement('star_collector', this.metaStars);
+            achievementSystem.updateAchievement('meta_star_collector', this.metaStars);
         }
         
         if (this.game && this.game.player) {
@@ -1737,7 +1769,9 @@ class GameManager {
     
     onStarCollected(count) {
         this.earnStarTokens(count);
-        achievementSystem.updateAchievement('star_collector', count);
+        // Fix: Track meta stars for a different achievement or remove this line
+        // since star_collector should track XP, not meta stars
+        // achievementSystem.updateAchievement('star_collector', count);
     }
     
     onDodge(wasPerfect = false) {
@@ -1808,6 +1842,41 @@ class GameManager {
         if (achievementSystem) {
             achievementSystem.onUpgradeMaxed();
             achievementSystem.updateAchievement('max_upgrade', 1);
+        }
+    }
+    
+    // Performance mode callback
+    onPerformanceModeChange(mode) {
+        console.log(`Game performance mode changed to: ${mode}`);
+        
+        switch (mode) {
+            case 'critical':
+                this.maxParticles = 50;
+                this.particleReductionFactor = 0.25;
+                // Reduce enemy count slightly
+                if (this.enemySpawner) {
+                    this.enemySpawner.maxEnemies = Math.min(this.enemySpawner.maxEnemies, 20);
+                }
+                break;
+            case 'low':
+                this.maxParticles = 100;
+                this.particleReductionFactor = 0.5;
+                // Moderate reduction
+                if (this.enemySpawner) {
+                    this.enemySpawner.maxEnemies = Math.min(this.enemySpawner.maxEnemies, 30);
+                }
+                break;
+            case 'normal':
+                this.maxParticles = 200;
+                this.particleReductionFactor = 1.0;
+                // Restore normal limits based on difficulty
+                this.updateDifficultyScaling();
+                break;
+        }
+        
+        // Clean up existing particles if we're over the new limit
+        if (this.particles.length > this.maxParticles) {
+            this.particles.splice(0, this.particles.length - this.maxParticles);
         }
     }
 
@@ -1945,119 +2014,6 @@ class GameManager {
         setTimeout(() => {
             textElement.remove();
         }, 1000);
-    }
-}
-
-// Particle class for visual effects
-class Particle {
-    constructor(x, y, vx, vy, size, color, lifetime) {
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.size = size;
-        this.initialSize = size;
-        this.color = color;
-        this.lifetime = lifetime;
-        this.age = 0;
-        this.isDead = false;
-        
-        // Optional: gravity effect
-        this.hasGravity = false;
-        this.gravity = 50;
-    }
-    
-    update(deltaTime) {
-        this.x += this.vx * deltaTime;
-        this.y += this.vy * deltaTime;
-        
-        if (this.hasGravity) {
-            this.vy += this.gravity * deltaTime;
-        }
-        
-        // Fade out and shrink as they age
-        this.age += deltaTime;
-        if (this.age >= this.lifetime) {
-            this.isDead = true;
-        }
-    }
-    
-    render(ctx) {
-        const lifePercent = 1 - (this.age / this.lifetime);
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.initialSize * lifePercent, 0, Math.PI * 2);
-        
-        // Make particles fade out
-        const alpha = lifePercent;
-        ctx.fillStyle = this.makeColorWithAlpha(this.color, alpha);
-        ctx.fill();
-    }
-    
-    makeColorWithAlpha(color, alpha) {
-        // Handle hex colors
-        if (color.startsWith('#')) {
-            // Convert hex to RGB
-            const r = parseInt(color.substring(1, 3), 16);
-            const g = parseInt(color.substring(3, 5), 16);
-            const b = parseInt(color.substring(5, 7), 16);
-            
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-        
-        // Already rgba or similar
-        return color;
-    }
-}
-
-// Shockwave effect
-class ShockwaveParticle {
-    constructor(x, y, size, color, lifetime) {
-        this.x = x;
-        this.y = y;
-        this.size = 1;
-        this.maxSize = size;
-        this.color = color;
-        this.lifetime = lifetime;
-        this.age = 0;
-        this.isDead = false;
-    }
-    
-    update(deltaTime) {
-        this.age += deltaTime;
-        this.size = (this.age / this.lifetime) * this.maxSize;
-        
-        if (this.age >= this.lifetime) {
-            this.isDead = true;
-        }
-    }
-    
-    render(ctx) {
-        const lifePercent = 1 - (this.age / this.lifetime);
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        
-        // Make particles fade out
-        const alpha = lifePercent * 0.5;
-        ctx.strokeStyle = this.makeColorWithAlpha(this.color, alpha);
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    }
-    
-    makeColorWithAlpha(color, alpha) {
-        // Handle hex colors
-        if (color.startsWith('#')) {
-            // Convert hex to RGB
-            const r = parseInt(color.substring(1, 3), 16);
-            const g = parseInt(color.substring(3, 5), 16);
-            const b = parseInt(color.substring(5, 7), 16);
-            
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-        
-        // Already rgba or similar
-        return color;
     }
 }
 

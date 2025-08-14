@@ -102,6 +102,72 @@ class Enemy {
                 this.deathEffect = 'explosion';
                 break;
                 
+            case 'teleporter':
+                this.radius = 16;
+                this.health = this.maxHealth = 35;
+                this.damage = 12;
+                this.speed = 100;
+                this.xpValue = 30;
+                this.color = '#9b59b6';
+                this.teleportCooldown = 4;
+                this.teleportTimer = 0;
+                this.teleportRange = 200;
+                this.canTeleport = true;
+                break;
+                
+            case 'phantom':
+                this.radius = 14;
+                this.health = this.maxHealth = 20;
+                this.damage = 8;
+                this.speed = 110;
+                this.xpValue = 25;
+                this.color = 'rgba(108, 92, 231, 0.7)';
+                this.phaseTimer = 0;
+                this.phaseDuration = 2; // seconds visible
+                this.phaseInvisibleDuration = 1.5; // seconds invisible
+                this.isVisible = true;
+                this.canPhase = true;
+                break;
+                
+            case 'shielder':
+                this.radius = 18;
+                this.health = this.maxHealth = 60;
+                this.damage = 15;
+                this.speed = 80;
+                this.xpValue = 40;
+                this.color = '#3498db';
+                this.shieldReflection = 0.3; // 30% chance to reflect projectiles
+                this.hasShield = true;
+                this.shieldHealth = 30;
+                this.maxShieldHealth = 30;
+                break;
+                
+            case 'summoner':
+                this.radius = 20;
+                this.health = this.maxHealth = 45;
+                this.damage = 10;
+                this.speed = 60;
+                this.xpValue = 35;
+                this.color = '#8e44ad';
+                this.summonCooldown = 8;
+                this.summonTimer = 0;
+                this.maxMinions = 3;
+                this.canSummon = true;
+                break;
+                
+            case 'berserker':
+                this.radius = 17;
+                this.health = this.maxHealth = 50;
+                this.damage = 20;
+                this.speed = 90;
+                this.xpValue = 30;
+                this.color = '#d63031';
+                this.rageThreshold = 0.5; // Enters rage at 50% health
+                this.isRaged = false;
+                this.rageDamageMultiplier = 2;
+                this.rageSpeedMultiplier = 1.5;
+                break;
+                
             case 'boss':
                 this.radius = 40;
                 this.health = this.maxHealth = 500;
@@ -118,7 +184,43 @@ class Enemy {
     }
     
     update(deltaTime, game) {
-        // Handle special abilities
+        // Handle special abilities based on enemy type
+        if (this.enemyType === 'teleporter' && this.canTeleport) {
+            this.teleportTimer += deltaTime;
+            if (this.teleportTimer >= this.teleportCooldown) {
+                this.teleportTimer = 0;
+                this.performTeleport(game);
+            }
+        }
+        
+        if (this.enemyType === 'phantom' && this.canPhase) {
+            this.phaseTimer += deltaTime;
+            const totalCycle = this.phaseDuration + this.phaseInvisibleDuration;
+            
+            // Cycle between visible and invisible
+            if (this.phaseTimer >= totalCycle) {
+                this.phaseTimer = 0;
+            }
+            
+            this.isVisible = this.phaseTimer < this.phaseDuration;
+        }
+        
+        if (this.enemyType === 'summoner' && this.canSummon) {
+            this.summonTimer += deltaTime;
+            if (this.summonTimer >= this.summonCooldown) {
+                this.summonTimer = 0;
+                this.summonMinion(game);
+            }
+        }
+        
+        if (this.enemyType === 'berserker' && !this.isRaged) {
+            const healthPercent = this.health / this.maxHealth;
+            if (healthPercent <= this.rageThreshold) {
+                this.enterRage();
+            }
+        }
+        
+        // Handle standard abilities
         if (this.canRangeAttack) {
             this.rangeAttackTimer += deltaTime;
             if (this.rangeAttackTimer >= this.rangeAttackCooldown) {
@@ -152,8 +254,13 @@ class Enemy {
             }
         }
         
-        // Move toward player
+        // Move toward player (phantoms only move when visible)
         if (game.player && !game.player.isDead && !this.isDashing) {
+            // Phantoms can only be hit when visible
+            if (this.enemyType === 'phantom' && !this.isVisible) {
+                return; // Skip movement and collision when invisible
+            }
+            
             const dx = game.player.x - this.x;
             const dy = game.player.y - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -224,6 +331,79 @@ class Enemy {
         this.dashTimer = 0;
     }
     
+    performTeleport(game) {
+        if (!game.player) return;
+        
+        // Calculate a position near the player but not too close
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 100 + Math.random() * this.teleportRange;
+        
+        const newX = game.player.x + Math.cos(angle) * distance;
+        const newY = game.player.y + Math.sin(angle) * distance;
+        
+        // Visual effect at old position
+        if (gameManager && gameManager.createExplosion) {
+            gameManager.createExplosion(this.x, this.y, 20, '#9b59b6');
+        }
+        
+        // Teleport
+        this.x = newX;
+        this.y = newY;
+        
+        // Visual effect at new position
+        if (gameManager && gameManager.createExplosion) {
+            gameManager.createExplosion(this.x, this.y, 25, '#9b59b6');
+        }
+        
+        // Show teleport message
+        if (gameManager) {
+            gameManager.showFloatingText("*WARP*", this.x, this.y - 30, "#9b59b6", 16);
+        }
+    }
+    
+    summonMinion(game) {
+        // Count current minions to respect the limit
+        const currentMinions = game.enemies.filter(e => 
+            e.enemyType === 'basic' && e.summoner === this.id
+        ).length;
+        
+        if (currentMinions >= this.maxMinions) return;
+        
+        // Spawn a basic enemy near this summoner
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 40 + Math.random() * 20;
+        
+        const x = this.x + Math.cos(angle) * distance;
+        const y = this.y + Math.sin(angle) * distance;
+        
+        const minion = new Enemy(x, y, 'basic');
+        minion.summoner = this.id; // Tag it as belonging to this summoner
+        minion.color = '#b19cd9'; // Lighter purple to show it's summoned
+        
+        game.addEntity(minion);
+        
+        // Visual effect
+        if (gameManager) {
+            gameManager.createExplosion(x, y, 15, '#8e44ad');
+            gameManager.showFloatingText("Summon!", this.x, this.y - 30, "#8e44ad", 14);
+        }
+    }
+    
+    enterRage() {
+        this.isRaged = true;
+        this.damage = Math.floor(this.damage * this.rageDamageMultiplier);
+        this.speed = Math.floor(this.speed * this.rageSpeedMultiplier);
+        
+        // Change color to show rage
+        this.color = '#ff3333';
+        
+        // Visual effect
+        if (gameManager) {
+            gameManager.createExplosion(this.x, this.y, 30, '#ff3333');
+            gameManager.showFloatingText("RAGE!", this.x, this.y - 30, "#ff3333", 18);
+        }
+    }
+    
     performRangeAttack(game) {
         if (!game.player || game.player.isDead) return;
         
@@ -267,6 +447,47 @@ class Enemy {
     }
     
     takeDamage(amount) {
+        // Phantoms can only take damage when visible
+        if (this.enemyType === 'phantom' && !this.isVisible) {
+            // Show miss effect
+            if (gameManager) {
+                gameManager.showFloatingText("MISS!", this.x, this.y - 30, "#74b9ff", 14);
+            }
+            return;
+        }
+        
+        // Shielder reflection chance
+        if (this.enemyType === 'shielder' && this.hasShield && this.shieldHealth > 0) {
+            // Damage goes to shield first
+            const shieldDamage = Math.min(amount, this.shieldHealth);
+            this.shieldHealth -= shieldDamage;
+            amount -= shieldDamage;
+            
+            // Chance to reflect damage back to player
+            if (Math.random() < this.shieldReflection && gameManager && gameManager.game.player) {
+                const reflectedDamage = Math.floor(shieldDamage * 0.5);
+                if (reflectedDamage > 0) {
+                    gameManager.game.player.takeDamage(reflectedDamage);
+                    gameManager.showFloatingText(`-${reflectedDamage}`, 
+                        gameManager.game.player.x, 
+                        gameManager.game.player.y - 30, 
+                        "#e74c3c", 16);
+                }
+            }
+            
+            // Shield broken effect
+            if (this.shieldHealth <= 0) {
+                this.hasShield = false;
+                if (gameManager) {
+                    gameManager.createExplosion(this.x, this.y, 25, '#3498db');
+                    gameManager.showFloatingText("SHIELD DOWN!", this.x, this.y - 30, "#3498db", 16);
+                }
+            }
+            
+            // If shield absorbed all damage, return
+            if (amount <= 0) return;
+        }
+        
         // Apply damage resistance for bosses (prevents one-shotting)
         if (this.isBoss) {
             // Apply base damage resistance
@@ -486,11 +707,16 @@ class Enemy {
     }
     
     render(ctx) {
-        // Draw enemy
+        // Skip rendering phantoms when they're invisible
+        if (this.enemyType === 'phantom' && !this.isVisible) {
+            return;
+        }
+        
+        // Draw enemy with special effects
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         
-        // Special visuals for dashing enemies
+        // Special visuals for different enemy types
         if (this.isDashing) {
             const gradient = ctx.createRadialGradient(
                 this.x, this.y, 0,
@@ -499,11 +725,67 @@ class Enemy {
             gradient.addColorStop(0, this.color);
             gradient.addColorStop(1, '#ffffff');
             ctx.fillStyle = gradient;
+        } else if (this.enemyType === 'phantom') {
+            // Ghostly appearance with transparency
+            ctx.fillStyle = this.color;
+        } else if (this.enemyType === 'teleporter') {
+            // Pulsing effect for teleporter
+            const pulseSize = 1 + Math.sin((gameManager.gameTime || 0) / 200) * 0.1;
+            ctx.scale(pulseSize, pulseSize);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.resetTransform();
+            return;
         } else {
             ctx.fillStyle = this.color;
         }
         
         ctx.fill();
+        
+        // Special visual indicators
+        if (this.enemyType === 'shielder' && this.hasShield && this.shieldHealth > 0) {
+            // Draw shield
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Shield health indicator
+            const shieldPercent = this.shieldHealth / this.maxShieldHealth;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 5, 0, Math.PI * 2 * shieldPercent);
+            ctx.strokeStyle = '#74b9ff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        if (this.enemyType === 'summoner') {
+            // Draw summoning symbols
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate((gameManager.gameTime || 0) / 500);
+            
+            ctx.beginPath();
+            ctx.moveTo(0, -this.radius - 8);
+            ctx.lineTo(this.radius + 8, 0);
+            ctx.lineTo(0, this.radius + 8);
+            ctx.lineTo(-this.radius - 8, 0);
+            ctx.closePath();
+            ctx.strokeStyle = '#8e44ad';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        if (this.enemyType === 'berserker' && this.isRaged) {
+            // Rage aura effect
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 51, 51, 0.3)';
+            ctx.fill();
+        }
         
         // Draw boss indicator or special enemy indicators
         if (this.isBoss) {
@@ -540,6 +822,19 @@ class Enemy {
             healthBarWidth * healthPercentage,
             healthBarHeight
         );
+        
+        // Draw shield health bar for shielders
+        if (this.enemyType === 'shielder' && this.hasShield && this.shieldHealth > 0) {
+            const shieldPercent = this.shieldHealth / this.maxShieldHealth;
+            
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(
+                this.x - this.radius,
+                this.y - this.radius - 18,
+                healthBarWidth * shieldPercent,
+                2
+            );
+        }
     }
 }
 
@@ -822,6 +1117,26 @@ class EnemySpawner {
             if (!this.enemyTypes.includes('exploder') && gameTimeMinutes >= 2.5) { // 2.5 minutes (down from 5 min)
                 this.enemyTypes.push('exploder');
                 this.showNewEnemyMessage("Exploding enemies have appeared!");
+            }
+            if (!this.enemyTypes.includes('teleporter') && gameTimeMinutes >= 3) { // 3 minutes
+                this.enemyTypes.push('teleporter');
+                this.showNewEnemyMessage("Teleporting enemies have appeared!");
+            }
+            if (!this.enemyTypes.includes('phantom') && gameTimeMinutes >= 3.5) { // 3.5 minutes
+                this.enemyTypes.push('phantom');
+                this.showNewEnemyMessage("Phantom enemies have appeared!");
+            }
+            if (!this.enemyTypes.includes('shielder') && gameTimeMinutes >= 4) { // 4 minutes
+                this.enemyTypes.push('shielder');
+                this.showNewEnemyMessage("Shielded enemies have appeared!");
+            }
+            if (!this.enemyTypes.includes('summoner') && gameTimeMinutes >= 4.5) { // 4.5 minutes
+                this.enemyTypes.push('summoner');
+                this.showNewEnemyMessage("Summoner enemies have appeared!");
+            }
+            if (!this.enemyTypes.includes('berserker') && gameTimeMinutes >= 5) { // 5 minutes
+                this.enemyTypes.push('berserker');
+                this.showNewEnemyMessage("Berserker enemies have appeared!");
             }
         }
         
@@ -1184,7 +1499,11 @@ class EnemySpawner {
             'ranged': 3,
             'dasher': 4,
             'exploder': 5,
-            'teleporter': 5
+            'teleporter': 5,
+            'phantom': 6,
+            'shielder': 4,
+            'summoner': 6,
+            'berserker': 5
         };
         
         // Create weighted list of available types

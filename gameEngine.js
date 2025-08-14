@@ -142,22 +142,26 @@ class GameEngine {
     }
     
     gameLoop(timestamp) {
-        // Frame rate limiting
-        const elapsed = timestamp - this.lastFrameTime;
-        if (elapsed < this.frameTime) {
-            requestAnimationFrame(this.gameLoop.bind(this));
-            return;
+        // Calculate deltaTime properly
+        if (this.lastTime === 0) {
+            this.lastTime = timestamp;
         }
         
+        const deltaTime = (timestamp - this.lastTime) / 1000; // Convert to seconds
+        this.lastTime = timestamp;
+        
+        // Cap deltaTime to prevent large jumps (e.g., when tab is inactive)
+        const cappedDeltaTime = Math.min(deltaTime, 1/30); // Max 30fps equivalent
+        
         // Update performance metrics
-        this.updatePerformanceMetrics(elapsed);
+        this.updatePerformanceMetrics(timestamp - this.lastFrameTime);
         
         // Adjust performance mode based on GPU usage
         this.adjustPerformanceMode();
         
-        // Update game state
+        // Update game state only if not paused
         if (!this.isPaused) {
-            this.update(elapsed / 1000);
+            this.update(cappedDeltaTime);
             this.render();
         }
         
@@ -166,18 +170,43 @@ class GameEngine {
     }
     
     update(deltaTime) {
-        // Update performance metrics
-        this.updatePerformanceMetrics(deltaTime);
+        // Validate deltaTime
+        if (isNaN(deltaTime) || deltaTime <= 0 || deltaTime > 1) {
+            console.warn('Invalid deltaTime:', deltaTime);
+            deltaTime = 1/60; // Fallback to 60fps
+        }
         
-        // Update all entities with spatial optimization
+        // Update performance manager if available
+        if (window.performanceManager && typeof window.performanceManager.update === 'function') {
+            window.performanceManager.update(deltaTime);
+        }
+        
+        // Update spatial grid BEFORE updating entities
         this.updateSpatialGrid();
         
-        // Only update entities that are visible or near the player
-        const visibleEntities = this.getVisibleEntities();
-        visibleEntities.forEach(entity => entity.update(deltaTime, this));
+        // Update all entities with proper error handling
+        if (this.entities && Array.isArray(this.entities)) {
+            // Create a safe copy to avoid modification during iteration
+            const entitiesToUpdate = [...this.entities];
+            
+            entitiesToUpdate.forEach(entity => {
+                if (entity && typeof entity.update === 'function' && !entity.isDead) {
+                    try {
+                        entity.update(deltaTime, this);
+                    } catch (error) {
+                        console.error('Error updating entity:', error, entity);
+                        entity.isDead = true; // Mark as dead to prevent further errors
+                    }
+                }
+            });
+        }
         
-        // Check collisions with spatial optimization
-        this.checkCollisions();
+        // Check collisions with error handling
+        try {
+            this.checkCollisions();
+        } catch (error) {
+            console.error('Error in collision detection:', error);
+        }
         
         // Clean up dead entities
         this.cleanupEntities();
@@ -400,6 +429,11 @@ class GameEngine {
             
             // Projectile collision with enemies
             if (entity1.type === 'projectile' && entity2.type === 'enemy' && !entity2.isDead) {
+                // Check if this enemy was already hit (for piercing projectiles)
+                if (entity1.hitEnemies && entity1.hitEnemies.has(entity2.id)) {
+                    return; // Skip this collision
+                }
+                
                 let hitSuccessful = true;
                 if (typeof entity1.hit === 'function') {
                     hitSuccessful = entity1.hit(entity2);
@@ -407,10 +441,70 @@ class GameEngine {
                 if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
                     entity2.takeDamage(entity1.damage);
                 }
-                if (hitSuccessful && !entity1.piercing) {
+                
+                // Track hit enemy for piercing
+                if (entity1.hitEnemies) {
+                    entity1.hitEnemies.add(entity2.id);
+                }
+                
+                // Handle special projectile effects
+                let projectileShouldDie = false;
+                
+                // Process all special effects
+                if (entity1.chainLightning) {
+                    entity1.triggerChainLightning(this, entity2);
+                }
+                
+                // Handle lifesteal
+                if (this.player && entity1.lifesteal) {
+                    const healAmount = entity1.damage * entity1.lifesteal;
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                    
+                    if (gameManager) {
+                        gameManager.showFloatingText(`+${Math.round(healAmount)}`, 
+                            this.player.x, this.player.y - 30, '#2ecc71', 14);
+                    }
+                }
+                
+                // Check piercing and ricochet first (before explosion)
+                if (hitSuccessful) {
+                    if (entity1.piercing && entity1.piercing > 0) {
+                        entity1.piercing--; // Reduce piercing count
+                        if (entity1.piercing <= 0) {
+                            projectileShouldDie = true;
+                        }
+                    } else if (entity1.ricochet && entity1.ricochet.bounced < entity1.ricochet.bounces) {
+                        // Check if entity1 is a projectile with ricochet capability
+                        if (entity1.type === 'projectile' && entity1 instanceof Projectile) {
+                            const ricochetSuccessful = Projectile.prototype.ricochet.call(entity1, this);
+                            if (!ricochetSuccessful) {
+                                projectileShouldDie = true; // Failed to ricochet, projectile dies
+                            }
+                        } else {
+                            projectileShouldDie = true; // Not a projectile, can't ricochet
+                        }
+                    } else {
+                        projectileShouldDie = true; // Regular projectile dies on hit
+                    }
+                }
+                
+                // Handle explosion last (can happen with any projectile that has explosive property)
+                if (entity1.explosive && (projectileShouldDie || (entity1.piercing !== undefined && entity1.piercing <= 0))) {
+                    entity1.explode(this);
+                    projectileShouldDie = true; // Explosion always kills the projectile
+                }
+                
+                // Kill projectile if needed
+                if (projectileShouldDie) {
                     entity1.isDead = true;
                 }
+                
             } else if (entity2.type === 'projectile' && entity1.type === 'enemy' && !entity1.isDead) {
+                // Check if this enemy was already hit (for piercing projectiles)
+                if (entity2.hitEnemies && entity2.hitEnemies.has(entity1.id)) {
+                    return; // Skip this collision
+                }
+                
                 let hitSuccessful = true;
                 if (typeof entity2.hit === 'function') {
                     hitSuccessful = entity2.hit(entity1);
@@ -418,8 +512,53 @@ class GameEngine {
                 if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
                     entity1.takeDamage(entity2.damage);
                 }
-                if (hitSuccessful && !entity2.piercing) {
-                    entity2.isDead = true;
+                
+                // Track hit enemy for piercing
+                if (entity2.hitEnemies) {
+                    entity2.hitEnemies.add(entity1.id);
+                }
+                
+                // Handle special projectile effects
+                if (entity2.chainLightning) {
+                    entity2.triggerChainLightning(this, entity1);
+                }
+                
+                if (entity2.explosive) {
+                    entity2.explode(this);
+                    return; // Explosion kills the projectile
+                }
+                
+                // Handle lifesteal
+                if (this.player && entity2.lifesteal) {
+                    const healAmount = entity2.damage * entity2.lifesteal;
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                    
+                    if (gameManager) {
+                        gameManager.showFloatingText(`+${Math.round(healAmount)}`, 
+                            this.player.x, this.player.y - 30, '#2ecc71', 14);
+                    }
+                }
+                
+                // Check piercing and ricochet
+                if (hitSuccessful) {
+                    if (entity2.piercing && entity2.piercing > 0) {
+                        entity2.piercing--; // Reduce piercing count
+                        if (entity2.piercing <= 0) {
+                            entity2.isDead = true;
+                        }
+                    } else if (entity2.ricochet && entity2.ricochet.bounced < entity2.ricochet.bounces) {
+                        // Check if entity2 is a projectile with ricochet capability
+                        if (entity2.type === 'projectile' && entity2 instanceof Projectile) {
+                            const ricochetSuccessful = Projectile.prototype.ricochet.call(entity2, this);
+                            if (!ricochetSuccessful) {
+                                entity2.isDead = true; // Failed to ricochet, projectile dies
+                            }
+                        } else {
+                            entity2.isDead = true; // Not a projectile, can't ricochet
+                        }
+                    } else {
+                        entity2.isDead = true; // Regular projectile dies on hit
+                    }
                 }
             }
             
@@ -439,53 +578,54 @@ class GameEngine {
             console.error('Error handling collision:', error, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
         }
     }
-      render() {
+    render() {
         // Check for context loss before rendering
         if (this.contextLost || !this.ctx) {
             console.warn('Canvas context unavailable, skipping render');
             return;
         }
-        
+
         try {
-            // Clear canvas with optimized method
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Set camera with optimized transform
-        this.ctx.save();
-        if (this.player) {
-            const cameraX = -this.player.x + this.canvas.width / 2;
-            const cameraY = -this.player.y + this.canvas.height / 2;
-            this.ctx.translate(cameraX, cameraY);
-        }
-        
-        // Get visible entities with spatial optimization
-        const visibleEntities = this.getVisibleEntities();
-        
-        // Group entities by type for batch rendering
-        const entityGroups = new Map();
-        for (const entity of visibleEntities) {
-            const type = entity.constructor.name;
-            if (!entityGroups.has(type)) {
-                entityGroups.set(type, []);
+            // Double buffer protection - ensure we have valid canvas state
+            if (!this.canvas.width || !this.canvas.height) {
+                return;
             }
-            entityGroups.get(type).push(entity);
-        }
-        
-        // Render each group with optimized batching
-        for (const [type, group] of entityGroups) {
-            // Sort by y-coordinate within each group
-            group.sort((a, b) => a.y - b.y);
             
-            // Batch render similar entities
-            this.batchRenderEntities(group);
-        }
-          // Render debug information if enabled
-        if (this.debugMode) {
-            this.renderDebugInfo();
-        }
+            // Clear canvas with optimized method
+            this.ctx.save();
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.restore();
         
-        this.ctx.restore();
-        
+            // Set camera with optimized transform
+            this.ctx.save();
+            if (this.player) {
+                const cameraX = -this.player.x + this.canvas.width / 2;
+                const cameraY = -this.player.y + this.canvas.height / 2;
+                this.ctx.translate(cameraX, cameraY);
+            }            // Simple entity rendering with better validation
+            for (const entity of this.entities) {
+                if (!entity || entity.isDead) continue; // Skip null/dead entities
+                
+                // Validate entity has required render properties
+                if (typeof entity.render !== 'function') continue;
+                if (typeof entity.x !== 'number' || typeof entity.y !== 'number') continue;
+                
+                try {
+                    entity.render(this.ctx);
+                } catch (error) {
+                    console.error('Error rendering entity:', error, entity.type || 'unknown');
+                    // Continue rendering other entities
+                }
+            }
+            
+            // Render debug information if enabled
+            if (this.debugMode) {
+                this.renderDebugInfo();
+            }
+            
+            this.ctx.restore();
+            
         } catch (error) {
             console.error('Render error:', error);
             // Try to recover context if possible
@@ -583,14 +723,42 @@ class GameEngine {
         // Track entities before cleanup for debugging
         const entitiesBefore = this.entities.length;
         
-        // Use more efficient filtering with proper null checks
-        this.entities = this.entities.filter(entity => entity && !entity.isDead);
-        this.enemies = this.enemies.filter(enemy => enemy && !enemy.isDead);
-        this.xpOrbs = this.xpOrbs.filter(orb => orb && !orb.isDead);
-        this.projectiles = this.projectiles.filter(projectile => projectile && !projectile.isDead);
+        // More robust filtering with validation
+        this.entities = this.entities.filter(entity => 
+            entity && 
+            !entity.isDead && 
+            typeof entity.x === 'number' && 
+            typeof entity.y === 'number'
+        );
+        
+        this.enemies = this.enemies.filter(enemy => 
+            enemy && 
+            !enemy.isDead && 
+            typeof enemy.x === 'number' && 
+            typeof enemy.y === 'number'
+        );
+        
+        this.xpOrbs = this.xpOrbs.filter(orb => 
+            orb && 
+            !orb.isDead && 
+            typeof orb.x === 'number' && 
+            typeof orb.y === 'number'
+        );
+        
+        this.projectiles = this.projectiles.filter(projectile => 
+            projectile && 
+            !projectile.isDead && 
+            typeof projectile.x === 'number' && 
+            typeof projectile.y === 'number'
+        );
         
         if (this.enemyProjectiles) {
-            this.enemyProjectiles = this.enemyProjectiles.filter(projectile => projectile && !projectile.isDead);
+            this.enemyProjectiles = this.enemyProjectiles.filter(projectile => 
+                projectile && 
+                !projectile.isDead && 
+                typeof projectile.x === 'number' && 
+                typeof projectile.y === 'number'
+            );
         }
         
         // Enforce entity limits to prevent memory issues

@@ -56,8 +56,16 @@ class AchievementSystem {
             },
             'star_collector': {
                 name: 'Star Collector',
-                description: 'Collect 100 stars',
+                description: 'Collect 1000 XP orbs',
                 icon: '✨',
+                progress: 0,
+                target: 1000,
+                unlocked: false
+            },
+            'meta_star_collector': {
+                name: 'Meta Star Collector',
+                description: 'Earn 100 meta stars',
+                icon: '⭐',
                 progress: 0,
                 target: 100,
                 unlocked: false
@@ -187,23 +195,46 @@ class AchievementSystem {
     }
     
     loadAchievements() {
-        const saved = localStorage.getItem('achievements');
-        if (saved) {
-            const loaded = JSON.parse(saved);
-            for (const [key, achievement] of Object.entries(loaded)) {
-                if (this.achievements[key]) {
-                    this.achievements[key] = { ...this.achievements[key], ...achievement };
+        try {
+            const saved = localStorage.getItem('achievements');
+            if (saved) {
+                const loaded = JSON.parse(saved);
+                for (const [key, achievement] of Object.entries(loaded)) {
+                    if (this.achievements[key]) {
+                        // Preserve structure, only update progress and unlocked status
+                        this.achievements[key].progress = achievement.progress || 0;
+                        this.achievements[key].unlocked = achievement.unlocked || false;
+                    }
                 }
             }
+        } catch (error) {
+            console.error('Error loading achievements:', error);
+            // Clear corrupted data
+            localStorage.removeItem('achievements');
         }
     }
     
     saveAchievements() {
-        localStorage.setItem('achievements', JSON.stringify(this.achievements));
+        try {
+            // Only save progress and unlocked status to prevent corruption
+            const saveData = {};
+            for (const [key, achievement] of Object.entries(this.achievements)) {
+                saveData[key] = {
+                    progress: achievement.progress,
+                    unlocked: achievement.unlocked
+                };
+            }
+            localStorage.setItem('achievements', JSON.stringify(saveData));
+        } catch (error) {
+            console.error('Error saving achievements:', error);
+        }
     }
     
     updateAchievement(key, value) {
-        if (!this.achievements[key]) return;
+        if (!this.achievements[key]) {
+            console.warn(`Achievement '${key}' not found`);
+            return;
+        }
         
         const achievement = this.achievements[key];
         const oldProgress = achievement.progress;
@@ -302,49 +333,59 @@ class AchievementSystem {
     }
     
     showAchievementNotification(achievement) {
-        const notification = document.createElement('div');
-        notification.className = 'achievement-notification';
-        
-        // Add special styling for important achievements
-        if (achievement.important) {
-            notification.classList.add('important-achievement');
-        }
-        
-        notification.innerHTML = `
-            <div class="achievement-icon">${achievement.icon}</div>
-            <div class="achievement-content">
-                <h3>Achievement Unlocked!</h3>
-                <p>${achievement.name}</p>
-                <p>${achievement.description}</p>
-            </div>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Animate in
-        setTimeout(() => {
-            notification.classList.add('show');
-        }, 100);
-        
-        // For important achievements, show longer and with special effects
-        const displayTime = achievement.important ? 5000 : 3000;
-        
-        // Remove after animation
-        setTimeout(() => {
-            notification.classList.remove('show');
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 500);
-        }, displayTime);
-        
-        // Play achievement sound
-        if (audioSystem) {
-            // Play special sound for important achievements
+        try {
+            const notification = document.createElement('div');
+            notification.className = 'achievement-notification';
+            
+            // Add special styling for important achievements
             if (achievement.important) {
-                audioSystem.play('boss', 0.4);
-            } else {
-                audioSystem.play('levelUp', 0.4);
+                notification.classList.add('important-achievement');
             }
+            
+            notification.innerHTML = `
+                <div class="achievement-icon">${achievement.icon}</div>
+                <div class="achievement-content">
+                    <h3>Achievement Unlocked!</h3>
+                    <p>${achievement.name}</p>
+                    <p>${achievement.description}</p>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.classList.add('show');
+                }
+            }, 100);
+            
+            // For important achievements, show longer and with special effects
+            const displayTime = achievement.important ? 5000 : 3000;
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            document.body.removeChild(notification);
+                        }
+                    }, 500);
+                }
+            }, displayTime);
+            
+            // Play achievement sound
+            if (audioSystem) {
+                // Play special sound for important achievements
+                if (achievement.important) {
+                    audioSystem.play('boss', 0.4);
+                } else {
+                    audioSystem.play('levelUp', 0.4);
+                }
+            }
+        } catch (error) {
+            console.error('Error showing achievement notification:', error);
         }
     }
     

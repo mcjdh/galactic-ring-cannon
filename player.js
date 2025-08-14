@@ -31,7 +31,7 @@ class Player {
         this.projectileSpeed = 450; // Faster projectiles
         this.projectileCount = 1;
         this.projectileSpread = 0; // angle in degrees
-        this.piercing = false;
+        this.piercing = 0; // Number of enemies projectile can pierce through
         this.critChance = 0.10; // 10% base chance (up from 8%)
         this.critMultiplier = 2.2; // 2.2x damage on crit (up from 2.0)
         
@@ -99,6 +99,11 @@ class Player {
         this.ricochetBounces = 0;
         this.ricochetRange = 0;
         this.ricochetDamage = 0;
+        
+        // Homing projectile properties
+        this.hasHomingShots = false;
+        this.homingTurnSpeed = 3.0;
+        this.homingRange = 250;
 
         // Add a killstreak counter
         this.killStreak = 0;
@@ -126,15 +131,20 @@ class Player {
     handleMovement(deltaTime, game) {
         let dx = 0;
         let dy = 0;
-        if (game.keys['w']) dy -= 1;
-        if (game.keys['s']) dy += 1;
-        if (game.keys['a']) dx -= 1;
-        if (game.keys['d']) dx += 1;
+        
+        // Get keys from the game engine (fix for movement bug)
+        const keys = game.keys || {};
+        
+        if (keys['w'] || keys['W']) dy -= 1;
+        if (keys['s'] || keys['S']) dy += 1;
+        if (keys['a'] || keys['A']) dx -= 1;
+        if (keys['d'] || keys['D']) dx += 1;
         // Alternative arrow key controls
-        if (game.keys['ArrowUp']) dy -= 1;
-        if (game.keys['ArrowDown']) dy += 1;
-        if (game.keys['ArrowLeft']) dx -= 1;
-        if (game.keys['ArrowRight']) dx += 1;
+        if (keys['ArrowUp']) dy -= 1;
+        if (keys['ArrowDown']) dy += 1;
+        if (keys['ArrowLeft']) dx -= 1;
+        if (keys['ArrowRight']) dx += 1;
+        
         // Store movement direction for dodge
         if (dx !== 0 || dy !== 0) {
             this.dodgeDirection.x = dx;
@@ -235,6 +245,81 @@ class Player {
             // Show healing text
             gameManager.showFloatingText(`+${Math.round(this.health - oldHealth)}`, this.x, this.y - 30, '#2ecc71', 16);
         }
+    }
+    
+    // CRITICAL FIX: Add missing XP collection method
+    addXP(amount) {
+        if (this.isDead) return;
+        
+        this.xp += amount;
+        
+        // Track XP collected for achievements
+        if (gameManager) {
+            gameManager.addXpCollected(amount);
+        }
+        
+        // Show XP gain text
+        gameManager.showFloatingText(`+${amount} XP`, this.x, this.y - 20, '#f1c40f', 14);
+        
+        // Check for level up
+        while (this.xp >= this.xpToNextLevel) {
+            this.levelUp();
+        }
+        
+        // Update XP bar
+        this.updateXPBar();
+    }
+    
+    addExperience(amount) {
+        // Alias for addXP to handle different calling conventions
+        this.addXP(amount);
+    }
+    
+    updateXPBar() {
+        const xpBar = document.getElementById('xp-bar');
+        if (xpBar) {
+            const xpPercentage = (this.xp / this.xpToNextLevel) * 100;
+            xpBar.style.setProperty('--xp-width', `${Math.min(xpPercentage, 100)}%`);
+        }
+        
+        // Update level display
+        const levelDisplay = document.getElementById('level-display');
+        if (levelDisplay) {
+            levelDisplay.textContent = `Level: ${this.level}`;
+        }
+    }
+    
+    levelUp() {
+        this.xp -= this.xpToNextLevel;
+        this.level++;
+        
+        // Increase stats
+        this.maxHealth += 10;
+        this.health = this.maxHealth; // Full heal on level up
+        
+        // Scale XP requirement
+        this.xpToNextLevel = Math.floor(this.xpToNextLevel * 1.15);
+        
+        // Show level up effect
+        gameManager.createLevelUpEffect(this.x, this.y);
+        gameManager.showFloatingText('LEVEL UP!', this.x, this.y - 40, '#e74c3c', 20);
+        
+        // Play level up sound
+        if (audioSystem) {
+            audioSystem.play('levelUp', 0.6);
+        }
+        
+        // Track achievement
+        if (achievementSystem) {
+            achievementSystem.updateAchievement('level_up', this.level);
+        }
+        
+        // Trigger upgrade selection
+        if (upgradeSystem) {
+            upgradeSystem.showUpgradeChoice();
+        }
+        
+        this.updateXPBar();
     }
     
     attack(game) {
@@ -481,7 +566,7 @@ class Player {
                 break;
                 
             case 'piercing':
-                this.piercing = true;
+                this.piercing += upgrade.value || 1; // Add piercing count
                 break;
                 
             case 'speed':
@@ -716,9 +801,12 @@ class Player {
             }
         }
         
+        // Get keys from the game engine (fix for dodge bug)
+        const keys = game.keys || {};
+        
         // Only activate dodge if game is active (not paused or in level-up menu)
-        if (game.keys[' '] && this.canDodge && !this.isDodging && !gameManager.isMenuActive()) {
-            game.keys[' '] = false; // Prevent holding space
+        if (keys[' '] && this.canDodge && !this.isDodging && !gameManager.isMenuActive()) {
+            keys[' '] = false; // Prevent holding space
             this.doDodge();
         }
     }
@@ -1306,73 +1394,113 @@ class Player {
     }
 
     fireProjectile(game, angle) {
-        // Calculate velocity components
-        const vx = Math.cos(angle) * this.projectileSpeed;
-        const vy = Math.sin(angle) * this.projectileSpeed;
+        // Calculate base projectile count (split shot)
+        const projectileCount = this.projectileCount || 1;
         
-        // Determine if this shot is a critical hit
-        const isCrit = Math.random() < this.critChance;
-        const damage = isCrit ? 
-            this.attackDamage * this.critMultiplier : 
-            this.attackDamage;
+        // Calculate spread for multiple projectiles
+        const baseSpread = (this.projectileSpread || 30) * (Math.PI / 180); // Convert to radians
+        const spreadStep = projectileCount > 1 ? baseSpread / (projectileCount - 1) : 0;
+        const spreadStart = projectileCount > 1 ? -baseSpread / 2 : 0;
         
-        // Create projectile with additional properties for new mechanics
-        const projectile = new Projectile(
-            this.x,
-            this.y,
-            vx,
-            vy,
-            damage,
-            this.piercing,
-            isCrit
-        );
-        
-        // For critical hits, make projectiles larger and faster
-        if (isCrit) {
-            projectile.radius *= 1.3;
-            projectile.vx *= 1.15;
-            projectile.vy *= 1.15;
+        // Fire each projectile
+        for (let i = 0; i < projectileCount; i++) {
+            // Calculate angle for this projectile (with spread for multi-shot)
+            const projectileAngle = angle + spreadStart + (spreadStep * i);
+            const vx = Math.cos(projectileAngle) * this.projectileSpeed;
+            const vy = Math.sin(projectileAngle) * this.projectileSpeed;
+            
+            // Determine if this shot is a critical hit
+            const isCrit = Math.random() < this.critChance;
+            const damage = isCrit ? 
+                this.attackDamage * this.critMultiplier : 
+                this.attackDamage;
+            
+            // Determine special projectile type for each projectile independently
+            // Allow multiple special types with reduced probability for combinations
+            let specialTypes = [];
+            
+            if (this.hasChainLightning && Math.random() < this.chainChance) {
+                specialTypes.push('chain');
+            }
+            if (this.hasExplosiveShots && Math.random() < 0.3) {
+                specialTypes.push('explosive');
+            }
+            if (this.hasRicochet && Math.random() < 0.25) {
+                specialTypes.push('ricochet');
+            }
+            if (this.hasHomingShots && Math.random() < 0.2) {
+                specialTypes.push('homing');
+            }
+            
+            // Select primary special type (first one takes priority for display/behavior)
+            let specialType = specialTypes.length > 0 ? specialTypes[0] : null;
+            
+            // Create projectile with special type
+            const projectile = new Projectile(
+                this.x,
+                this.y,
+                vx,
+                vy,
+                damage,
+                this.piercing,
+                isCrit,
+                specialType
+            );
+            
+            // Add secondary special effects for combination builds
+            if (specialTypes.length > 1) {
+                for (let i = 1; i < specialTypes.length; i++) {
+                    const secondaryType = specialTypes[i];
+                    if (secondaryType === 'explosive' && !projectile.explosive) {
+                        projectile.initializeSpecialType('explosive');
+                    } else if (secondaryType === 'chain' && !projectile.chainLightning) {
+                        projectile.initializeSpecialType('chain');
+                    } else if (secondaryType === 'ricochet' && !projectile.ricochet) {
+                        projectile.initializeSpecialType('ricochet');
+                    } else if (secondaryType === 'homing' && !projectile.homing) {
+                        projectile.initializeSpecialType('homing');
+                    }
+                }
+            }
+            
+            // For critical hits, make projectiles larger and faster
+            if (isCrit) {
+                projectile.radius *= 1.3;
+                projectile.vx *= 1.15;
+                projectile.vy *= 1.15;
+            }
+            
+            // Add lifesteal if player has it
+            if (this.lifestealAmount > 0) {
+                projectile.lifesteal = this.lifestealAmount;
+                if (isCrit && this.lifestealCritMultiplier > 1) {
+                    projectile.lifesteal *= this.lifestealCritMultiplier;
+                }
+            }
+            
+            // Override special properties with player's upgraded values for all special types
+            for (const type of specialTypes) {
+                if (type === 'chain' && projectile.chainLightning) {
+                    projectile.chainLightning.chainRange = this.chainRange || 150;
+                    projectile.chainLightning.maxChains = this.maxChains || 3;
+                    projectile.chainLightning.chainDamage = (this.chainDamage || damage) * 0.7;
+                } else if (type === 'explosive' && projectile.explosive) {
+                    projectile.explosive.radius = this.explosionRadius || 80;
+                    // Fix explosion damage calculation - explosionDamage is a multiplier
+                    const damageMultiplier = this.explosionDamage > 0 ? this.explosionDamage : 0.8;
+                    projectile.explosive.damage = damage * damageMultiplier;
+                } else if (type === 'ricochet' && projectile.ricochet) {
+                    projectile.ricochet.bounces = this.ricochetBounces || 3;
+                    projectile.ricochet.range = this.ricochetRange || 200;
+                }
+            }
+            
+            // Add projectile to game entities
+            game.addEntity(projectile);
         }
         
-        // Add chain lightning property if player has it
-        if (this.hasChainLightning) {
-            projectile.chainLightning = {
-                chance: this.chainChance,
-                damage: this.chainDamage,
-                range: this.chainRange,
-                maxChains: this.maxChains,
-                chainsUsed: 0
-            };
-        }
-        
-        // Add explosion property if player has it
-        if (this.hasExplosiveShots) {
-            projectile.explosive = {
-                radius: this.explosionRadius,
-                damage: this.explosionDamage,
-                chainChance: this.explosionChainChance,
-                exploded: false
-            };
-        }
-        
-        // Add ricochet property if player has it
-        if (this.hasRicochet) {
-            projectile.ricochet = {
-                bounces: this.ricochetBounces,
-                range: this.ricochetRange,
-                damage: this.ricochetDamage,
-                bounced: 0,
-                hitEnemies: new Set()
-            };
-        }
-        
-        // Add projectile to game entities
-        game.addEntity(projectile);
-        
-        // Play shooting sound
+        // Play shooting sound (once per volley)
         audioSystem.play('shoot', 0.3);
-        
-        return projectile;
     }
 
     createRicochetEffect(fromX, fromY, toX, toY) {
@@ -1468,245 +1596,3 @@ class Player {
         }
     }
 }
-
-// Update Projectile class to handle the new mechanics
-class Projectile {
-    constructor(x, y, vx, vy, damage, piercing = false, isCrit = false) {
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.type = 'projectile';
-        this.radius = isCrit ? 7 : 5;
-        this.damage = damage;
-        this.piercing = piercing;
-        this.isCrit = isCrit;
-        this.isDead = false;
-        this.lifetime = 2; // seconds
-        this.timer = 0;
-        this.hitEnemies = new Set(); // Track enemies hit for piercing projectiles
-        
-        // Special effect properties
-        this.chainLightning = null;
-        this.explosive = null;
-        this.ricochet = null;
-        this.lifesteal = null;
-    }
-    
-    update(deltaTime, game) {
-        this.x += this.vx * deltaTime;
-        this.y += this.vy * deltaTime;
-        
-        this.timer += deltaTime;
-        if (this.timer >= this.lifetime) {
-            this.isDead = true;
-        }
-    }
-    
-    hit(enemy) {
-        // For piercing projectiles, only hit each enemy once
-        if (this.piercing) {
-            if (this.hitEnemies.has(enemy.id)) {
-                return false;
-            }
-            this.hitEnemies.add(enemy.id);
-        }
-
-        // Play hit sound on impact
-        audioSystem.play('hit', 0.2);
-        // Process lifesteal if enabled
-        if (this.lifesteal && gameManager && gameManager.game && gameManager.game.player) {
-            const player = gameManager.game.player;
-            const lifestealAmount = this.damage * this.lifesteal.amount;
-            // Apply crit multiplier if applicable
-            const finalLifesteal = this.lifesteal.isCrit ? 
-                lifestealAmount * this.lifesteal.critMultiplier : lifestealAmount;
-                
-            player.heal(finalLifesteal);
-        }
-        
-        // Process chain lightning (FIX: Immediately process here instead of setTimeout)
-        if (this.chainLightning && gameManager && gameManager.game && gameManager.game.player) {
-            const player = gameManager.game.player;
-            // Only chain if RNG check passes
-            if (Math.random() < this.chainLightning.chance) {
-                // Visual effect at the hit point
-                if (gameManager.createSpecialEffect) {
-                    gameManager.createSpecialEffect('lightning', enemy.x, enemy.y, 20, '#3498db');
-                }
-                
-                // Immediate chain lightning - no setTimeout needed
-                player.processChainLightning(
-                    enemy,
-                    this.damage,
-                    this.chainLightning.maxChains,
-                    new Set([enemy.id]) // Start with this enemy already in the hit list
-                );
-            }
-        }
-        
-        // Process explosion if applicable
-        if (this.explosive && gameManager && gameManager.game && gameManager.game.player) {
-            const player = gameManager.game.player;
-            const explosionDamage = this.damage * this.explosive.damage;
-            player.createExplosion(enemy.x, enemy.y, explosionDamage);
-        }
-        
-        // Process ricochet (FIX: Immediately process here instead of setTimeout)
-        if (this.ricochet && gameManager && gameManager.game && gameManager.game.player) {
-            const player = gameManager.game.player;
-            
-            // Only process if we have bounces left
-            if (this.ricochet.bounced < this.ricochet.bounces) {
-                this.ricochet.bounced++;
-                
-                // Initialize hit enemies set if it doesn't exist
-                if (!this.ricochet.hitEnemies) {
-                    this.ricochet.hitEnemies = new Set();
-                }
-                
-                // Add this enemy to the hit list
-                this.ricochet.hitEnemies.add(enemy.id);
-                
-                // Visual effect at the hit point
-                if (gameManager.createSpecialEffect) {
-                    gameManager.createSpecialEffect('ricochet', enemy.x, enemy.y, 15, '#f39c12');
-                }
-                
-                // Immediate ricochet - no setTimeout needed
-                player.processRicochet(
-                    enemy.x, enemy.y,
-                    this.damage,
-                    this.ricochet.bounces - this.ricochet.bounced + 1, // +1 to ensure correct count
-                    this.ricochet.hitEnemies
-                );
-            }
-        }
-        
-        return true;
-    }
-    
-    render(ctx) {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        
-        if (this.isCrit) {
-            // Enhanced critical hit visuals
-            const gradient = ctx.createRadialGradient(
-                this.x, this.y, 0,
-                this.x, this.y, this.radius
-            );
-            gradient.addColorStop(0, '#fff');      // White center
-            gradient.addColorStop(0.5, '#f1c40f'); // Yellow middle
-            gradient.addColorStop(1, '#e67e22');   // Orange edge
-            ctx.fillStyle = gradient;
-            
-            // Add extra glow for crits
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#f39c12';
-        } else {
-            // Special colors for different projectile types
-            if (this.explosive) {
-                ctx.fillStyle = '#e74c3c'; // Red for explosive
-            } else if (this.chainLightning) {
-                ctx.fillStyle = '#3498db'; // Blue for chain lightning
-            } else if (this.ricochet) {
-                ctx.fillStyle = '#f39c12'; // Orange for ricochet
-            } else {
-                ctx.fillStyle = this.piercing ? '#9b59b6' : '#f1c40f';
-            }
-        }
-        
-        ctx.fill();
-        ctx.shadowBlur = 0; // Reset shadow
-        
-        // Add glow effect
-        if (this.isCrit) {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(241, 196, 15, 0.3)';
-            ctx.fill();
-        } else if (this.explosive) {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(231, 76, 60, 0.3)';
-            ctx.fill();
-        } else if (this.chainLightning) {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
-            ctx.fill();
-        } else if (this.ricochet) {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(243, 156, 18, 0.3)';
-            ctx.fill();
-        } else if (this.piercing) {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius * 1.3, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(155, 89, 182, 0.3)';
-            ctx.fill();
-        }
-    }
-}
-
-Player.prototype.createExplosion = function(x, y, damage) {
-    // Apply explosion damage to nearby enemies
-    if (gameManager && gameManager.game) {
-        const explosionRadius = this.explosionRadius || 80; // Default radius if not set
-        
-        // Apply damage to enemies within explosion radius
-        gameManager.game.enemies.forEach(enemy => {
-            if (enemy.isDead) return;
-            
-            const dx = enemy.x - x;
-            const dy = enemy.y - y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance <= explosionRadius + enemy.radius) {
-                // Calculate damage with falloff based on distance
-                const falloff = 1 - (distance / (explosionRadius + enemy.radius));
-                const finalDamage = damage * Math.max(0.2, falloff);
-                
-                // Apply damage
-                enemy.takeDamage(finalDamage);
-                
-                // Show damage numbers
-                gameManager.showFloatingText(
-                    `${Math.round(finalDamage)}`, 
-                    enemy.x, 
-                    enemy.y - 20, 
-                    '#e74c3c', 
-                    14
-                );
-                
-                // Process chain lightning if enabled with chance
-                if (this.hasChainLightning && this.explosionChainChance > 0) {
-                    if (Math.random() < this.explosionChainChance) {
-                        this.processChainLightning(
-                            enemy,
-                            damage * 0.5, // 50% of explosion damage for chains
-                            this.maxChains || 2,
-                            new Set([enemy.id])
-                        );
-                    }
-                }
-            }
-        });
-        
-        // Create visual explosion effect
-        if (gameManager.createExplosion) {
-            gameManager.createExplosion(x, y, explosionRadius, '#e74c3c');
-        }
-        
-        // Add screen shake effect
-        if (gameManager.addScreenShake) {
-            gameManager.addScreenShake(3, 0.3);
-        }
-        
-        // Play explosion sound
-        if (audioSystem && audioSystem.play) {
-            audioSystem.play('enemyDeath', 0.5);
-        }
-    }
-};
