@@ -529,6 +529,26 @@ class EnemyAbilities {
     /**
      * Visual effect methods
      */
+    createMinionSpawnEffect() {
+        try {
+            if (!window.optimizedParticles) return;
+            const count = 12;
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const speed = 120 + Math.random() * 60;
+                window.optimizedParticles.spawnParticle({
+                    x: this.enemy.x + Math.cos(angle) * 10,
+                    y: this.enemy.y + Math.sin(angle) * 10,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 2,
+                    color: '#e74c3c',
+                    life: 0.5,
+                    type: 'spark'
+                });
+            }
+        } catch (_) { /* no-op */ }
+    }
     createMuzzleFlash(angle) {
         if (window.optimizedParticles) {
             for (let i = 0; i < 3; i++) {

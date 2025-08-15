@@ -27,7 +27,7 @@ class EnemyMovement {
         this.lastCollisionTime = 0;
         
         // Canvas boundaries
-        this.canvasMargin = 50; // Stay this far from canvas edges
+        this.canvasMargin = 50; // Stay this far from canvas edges (unused in infinite arena)
         
         // Movement state
         this.isMoving = false;
@@ -73,8 +73,8 @@ class EnemyMovement {
         // Handle collision detection
         this.handleCollisions(deltaTime, game);
         
-        // Keep enemy within canvas bounds
-        this.constrainToCanvas(game);
+        // Skip constraining to canvas to avoid jitter at edges; world is effectively infinite
+        // this.constrainToCanvas(game);
         
         // Check if enemy is stuck
         this.checkStuckState(deltaTime);
@@ -149,7 +149,7 @@ class EnemyMovement {
         }
         
         // Update target direction with smoothing to reduce jitter
-        const smoothingFactor = 0.8; // How much to smooth direction changes (0 = no smoothing, 1 = full smoothing)
+        const smoothingFactor = 0.9; // Increase smoothing to reduce jitter in direction changes
         if (this.currentDirection.x !== 0 || this.currentDirection.y !== 0) {
             // Smooth the direction change
             this.currentDirection.x = this.currentDirection.x * smoothingFactor + baseDirection.x * (1 - smoothingFactor);
@@ -394,12 +394,7 @@ class EnemyMovement {
                 this.collisionCooldown = 0.1; // Small cooldown to prevent jitter
                 this.lastCollisionTime = Date.now();
                 
-                // Apply small damage to both enemies (optional)
-                if (this.enemy.takeDamage && other.takeDamage) {
-                    const collisionDamage = Math.min(this.enemy.damage, other.damage) * 0.1;
-                    this.enemy.takeDamage(collisionDamage);
-                    other.takeDamage(collisionDamage);
-                }
+                // Do not apply collision damage between enemies; separation only to reduce chaos
                 
                 break; // Only handle one collision per frame
             }

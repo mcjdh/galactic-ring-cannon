@@ -23,6 +23,20 @@ class UnifiedUIManager {
             SCREEN_OVERLAY: 3       // Fixed UI elements (HUD, menus)
         };
         
+        // Visual settings (must be defined BEFORE using in pools)
+        this.settings = {
+            healthBarWidth: 40,
+            healthBarHeight: 6,
+            healthBarOffset: 20,
+            floatingTextSpeed: 60,
+            floatingTextLifetime: 2.0,
+            enableHealthBars: true,
+            enableFloatingText: true,
+            enableUIOptimization: true,
+            // Do not render player's world-space health bar; HUD handles player health
+            showPlayerWorldHealthBar: false
+        };
+
         // Floating Text System (World Space)
         this.floatingTexts = [];
         this.textPool = [];
@@ -40,17 +54,7 @@ class UnifiedUIManager {
         this.viewportBounds = { left: 0, right: 0, top: 0, bottom: 0 };
         this.updateViewportBounds();
         
-        // Visual settings
-        this.settings = {
-            healthBarWidth: 40,
-            healthBarHeight: 6,
-            healthBarOffset: 20,
-            floatingTextSpeed: 60,
-            floatingTextLifetime: 2.0,
-            enableHealthBars: true,
-            enableFloatingText: true,
-            enableUIOptimization: true
-        };
+        // Visual settings were moved earlier in constructor to ensure availability
     }
     
     initializeTextPool() {
@@ -178,8 +182,8 @@ class UnifiedUIManager {
             }
         }
         
-        // Render player health bar (optional, usually in HUD)
-        if (this.gameEngine.player && this.gameEngine.player.health < this.gameEngine.player.maxHealth) {
+        // Player health bar is rendered by HUD; only draw here if explicitly enabled
+        if (this.settings.showPlayerWorldHealthBar && this.gameEngine.player && this.gameEngine.player.health < this.gameEngine.player.maxHealth) {
             this.renderEntityHealthBar(this.gameEngine.player);
         }
         

@@ -301,8 +301,8 @@ class GameEngine {
             this.updateSpatialGrid();
         }
         
-        // Update pooled floating/combat texts each frame
-        if (window.gameManager && typeof window.gameManager.updateCombatTexts === 'function') {
+        // Update legacy combat texts only when unified UI is not available
+        if (!this.unifiedUI && window.gameManager && typeof window.gameManager.updateCombatTexts === 'function') {
             window.gameManager.updateCombatTexts(deltaTime);
         }
 

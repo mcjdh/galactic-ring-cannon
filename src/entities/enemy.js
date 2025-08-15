@@ -196,14 +196,18 @@ class Enemy {
         
         // Check for projectile deflection (shielder enemies)
         if (this.deflectChance > 0 && Math.random() < this.deflectChance) {
-            this.deflectProjectile();
+            if (typeof this.deflectProjectile === 'function') {
+                this.deflectProjectile();
+            }
             return; // No damage taken
         }
         
         // Check for shield reflection (shielder enemies with active shield)
         if (this.abilities.shieldActive && this.abilities.shieldReflection > 0) {
             if (Math.random() < this.abilities.shieldReflection) {
-                this.reflectAttack(amount);
+                if (typeof this.reflectAttack === 'function') {
+                    this.reflectAttack(amount);
+                }
                 return; // No damage taken
             }
         }

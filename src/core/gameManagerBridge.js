@@ -329,6 +329,13 @@ class GameManagerBridge {
     }
     
     showFloatingText(text, x, y, color = '#ffffff', size = 16) {
+        // Prefer unified UI when available for consistent world-space text rendering
+        if (this.game && this.game.unifiedUI && typeof this.game.unifiedUI.addFloatingText === 'function') {
+            this.game.unifiedUI.addFloatingText(text, x, y, { color, size });
+            return;
+        }
+        
+        // Fallback to internal combat text pool
         let textObj = this.combatTextPool.pop();
         if (!textObj) {
             textObj = {

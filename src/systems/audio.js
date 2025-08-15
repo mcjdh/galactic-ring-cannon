@@ -135,6 +135,10 @@ class AudioSystem {
                 case 'aoeAttack':
                     this.playAOEAttackSound(adjustedVolume);
                     break;
+                case 'explosion':
+                    // Map generic 'explosion' to enemy death explosion sound
+                    this.playEnemyDeathSound(adjustedVolume);
+                    break;
                 default:
                     // Use logger instead of console.warn
                     (window.logger?.warn || (() => {}))(`Unknown sound name: ${soundName}`);
