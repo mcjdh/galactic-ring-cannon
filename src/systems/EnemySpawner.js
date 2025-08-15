@@ -16,10 +16,10 @@ class EnemySpawner {
         const EN = GC.ENEMIES || {};
         const MODES = GC.MODES || {};
         const DIFF = GC.DIFFICULTY || {};
-        this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 1; // enemies per second
+        this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 1.2; // slight early-game bump
         this.spawnTimer = 0;
         this.spawnCooldown = 1 / this.spawnRate;
-        this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 50; // TODO: Scale based on device performance
+        this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 60; // allow a bit more density early
         this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 800; // Distance from player to spawn enemies
         
         // Enemy types progression
@@ -87,6 +87,7 @@ class EnemySpawner {
      */
     update(deltaTime) {
         this.updateDifficulty(deltaTime);
+        this.applyPlayerLevelWeighting();
         this.updateBossSpawning(deltaTime);
         this.updateWaveSpawning(deltaTime);
         this.updateRegularSpawning(deltaTime);
@@ -402,7 +403,11 @@ class EnemySpawner {
      */
     spawnWave() {
         this.waveCount++;
-        const waveSize = Math.min(15, 5 + this.waveCount);
+        const playerLevel = window.gameManager?.game?.player?.level || 1;
+        // Wave size scales with wave index and player level for higher intensity
+        const base = 5 + this.waveCount;
+        const levelBonus = Math.floor(playerLevel * 1.2);
+        const waveSize = Math.min(40, base + levelBonus);
         
         // Wave spawning initiated
         
@@ -504,6 +509,37 @@ class EnemySpawner {
         if (config.eliteChance) this.eliteChance = config.eliteChance;
         
         // Enemy spawner configured with new settings
+    }
+
+    /**
+     * Increase spawn intensity based on player level to keep challenge scaling
+     */
+    applyPlayerLevelWeighting() {
+        try {
+            const level = window.gameManager?.game?.player?.level || 1;
+            // Aggressive multi-phase scaling to keep pressure as player powers up
+            let levelFactor;
+            if (level <= 10) {
+                levelFactor = 1 + (level - 1) * 0.12; // up to ~2.08x at 10
+            } else if (level <= 20) {
+                levelFactor = 2.08 + (level - 10) * 0.10; // up to ~3.08x at 20
+            } else {
+                levelFactor = 3.08 + (Math.min(level, 35) - 20) * 0.06; // up to ~4.0x around 35
+            }
+            const clamped = Math.min(4.0, levelFactor);
+            // Apply to spawn rate and max enemies
+            const baseSpawn = typeof (window.GAME_CONSTANTS?.ENEMIES?.BASE_SPAWN_RATE) === 'number'
+                ? window.GAME_CONSTANTS.ENEMIES.BASE_SPAWN_RATE : 1.2;
+            this.spawnRate = Math.min(8, baseSpawn * clamped);
+            this.spawnCooldown = 1 / this.spawnRate;
+            const baseMax = typeof (window.GAME_CONSTANTS?.ENEMIES?.BASE_MAX_ENEMIES) === 'number'
+                ? window.GAME_CONSTANTS.ENEMIES.BASE_MAX_ENEMIES : 60;
+            this.maxEnemies = Math.min(320, Math.floor(baseMax * (0.8 + clamped * 0.7)));
+
+            // Increase elite chance with player level (capped)
+            const desiredElite = Math.min(0.35, 0.05 + level * 0.01);
+            this.eliteChance = Math.max(this.eliteChance, desiredElite);
+        } catch (_) { /* no-op */ }
     }
 }
 

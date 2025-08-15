@@ -613,6 +613,65 @@ class EnemyAbilities {
             }
         }
     }
+
+    // Visual helpers for ranged attacks
+    createSpreadMuzzleFlash(baseAngle, spreadAngle) {
+        if (!window.optimizedParticles) return;
+        const count = 5;
+        for (let i = 0; i < count; i++) {
+            const t = (i / (count - 1)) - 0.5;
+            const a = baseAngle + t * spreadAngle;
+            const speed = 140 + Math.random() * 80;
+            window.optimizedParticles.spawnParticle({
+                x: this.enemy.x + Math.cos(baseAngle) * 18,
+                y: this.enemy.y + Math.sin(baseAngle) * 18,
+                vx: Math.cos(a) * speed,
+                vy: Math.sin(a) * speed,
+                size: 2 + Math.random() * 2,
+                color: '#f39c12',
+                life: 0.2,
+                type: 'spark'
+            });
+        }
+    }
+
+    createCircularMuzzleFlash() {
+        if (!window.optimizedParticles) return;
+        const segments = 10;
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const speed = 120 + Math.random() * 60;
+            window.optimizedParticles.spawnParticle({
+                x: this.enemy.x,
+                y: this.enemy.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 2,
+                color: '#f39c12',
+                life: 0.2,
+                type: 'spark'
+            });
+        }
+    }
+
+    createChaoticMuzzleFlash() {
+        if (!window.optimizedParticles) return;
+        const count = 8;
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 100 + Math.random() * 120;
+            window.optimizedParticles.spawnParticle({
+                x: this.enemy.x,
+                y: this.enemy.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 2,
+                color: '#f39c12',
+                life: 0.18,
+                type: 'spark'
+            });
+        }
+    }
     
     createTeleportEffect(x, y) {
         if (window.optimizedParticles) {

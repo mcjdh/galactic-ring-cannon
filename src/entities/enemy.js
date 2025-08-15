@@ -314,6 +314,13 @@ class Enemy {
         if (window.gameManager?.game?.addEntity) {
             // Calculate XP value with bonuses
             let xpValue = this.xpValue;
+            // Slightly increase XP per enemy early to smooth early levels
+            try {
+                const boost = (typeof window.GameMath?.earlyXPBoostMultiplier === 'function')
+                    ? window.GameMath.earlyXPBoostMultiplier(window.gameManager?.gameTime || 0)
+                    : 1.0;
+                xpValue = Math.max(1, Math.floor(xpValue * boost));
+            } catch (_) {}
             
             // Elite bonus
             if (this.isElite) {
@@ -428,22 +435,22 @@ class Enemy {
         switch (type) {
             case 'basic':
                 // Default values already set
-                this.baseSpeed = 80;
+                this.baseSpeed = 90;
                 break;
             case 'fast':
                 this.radius = 12;
                 this.health = this.maxHealth = 20;
                 this.damage = 5;
                 this.xpValue = 15;
-                this.baseSpeed = 150;
+                this.baseSpeed = 170;
                 this.color = '#f39c12';
                 break;
             case 'tank':
                 this.radius = 25;
-                this.health = this.maxHealth = 100;
+                this.health = this.maxHealth = 110;
                 this.damage = 20;
                 this.xpValue = 30;
-                this.baseSpeed = 40;
+                this.baseSpeed = 45;
                 this.color = '#8e44ad';
                 break;
             case 'ranged':
@@ -451,7 +458,7 @@ class Enemy {
                 this.health = this.maxHealth = 25;
                 this.damage = 8;
                 this.xpValue = 20;
-                this.baseSpeed = 60;
+                this.baseSpeed = 70;
                 this.color = '#16a085';
                 break;
             case 'dasher':
@@ -459,7 +466,7 @@ class Enemy {
                 this.health = this.maxHealth = 30;
                 this.damage = 15;
                 this.xpValue = 25;
-                this.baseSpeed = 200; // Fast for dashing
+                this.baseSpeed = 220; // Fast for dashing
                 this.color = '#c0392b';
                 break;
             case 'exploder':
@@ -467,7 +474,7 @@ class Enemy {
                 this.health = this.maxHealth = 40;
                 this.damage = 25;
                 this.xpValue = 35;
-                this.baseSpeed = 90;
+                this.baseSpeed = 100;
                 this.color = '#d35400';
                 break;
             case 'teleporter':
@@ -475,7 +482,7 @@ class Enemy {
                 this.health = this.maxHealth = 35;
                 this.damage = 12;
                 this.xpValue = 30;
-                this.baseSpeed = 70; // Slower since they can teleport
+                this.baseSpeed = 80; // Slower since they can teleport
                 this.color = '#9b59b6';
                 break;
             case 'phantom':
@@ -483,7 +490,7 @@ class Enemy {
                 this.health = this.maxHealth = 20;
                 this.damage = 8;
                 this.xpValue = 25;
-                this.baseSpeed = 120;
+                this.baseSpeed = 135;
                 this.color = 'rgba(108, 92, 231, 0.7)';
                 break;
             case 'shielder':
@@ -496,7 +503,7 @@ class Enemy {
                 break;
             case 'boss':
                 this.radius = 35;
-                this.health = this.maxHealth = 500;
+                this.health = this.maxHealth = 600;
                 this.damage = 30;
                 this.xpValue = 200;
                 this.color = '#c0392b';

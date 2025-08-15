@@ -9,8 +9,8 @@ class XPOrb {
         this.originalX = x;
         this.originalY = y;
         
-        // Base XP value with meta progression bonuses
-        this.value = this.calculateValue(value);
+        // Base XP value with meta progression bonuses and early-game boost
+        this.value = this.applyEarlyGameBoost(this.calculateValue(value));
         this.baseValue = value;
         
         this.type = 'xpOrb';
@@ -56,6 +56,17 @@ class XPOrb {
         }
         
         return finalValue;
+    }
+
+    applyEarlyGameBoost(baseValue) {
+        try {
+            const gm = window.gameManager;
+            if (!gm || typeof window.GameMath?.earlyXPBoostMultiplier !== 'function') return baseValue;
+            const mult = window.GameMath.earlyXPBoostMultiplier(gm.gameTime || 0);
+            return Math.max(1, Math.floor(baseValue * mult));
+        } catch (_) {
+            return baseValue;
+        }
     }
     
     /**
