@@ -112,18 +112,81 @@ class GameManagerBridge {
         ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Draw enemies
+        // Draw enemies and compute closest boss
+        let closestBoss = null;
+        let closestBossDist = Infinity;
         if (Array.isArray(this.game.enemies)) {
             for (const enemy of this.game.enemies) {
                 if (!enemy || enemy.isDead) continue;
-                const dx = (enemy.x - player.x) * scale;
-                const dy = (enemy.y - player.y) * scale;
+                const dxWorld = enemy.x - player.x;
+                const dyWorld = enemy.y - player.y;
+                const dx = dxWorld * scale;
+                const dy = dyWorld * scale;
                 const x = centerX + dx;
                 const y = centerY + dy;
+
+                if (enemy.isBoss) {
+                    const dist = Math.hypot(dxWorld, dyWorld);
+                    if (dist < closestBossDist) {
+                        closestBossDist = dist;
+                        closestBoss = { x, y, dxWorld, dyWorld };
+                    }
+                }
+
                 if (x < 0 || x > width || y < 0 || y > height) continue;
                 ctx.fillStyle = enemy.isBoss ? '#f1c40f' : (enemy.isElite ? '#e67e22' : '#e74c3c');
-                ctx.fillRect(x - 1, y - 1, enemy.isBoss ? 4 : 2, enemy.isBoss ? 4 : 2);
+                if (enemy.isBoss) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(x - 1, y - 1, 2, 2);
+                }
             }
+        }
+
+        // Compass indicator for closest boss (arrow at edge if off-screen, ring if on-screen)
+        if (closestBoss) {
+            const inBounds = closestBoss.x >= 0 && closestBoss.x <= width && closestBoss.y >= 0 && closestBoss.y <= height;
+            const angle = Math.atan2(closestBoss.dyWorld, closestBoss.dxWorld);
+            ctx.save();
+            ctx.fillStyle = '#f1c40f';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            if (inBounds) {
+                ctx.beginPath();
+                ctx.arc(Math.max(0, Math.min(width, closestBoss.x)), Math.max(0, Math.min(height, closestBoss.y)), 6, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                const margin = 8;
+                const vx = Math.cos(angle);
+                const vy = Math.sin(angle);
+                const tx = vx !== 0 ? ((vx > 0 ? (width/2 - margin) : (-width/2 + margin)) / vx) : Infinity;
+                const ty = vy !== 0 ? ((vy > 0 ? (height/2 - margin) : (-height/2 + margin)) / vy) : Infinity;
+                const t = Math.min(Math.abs(tx), Math.abs(ty));
+                const ax = centerX + vx * t;
+                const ay = centerY + vy * t;
+                ctx.translate(ax, ay);
+                ctx.rotate(angle);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-8, 4);
+                ctx.lineTo(-8, -4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                // Distance label
+                const meters = Math.round(closestBossDist / 10);
+                ctx.rotate(-angle);
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                ctx.strokeText(`${meters}m`, 0, -8);
+                ctx.fillText(`${meters}m`, 0, -8);
+            }
+            ctx.restore();
         }
 
         // Draw XP orbs
