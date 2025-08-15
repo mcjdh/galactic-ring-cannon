@@ -312,6 +312,8 @@ switch (command) {
         break;
     case 'help':
     case undefined:
+    case null:
+    case '':
         showHelp();
         break;
     default:

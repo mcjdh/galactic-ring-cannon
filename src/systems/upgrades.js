@@ -293,8 +293,8 @@ class UpgradeSystem {
         this.levelUpActive = true;
         
         // Pause game without showing pause menu
-        if (gameManager && gameManager.game) {
-            gameManager.game.isPaused = true;
+        if (window.gameManager && window.gameManager.game) {
+            window.gameManager.game.isPaused = true;
         }
         
         // Get three random upgrades
@@ -496,8 +496,13 @@ class UpgradeSystem {
         // Add to selected upgrades
         this.selectedUpgrades.push(upgrade);
         
-        // Apply upgrade to player
-        gameManager.game.player.applyUpgrade(upgrade);
+        // Apply upgrade to player using clean delegation (no monkey patching)
+        if (window.PlayerUpgrades && window.PlayerUpgrades.apply) {
+            window.PlayerUpgrades.apply(window.gameManager.game.player, upgrade);
+        } else {
+            // Fallback to player method if PlayerUpgrades not available
+            window.gameManager.game.player.applyUpgrade(upgrade);
+        }
         
         // Handle special effects
         if (upgrade.specialEffect) {
@@ -522,19 +527,19 @@ class UpgradeSystem {
         this.levelUpActive = false;
         
         // Resume game
-        if (gameManager && gameManager.game) {
-            gameManager.game.isPaused = false;
+        if (window.gameManager && window.gameManager.game) {
+            window.gameManager.game.isPaused = false;
         }
     }
 
     applySpecialEffect(upgrade) {
-        const player = gameManager.game.player;
+        const player = window.gameManager.game.player;
         if (!player) return;
 
         switch (upgrade.specialEffect) {
             case 'chain_visual':
                 // Create lightning effect at player position
-                gameManager.createSpecialEffect('lightning', player.x, player.y, upgrade.chainRange || 175, '#74b9ff');
+                window.gameManager.createSpecialEffect('lightning', player.x, player.y, upgrade.chainRange || 175, '#74b9ff');
                 break;
             case 'orbit_visual':
                 // Create orbit effect
@@ -542,16 +547,16 @@ class UpgradeSystem {
                     const angle = (i / 8) * Math.PI * 2;
                     const x = player.x + Math.cos(angle) * (upgrade.orbitRadius || 100);
                     const y = player.y + Math.sin(angle) * (upgrade.orbitRadius || 100);
-                    gameManager.createSpecialEffect('circle', x, y, 20, '#9b59b6');
+                    window.gameManager.createSpecialEffect('circle', x, y, 20, '#9b59b6');
                 }
                 break;
             case 'ricochet_visual':
                 // Create ricochet effect
-                gameManager.createSpecialEffect('ricochet', player.x, player.y, upgrade.bounceRange || 180, '#f39c12');
+                window.gameManager.createSpecialEffect('ricochet', player.x, player.y, upgrade.bounceRange || 180, '#f39c12');
                 break;
             case 'explosion_visual':
                 // Create explosion effect
-                gameManager.createSpecialEffect('bossPhase', player.x, player.y, upgrade.explosionRadius || 60, '#e74c3c');
+                window.gameManager.createSpecialEffect('bossPhase', player.x, player.y, upgrade.explosionRadius || 60, '#e74c3c');
                 break;
             case 'magnet_visual':
                 // Create magnet field effect
@@ -559,16 +564,16 @@ class UpgradeSystem {
                     const angle = (i / 12) * Math.PI * 2;
                     const x = player.x + Math.cos(angle) * (upgrade.value || 75);
                     const y = player.y + Math.sin(angle) * (upgrade.value || 75);
-                    gameManager.createSpecialEffect('circle', x, y, 15, '#3498db');
+                    window.gameManager.createSpecialEffect('circle', x, y, 15, '#3498db');
                 }
                 break;
             case 'heal_visual':
                 // Create healing effect
-                gameManager.createSpecialEffect('random', player.x, player.y, 40, '#2ecc71');
+                window.gameManager.createSpecialEffect('random', player.x, player.y, 40, '#2ecc71');
                 break;
             case 'armor_visual':
                 // Create armor effect
-                gameManager.createSpecialEffect('circle', player.x, player.y, 50, '#95a5a6');
+                window.gameManager.createSpecialEffect('circle', player.x, player.y, 50, '#95a5a6');
                 break;
         }
     }
@@ -594,44 +599,25 @@ class UpgradeSystem {
             color = '#9b59b6';
         }
         
-        gameManager.showFloatingText(
-            message,
-            gameManager.game.player.x,
-            gameManager.game.player.y - 50,
-            color,
-            24
-        );
+        if (window.gameManager?.showFloatingText && window.gameManager?.game?.player) {
+            window.gameManager.showFloatingText(
+                message,
+                window.gameManager.game.player.x,
+                window.gameManager.game.player.y - 50,
+                color,
+                24
+            );
+        }
     }
 }
 
-// Add to Player's applyUpgrade method to handle the new lucky upgrade
-const originalApplyUpgrade = Player.prototype.applyUpgrade;
-Player.prototype.applyUpgrade = function(upgrade) {
-    originalApplyUpgrade.call(this, upgrade);
-    
-    // Handle special "lucky" upgrade
-    if (upgrade.specialType === 'lucky') {
-        this.critChance += upgrade.critBonus || 0.05;
-        
-        // Apply XP bonus globally
-        if (upgrade.xpBonus && gameManager) {
-            // Create XP bonus function if it doesn't exist yet
-            if (!gameManager.xpBonus) {
-                gameManager.xpBonus = 0;
-            }
-            gameManager.xpBonus += upgrade.xpBonus;
-        }
-    }
-};
+// 🤖 RESONANT NOTE: Prototype modification creates tight coupling
+// TODO: Move this logic to PlayerUpgrades.apply() for better encapsulation
+// This pattern should be avoided in favor of composition over modification
 
-// Override XP gain to apply the new XP bonus
-XPOrb.prototype.getValue = function() {
-    let finalValue = this.value;
-    
-    // Apply global XP bonus if exists
-    if (gameManager && gameManager.xpBonus) {
-        finalValue = Math.ceil(finalValue * (1 + gameManager.xpBonus));
-    }
-    
-    return finalValue;
-};
+// 🤖 RESONANT NOTE: Removed deprecated prototype monkey patching - now uses direct delegation
+// Clean architecture: UpgradeSystem -> PlayerUpgrades.apply() -> Player methods
+// This eliminates global state dependencies and improves testability
+
+
+// 🤖 RESONANT NOTE: XP bonus logic should be moved to XP orb collection logic

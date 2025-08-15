@@ -13,7 +13,7 @@
 </head>
 <body>
     <div id="loading-screen">
-        <h1>Galactic Ring:Cannon</h1>
+        <h1>Galactic Ring Cannon</h1>
         <p>Prepare for battle...</p>
         <div id="loading-bar">
             <div id="loading-progress"></div>
@@ -134,55 +134,323 @@
         </div>
     </div>
     
-    <!-- Configuration and utilities -->
-    <script src="src/config/config.js"></script>
+    <!-- Configuration and utilities - load in proper order -->
     <script src="src/utils/Logger.js"></script>
     <script src="src/utils/URLParams.js"></script>
     <script src="src/utils/MathUtils.js"></script>
     <script src="src/utils/CollisionUtils.js"></script>
+    <script src="src/systems/OptimizedParticlePool.js"></script>
+    <script src="src/utils/ParticleHelpers.js"></script>
     <script src="src/systems/audio.js"></script>
     <script src="src/systems/performance.js"></script>
     <script src="src/systems/ResonanceSystem.js"></script>
-    <script src="src/systems/OptimizedParticlePool.js"></script>
     <script src="src/systems/IntelligentSpawner.js"></script>
+    <script src="src/systems/EnemySpawner.js"></script>
     <script src="src/utils/debug.js"></script>
+    
+    <!-- Add error detection for script loading -->
+    <script>
+        window.scriptErrors = [];
+        window.addEventListener('error', function(e) {
+            if (e.filename && e.filename.includes && e.filename.includes('.js')) {
+                console.error('Script error:', e.filename, e.message, e.lineno);
+                window.scriptErrors.push({
+                    file: e.filename,
+                    message: e.message || 'Unknown error',
+                    line: e.lineno || 0
+                });
+            }
+        });
+    </script>
+    <!-- Diagnostic script -->
+    <script src="diagnostic.js"></script>
+    <!-- Core entities - load synchronously to ensure proper initialization order -->
     <script src="src/entities/particle.js"></script>
+    <script src="src/entities/ShockwaveParticle.js"></script>
     <script src="src/entities/projectile.js"></script>
     <script src="src/entities/damageZone.js"></script>
-    <!-- Use dedicated entities to avoid duplicate class definitions -->
     <script src="src/entities/EnemyProjectile.js"></script>
     <script src="src/entities/XPOrb.js"></script>
     <script src="src/entities/PlayerUpgrades.js"></script>
-    <script src="src/entities/Enemy.js"></script>
+    <!-- Enemy components - if present (graceful: these files exist) -->
+    <script src="src/entities/components/EnemyAI.js"></script>
+    <script src="src/entities/components/EnemyAbilities.js"></script>
+    <script src="src/entities/components/EnemyMovement.js"></script>
+    <!-- Enemy class -->
+    <script src="src/entities/enemy.js"></script>
+    <!-- Remove phantom Player component tags (files not present) -->
+    <!-- Player class -->
     <script src="src/entities/player.js"></script>
-    <script src="src/systems/ParticleManager.js"></script>
     <script src="src/systems/upgrades.js"></script>
     <script src="src/systems/achievements.js"></script>
-    <script src="src/core/systems/CollisionSystem.js"></script>
+    <script src="src/core/systems/UnifiedCollisionSystem.js"></script>
+    <script src="src/core/systems/EntityManager.js"></script>
+    <!-- Missing core systems - adding them -->
+    <script src="src/core/systems/UIManager.js"></script>
+    <script src="src/core/systems/StatsManager.js"></script>
+    <script src="src/core/systems/DifficultyManager.js"></script>
     <script src="src/core/gameEngine.js"></script>
+    <script src="src/core/systems/EffectsManager.js"></script>
     <script src="src/core/systems/FloatingTextSystem.js"></script>
-    <script src="src/ui/UIManager.js"></script>
-    <script src="src/core/gameManager.js"></script>
     <script src="src/ui/uiEnhancements.js"></script>
+    
+    <!-- Script loading validation -->
     <script>
-        // Initialize global systems after all scripts are loaded
-        let uiEnhancements, achievementSystem, gameManager;
+        (window.logger?.log || console.log)('All scripts loaded. Checking class availability...');
+        (window.logger?.log || console.log)('Player class available:', typeof Player !== 'undefined');
+        (window.logger?.log || console.log)('GameEngine class available:', typeof GameEngine !== 'undefined');
+        (window.logger?.log || console.log)('Enemy class available:', typeof Enemy !== 'undefined');
+        (window.logger?.log || console.log)('Projectile class available:', typeof Projectile !== 'undefined');
         
-        // Wait for DOM to be ready before initializing
-        document.addEventListener('DOMContentLoaded', function() {
+        if (typeof Player !== 'undefined') {
             try {
-                uiEnhancements = new UIEnhancements();
-                achievementSystem = new AchievementSystem();
-                gameManager = new GameManager();
+                // Test if Player can be instantiated
+                let testPlayer = new Player(0, 0);
+                (window.logger?.log || console.log)('Player instantiation test: SUCCESS');
+                testPlayer = null; // cleanup
+            } catch (e) {
+                (window.logger?.error || console.error)('Player instantiation test: FAILED', e);
+            }
+        }
+        
+        // Set window reference for global access
+        if (typeof Player !== 'undefined') window.Player = Player;
+        if (typeof GameEngine !== 'undefined') window.GameEngine = GameEngine;
+        if (typeof Enemy !== 'undefined') window.Enemy = Enemy;
+        if (typeof Projectile !== 'undefined') window.Projectile = Projectile;
+        if (typeof XPOrb !== 'undefined') window.XPOrb = XPOrb;
+        if (typeof Particle !== 'undefined') window.Particle = Particle;
+        
+        (window.logger?.log || console.log)('Class references set on window object');
+    </script>
+    
+    <!-- Load game constants first -->
+    <script>
+        // Inline GameConstants to avoid module loading issues
+        const GAME_CONSTANTS = {
+            // Player Configuration
+            PLAYER: {
+                BASE_SPEED: 220,
+                BASE_HEALTH: 120,
+                BASE_ATTACK_SPEED: 1.2,
+                BASE_ATTACK_DAMAGE: 25,
+                BASE_ATTACK_RANGE: 300,
+                BASE_PROJECTILE_SPEED: 450,
+                BASE_CRIT_CHANCE: 0.10,
+                BASE_CRIT_MULTIPLIER: 2.2,
+                BASE_MAGNET_RANGE: 120,
                 
-                // Initialize the rest of the application
+                // Dodge System
+                DODGE_COOLDOWN: 2.0,
+                DODGE_DURATION: 0.3,
+                DODGE_SPEED: 600,
+                INVULNERABILITY_TIME: 0.5,
+                
+                // XP System
+                INITIAL_XP_TO_LEVEL: 212,
+                XP_SCALING_FACTOR: 1.12,
+                LEVEL_UP_HEAL_PERCENT: 0.3
+            },
+            
+            // Enemy Configuration
+            ENEMIES: {
+                SPAWN_DISTANCE_MIN: 400,
+                SPAWN_DISTANCE_MAX: 800,
+                BASE_SPAWN_RATE: 1.1,
+                BASE_MAX_ENEMIES: 50,
+                ELITE_CHANCE_BASE: 0.06,
+                ELITE_HEALTH_MULTIPLIER: 2.5,
+                ELITE_DAMAGE_MULTIPLIER: 1.5,
+                
+                // Boss System
+                BOSS_HEAL_BONUS: 0.15,
+                BOSS_INVULNERABILITY_REWARD: 2.0
+            },
+            
+            // Difficulty Scaling
+            DIFFICULTY: {
+                BASE_FACTOR: 1.0,
+                MAX_FACTOR: 4.0,
+                SCALING_INTERVAL: 20,
+                SCALING_MULTIPLIER: 1.12,
+                
+                LOW_HEALTH_THRESHOLD: 0.3,
+                LOW_HEALTH_SCALING_REDUCTION: 0.85,
+                HIGH_LEVEL_THRESHOLD: 10,
+                HIGH_LEVEL_SCALING_INCREASE: 1.05
+            },
+            
+            // Game Modes
+            GAME: {
+                WIN_TIME: 180 // 3 minutes
+            }
+        };
+        
+        // Make globally available
+        window.GAME_CONSTANTS = GAME_CONSTANTS;
+        
+        // GameMath helper functions
+        const GameMath = {
+            xpForLevel(level) {
+                let totalXP = 0;
+                let currentRequirement = GAME_CONSTANTS.PLAYER.INITIAL_XP_TO_LEVEL;
+                
+                for (let i = 1; i < level; i++) {
+                    totalXP += currentRequirement;
+                    currentRequirement = Math.floor(currentRequirement * GAME_CONSTANTS.PLAYER.XP_SCALING_FACTOR);
+                }
+                
+                return totalXP;
+            },
+            
+            scaledEnemyCount(baseCount, difficultyFactor, gameTime) {
+                const timeMinutes = gameTime / 60;
+                const timeFactor = 1 + (timeMinutes * 0.1);
+                return Math.floor(baseCount * difficultyFactor * timeFactor);
+            }
+        };
+        
+        window.GameMath = GameMath;
+        (window.logger?.log || console.log)('GameConstants loaded inline');
+    </script>
+    
+    <!-- Initialize optimized particle pool -->
+    <script>
+        // Initialize optimized particle pool
+        if (typeof OptimizedParticlePool !== 'undefined') {
+            window.optimizedParticles = new OptimizedParticlePool(150);
+            (window.logger?.log || console.log)('OptimizedParticlePool initialized');
+        } else {
+            (window.logger?.warn || console.warn)('OptimizedParticlePool not available');
+        }
+        
+        // Initialize upgrade system if available
+        if (typeof UpgradeSystem !== 'undefined') {
+            window.upgradeSystem = new UpgradeSystem();
+            (window.logger?.log || console.log)('UpgradeSystem initialized as global upgradeSystem');
+        } else {
+            (window.logger?.warn || console.warn)('UpgradeSystem not available');
+        }
+        
+        // Initialize audio system if available
+        if (typeof AudioSystem !== 'undefined') {
+            window.audioSystem = new AudioSystem();
+            (window.logger?.log || console.log)('AudioSystem initialized as global audioSystem');
+        } else {
+            (window.logger?.warn || console.warn)('AudioSystem not available');
+        }
+        
+        // Initialize performance manager if available
+        if (typeof PerformanceManager !== 'undefined') {
+            window.performanceManager = new PerformanceManager();
+            (window.logger?.log || console.log)('PerformanceManager initialized as global performanceManager');
+        } else {
+            (window.logger?.warn || console.warn)('PerformanceManager not available');
+        }
+    </script>
+    
+    <!-- Load GameManager Bridge for compatibility -->
+    <script src="src/core/gameManagerBridge.js"></script>
+    
+    <script>
+        // Initialize the game using the compatibility bridge
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                (window.logger?.log || console.log)('🌊 DOM loaded, initializing game bridge...');
+                
+                // Wait for all scripts to load - check for core dependencies
+                let attempts = 0;
+                while (attempts < 10 && (typeof GameEngine === 'undefined' || typeof Player === 'undefined')) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    attempts++;
+                }
+                
+                (window.logger?.log || console.log)('🔍 Checking system availability...');
+                
+                // Check if all required systems are available
+                const systemChecks = {
+                    GameEngine: typeof window.GameEngine !== 'undefined',
+                    EnemySpawner: typeof window.EnemySpawner !== 'undefined', 
+                    Player: typeof window.Player !== 'undefined',
+                    Projectile: typeof window.Projectile !== 'undefined',
+                    Enemy: typeof window.Enemy !== 'undefined',
+                    Particle: typeof window.Particle !== 'undefined'
+                };
+                
+                (window.logger?.log || console.log)('🔍 System availability:', systemChecks);
+                
+                // Report any missing systems
+                const missingSystems = Object.entries(systemChecks)
+                    .filter(([name, available]) => !available)
+                    .map(([name]) => name);
+                
+                if (missingSystems.length > 0) {
+                    (window.logger?.warn || console.warn)('⚠️ Missing systems:', missingSystems);
+                } else {
+                    (window.logger?.log || console.log)('✅ All core systems available!');
+                }
+                
+                // Initialize the game manager bridge
+                (window.logger?.log || console.log)('🌊 Creating GameManager bridge...');
+                window.gameManager = new GameManagerBridge();
+                // Also set global gameManager for backwards compatibility with entity code
+                gameManager = window.gameManager;
+                (window.logger?.log || console.log)('✅ GameManager bridge created successfully');
+                
+                // Initialize supporting systems
+                if (typeof UpgradeSystem !== 'undefined') {
+                    window.upgradeSystem = new UpgradeSystem();
+                    (window.logger?.log || console.log)('✅ UpgradeSystem initialized');
+                } else {
+                    (window.logger?.warn || console.warn)('⚠️ UpgradeSystem not available');
+                }
+                
+                if (typeof AudioSystem !== 'undefined') {
+                    window.audioSystem = new AudioSystem();
+                    (window.logger?.log || console.log)('✅ AudioSystem initialized');
+                } else {
+                    (window.logger?.warn || console.warn)('⚠️ AudioSystem not available - creating stub');
+                    window.audioSystem = {
+                        play: () => {},
+                        playBossBeat: () => {},
+                        resumeAudioContext: () => {},
+                        isMuted: false
+                    };
+                }
+                // Also set global audioSystem for backwards compatibility with entity code
+                audioSystem = window.audioSystem;
+                
+                if (typeof PerformanceManager !== 'undefined') {
+                    window.performanceManager = new PerformanceManager();
+                    (window.logger?.log || console.log)('✅ PerformanceManager initialized');
+                }
+                
+                if (typeof AchievementSystem !== 'undefined') {
+                    window.achievementSystem = new AchievementSystem();
+                    (window.logger?.log || console.log)('✅ AchievementSystem initialized');
+                } else {
+                    (window.logger?.warn || console.warn)('⚠️ AchievementSystem not available - creating stub');
+                    window.achievementSystem = {
+                        achievements: {},
+                        getUnlockedCount: () => 0,
+                        getTotalCount: () => 0
+                    };
+                }
+                
+                (window.logger?.log || console.log)('🚀 Starting main application...');
                 initializeApp();
+                
             } catch (error) {
-                console.error('Error initializing game systems:', error);
+                (window.logger?.error || console.error)('❌ Error initializing game systems:', error);
+                alert('Failed to initialize game. Error: ' + error.message);
             }
         });
+    </script>
+    <script>
+        // Initialize global systems after all scripts are loaded
         
         function initializeApp() {
+            (window.logger?.log || console.log)('initializeApp called');
             const tips = [
                 "Use WASD or Arrow Keys to move",
                 "Enemies drop XP orbs when defeated",
@@ -197,115 +465,220 @@
                 "The minimap shows nearby enemies and XP orbs"
             ];
             
-            // Simple loading simulation with random tips
-            // TODO: Implement real asset loading progress tracking
-            // FIX: Loading bar animation could be smoother with requestAnimationFrame
-            window.addEventListener('load', () => {
+            // Real asset loading progress tracking
+            (window.logger?.log || console.log)('Setting up asset loading system');
+            
+            // Check if window is already loaded
+            if (document.readyState === 'complete') {
+                (window.logger?.log || console.log)('Window already loaded, starting asset loading');
+                startAssetLoading();
+            } else {
+                window.addEventListener('load', () => {
+                    (window.logger?.log || console.log)('Window loaded, starting asset loading');
+                    startAssetLoading();
+                });
+            }
+            
+            function startAssetLoading() {
                 // Display random tip
                 const tipElem = document.getElementById('loading-tip');
-                tipElem.textContent = "Tip: " + tips[Math.floor(Math.random() * tips.length)];
+                if (tipElem) {
+                    tipElem.textContent = "Tip: " + tips[Math.floor(Math.random() * tips.length)];
+                }
                 
                 const loadingBar = document.getElementById('loading-progress');
-                let progress = 0;
                 
-                // TODO: Replace fixed interval with actual asset loading progress
-                const interval = setInterval(() => {
-                    progress += 5;
-                    loadingBar.style.width = `${progress}%`;
+                // Track actual asset loading progress
+                const assetChecks = [
+                    () => typeof Player !== 'undefined',
+                    () => typeof GameEngine !== 'undefined', 
+                    () => typeof Enemy !== 'undefined',
+                    () => typeof Projectile !== 'undefined',
+                    () => typeof XPOrb !== 'undefined',
+                    () => typeof Particle !== 'undefined',
+                    () => typeof AudioSystem !== 'undefined',
+                    () => typeof UpgradeSystem !== 'undefined',
+                    () => typeof AchievementSystem !== 'undefined',
+                    () => typeof PerformanceManager !== 'undefined'
+                ];
+                
+                let loadedCount = 0;
+                const totalAssets = assetChecks.length;
+                
+                (window.logger?.log || console.log)('Starting asset loading check loop');
+                
+                // Smooth loading animation using requestAnimationFrame
+                function checkAssets() {
+                    loadedCount = 0;
+                    assetChecks.forEach(check => {
+                        if (check()) loadedCount++;
+                    });
                     
-                    if (progress >= 100) {
-                        clearInterval(interval);
+                    const progress = (loadedCount / totalAssets) * 100;
+                    if (loadingBar) {
+                        loadingBar.style.width = `${progress}%`;
+                    }
+                    
+                    if (loadedCount < totalAssets) {
+                        requestAnimationFrame(checkAssets);
+                    } else {
+                        (window.logger?.log || console.log)('All assets loaded, showing main menu');
                         setTimeout(() => {
-                            document.getElementById('loading-screen').classList.add('hidden');
+                            (window.logger?.log || console.log)('Hiding loading screen');
+                            const loadingScreen = document.getElementById('loading-screen');
+                            if (loadingScreen) loadingScreen.classList.add('hidden');
                             const menu = document.getElementById('main-menu');
-                            menu.classList.remove('hidden');
-                            // Update star count in main menu
+                            if (menu) menu.classList.remove('hidden');
+                            (window.logger?.log || console.log)('Updating star display');
                             const starDisplay = document.getElementById('star-menu-display');
-                            // gameManager is a global variable (declared via const in gameManager.js)
-                            if (starDisplay && typeof gameManager !== 'undefined') {
-                                starDisplay.textContent = '⭐ ' + gameManager.metaStars;
+                            if (starDisplay && window.gameManager && window.gameManager.metaStars !== undefined) {
+                                starDisplay.textContent = '⭐ ' + window.gameManager.metaStars;
                             }
+                            (window.logger?.log || console.log)('Main menu ready');
                         }, 500);
                     }
-                }, 100);
+                }
+                
+                // Start checking assets
+                checkAssets();
+            }
+            
+        // Button event handlers - moved inside initializeApp()
+        const btnNormal = document.getElementById('btn-normal');
+        if (btnNormal) {
+            btnNormal.addEventListener('click', () => {
+                (window.logger?.log || console.log)('🎮 Starting Normal Mode...');
+                const mainMenu = document.getElementById('main-menu');
+                const gameContainer = document.getElementById('game-container');
+                if (mainMenu) mainMenu.classList.add('hidden');
+                if (gameContainer) gameContainer.classList.remove('hidden');
+                if (window.gameManager) {
+                    window.gameManager.endlessMode = false;
+                    window.gameManager.startGame();
+                }
             });
-        // Main menu button handlers
-        document.getElementById('btn-normal').addEventListener('click', () => {
-            document.getElementById('main-menu').classList.add('hidden');
-            document.getElementById('game-container').classList.remove('hidden');
-            gameManager.endlessMode = false;
-            gameManager.startGame();
-        });
-        document.getElementById('btn-endless').addEventListener('click', () => {
-            document.getElementById('main-menu').classList.add('hidden');
-            document.getElementById('game-container').classList.remove('hidden');
-            gameManager.endlessMode = true;
-            gameManager.startGame();
-        });
+        }
+        
+        const btnEndless = document.getElementById('btn-endless');
+        if (btnEndless) {
+            btnEndless.addEventListener('click', () => {
+                (window.logger?.log || console.log)('🎮 Starting Endless Mode...');
+                const mainMenu = document.getElementById('main-menu');
+                const gameContainer = document.getElementById('game-container');
+                if (mainMenu) mainMenu.classList.add('hidden');
+                if (gameContainer) gameContainer.classList.remove('hidden');
+                if (window.gameManager) {
+                    window.gameManager.endlessMode = true;
+                    window.gameManager.startGame();
+                }
+            });
+        }
+        
         // Settings button handler
-        document.getElementById('btn-settings').addEventListener('click', () => {
-            const panel = document.getElementById('settings-panel');
-            // Populate current settings
-            const muteCheckbox = document.getElementById('mute-checkbox');
-            muteCheckbox.checked = audioSystem.isMuted;
-            if (!audioSystem.masterGainNode) audioSystem.initializeAudioContext();
+        const btnSettings = document.getElementById('btn-settings');
+        if (btnSettings) {
+            btnSettings.addEventListener('click', () => {
+                const panel = document.getElementById('settings-panel');
+                if (!panel) return;
+                // Populate current settings
+                const muteCheckbox = document.getElementById('mute-checkbox');
+                if (muteCheckbox && window.audioSystem) {
+                    muteCheckbox.checked = window.audioSystem.isMuted;
+                }
+            // Safely initialize audio context if supported
+            const audio = window.audioSystem;
+            if (audio && typeof audio.initializeAudioContext === 'function' && !audio.masterGain) {
+                audio.initializeAudioContext();
+            }
             // Volume (load stored or current)
             const volumeEl = document.getElementById('volume-range');
             const storedVol = parseFloat(localStorage.getItem('volume'));
-            if (!isNaN(storedVol)) {
+            if (!isNaN(storedVol) && volumeEl) {
                 volumeEl.value = storedVol;
-                if (audioSystem.masterGainNode) audioSystem.masterGainNode.gain.value = storedVol;
-            } else {
-                volumeEl.value = audioSystem.masterGainNode
-                    ? audioSystem.masterGainNode.gain.value : 0.5;
+                if (audio && audio.masterGain && audio.masterGain.gain) {
+                    audio.masterGain.gain.value = storedVol;
+                }
+            } else if (volumeEl) {
+                volumeEl.value = (audio && audio.masterGain && audio.masterGain.gain)
+                    ? audio.masterGain.gain.value : 0.5;
             }
-            document.getElementById('lowquality-checkbox').checked = gameManager.lowQuality;
-            document.getElementById('difficulty-select').value = localStorage.getItem('difficulty') || 'normal';
+            
+            const lowQualityCheckbox = document.getElementById('lowquality-checkbox');
+            const difficultySelect = document.getElementById('difficulty-select');
+            if (lowQualityCheckbox && window.gameManager) {
+                lowQualityCheckbox.checked = window.gameManager.lowQuality;
+            }
+            if (difficultySelect) {
+                difficultySelect.value = localStorage.getItem('difficulty') || 'normal';
+            }
             panel.classList.remove('hidden');
         });
         // Settings close/apply handler
-        document.getElementById('settings-close').addEventListener('click', () => {
+        const settingsCloseBtn = document.getElementById('settings-close');
+        if (settingsCloseBtn) {
+            settingsCloseBtn.addEventListener('click', () => {
             // Mute
-            const muted = document.getElementById('mute-checkbox').checked;
-            audioSystem.isMuted = muted;
+            const muteCheckbox = document.getElementById('mute-checkbox');
+            const muted = muteCheckbox ? muteCheckbox.checked : false;
+            if (window.audioSystem) window.audioSystem.isMuted = muted;
             localStorage.setItem('muted', muted);
+            
             // Volume
-            const vol = parseFloat(document.getElementById('volume-range').value);
-            if (audioSystem.masterGainNode) audioSystem.masterGainNode.gain.value = vol;
-            localStorage.setItem('volume', vol);
+            const volumeRange = document.getElementById('volume-range');
+            const vol = volumeRange ? parseFloat(volumeRange.value) : 0.5;
+            if (!isNaN(vol) && vol >= 0 && vol <= 1) {
+                if (window.audioSystem && window.audioSystem.masterGain && window.audioSystem.masterGain.gain) {
+                    window.audioSystem.masterGain.gain.value = vol;
+                }
+                localStorage.setItem('volume', vol.toString());
+            }
+            
             // Low Quality
-            const lowQ = document.getElementById('lowquality-checkbox').checked;
-            gameManager.lowQuality = lowQ;
+            const lowQCheckbox = document.getElementById('lowquality-checkbox');
+            const lowQ = lowQCheckbox ? lowQCheckbox.checked : false;
+            if (window.gameManager) {
+                window.gameManager.lowQuality = lowQ;
+            }
             localStorage.setItem('lowQuality', lowQ);
             const minimap = document.getElementById('minimap-container');
             if (minimap) minimap.classList.toggle('hidden', lowQ);
             // Difficulty
-            const diff = document.getElementById('difficulty-select').value;
+            const difficultySelect = document.getElementById('difficulty-select');
+            const diff = difficultySelect ? difficultySelect.value : 'normal';
             localStorage.setItem('difficulty', diff);
             let factor = 1.0;
             if (diff === 'easy') factor = 0.8;
             else if (diff === 'hard') factor = 1.2;
-            gameManager.difficultyFactor = factor;
-            document.getElementById('settings-panel').classList.add('hidden');
-        });
-        // Apply stored settings on load
-        window.addEventListener('load', () => {
-            // Volume & mute
-            const storedVol = parseFloat(localStorage.getItem('volume'));
-            if (!isNaN(storedVol) && audioSystem.masterGainNode) {
-                audioSystem.masterGainNode.gain.value = storedVol;
+            if (window.gameManager) {
+                window.gameManager.difficultyFactor = factor;
             }
-            audioSystem.isMuted = localStorage.getItem('muted') === 'true';
+            const settingsPanel = document.getElementById('settings-panel');
+            if (settingsPanel) {
+                settingsPanel.classList.add('hidden');
+            }
+        });
+        
+        // Apply stored settings immediately (no need for load event since we're already loaded)
+        // Volume & mute
+        const storedVol = parseFloat(localStorage.getItem('volume'));
+        if (!isNaN(storedVol) && window.audioSystem && window.audioSystem.masterGain) {
+            window.audioSystem.masterGain.gain.value = storedVol;
+        }
+        if (window.audioSystem) window.audioSystem.isMuted = localStorage.getItem('muted') === 'true';
             // Low Quality
             const storedLowQ = localStorage.getItem('lowQuality') === 'true';
-            gameManager.lowQuality = storedLowQ;
+            if (window.gameManager) {
+                window.gameManager.lowQuality = storedLowQ;
+            }
             const minimapCont = document.getElementById('minimap-container');
             if (minimapCont) minimapCont.classList.toggle('hidden', storedLowQ);
             // Difficulty
             const storedDiff = localStorage.getItem('difficulty') || 'normal';
             const factors = { easy: 0.8, normal: 1.0, hard: 1.2 };
-            gameManager.difficultyFactor = factors[storedDiff] || 1.0;
-        });
+            if (window.gameManager) {
+                window.gameManager.difficultyFactor = factors[storedDiff] || 1.0;
+            }
+            
         // Star Vendor UI
         const metaUpgrades = [
             { id: 'mercury_speed', name: 'Mercury - Agile: +20 Move Speed', desc: 'Increase base movement speed by 20px', cost: 5, value: 20, maxTier: 2 },
@@ -324,20 +697,30 @@
             { id: 'pluto_start_level', name: 'Pluto - Underworld: +1 Starting Level', desc: 'Start each run at Level 2', cost: 10, value: 1, maxTier: 1 }
         ];
         
-        // Attach shop event listeners on DOMContentLoaded
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('btn-shop')
-                .addEventListener('click', renderShop);
-            document.getElementById('shop-close')
-                .addEventListener('click', () => document.getElementById('shop-panel').classList.add('hidden'));
-        });
+        // Shop event listeners - moved inside initializeApp()
+        const shopBtn = document.getElementById('btn-shop');
+        const shopCloseBtn = document.getElementById('shop-close');
+        
+        if (shopBtn) {
+            shopBtn.addEventListener('click', renderShop);
+        }
+        if (shopCloseBtn) {
+            shopCloseBtn.addEventListener('click', () => {
+                const shopPanel = document.getElementById('shop-panel');
+                if (shopPanel) {
+                    shopPanel.classList.add('hidden');
+                }
+            });
+        }
         
         function renderShop() {
             const panel = document.getElementById('shop-panel');
+            if (!panel) return;
+            
             // Update vendor star display
             const vendorDisplay = document.getElementById('vendor-star-display');
-            if (vendorDisplay && typeof gameManager !== 'undefined') {
-                vendorDisplay.textContent = '⭐ ' + gameManager.metaStars;
+            if (vendorDisplay && window.gameManager) {
+                vendorDisplay.textContent = '⭐ ' + window.gameManager.metaStars;
             }
             const items = document.getElementById('shop-items');
             items.innerHTML = '';
@@ -353,28 +736,40 @@
                 const btn = document.createElement('button');
                 btn.className = 'menu-button';
                 btn.textContent = unlocked ? 'Maxed' : 'Buy';
-                btn.disabled = unlocked || gameManager.metaStars < u.cost;
+                btn.disabled = unlocked || !window.gameManager || window.gameManager.metaStars < u.cost;
                 btn.addEventListener('click', () => {
-                    if (!unlocked && gameManager.metaStars >= u.cost) {
+                    if (!unlocked && window.gameManager && window.gameManager.metaStars >= u.cost) {
                         // Deduct stars and update displays
-                        gameManager.metaStars -= u.cost;
-                        gameManager.saveStarTokens();
-                        gameManager.updateStarDisplay();
+                        window.gameManager.metaStars -= u.cost;
+                        if (typeof window.gameManager.saveStarTokens === 'function') {
+                            window.gameManager.saveStarTokens();
+                        }
+                        if (typeof window.gameManager.updateStarDisplay === 'function') {
+                            window.gameManager.updateStarDisplay();
+                        }
                         const menuStar = document.getElementById('star-menu-display');
-                        if (menuStar) menuStar.textContent = '⭐ ' + gameManager.metaStars;
+                        if (menuStar && window.gameManager && window.gameManager.metaStars !== undefined) {
+                            menuStar.textContent = '⭐ ' + window.gameManager.metaStars;
+                        }
                         // Update vendor panel star count
-                        if (vendorDisplay) vendorDisplay.textContent = '⭐ ' + gameManager.metaStars;
+                        if (vendorDisplay && window.gameManager && window.gameManager.metaStars !== undefined) {
+                            vendorDisplay.textContent = '⭐ ' + window.gameManager.metaStars;
+                        }
                         if (tiered) {
                             const newTier = current + 1;
                             localStorage.setItem(key, newTier.toString());
                             // Check if upgrade is now maxed
                             if (newTier >= u.maxTier) {
-                                gameManager.onUpgradeMaxed(u.id);
+                                if (typeof window.gameManager.onUpgradeMaxed === 'function') {
+                                    window.gameManager.onUpgradeMaxed(u.id);
+                                }
                             }
                         } else {
                             localStorage.setItem(key, '1');
                             // Single-tier upgrades are maxed immediately
-                            gameManager.onUpgradeMaxed(u.id);
+                            if (typeof window.gameManager.onUpgradeMaxed === 'function') {
+                                window.gameManager.onUpgradeMaxed(u.id);
+                            }
                         }
                         renderShop();
                     }
@@ -386,17 +781,19 @@
         }
         
         // Add achievements button handler
-        document.getElementById('btn-achievements').addEventListener('click', () => {
+        const achBtn = document.getElementById('btn-achievements');
+        if (achBtn) achBtn.addEventListener('click', () => {
             const panel = document.getElementById('achievements-panel');
             const list = document.getElementById('achievements-list');
             const count = document.getElementById('achievements-count');
+            if (!panel || !list || !count || !window.achievementSystem) return;
             
             // Update achievements count
-            count.textContent = `${achievementSystem.getUnlockedCount()}/${achievementSystem.getTotalCount()}`;
+            count.textContent = `${window.achievementSystem.getUnlockedCount()}/${window.achievementSystem.getTotalCount()}`;
             
             // Clear and rebuild achievements list
             list.innerHTML = '';
-            Object.entries(achievementSystem.achievements).forEach(([key, achievement]) => {
+            Object.entries(window.achievementSystem.achievements || {}).forEach(([key, achievement]) => {
                 const div = document.createElement('div');
                 div.className = `achievement-item ${achievement.unlocked ? 'unlocked' : 'locked'}`;
                 div.innerHTML = `
@@ -406,7 +803,7 @@
                         <p>${achievement.description}</p>
                         <div class="achievement-progress">
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${(achievement.progress / achievement.target) * 100}%"></div>
+                                <div class="progress-fill" style="width: ${achievement.target ? (achievement.progress / achievement.target) * 100 : 0}%"></div>
                             </div>
                             <span>${achievement.progress}/${achievement.target}</span>
                         </div>
@@ -419,8 +816,10 @@
         });
         
         // Add achievements close handler
-        document.getElementById('achievements-close').addEventListener('click', () => {
-            document.getElementById('achievements-panel').classList.add('hidden');
+        const achClose = document.getElementById('achievements-close');
+        if (achClose) achClose.addEventListener('click', () => {
+            const panel = document.getElementById('achievements-panel');
+            if (panel) panel.classList.add('hidden');
         });
         
         } // End of initializeApp function

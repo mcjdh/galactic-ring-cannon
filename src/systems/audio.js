@@ -15,7 +15,8 @@ class AudioSystem {
             
             // Add fallback for browsers without Web Audio API
             if (!this.isWebAudioSupported) {
-                console.warn('Web Audio API not supported, using fallback audio system');
+                // Use logger instead of console.warn
+                (window.logger?.warn || (() => {}))('Web Audio API not supported, using fallback audio system');
                 this.initializeFallbackAudio();
             }
         } catch (error) {
@@ -24,8 +25,24 @@ class AudioSystem {
         }
     }
     
+    // Provide simple HTMLAudioElement-based fallback so callers don't crash
+    initializeFallbackAudio() {
+        // Minimal shim to avoid errors; actual SFX are WebAudio-only in this project
+        this.play = (/* soundName, volume */) => {};
+        this.toggleMute = () => {
+            this.isMuted = !this.isMuted;
+            return this.isMuted;
+        };
+        this.initializeAudioContext = () => {};
+        this.resumeAudioContext = () => {};
+        this.masterGain = null;
+        this.masterGainNode = null;
+    }
+    
     // Initialize audio context with error handling
     initializeAudioContext() {
+        if (this.initialized || !this.isWebAudioSupported) return;
+        
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
@@ -33,6 +50,8 @@ class AudioSystem {
             // Create master gain node
             this.masterGain = this.audioContext.createGain();
             this.masterGain.connect(this.audioContext.destination);
+            // Compatibility alias for UI code expecting masterGainNode
+            this.masterGainNode = this.masterGain;
             
             // Set initial volume
             this.masterGain.gain.value = 0.5;
@@ -100,12 +119,14 @@ class AudioSystem {
                     this.playDodgeSound(adjustedVolume);
                     break;
                 case 'enemyDeath':
+                case 'enemyKilled':
                     this.playEnemyDeathSound(adjustedVolume);
                     break;
                 case 'pickup':
                     this.playPickupSound(adjustedVolume);
                     break;
                 case 'boss':
+                case 'bossKilled':
                     this.playBossSound(adjustedVolume);
                     break;
                 case 'playerHit':
@@ -115,7 +136,8 @@ class AudioSystem {
                     this.playAOEAttackSound(adjustedVolume);
                     break;
                 default:
-                    console.warn(`Unknown sound name: ${soundName}`);
+                    // Use logger instead of console.warn
+                    (window.logger?.warn || (() => {}))(`Unknown sound name: ${soundName}`);
             }
         } catch (error) {
             console.error(`Error playing sound ${soundName}:`, error);
@@ -141,6 +163,10 @@ class AudioSystem {
             this.isMuted = !this.isMuted;
             if (this.masterGain) {
                 this.masterGain.gain.value = this.isMuted ? 0 : 0.5;
+            }
+            // Keep alias in sync
+            if (this.masterGainNode) {
+                this.masterGainNode.gain.value = this.isMuted ? 0 : 0.5;
             }
             return this.isMuted;
         } catch (error) {
@@ -502,15 +528,24 @@ class AudioSystem {
     }
 }
 
-// Create global audio system instance with error handling
+// Create global audio system instance with error handling (guard against duplicates)
 let audioSystem;
 try {
-    audioSystem = new AudioSystem();
+    if (typeof window !== 'undefined') {
+        if (!window.audioSystem) {
+            window.audioSystem = new AudioSystem();
+        }
+        audioSystem = window.audioSystem;
+    } else {
+        audioSystem = new AudioSystem();
+    }
     
     // Add event listeners for user interactions to initialize audio
-    document.addEventListener('click', () => {
-        audioSystem.handleUserInteraction();
-    });
+    if (typeof document !== 'undefined') {
+        document.addEventListener('click', () => {
+            audioSystem.handleUserInteraction();
+        });
+    }
 } catch (error) {
     console.error('Error creating audio system:', error);
     // Create a dummy audio system that does nothing
@@ -519,6 +554,9 @@ try {
         toggleMute: () => false,
         handleUserInteraction: () => {}
     };
+    if (typeof window !== 'undefined') {
+        window.audioSystem = audioSystem;
+    }
 }
 
 // Boss theme: play bass beat in sync with player shots

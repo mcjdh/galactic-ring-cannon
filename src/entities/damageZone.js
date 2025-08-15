@@ -71,18 +71,28 @@ class DamageZone {
         const x = this.x + Math.cos(angle) * distance;
         const y = this.y + Math.sin(angle) * distance;
         
-        // Create rising particle
-        const particle = new Particle(
-            x, y,
-            (Math.random() - 0.5) * 10, // Small X velocity
-            -30 - Math.random() * 20,   // Rising upward
-            2 + Math.random() * 3,
-            this.color,
-            0.5 + Math.random() * 0.5
-        );
-        
-    // Add to game particles respecting caps
-    if (gameManager.tryAddParticle) gameManager.tryAddParticle(particle);
+        // Create rising particle (pool-first)
+        if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
+            window.optimizedParticles.spawnParticle({
+                x, y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: -30 - Math.random() * 20,
+                size: 2 + Math.random() * 3,
+                color: this.color,
+                life: 0.5 + Math.random() * 0.5,
+                type: 'smoke'
+            });
+        } else if (gameManager.tryAddParticle) {
+            const particle = new Particle(
+                x, y,
+                (Math.random() - 0.5) * 10,
+                -30 - Math.random() * 20,
+                2 + Math.random() * 3,
+                this.color,
+                0.5 + Math.random() * 0.5
+            );
+            gameManager.tryAddParticle(particle);
+        }
     }
     
     render(ctx) {

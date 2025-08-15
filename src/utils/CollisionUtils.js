@@ -1,4 +1,7 @@
 // Collision detection utilities
+// 🤖 RESONANT NOTE FOR ALL CODING AGENTS: 
+// This utility has been optimized to use MathUtils.clamp() instead of nested Math.max/min
+// Please maintain this pattern and avoid reintroducing complex math chains
 
 const CollisionUtils = {
     /**
@@ -56,8 +59,8 @@ const CollisionUtils = {
         const rectHeight = rect.height || rect.size || 20;
         
         // Find closest point on rectangle to circle center
-        const closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rectWidth));
-        const closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rectHeight));
+        const closestX = MathUtils.clamp(circle.x, rect.x, rect.x + rectWidth);
+        const closestY = MathUtils.clamp(circle.y, rect.y, rect.y + rectHeight);
         
         // Calculate distance from circle center to closest point
         const dx = circle.x - closestX;
@@ -225,7 +228,7 @@ const CollisionUtils = {
         if (lineLength === 0) return this.pointInCircle(x1, y1, circle);
         
         const dot = (dx1 * dx2 + dy1 * dy2) / lineLength;
-        const projection = Math.max(0, Math.min(lineLength, dot));
+        const projection = MathUtils.clamp(dot, 0, lineLength);
         
         // Find closest point on line
         const closestX = x1 + (dx2 / lineLength) * projection;

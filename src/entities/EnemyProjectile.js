@@ -18,6 +18,8 @@ class EnemyProjectile {
         // Visual properties
         this.color = '#9b59b6';
         this.trailLength = 0.02; // Trail length multiplier
+        // Default glow color to prevent undefined access in renderGlow
+        this.glowColor = 'rgba(155, 89, 182, 0.45)';
     }
     
     /**
@@ -121,6 +123,7 @@ class EnemyProjectile {
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      */
     renderGlow(ctx) {
+        if (!this.glowColor) return;
         const gradient = ctx.createRadialGradient(
             this.x, this.y, 0,
             this.x, this.y, this.radius * 3

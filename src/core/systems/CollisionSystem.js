@@ -33,20 +33,43 @@
 
         checkCollisions() {
             const engine = this.engine;
+            if (!engine || !engine.spatialGrid) {
+                return; // Skip collision checking if engine state is invalid
+            }
+            
             // TODO: Implement early exit strategies for empty regions
             // FIX: Currently checks all combinations - could skip impossible collisions
-            for (const [key, entities] of engine.spatialGrid) {
-                this.checkCollisionsInCell(entities);
-                const [gridX, gridY] = key.split(',').map(Number);
-                this.checkAdjacentCellCollisions(gridX, gridY, entities);
+            try {
+                for (const [key, entities] of engine.spatialGrid) {
+                    if (!entities || entities.length === 0) continue;
+                    
+                    this.checkCollisionsInCell(entities);
+                    const [gridX, gridY] = key.split(',').map(Number);
+                    
+                    // Validate grid coordinates
+                    if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) continue;
+                    
+                    this.checkAdjacentCellCollisions(gridX, gridY, entities);
+                }
+            } catch (error) {
+                (window.logger?.error || console.error)('Error in collision checking:', error);
             }
         }
 
         checkCollisionsInCell(entities) {
-            for (let i = 0; i < entities.length; i++) {
+            // 🤖 RESONANT NOTE: Performance optimization - early exit for small cells
+            if (entities.length < 2) return;
+            
+            for (let i = 0; i < entities.length - 1; i++) {
+                const entity1 = entities[i];
+                if (!entity1 || entity1.isDead) continue; // Skip dead entities
+                
                 for (let j = i + 1; j < entities.length; j++) {
-                    if (this.isColliding(entities[i], entities[j])) {
-                        this.handleCollision(entities[i], entities[j]);
+                    const entity2 = entities[j];
+                    if (!entity2 || entity2.isDead) continue; // Skip dead entities
+                    
+                    if (this.isColliding(entity1, entity2)) {
+                        this.handleCollision(entity1, entity2);
                     }
                 }
             }

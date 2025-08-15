@@ -29,7 +29,8 @@ class ResonanceSystem {
             this.analyser.fftSize = 256;
             this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
         } catch (e) {
-            console.warn('AudioContext not available, advanced audio-visual sync disabled');
+            // Use logger instead of console.warn
+            (window.logger?.warn || (() => {}))('AudioContext not available, advanced audio-visual sync disabled');
         }
     }
     

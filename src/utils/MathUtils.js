@@ -1,6 +1,25 @@
 // Mathematical utility functions for game calculations
 const MathUtils = {
     /**
+     * Calculate distance between two points
+     * @param {number} x1 - First point X
+     * @param {number} y1 - First point Y
+     * @param {number} x2 - Second point X
+     * @param {number} y2 - Second point Y
+     * @returns {number} Distance between points
+     */
+    distance(x1, y1, x2, y2) {
+        // Validate all inputs are numbers
+        if (!Number.isFinite(x1) || !Number.isFinite(y1) || 
+            !Number.isFinite(x2) || !Number.isFinite(y2)) {
+            return Infinity; // Return large distance for invalid inputs
+        }
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        return Math.sqrt(dx * dx + dy * dy);
+    },
+
+    /**
      * Linear interpolation between two values
      */
     lerp(a, b, t) {
@@ -13,7 +32,6 @@ const MathUtils = {
      * @param {number} min - Minimum value
      * @param {number} max - Maximum value
      * @returns {number} Clamped value
-     * FIX: Could use Math.max/Math.min for single operation when possible
      */
     clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
@@ -25,11 +43,20 @@ const MathUtils = {
      * @param {number} factor - Reduction factor (0-1)
      * @param {number} maxAllowed - Maximum allowed amount
      * @param {number} currentUsed - Currently used amount
-     * TODO: Add validation for negative values and edge cases
      * @returns {number} Safe budget amount
      */
     budget(baseAmount, factor = 1, maxAllowed = 100, currentUsed = 0) {
-        return Math.min(baseAmount * factor, maxAllowed - currentUsed);
+        // Validate inputs to prevent NaN or invalid calculations
+        if (!Number.isFinite(baseAmount) || baseAmount < 0) baseAmount = 0;
+        if (!Number.isFinite(factor) || factor < 0) factor = 0;
+        if (!Number.isFinite(maxAllowed) || maxAllowed < 0) maxAllowed = 100;
+        if (!Number.isFinite(currentUsed) || currentUsed < 0) currentUsed = 0;
+        
+        // Clamp factor between 0 and 1
+        factor = Math.max(0, Math.min(1, factor));
+        
+        const available = Math.max(0, maxAllowed - currentUsed);
+        return Math.min(baseAmount * factor, available);
     },
 
     /**
@@ -39,6 +66,14 @@ const MathUtils = {
      * @returns {number} Random number
      */
     random(min, max) {
+        // Validate inputs
+        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+            return 0; // Fallback for invalid inputs
+        }
+        if (min > max) {
+            // Swap if min > max
+            [min, max] = [max, min];
+        }
         return Math.random() * (max - min) + min;
     },
 
@@ -49,6 +84,14 @@ const MathUtils = {
      * @returns {number} Random integer
      */
     randomInt(min, max) {
+        // Validate inputs
+        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+            return 0; // Fallback for invalid inputs
+        }
+        if (min > max) {
+            // Swap if min > max
+            [min, max] = [max, min];
+        }
         return Math.floor(Math.random() * (max - min + 1)) + min;
     },
 
@@ -86,8 +129,14 @@ const MathUtils = {
      * @returns {Object} Normalized vector
      */
     normalizeVector(vector) {
+        // Validate input
+        if (!vector || typeof vector !== 'object' || 
+            !Number.isFinite(vector.x) || !Number.isFinite(vector.y)) {
+            return { x: 0, y: 0 }; // Return zero vector for invalid input
+        }
+        
         const length = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
-        if (length === 0) return { x: 0, y: 0 };
+        if (length === 0 || !Number.isFinite(length)) return { x: 0, y: 0 };
         return {
             x: vector.x / length,
             y: vector.y / length

@@ -53,6 +53,16 @@ body {
     transition: width 0.3s;
 }
 
+/* Critical health animation */
+#health-bar.critical::after {
+    animation: pulse-critical 0.6s infinite;
+}
+
+@keyframes pulse-critical {
+    0%, 100% { background-color: #e74c3c; }
+    50% { background-color: #ff6b6b; }
+}
+
 #xp-bar::after {
     background-color: #2ecc71;
     width: var(--xp-width, 0%);
@@ -621,7 +631,7 @@ body {
     z-index: 150;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
     border: 2px solid #3498db;
-    animation: pulse 2s infinite;
+    animation: pulse-overlay 2s infinite;
 }
 
 .pause-subtext {
@@ -631,7 +641,7 @@ body {
     font-weight: normal;
 }
 
-@keyframes pulse {
+@keyframes pulse-overlay {
     0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7); }
     70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
     100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }

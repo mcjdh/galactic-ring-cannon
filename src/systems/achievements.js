@@ -232,7 +232,8 @@ class AchievementSystem {
     
     updateAchievement(key, value) {
         if (!this.achievements[key]) {
-            console.warn(`Achievement '${key}' not found`);
+            // Use logger instead of console.warn for better error handling
+            (window.logger?.warn || (() => {}))(`Achievement '${key}' not found`);
             return;
         }
         
@@ -247,15 +248,17 @@ class AchievementSystem {
                 this.showAchievementNotification(achievement);
                 
                 // Award bonus stars for achievements
-                if (gameManager) {
+                if (window.gameManager) {
                     // Important achievements award more stars
                     const starBonus = achievement.important ? 3 : 1;
-                    gameManager.earnStarTokens(starBonus);
-                    gameManager.showFloatingText(`Achievement Bonus: +${starBonus} ⭐`, 
-                        gameManager.game.player.x, 
-                        gameManager.game.player.y - 50, 
-                        '#f1c40f', 
-                        20);
+                    window.gameManager.earnStarTokens(starBonus);
+                    if (window.gameManager.showFloatingText && window.gameManager.game?.player) {
+                        window.gameManager.showFloatingText(`Achievement Bonus: +${starBonus} ⭐`, 
+                            window.gameManager.game.player.x, 
+                            window.gameManager.game.player.y - 50, 
+                            '#f1c40f', 
+                            20);
+                    }
                 }
             }
             

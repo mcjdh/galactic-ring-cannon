@@ -29,8 +29,11 @@ class UIEnhancements {
         const tooltip = document.createElement('div');
         tooltip.className = 'tooltip';
         
-        // Get upgrade data
-        const upgrade = upgradeSystem.getUpgradeById(upgradeId);
+        // Get upgrade data with null check
+        const upgradeSystem = window.upgradeSystem;
+        const upgrade = upgradeSystem && upgradeSystem.getUpgradeById ? 
+                       upgradeSystem.getUpgradeById(upgradeId) : null;
+        
         if (upgrade) {
             tooltip.innerHTML = `
                 <div class="tooltip-header">
@@ -39,6 +42,14 @@ class UIEnhancements {
                 </div>
                 <div class="tooltip-description">${upgrade.description}</div>
                 <div class="tooltip-rarity">Rarity: ${upgrade.rarity}</div>
+            `;
+        } else {
+            // Fallback when upgrade system isn't available
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <span class="tooltip-title">Upgrade Info</span>
+                </div>
+                <div class="tooltip-description">Upgrade information not available</div>
             `;
         }
         
@@ -95,24 +106,33 @@ class UIEnhancements {
             `;
             settingsContent.appendChild(colorblindSetting);
             
-            // Add event listeners
-            document.getElementById('damage-numbers-checkbox').addEventListener('change', (e) => {
-                this.damageNumbersEnabled = e.target.checked;
-                localStorage.setItem('damageNumbers', this.damageNumbersEnabled);
-            });
+            // Add event listeners with null checks
+            const damageNumbersCheckbox = document.getElementById('damage-numbers-checkbox');
+            if (damageNumbersCheckbox) {
+                damageNumbersCheckbox.addEventListener('change', (e) => {
+                    this.damageNumbersEnabled = e.target.checked;
+                    localStorage.setItem('damageNumbers', this.damageNumbersEnabled);
+                });
+            }
             
-            document.getElementById('screen-shake-range').addEventListener('input', (e) => {
-                this.screenShakeIntensity = parseFloat(e.target.value);
-                localStorage.setItem('screenShakeIntensity', this.screenShakeIntensity);
-            });
+            const screenShakeRange = document.getElementById('screen-shake-range');
+            if (screenShakeRange) {
+                screenShakeRange.addEventListener('input', (e) => {
+                    this.screenShakeIntensity = parseFloat(e.target.value);
+                    localStorage.setItem('screenShakeIntensity', this.screenShakeIntensity);
+                });
+            }
             
-            document.getElementById('colorblind-select').addEventListener('change', (e) => {
-                this.colorblindMode = e.target.value !== 'none';
-                this.colorblindType = e.target.value;
-                this.applyColorblindMode();
-                localStorage.setItem('colorblindMode', this.colorblindMode);
-                localStorage.setItem('colorblindType', this.colorblindType);
-            });
+            const colorblindSelect = document.getElementById('colorblind-select');
+            if (colorblindSelect) {
+                colorblindSelect.addEventListener('change', (e) => {
+                    this.colorblindMode = e.target.value !== 'none';
+                    this.colorblindType = e.target.value;
+                    this.applyColorblindMode();
+                    localStorage.setItem('colorblindMode', this.colorblindMode);
+                    localStorage.setItem('colorblindType', this.colorblindType);
+                });
+            }
             
             // Load saved settings
             this.loadSettings();
@@ -124,14 +144,20 @@ class UIEnhancements {
         const damageNumbers = localStorage.getItem('damageNumbers');
         if (damageNumbers !== null) {
             this.damageNumbersEnabled = damageNumbers === 'true';
-            document.getElementById('damage-numbers-checkbox').checked = this.damageNumbersEnabled;
+            const checkbox = document.getElementById('damage-numbers-checkbox');
+            if (checkbox) {
+                checkbox.checked = this.damageNumbersEnabled;
+            }
         }
         
         // Load screen shake intensity
         const screenShake = localStorage.getItem('screenShakeIntensity');
         if (screenShake !== null) {
             this.screenShakeIntensity = parseFloat(screenShake);
-            document.getElementById('screen-shake-range').value = this.screenShakeIntensity;
+            const range = document.getElementById('screen-shake-range');
+            if (range) {
+                range.value = this.screenShakeIntensity;
+            }
         }
         
         // Load colorblind mode
@@ -140,8 +166,11 @@ class UIEnhancements {
         if (colorblindMode !== null && colorblindType !== null) {
             this.colorblindMode = colorblindMode === 'true';
             this.colorblindType = colorblindType;
-            document.getElementById('colorblind-select').value = this.colorblindType;
-            this.applyColorblindMode();
+            const select = document.getElementById('colorblind-select');
+            if (select) {
+                select.value = this.colorblindType;
+                this.applyColorblindMode();
+            }
         }
     }
     
@@ -155,6 +184,14 @@ class UIEnhancements {
     showDamageNumber(amount, x, y, isCrit = false) {
         if (!this.damageNumbersEnabled) return;
         
+        // Check if container exists, create if needed
+        let container = document.getElementById('damage-numbers-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'damage-numbers-container';
+            document.body.appendChild(container);
+        }
+        
         const number = document.createElement('div');
         number.className = 'damage-number';
         if (isCrit) number.classList.add('crit');
@@ -163,13 +200,17 @@ class UIEnhancements {
         number.style.left = `${x}px`;
         number.style.top = `${y}px`;
         
-        document.getElementById('damage-numbers-container').appendChild(number);
+        container.appendChild(number);
         
         // Animate and remove
         setTimeout(() => {
             number.style.opacity = '0';
             number.style.transform = 'translateY(-30px)';
-            setTimeout(() => number.remove(), 500);
+            setTimeout(() => {
+                if (number.parentNode) {
+                    number.remove();
+                }
+            }, 500);
         }, 50);
     }
     

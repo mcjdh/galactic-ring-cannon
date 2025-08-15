@@ -61,7 +61,7 @@ class IntelligentSpawner {
         }
         
         // Keep within reasonable bounds
-        this.adaptiveSpawnRate = Math.max(0.3, Math.min(2.0, this.adaptiveSpawnRate));
+        this.adaptiveSpawnRate = MathUtils.clamp(this.adaptiveSpawnRate, 0.3, 2.0);
     }
     
     considerNewSpawns(deltaTime) {
@@ -211,7 +211,7 @@ class IntelligentSpawner {
         // Use existing enemy spawner but with calculated position and type
         const enemy = this.game.enemySpawner.createEnemy(spawn.type, spawn.position.x, spawn.position.y);
         if (enemy) {
-            this.game.enemies.push(enemy);
+            this.game.addEntity(enemy);
         }
     }
 }

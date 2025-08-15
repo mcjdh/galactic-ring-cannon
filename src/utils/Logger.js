@@ -5,6 +5,12 @@
 class Logger {
     constructor(enableDebug = false) {
         this.debug = enableDebug;
+        // Bind methods so they can be safely passed as callbacks
+        this.log = this.log.bind(this);
+        this.warn = this.warn.bind(this);
+        this.error = this.error.bind(this);
+        this.info = this.info.bind(this);
+        this.setDebug = this.setDebug.bind(this);
     }
 
     log(message, ...args) {

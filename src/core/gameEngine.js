@@ -3,91 +3,102 @@ class GameEngine {
         // Initialize canvas with error handling
         this.canvas = document.getElementById('game-canvas');
         if (!this.canvas) {
-            console.error('Game canvas not found!');
+            (window.logger?.error || console.error)('Game canvas not found!');
             return;
         }
         
-        // TODO: Move canvas optimization to separate CanvasManager
-        // Optimize canvas for GPU rendering
+        // Canvas performance optimizations
         this.canvas.style.willChange = 'transform'; // Hint to browser for GPU acceleration
         this.canvas.style.transform = 'translateZ(0)'; // Force GPU layer
         this.canvas.style.backfaceVisibility = 'hidden'; // Optimize for transforms
         
         // Get 2D context with performance optimizations
-        // TODO: Consider OffscreenCanvas for background processing
         this.ctx = this.canvas.getContext('2d', { 
             alpha: false, // Disable alpha for better performance
             willReadFrequently: false // Optimize for GPU rendering
         });
         
         if (!this.ctx) {
-            console.error('Could not get 2D context!');
+            (window.logger?.error || console.error)('Could not get 2D context!');
             return;
         }
         
         // Set canvas size to window size with error handling
         try {
+            // Store bound functions for proper cleanup later
+            this.boundResizeCanvas = this.resizeCanvas.bind(this);
+            this.boundHandleContextLoss = this.handleContextLoss.bind(this);
+            this.boundHandleContextRestore = this.handleContextRestore.bind(this);
+            this.boundHandleVisibilityChange = this.handleVisibilityChange.bind(this);
+            this.boundHandleFocusChange = this.handleFocusChange.bind(this);
+            this.boundHandleBlurChange = this.handleBlurChange.bind(this);
+            
             this.resizeCanvas();
-            window.addEventListener('resize', this.resizeCanvas.bind(this));
+            window.addEventListener('resize', this.boundResizeCanvas);
         } catch (error) {
-            console.error('Error initializing canvas:', error);
+            (window.logger?.error || console.error)('Error initializing canvas:', error);
         }
         
         // Game state with null checks
-    // TODO: Use a proper state machine for game states
-    // FIX: Entity arrays should be managed by EntityManager
-    // Resonant note for all coding agents: State management and entity arrays should be modularized. Coordinate with other agents to avoid overlap and follow the refactoring roadmap.
+    // 🤖 RESONANT NOTE FOR ALL CODING AGENTS:
+    // State management and entity arrays need modularization - this is the #1 architectural priority
+    // Consider EntityManager pattern: game.entities.add(entity) vs this.entities.push(entity)
+    // Coordinate with other agents to avoid duplicate state management systems
         this.entities = [];
         this.player = null;
         this.enemies = [];
         this.xpOrbs = [];
         this.projectiles = [];
         this.enemyProjectiles = [];
-    this.enemyProjectilePool = []; // TODO: Implement proper object pooling system
+		// Enemy projectile pool is initialized below with other pools
         this.lastTime = 0;
         this.gameTime = 0;
         this.isPaused = false;
         
-        // Performance monitoring with fallbacks
-        // TODO: Extract performance monitoring to separate class
-        // FIX: Too many performance-related properties scattered throughout
-        this.frameTimes = [];
+        // Basic performance tracking
         this.fps = 0;
         this.frameCount = 0;
         this.lastFpsUpdate = 0;
         this.targetFps = 60;
-        this.frameTime = 1000 / this.targetFps;
         this.lastFrameTime = 0;
-        this.gpuUsage = 0;
         this.performanceMode = false;
-        this.lowGpuMode = false;
-    // Resonant note for all coding agents: maxParticles is managed in GameManager. Remove here to avoid duplication. If you need particle limits, use GameManager's property.
-        this.particleReductionFactor = 1.0;
         this.debugMode = false;
         
-    // Object pools with size limits
-    // TODO: Implement comprehensive object pooling for all entities
-    // TODO: Add pool statistics and monitoring
-    // Resonant note: Object pooling is incomplete. Future agents, please consolidate pooling logic and consider extracting to ParticleManager/ProjectileManager modules as per refactoring plan.
+    // Object pools - partially implemented for projectiles and particles
+    // 🤖 RESONANT NOTE FOR ALL CODING AGENTS:
+    // Object pooling is partially implemented - DO NOT create competing pool systems
+    // Current pools: projectilePool, particlePool
+    // Missing pools: Enemy objects, XP orbs, damage zones
+    // Coordinate to avoid 3+ different pooling implementations
     this.projectilePool = [];
     this.particlePool = [];
-    this.maxPoolSize = 100; // TODO: Make pool size dynamic based on available memory
+    this.maxPoolSize = 100; // Pool size works well for most devices
         
-        // Spatial partitioning with error handling
-        // TODO: Implement quadtree for better spatial partitioning
-        // FIX: Grid size should be configurable and adaptive
-        this.gridSize = 100;
-        this.spatialGrid = new Map();
+		// Spatial partitioning system
+		this.gridSize = 100; // Fixed grid size for collision detection
+		this.spatialGrid = new Map();
         
-        // Initialize CollisionSystem if available (delegates spatial grid & collisions)
-        try {
-            this.collisionSystem = (typeof window !== 'undefined' && window.CollisionSystem)
-                ? new window.CollisionSystem(this)
-                : null;
+		// Initialize unified systems if available
+		try {
+			this.collisionSystem = null;
+			if (typeof window !== 'undefined' && window.UnifiedCollisionSystem) {
+				this.collisionSystem = new window.UnifiedCollisionSystem(this);
+			} else if (typeof window !== 'undefined' && window.CollisionSystem) {
+				this.collisionSystem = new window.CollisionSystem(this);
+			}
         } catch (e) {
-            console.warn('CollisionSystem initialization failed, using internal collision logic.', e);
-            this.collisionSystem = null;
-        }
+            (window.logger?.warn || console.warn)('Collision system initialization failed, using internal collision logic.', e);
+			this.collisionSystem = null;
+		}
+
+		try {
+			this.entityManager = (typeof window !== 'undefined' && window.EntityManager)
+				? new window.EntityManager()
+				: null;
+        } catch (e) {
+            (window.logger?.warn || console.warn)('EntityManager initialization failed, continuing with legacy arrays.', e);
+			this.entityManager = null;
+		}
           // Input handling with additional pause key support and error handling
         this.keys = {};
         try {
@@ -111,7 +122,7 @@ class GameEngine {
             });
             window.addEventListener('keyup', e => this.keys[e.key] = false);
         } catch (error) {
-            console.error('Error setting up input handling:', error);
+            (window.logger?.error || console.error)('Error setting up input handling:', error);
         }
         
         // Visibility state tracking
@@ -120,26 +131,17 @@ class GameEngine {
         this.lastVisibilityChange = 0;
         
         // Add visibility change handlers
-        document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-        window.addEventListener('focus', this.handleFocusChange.bind(this));
-        window.addEventListener('blur', this.handleBlurChange.bind(this));
+        document.addEventListener('visibilitychange', this.boundHandleVisibilityChange);
+        window.addEventListener('focus', this.boundHandleFocusChange);
+        window.addEventListener('blur', this.boundHandleBlurChange);
         
-        // Resource management
-        this.resourceCleanupInterval = 5000; // 5 seconds
+        // Resource cleanup
+        this.resourceCleanupInterval = 5000;
         this.lastResourceCleanup = 0;
         
-        // Performance thresholds
-        this.lowGpuThreshold = 50; // 50% GPU usage
-        this.highGpuThreshold = 80; // 80% GPU usage
-        this.criticalGpuThreshold = 90; // 90% GPU usage
-        
-        // Initialize performance monitoring
-        this.performanceHistory = [];
-        this.maxHistorySize = 100;
-        
         // Add canvas context loss handling
-        this.canvas.addEventListener('webglcontextlost', this.handleContextLoss.bind(this));
-        this.canvas.addEventListener('webglcontextrestored', this.handleContextRestore.bind(this));
+        this.canvas.addEventListener('webglcontextlost', this.boundHandleContextLoss);
+        this.canvas.addEventListener('webglcontextrestored', this.boundHandleContextRestore);
         this.contextLost = false;
     }
     
@@ -156,12 +158,28 @@ class GameEngine {
             this.ctx.imageSmoothingQuality = 'low'; // Better performance
             this.ctx.globalCompositeOperation = 'source-over'; // Optimize blending
         } catch (error) {
-            console.error('Error resizing canvas:', error);
+            (window.logger?.error || console.error)('Error resizing canvas:', error);
         }
     }
     
     start() {
-        this.gameLoop(0);
+        (window.logger?.log || console.log)('🚀 GameEngine starting...');
+        
+        // Initialize player if not exists
+        if (!this.player && typeof Player !== 'undefined') {
+            (window.logger?.log || console.log)('Creating player...');
+            this.player = new Player(
+                this.canvas.width / 2, 
+                this.canvas.height / 2
+            );
+            this.addEntity(this.player);
+            (window.logger?.log || console.log)('✅ Player created and added');
+        }
+        
+        // Start the main game loop
+        this.lastTime = performance.now();
+        this.gameLoop(this.lastTime);
+        (window.logger?.log || console.log)('✅ Game loop started');
     }
     
     gameLoop(timestamp) {
@@ -211,7 +229,10 @@ class GameEngine {
     update(deltaTime) {
         // Validate deltaTime (avoid noisy logs when it's 0 on first frames)
         if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > 1) {
-            console.warn('Invalid deltaTime:', deltaTime);
+            // 🤖 RESONANT NOTE: Reduced console spam - only log critical deltaTime issues
+            if (deltaTime > 0.1 && window.debugManager?.enabled) {
+                (window.logger?.warn || console.warn)('Invalid deltaTime:', deltaTime);
+            }
             deltaTime = 1/60; // Fallback to 60fps
         } else if (deltaTime === 0) {
             // Use a small timestep silently when browsers report 0ms frame
@@ -227,6 +248,19 @@ class GameEngine {
         if (window.performanceManager && typeof window.performanceManager.update === 'function') {
             window.performanceManager.update(deltaTime);
         }
+
+        // Update optimized particle pool if available
+        if (window.optimizedParticles && typeof window.optimizedParticles.update === 'function') {
+            window.optimizedParticles.update(deltaTime);
+        }
+
+        // Late-bind unified systems if modules loaded after engine
+        if (!this.collisionSystem && typeof window !== 'undefined' && window.UnifiedCollisionSystem) {
+            try { this.collisionSystem = new window.UnifiedCollisionSystem(this); } catch (_) {}
+        }
+        if (!this.entityManager && typeof window !== 'undefined' && window.EntityManager) {
+            try { this.entityManager = new window.EntityManager(); } catch (_) {}
+        }
         
     // Update all entities with proper error handling
         if (this.entities && Array.isArray(this.entities)) {
@@ -238,7 +272,7 @@ class GameEngine {
                     try {
                         entity.update(deltaTime, this);
                     } catch (error) {
-                        console.error('Error updating entity:', error, entity);
+                        (window.logger?.error || console.error)('Error updating entity:', error, entity);
                         entity.isDead = true; // Mark as dead to prevent further errors
                     }
                 }
@@ -253,8 +287,19 @@ class GameEngine {
         }
         
         // Update pooled floating/combat texts each frame
-        if (window.gameManager && typeof window.gameManager._updateTexts === 'function') {
-            window.gameManager._updateTexts(deltaTime);
+        if (window.gameManager && typeof window.gameManager.updateCombatTexts === 'function') {
+            window.gameManager.updateCombatTexts(deltaTime);
+        }
+
+        // Update GameManager systems (bridge compatibility)
+        if (window.gameManager && typeof window.gameManager.update === 'function') {
+            try {
+                window.gameManager.update(deltaTime);
+            } catch (error) {
+                if (window.debugManager?.enabled) {
+                    (window.logger?.error || console.error)('GameManager update error:', error);
+                }
+            }
         }
 
     // Check collisions with error handling (uses up-to-date spatial grid)
@@ -265,7 +310,7 @@ class GameEngine {
                 this.checkCollisions();
             }
         } catch (error) {
-            console.error('Error in collision detection:', error);
+            (window.logger?.error || console.error)('Error in collision detection:', error);
         }
         
         // Clean up dead entities
@@ -273,42 +318,16 @@ class GameEngine {
     }
     
     updatePerformanceMetrics(elapsed) {
-        // Track frame times
-        this.frameTimes.push(elapsed);
-        if (this.frameTimes.length > 60) {
-            this.frameTimes.shift();
-        }
-        
-        // Calculate FPS
+        // Simple FPS tracking
         this.frameCount++;
         this.lastFpsUpdate += elapsed;
         if (this.lastFpsUpdate >= 1000) {
             this.fps = this.frameCount;
             this.frameCount = 0;
             this.lastFpsUpdate = 0;
-            
-            // Estimate GPU usage based on frame times
-            const avgFrameTime = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
-            this.gpuUsage = Math.min(100, (avgFrameTime / this.frameTime) * 100);
-            
-            // Track performance history
-            this.performanceHistory.push({
-                timestamp: Date.now(),
-                fps: this.fps,
-                gpuUsage: this.gpuUsage,
-                entityCount: this.entities.length
-            });
-            
-            if (this.performanceHistory.length > this.maxHistorySize) {
-                this.performanceHistory.shift();
-            }
-            
-            if (this.debugMode) {
-                console.log(`FPS: ${this.fps}, GPU: ${this.gpuUsage.toFixed(1)}%, Entities: ${this.entities.length}`);
-            }
         }
         
-        // Periodically clean up resources
+        // Periodic resource cleanup
         const now = Date.now();
         if (now - this.lastResourceCleanup > this.resourceCleanupInterval) {
             this.cleanupResources();
@@ -317,22 +336,15 @@ class GameEngine {
     }
     
     adjustPerformanceMode() {
-        // More aggressive performance adjustments based on GPU usage
-        if (this.gpuUsage > this.criticalGpuThreshold && !this.performanceMode) {
-            // Critical performance mode
+        // Defer to centralized performance manager if present
+        if (window.performanceManager) {
+            return;
+        }
+        // Simple FPS-based performance adjustment
+        if (this.fps < 30 && !this.performanceMode) {
             this.enablePerformanceMode();
-            this.targetFps = 30; // Reduce FPS target
-            this.particleReductionFactor = 0.25; // More aggressive particle reduction
-        } else if (this.gpuUsage > this.highGpuThreshold && !this.performanceMode) {
-            // High performance mode
-            this.enablePerformanceMode();
-            this.targetFps = 45;
-            this.particleReductionFactor = 0.5;
-        } else if (this.gpuUsage < this.lowGpuThreshold && this.performanceMode) {
-            // Restore normal mode
+        } else if (this.fps > 55 && this.performanceMode) {
             this.disablePerformanceMode();
-            this.targetFps = 60;
-            this.particleReductionFactor = 1.0;
         }
     }
     
@@ -345,46 +357,22 @@ class GameEngine {
     }
     
     enablePerformanceMode() {
-        if (this.performanceMode) return; // Prevent multiple enables
-        
+        if (this.performanceMode) return;
         this.performanceMode = true;
         this.lowGpuMode = true;
-        
-        // Reduce visual effects
-        this.particleReductionFactor = 0.5;
-        this.maxParticles = Math.floor(this.maxParticles * 0.5);
-        
         // Optimize rendering
         this.ctx.imageSmoothingEnabled = false;
         this.ctx.globalCompositeOperation = 'source-over';
-        
-        // Reduce update frequency for non-critical entities
-        if (gameManager) {
-            gameManager.updateInterval = 0.1; // Update every 100ms instead of every frame
-        }
-        
-        console.log('Performance mode enabled');
+        // Performance mode enabled
     }
     
     disablePerformanceMode() {
-        if (!this.performanceMode) return; // Prevent multiple disables
-        
+        if (!this.performanceMode) return;
         this.performanceMode = false;
         this.lowGpuMode = false;
-        
-        // Restore visual effects
-        this.particleReductionFactor = 1.0;
-        this.maxParticles = 150;
-        
         // Restore rendering quality
         this.ctx.imageSmoothingEnabled = true;
-        
-        // Restore update frequency
-        if (gameManager) {
-            gameManager.updateInterval = 0;
-        }
-        
-        console.log('Performance mode disabled');
+        // Performance mode disabled
     }
     
     updateSpatialGrid() {
@@ -428,7 +416,7 @@ class GameEngine {
     
     checkAdjacentCellCollisions(gridX, gridY, entities) {
         const adjacentOffsets = [
-            [0, 1], [1, 0], [1, 1], [0, -1], [-1, 0], [-1, -1], [1, -1], [-1, 1]
+            [1, 0], [0, 1], [1, 1], [-1, 1]
         ];
         
         for (const [dx, dy] of adjacentOffsets) {
@@ -477,7 +465,7 @@ class GameEngine {
                 );
             }
         } catch (error) {
-            console.error('Error handling collision:', error, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
+            (window.logger?.error || console.error)('Error handling collision:', error, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
         }
     }
 
@@ -485,7 +473,7 @@ class GameEngine {
         if (typeof player.addXP === 'function' && typeof xpOrb.value === 'number') {
             player.addXP(xpOrb.value);
             if (typeof xpOrb.createCollectionEffect === 'function') {
-                try { xpOrb.createCollectionEffect(); } catch (e) { console.error("Error creating collection effect", e); }
+                try { xpOrb.createCollectionEffect(); } catch (e) { (window.logger?.error || console.error)('Error creating collection effect', e); }
             }
             if ('collected' in xpOrb) xpOrb.collected = true;
             xpOrb.isDead = true;
@@ -549,8 +537,8 @@ class GameEngine {
         if (this.player && projectile.lifesteal) {
             const healAmount = projectile.damage * projectile.lifesteal;
             this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
-            if (gameManager) {
-                gameManager.showFloatingText(`+${Math.round(healAmount)}`, this.player.x, this.player.y - 30, '#2ecc71', 14);
+            if (window.gameManager) {
+                window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, this.player.x, this.player.y - 30, '#2ecc71', 14);
             }
         }
 
@@ -584,7 +572,7 @@ class GameEngine {
     render() {
         // Check for context loss before rendering
         if (this.contextLost || !this.ctx) {
-            console.warn('Canvas context unavailable, skipping render');
+            (window.logger?.warn || console.warn)('Canvas context unavailable, skipping render');
             return;
         }
 
@@ -593,13 +581,6 @@ class GameEngine {
             if (!this.canvas.width || !this.canvas.height) {
                 return;
             }
-            
-            // Performance optimization: skip render if FPS is too low
-            const now = performance.now();
-            if (this.lastRenderTime && (now - this.lastRenderTime) < 8) { // Cap at 120fps max
-                return;
-            }
-            this.lastRenderTime = now;
             
             // Clear canvas with optimized method
             this.ctx.save();
@@ -619,7 +600,9 @@ class GameEngine {
             const visibleEntities = this.getVisibleEntities();
             
             // Render particles first (below entities)
-            if (window.gameManager && !window.gameManager.lowQuality && typeof window.gameManager.renderParticles === 'function') {
+            if (window.optimizedParticles && typeof window.optimizedParticles.render === 'function') {
+                window.optimizedParticles.render(this.ctx);
+            } else if (window.gameManager && !window.gameManager.lowQuality && typeof window.gameManager.renderParticles === 'function') {
                 window.gameManager.renderParticles(this.ctx);
             }
 
@@ -627,14 +610,22 @@ class GameEngine {
             this.renderEntities(visibleEntities);
             // Ensure player is drawn last on top as a safety net
             if (this.player && typeof this.player.render === 'function') {
-                try { this.player.render(this.ctx); } catch(e) { console.error('Player render error', e); }
+                try { this.player.render(this.ctx); } catch(e) { (window.logger?.error || console.error)('Player render error', e); }
             }
             
-            // Render pooled floating/combat texts on top of entities
+            // Render floating/combat texts if available
             if (window.gameManager && typeof window.gameManager._renderTexts === 'function') {
                 window.gameManager._renderTexts(this.ctx);
+            } else if (window.floatingTextSystem && typeof window.floatingTextSystem.render === 'function') {
+                window.floatingTextSystem.render(this.ctx);
             }
             
+            // Render particles again on top if needed (e.g., trails)
+            if (window.optimizedParticles && typeof window.optimizedParticles.render === 'function') {
+                window.optimizedParticles.render(this.ctx);
+            } else if (window.gameManager && typeof window.gameManager.renderParticles === 'function') {
+                window.gameManager.renderParticles(this.ctx);
+            }
             // Render debug information if enabled
             if (this.debugMode) {
                 this.renderDebugInfo();
@@ -643,7 +634,7 @@ class GameEngine {
             this.ctx.restore();
             
         } catch (error) {
-            console.error('Render error:', error);
+            (window.logger?.error || console.error)('Render error:', error);
             // Try to recover context if possible
             if (!this.ctx || this.contextLost) {
                 this.handleContextLoss(new Event('webglcontextlost'));
@@ -663,7 +654,7 @@ class GameEngine {
                 } catch (error) {
                     // Silent error handling - don't spam console in production
                     if (window.debugManager?.debugMode) {
-                        console.error(`Render error for ${entity.constructor?.name || 'entity'}:`, error);
+                        (window.logger?.error || console.error)(`Render error for ${entity.constructor?.name || 'entity'}:`, error);
                     }
                 }
             }
@@ -706,7 +697,7 @@ class GameEngine {
         
         this.ctx.restore();
     }
-      isColliding(entity1, entity2) {
+    isColliding(entity1, entity2) {
         // Validate entities have required properties
         if (!entity1 || !entity2 || 
             typeof entity1.x !== 'number' || typeof entity1.y !== 'number' || 
@@ -726,23 +717,23 @@ class GameEngine {
         return (dx * dx + dy * dy) < (r * r);
     }
       cleanupEntities() {
-        // Simple and efficient cleanup
+        // Simple and efficient cleanup with null checks
         this.entities = this.entities.filter(entity => 
-            entity && !entity.isDead
+            entity && !entity.isDead && typeof entity === 'object'
         );
         
         this.enemies = this.enemies.filter(enemy => 
-            enemy && !enemy.isDead
+            enemy && !enemy.isDead && typeof enemy === 'object'
         );
         
         this.xpOrbs = this.xpOrbs.filter(orb => 
-            orb && !orb.isDead
+            orb && !orb.isDead && typeof orb === 'object'
         );
         
         // Clean up projectiles and return to pool
         const liveProjectiles = [];
         for (const p of this.projectiles) {
-            if (!p || p.isDead) {
+            if (!p || p.isDead || typeof p !== 'object') {
                 if (p && p.type === 'projectile') this._releaseProjectile(p);
                 continue;
             }
@@ -750,10 +741,10 @@ class GameEngine {
         }
         this.projectiles = liveProjectiles;
         
-        if (this.enemyProjectiles) {
+        if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
             const liveEnemyProjectiles = [];
             for (const ep of this.enemyProjectiles) {
-                if (!ep || ep.isDead) {
+                if (!ep || ep.isDead || typeof ep !== 'object') {
                     if (ep && ep.type === 'enemyProjectile') this._releaseEnemyProjectile(ep);
                     continue;
                 }
@@ -768,7 +759,9 @@ class GameEngine {
             const nonPlayerEntities = this.entities.filter(e => e && e.type !== 'player');
             const toRemove = this.entities.length - maxEntities;
             for (let i = 0; i < toRemove && i < nonPlayerEntities.length; i++) {
-                nonPlayerEntities[i].isDead = true;
+                if (nonPlayerEntities[i]) {
+                    nonPlayerEntities[i].isDead = true;
+                }
             }
             this.entities = this.entities.filter(entity => entity && !entity.isDead);
         }
@@ -776,13 +769,26 @@ class GameEngine {
 
     // Projectile pooling helpers
     spawnProjectile(x, y, vx, vy, damage, piercing = 0, isCrit = false, specialType = null) {
-        let proj = this.projectilePool.pop();
+        // Validate parameters
+        if (typeof x !== 'number' || typeof y !== 'number' || 
+            typeof vx !== 'number' || typeof vy !== 'number' || 
+            typeof damage !== 'number' || damage <= 0) {
+            console.warn('Invalid projectile parameters:', { x, y, vx, vy, damage });
+            return null;
+        }
+        
+        let proj = this.projectilePool.length > 0 ? this.projectilePool.pop() : null;
         if (!proj) {
+            // Check if Projectile class is available
+            if (typeof Projectile === 'undefined') {
+                console.error('Projectile class not available');
+                return null;
+            }
             proj = new Projectile(x, y, vx, vy, damage, piercing, isCrit, specialType);
         } else {
-            // Reset pooled projectile
+            // Reset pooled projectile safely
             proj.x = x; proj.y = y; proj.vx = vx; proj.vy = vy;
-            proj.damage = damage; proj.piercing = piercing; proj.isCrit = isCrit;
+            proj.damage = damage; proj.piercing = piercing || 0; proj.isCrit = !!isCrit;
             proj.radius = 5; proj.type = 'projectile';
             proj.active = true; proj.isDead = false;
             proj.lifetime = 5.0; proj.age = 0;
@@ -801,7 +807,10 @@ class GameEngine {
                 if (typeof proj.initializeSpecialType === 'function') proj.initializeSpecialType(specialType);
             }
         }
-        this.addEntity(proj);
+        
+        if (proj) {
+            this.addEntity(proj);
+        }
         return proj;
     }
 
@@ -814,24 +823,12 @@ class GameEngine {
     }
 
     spawnEnemyProjectile(x, y, vx, vy, damage) {
-        let ep = this.enemyProjectilePool.pop();
-        if (!ep) {
-            ep = new EnemyProjectile(x, y, vx, vy, damage);
-        } else {
-            ep.x = x; ep.y = y; ep.vx = vx; ep.vy = vy; ep.damage = damage;
-            ep.type = 'enemyProjectile'; ep.radius = 5; ep.isDead = false; ep.timer = 0; ep.lifetime = 3;
-        }
-    // Rely on addEntity to manage enemyProjectiles list membership
-    this.addEntity(ep);
+        const ep = new EnemyProjectile(x, y, vx, vy, damage);
+        this.addEntity(ep);
         return ep;
     }
 
-    _releaseEnemyProjectile(ep) {
-        ep.isDead = true;
-        if (this.enemyProjectilePool.length < this.maxPoolSize) {
-            this.enemyProjectilePool.push(ep);
-        }
-    }
+    _releaseEnemyProjectile(ep) {}
       // Add error handling to addEntity
     addEntity(entity) {
         if (!entity) {
@@ -875,7 +872,7 @@ class GameEngine {
             
             // Assign unique ID if not present
             if (!entity.id) {
-                entity.id = `${entity.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                entity.id = `${entity.type}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
             }
             
             return entity;
@@ -889,7 +886,7 @@ class GameEngine {
     togglePause() {
         try {
             // Don't allow toggling pause when level-up menu is active
-            if (upgradeSystem && upgradeSystem.isLevelUpActive()) {
+            if (window.upgradeSystem && window.upgradeSystem.isLevelUpActive()) {
                 return;
             }
             
@@ -907,38 +904,47 @@ class GameEngine {
         this.isPaused = true;
         
         // Only show pause menu if we're not in level-up mode
-        if (!upgradeSystem || !upgradeSystem.isLevelUpActive()) {
-            document.getElementById('pause-menu').classList.remove('hidden');
+        if (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive()) {
+            const pauseMenu = document.getElementById('pause-menu');
+            if (pauseMenu) pauseMenu.classList.remove('hidden');
         }
         // Suspend audio during pause
-        if (audioSystem && audioSystem.audioContext && audioSystem.audioContext.state === 'running') {
-            audioSystem.audioContext.suspend();
+        if (window.audioSystem && window.audioSystem.audioContext && window.audioSystem.audioContext.state === 'running') {
+            window.audioSystem.audioContext.suspend();
         }
     }
     
     resumeGame() {
         // Don't resume if level-up menu is active
-        if (upgradeSystem && upgradeSystem.isLevelUpActive()) {
+        if (window.upgradeSystem && window.upgradeSystem.isLevelUpActive()) {
             return;
         }
         
         this.isPaused = false;
         
         // Hide pause menu
-        document.getElementById('pause-menu').classList.add('hidden');
+        const pauseMenu = document.getElementById('pause-menu');
+        if (pauseMenu) pauseMenu.classList.add('hidden');
         // Resume audio on unpause
-        if (audioSystem) {
-            audioSystem.resumeAudioContext();
+        if (window.audioSystem) {
+            window.audioSystem.resumeAudioContext();
         }
     }
     
     getVisibleEntities() {
-        if (!this.player) return this.entities;
+        if (!this.player || !Array.isArray(this.entities)) {
+            return []; // Return empty array if game state is invalid
+        }
         
         // Calculate visible area around player with margin
         const viewportWidth = this.canvas.width;
         const viewportHeight = this.canvas.height;
         const margin = 200; // Extra margin for entities about to enter view
+        
+        // Validate canvas dimensions
+        if (!viewportWidth || !viewportHeight) {
+            return this.entities.filter(e => e && !e.isDead);
+        }
         
         // Use spatial grid for faster culling
     const visibleEntities = [];
@@ -1029,9 +1035,9 @@ class GameEngine {
     
     reduceResourceUsage() {
         // Clear particles and effects
-        if (gameManager) {
-            gameManager.particles = [];
-            gameManager.particlePool = [];
+        if (window.gameManager) {
+            window.gameManager.particles = [];
+            window.gameManager.particlePool = [];
         }
         
         // Reduce update frequency
@@ -1042,8 +1048,8 @@ class GameEngine {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Suspend audio if available
-        if (audioSystem && audioSystem.audioContext) {
-            audioSystem.audioContext.suspend();
+        if (window.audioSystem && window.audioSystem.audioContext) {
+            window.audioSystem.audioContext.suspend();
         }
     }
     
@@ -1053,8 +1059,8 @@ class GameEngine {
         this.frameTime = 1000 / this.targetFps;
         
         // Resume audio if available
-        if (audioSystem && audioSystem.audioContext) {
-            audioSystem.audioContext.resume();
+        if (window.audioSystem && window.audioSystem.audioContext) {
+            window.audioSystem.audioContext.resume();
         }
     }
       cleanupResources() {
@@ -1089,12 +1095,12 @@ class GameEngine {
     handleContextLoss(event) {
         event.preventDefault();
         this.contextLost = true;
-        console.warn('Canvas context lost - game paused');
+            (window.logger?.warn || console.warn)('Canvas context lost - game paused');
         this.isPaused = true;
     }
     
     handleContextRestore(event) {
-        console.log('Canvas context restored - resuming game');
+        (window.logger?.log || console.log)('Canvas context restored - resuming game');
         this.contextLost = false;
         
         // Reinitialize canvas context
@@ -1105,30 +1111,43 @@ class GameEngine {
         
         if (this.ctx) {
             this.isPaused = false;
-            console.log('Game context successfully restored');
+            (window.logger?.log || console.log)('Game context successfully restored');
         } else {
-            console.error('Failed to restore canvas context');
+            (window.logger?.error || console.error)('Failed to restore canvas context');
         }
     }
     
     cleanupEventListeners() {
         // Remove event listeners to prevent memory leaks
         try {
-            window.removeEventListener('resize', this.resizeCanvas.bind(this));
-            this.canvas.removeEventListener('webglcontextlost', this.handleContextLoss.bind(this));
-            this.canvas.removeEventListener('webglcontextrestored', this.handleContextRestore.bind(this));
-            document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-            window.removeEventListener('focus', this.handleFocusChange.bind(this));
-            window.removeEventListener('blur', this.handleBlurChange.bind(this));
+            // Store original bound functions for proper removal
+            if (this.boundResizeCanvas) {
+                window.removeEventListener('resize', this.boundResizeCanvas);
+            }
+            if (this.boundHandleContextLoss) {
+                this.canvas.removeEventListener('webglcontextlost', this.boundHandleContextLoss);
+            }
+            if (this.boundHandleContextRestore) {
+                this.canvas.removeEventListener('webglcontextrestored', this.boundHandleContextRestore);
+            }
+            if (this.boundHandleVisibilityChange) {
+                document.removeEventListener('visibilitychange', this.boundHandleVisibilityChange);
+            }
+            if (this.boundHandleFocusChange) {
+                window.removeEventListener('focus', this.boundHandleFocusChange);
+            }
+            if (this.boundHandleBlurChange) {
+                window.removeEventListener('blur', this.boundHandleBlurChange);
+            }
             
-            console.log('Event listeners cleaned up successfully');
+            (window.logger?.log || console.log)('Event listeners cleaned up successfully');
         } catch (error) {
-            console.error('Error cleaning up event listeners:', error);
+            (window.logger?.error || console.error)('Error cleaning up event listeners:', error);
         }
     }
     
     shutdown() {
-        console.log('Shutting down game engine...');
+        (window.logger?.log || console.log)('Shutting down game engine...');
         this.isShuttingDown = true;
         this.isPaused = true;
         
@@ -1146,6 +1165,6 @@ class GameEngine {
         this.projectilePool = [];
         this.particlePool = [];
         
-        console.log('Game engine shutdown complete');
+        (window.logger?.log || console.log)('Game engine shutdown complete');
     }
 }

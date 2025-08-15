@@ -78,6 +78,9 @@ galactic-ring-cannon/
 3. Open project in VS Code
 4. Right-click `index.html` → "Open with Live Server"
 
+### Code Architecture & Patterns
+📋 **For developers**: See [`key-code-patterns.md`](./key-code-patterns.md) for essential architectural patterns, component design principles, and development guidelines established through collaborative AI development.
+
 ### Code Organization
 - **Modular Architecture**: Clear separation of concerns
 - **Performance Focused**: Optimized for 60fps gameplay

@@ -39,7 +39,7 @@ class ParticleEffects {
     createEffect(type, x, y, size = 1, color = '#9b59b6', addParticleCallback) {
         if (!addParticleCallback) return;
 
-        const factor = Math.max(0.1, Math.min(size, 3)); // Clamp size factor
+        const factor = MathUtils.clamp(size, 0.1, 3); // Clamp size factor
         
         switch (type) {
             case 'spread': {
@@ -87,8 +87,16 @@ class ParticleEffects {
         const vx = Math.cos(angle) * speed;
         const vy = Math.sin(angle) * speed;
         
-        const particle = new Particle(x, y, vx, vy, size, color, alpha);
-        addParticleCallback(particle);
+        // Use pooled particles when available
+        if (window.optimizedParticles) {
+            window.optimizedParticles.spawnParticle({
+                x, y, vx, vy, size, color, life: alpha, type: 'basic'
+            });
+        } else {
+            // Fallback to direct creation
+            const particle = new Particle(x, y, vx, vy, size, color, alpha);
+            addParticleCallback(particle);
+        }
     }
 }
 

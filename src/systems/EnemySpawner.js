@@ -12,11 +12,15 @@ class EnemySpawner {
         // Basic spawning parameters
         // TODO: Make spawning parameters configurable via game settings
         // TODO: Implement adaptive spawn rate based on player performance
-        this.spawnRate = 1; // enemies per second
+        const GC = (window.GAME_CONSTANTS || {});
+        const EN = GC.ENEMIES || {};
+        const MODES = GC.MODES || {};
+        const DIFF = GC.DIFFICULTY || {};
+        this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 1; // enemies per second
         this.spawnTimer = 0;
         this.spawnCooldown = 1 / this.spawnRate;
-        this.maxEnemies = 50; // TODO: Scale based on device performance
-        this.spawnRadius = 800; // Distance from player to spawn enemies
+        this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 50; // TODO: Scale based on device performance
+        this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 800; // Distance from player to spawn enemies
         
         // Enemy types progression
         // TODO: Move enemy unlock data to configuration file
@@ -39,13 +43,15 @@ class EnemySpawner {
         // TODO: Implement exponential difficulty curves with proper balancing
         // FIX: Linear difficulty increase becomes too harsh at higher levels
         this.difficultyTimer = 0;
-        this.difficultyInterval = 30; // Increase difficulty every 30 seconds
+        this.difficultyInterval = typeof DIFF.SCALING_INTERVAL === 'number' ? DIFF.SCALING_INTERVAL : 30; // Increase difficulty every interval
         
         // Boss spawning
         // TODO: Make boss spawning more dynamic based on player progress
         // TODO: Add boss variety and scaling
         this.bossTimer = 0;
-        this.bossInterval = 60; // Boss every 1 minute
+        this.bossSpawnTimes = Array.isArray(MODES.BOSS_SPAWN_TIMES) && MODES.BOSS_SPAWN_TIMES.length > 0 ? MODES.BOSS_SPAWN_TIMES : [60];
+        this.bossSpawnIndex = 0;
+        this.bossInterval = this.bossSpawnTimes[this.bossSpawnIndex] || 60; // First boss timing
         this.bossScaleFactor = 1.0;
         this.bossesKilled = 0;
         
@@ -59,7 +65,7 @@ class EnemySpawner {
         
         // Elite enemies
         // TODO: Add more elite enemy variety and abilities
-        this.eliteChance = 0.05; // 5% base chance
+        this.eliteChance = typeof EN.ELITE_CHANCE_BASE === 'number' ? EN.ELITE_CHANCE_BASE : 0.05; // base chance
         this.eliteTimer = 0;
         this.eliteInterval = 40; // Increase elite chance every 40 seconds
         
@@ -72,7 +78,7 @@ class EnemySpawner {
         // FIX: Health multiplier makes enemies too tanky at high levels
         this.enemyHealthMultiplier = 1.0;
         
-        console.log('👹 Enemy Spawner initialized');
+        // Enemy Spawner initialized
     }
     
     /**
@@ -105,7 +111,7 @@ class EnemySpawner {
             // Unlock new enemy types
             this.unlockNewEnemyTypes();
             
-            console.log(`📈 Difficulty increased: spawn rate ${this.spawnRate.toFixed(2)}, max enemies ${this.maxEnemies}`);
+            // Difficulty increased
         }
     }
     
@@ -119,7 +125,7 @@ class EnemySpawner {
             if (!this.enemyTypes.includes(enemyType) && gameTimeMinutes >= unlockTime) {
                 this.enemyTypes.push(enemyType);
                 this.showNewEnemyMessage(`${this.getEnemyDisplayName(enemyType)} enemies have appeared!`);
-                console.log(`🆕 New enemy type unlocked: ${enemyType}`);
+                // New enemy type unlocked
             }
         }
     }
@@ -155,6 +161,11 @@ class EnemySpawner {
         if (this.bossTimer >= this.bossInterval) {
             this.bossTimer = 0;
             this.spawnBoss();
+            // Advance to next configured boss time if available
+            if (this.bossSpawnIndex < this.bossSpawnTimes.length - 1) {
+                this.bossSpawnIndex++;
+                this.bossInterval = this.bossSpawnTimes[this.bossSpawnIndex];
+            }
         }
     }
     
@@ -197,38 +208,37 @@ class EnemySpawner {
             this.eliteTimer = 0;
             // Gradually increase elite chance (cap at 25%)
             this.eliteChance = Math.min(0.25, this.eliteChance + 0.02);
-            console.log(`⭐ Elite chance increased to ${(this.eliteChance * 100).toFixed(1)}%`);
+            // Elite chance increased
         }
     }
+    
+    // Note: createEnemy consolidated below
     
     /**
      * Spawn a regular enemy
      */
     spawnEnemy() {
         if (!this.game.player) return;
-        
-        // Generate spawn position around player
         const spawnPos = this.getSpawnPosition();
-        
-        // Pick random enemy type
         const enemyType = this.getRandomEnemyType();
-        
-        // Create enemy
-        const enemy = new Enemy(spawnPos.x, spawnPos.y, enemyType);
-        
-        // Apply difficulty scaling
+        const enemy = this.createEnemy(enemyType, spawnPos.x, spawnPos.y);
+        if (!enemy) return;
+        this.game.addEntity(enemy);
+        this.totalEnemiesSpawned++;
+        // Enemy spawned
+    }
+
+    /**
+     * Factory to create an enemy by type at a position
+     * Creates an instance without side-effects (no add to game)
+     */
+    createEnemy(type, x, y) {
+        const enemy = new Enemy(x, y, type);
         this.applyDifficultyScaling(enemy);
-        
-        // Chance for elite
         if (Math.random() < this.eliteChance) {
             this.makeElite(enemy);
         }
-        
-        // Add to game
-        this.game.addEntity(enemy);
-        this.totalEnemiesSpawned++;
-        
-        console.log(`👹 Spawned ${enemy.isElite ? 'Elite ' : ''}${enemyType} enemy`);
+        return enemy;
     }
     
     /**
@@ -306,7 +316,7 @@ class EnemySpawner {
         // Type-specific elite bonuses
         this.applyEliteBonuses(enemy);
         
-        console.log(`⭐ Created elite ${enemy.enemyType} with ${enemy.maxHealth} HP`);
+        // Elite enemy created
     }
     
     /**
@@ -382,7 +392,7 @@ class EnemySpawner {
         }
         
         this.showNewEnemyMessage("⚠️ BOSS INCOMING! ⚠️");
-        console.log(`👑 Boss spawned with ${boss.maxHealth} HP`);
+        // Boss spawned successfully
     }
     
     /**
@@ -392,7 +402,7 @@ class EnemySpawner {
         this.waveCount++;
         const waveSize = Math.min(15, 5 + this.waveCount);
         
-        console.log(`🌊 Spawning wave ${this.waveCount} with ${waveSize} enemies`);
+        // Wave spawning initiated
         
         for (let i = 0; i < waveSize; i++) {
             // Delay spawning slightly to spread out the wave
@@ -430,7 +440,7 @@ class EnemySpawner {
         
         if (enemy.isBoss) {
             this.bossesKilled++;
-            console.log(`👑 Boss killed! Total bosses defeated: ${this.bossesKilled}`);
+            // Boss defeated - tracking for difficulty scaling
         }
         
         // Update health multiplier for sustained challenge
@@ -476,7 +486,7 @@ class EnemySpawner {
         this.enemyHealthMultiplier = 1.0;
         this.enemiesKilledThisWave = 0;
         
-        console.log('👹 Enemy Spawner reset for new game');
+        // Enemy spawner reset for new game
     }
     
     /**
@@ -491,6 +501,11 @@ class EnemySpawner {
         if (config.wavesEnabled !== undefined) this.wavesEnabled = config.wavesEnabled;
         if (config.eliteChance) this.eliteChance = config.eliteChance;
         
-        console.log('👹 Enemy Spawner configured', config);
+        // Enemy spawner configured with new settings
     }
+}
+
+// Make globally available
+if (typeof window !== 'undefined') {
+    window.EnemySpawner = EnemySpawner;
 }

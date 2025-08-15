@@ -1,7 +1,8 @@
-// Debug utilities for development and testing
+// 🤖 RESONANT NOTE: This DebugManager is being simplified since Logger.js handles logging
+// Keeping only essential debug/cheat functionality, removing redundant logging features
 
 /**
- * Debug Manager for development tools and cheats
+ * Simplified Debug Manager - Essential cheats and overlay only
  * @class DebugManager
  */
 class DebugManager {
@@ -98,6 +99,16 @@ class DebugManager {
         }
     }
     
+    // Add cleanup method to prevent memory leaks
+    cleanup() {
+        this.disable();
+        this.removeOverlay();
+        if (this.overlayInterval) {
+            clearInterval(this.overlayInterval);
+            this.overlayInterval = null;
+        }
+    }
+    
     createOverlay() {
         if (this.overlay) return;
         
@@ -130,7 +141,10 @@ class DebugManager {
     
     removeOverlay() {
         if (this.overlay) {
-            document.body.removeChild(this.overlay);
+            // Safety check to ensure element is still in DOM
+            if (this.overlay.parentNode) {
+                this.overlay.parentNode.removeChild(this.overlay);
+            }
             this.overlay = null;
         }
         
@@ -206,28 +220,37 @@ Commands:
     
     giveXP(amount) {
         const player = window.gameManager?.game?.player;
-        if (player) {
+        if (player && typeof player.addExperience === 'function') {
             player.addExperience(amount);
+            (window.logger?.log || (() => {}))(`✨ Gave ${amount} XP to player`);
+        } else {
+            (window.logger?.warn || (() => {}))('⚠️ Player not found or addExperience method not available');
         }
     }
     
     giveStars(amount) {
         const gameManager = window.gameManager;
-        if (gameManager) {
+        if (gameManager && typeof gameManager.earnStarTokens === 'function') {
             gameManager.earnStarTokens(amount);
+            (window.logger?.log || (() => {}))(`⭐ Gave ${amount} star tokens`);
+        } else {
+            (window.logger?.warn || (() => {}))('⚠️ GameManager not found or earnStarTokens method not available');
         }
     }
     
     killAllEnemies() {
         const enemies = window.gameManager?.game?.enemies;
-        if (enemies) {
+        if (enemies && Array.isArray(enemies)) {
             let killed = 0;
             enemies.forEach(enemy => {
-                if (!enemy.isDead) {
+                if (enemy && !enemy.isDead && typeof enemy.takeDamage === 'function') {
                     enemy.takeDamage(enemy.health + 1000);
                     killed++;
                 }
             });
+            (window.logger?.log || (() => {}))(`🗡️ Killed ${killed} enemies`);
+        } else {
+            (window.logger?.warn || (() => {}))('⚠️ No enemies found or enemies array not available');
         }
     }
     

@@ -142,11 +142,11 @@ class Projectile {
         
         const candidates = this._getNearbyEnemies(game, this.homing.range);
         for (const enemy of candidates) {
-            if (enemy.isDead) continue;
+            if (!enemy || enemy.isDead || typeof enemy.x !== 'number' || typeof enemy.y !== 'number') continue;
             const dx = enemy.x - this.x;
             const dy = enemy.y - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < closestDistance) {
+            if (distance < closestDistance && distance > 0) {
                 const currentAngle = Math.atan2(this.vy, this.vx);
                 const targetAngle = Math.atan2(dy, dx);
                 let angleDiff = Math.abs(targetAngle - currentAngle);
@@ -207,8 +207,12 @@ class Projectile {
         const adaptiveTurnSpeed = this.homing.turnSpeed * (0.2 + 0.8 * distanceFactor) * (0.5 + 0.5 * angleFactor);
         const maxTurn = adaptiveTurnSpeed * deltaTime;
         
-        // Apply turn speed limit with smoothing
-        angleDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
+        // Apply turn speed limit with smoothing (guard MathUtils)
+        if (window.MathUtils && typeof window.MathUtils.clamp === 'function') {
+            angleDiff = window.MathUtils.clamp(angleDiff, -maxTurn, maxTurn);
+        } else {
+            angleDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
+        }
         
         // Calculate new angle and velocity
         const newAngle = currentAngle + angleDiff;
@@ -221,8 +225,11 @@ class Projectile {
         this.explosive.exploded = true;
         
         // Create explosion effect
-        if (gameManager && gameManager.createExplosion) {
-            gameManager.createExplosion(this.x, this.y, this.explosive.radius, '#ff8800');
+        {
+            const gm = window.gameManager || window.gameManagerBridge;
+            if (gm?.createExplosion) {
+                gm.createExplosion(this.x, this.y, this.explosive.radius, '#ff8800');
+            }
         }
         
         // Damage enemies in explosion radius with improved calculation
@@ -247,9 +254,9 @@ class Projectile {
                     impactedEnemies.push(enemy);
                     
                     // Show explosion damage
-                    if (gameManager) {
-                        gameManager.showFloatingText(`${Math.round(explosionDamage)}`, 
-                            enemy.x, enemy.y - 30, '#ff8800', 16);
+                    {
+                        const gm = window.gameManager || window.gameManagerBridge;
+                        gm?.showFloatingText?.(`${Math.round(explosionDamage)}`, enemy.x, enemy.y - 30, '#ff8800', 16);
                     }
                 }
             }
@@ -262,8 +269,11 @@ class Projectile {
                 const target = impactedEnemies[Math.floor(Math.random() * impactedEnemies.length)];
                 if (target && !target.isDead) {
                     // Visual mini-explosion
-                    if (gameManager && gameManager.createExplosion) {
-                        gameManager.createExplosion(target.x, target.y, (this.explosive.radius || 60) * 0.6, '#ffbb66');
+                    {
+                        const gm = window.gameManager || window.gameManagerBridge;
+                        if (gm?.createExplosion) {
+                            gm.createExplosion(target.x, target.y, (this.explosive.radius || 60) * 0.6, '#ffbb66');
+                        }
                     }
                     // Apply small extra damage in a tight radius
                     for (const e of game.enemies) {
@@ -275,7 +285,7 @@ class Projectile {
                             const fall = Math.max(0.3, 1 - (dist2 / range2));
                             const dmg2 = Math.max(1, (this.explosive.damage || this.damage * 0.5) * 0.5 * fall);
                             e.takeDamage(dmg2);
-                            if (gameManager) gameManager.showFloatingText(`${Math.round(dmg2)}`, e.x, e.y - 24, '#ffbb66', 12);
+                            (window.gameManager || window.gameManagerBridge)?.showFloatingText?.(`${Math.round(dmg2)}`, e.x, e.y - 24, '#ffbb66', 12);
                         }
                     }
                 }
@@ -321,9 +331,9 @@ class Projectile {
             this.hitEnemies.add(target.id);
             
             // Show chain damage
-            if (gameManager) {
-                gameManager.showFloatingText(`${Math.round(chainDamage)}`, 
-                    target.x, target.y - 30, '#3498db', 14);
+            {
+                const gm = window.gameManager || window.gameManagerBridge;
+                gm?.showFloatingText?.(`${Math.round(chainDamage)}`, target.x, target.y - 30, '#3498db', 14);
             }
             
             this.chainLightning.chainsUsed++;
@@ -331,27 +341,37 @@ class Projectile {
     }
     
     createLightningEffect(x1, y1, x2, y2) {
-        const gm = gameManager;
-        if (!gm || !gm.particles || gm.lowQuality) return;
+    const gm = window.gameManager || window.gameManagerBridge;
+        if (!gm || gm.lowQuality) return;
         
-        // Create lightning particles between points
+        // Create lightning particles between points (pool-first)
         const factor = (gm.particleReductionFactor || 1.0);
         const segments = Math.max(3, Math.floor(8 * factor));
         for (let i = 0; i <= segments; i++) {
             const t = i / segments;
             const x = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 20;
             const y = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 20;
-            
-            const particle = new Particle(
-                x, y,
-                (Math.random() - 0.5) * 50,
-                (Math.random() - 0.5) * 50,
-                3,
-                '#3498db',
-                0.3
-            );
-            
-            gm.tryAddParticle(particle);
+            if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
+                window.optimizedParticles.spawnParticle({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 50,
+                    vy: (Math.random() - 0.5) * 50,
+                    size: 3,
+                    color: '#3498db',
+                    life: 0.3,
+                    type: 'spark'
+                });
+            } else if (gm.tryAddParticle) {
+                const particle = new Particle(
+                    x, y,
+                    (Math.random() - 0.5) * 50,
+                    (Math.random() - 0.5) * 50,
+                    3,
+                    '#3498db',
+                    0.3
+                );
+                gm.tryAddParticle(particle);
+            }
         }
     }
     
@@ -391,8 +411,11 @@ class Projectile {
                 this.ricochet.bounced++;
                 
                 // Visual effect
-                if (gameManager && gameManager.createExplosion) {
-                    gameManager.createExplosion(this.x, this.y, 15, '#44ff44');
+                {
+                    const gm = window.gameManager || window.gameManagerBridge;
+                    if (gm?.createExplosion) {
+                        gm.createExplosion(this.x, this.y, 15, '#44ff44');
+                    }
                 }
                 
                 return true; // Successfully ricocheted
@@ -555,7 +578,11 @@ class Projectile {
 
 // Helper: get nearby enemies using GameEngine.spatialGrid if available
 Projectile.prototype._getNearbyEnemies = function(game, range) {
-    if (!game || !game.spatialGrid || !game.gridSize) return game.enemies || [];
+    if (!game || !Array.isArray(game.enemies)) return [];
+    if (!game.spatialGrid || !game.gridSize || typeof range !== 'number' || range <= 0) {
+        return game.enemies;
+    }
+    
     const gridRange = Math.ceil(range / game.gridSize);
     const gx = Math.floor(this.x / game.gridSize);
     const gy = Math.floor(this.y / game.gridSize);
@@ -564,9 +591,11 @@ Projectile.prototype._getNearbyEnemies = function(game, range) {
         for (let dy = -gridRange; dy <= gridRange; dy++) {
             const key = `${gx + dx},${gy + dy}`;
             const bucket = game.spatialGrid.get(key);
-            if (!bucket) continue;
-            for (const e of bucket) if (e && e.type === 'enemy') out.push(e);
+            if (!bucket || !Array.isArray(bucket)) continue;
+            for (const e of bucket) {
+                if (e && e.type === 'enemy' && !e.isDead) out.push(e);
+            }
         }
     }
-    return out.length ? out : (game.enemies || []);
+    return out.length ? out : game.enemies;
 };

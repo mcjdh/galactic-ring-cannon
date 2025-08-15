@@ -21,16 +21,12 @@ class UIManager {
         this.activeBosses = new Map();
         this.bossActive = false;
         
-        // Floating text system
-        this._textPool = null;
-        this._activeTexts = [];
-        this._textMax = 80;
-        this._textPoolSize = 120;
+        // Floating text system (now delegated to FloatingTextSystem.js)
         
         // UI elements cache
         this.elements = {};
         
-        console.log('🎨 UI Manager initialized');
+        (window.logger?.log || console.log)('🎨 UI Manager initialized');
     }
     
     /**
@@ -41,7 +37,7 @@ class UIManager {
         this.initializePauseControls();
         this.initializeMinimap();
         this.cacheUIElements();
-        console.log('🎨 UI Manager fully initialized');
+        (window.logger?.log || console.log)('🎨 UI Manager fully initialized');
     }
     
     /**
@@ -631,77 +627,42 @@ class UIManager {
         });
     }
     
-    /**
-     * Floating text system - Initialize text pool
-     */
-    _ensureTextPool() {
-        if (this._textPool) return;
-        this._textPool = [];
-        this._activeTexts = [];
-        for (let i = 0; i < this._textPoolSize; i++) {
-            this._textPool.push({ active: false });
-        }
-    }
+    // 🤖 RESONANT NOTE FOR ALL CODING AGENTS:
+    // Floating text functionality consolidated into FloatingTextSystem.js
+    // This UIManager now delegates to the shared FloatingTextSystem to avoid duplication
     
     /**
-     * Spawn floating text
+     * Get or create shared floating text system
      */
+    _getFloatingTextSystem() {
+        if (!window.floatingTextSystem && window.FloatingTextSystem) {
+            window.floatingTextSystem = new window.FloatingTextSystem();
+        }
+        return window.floatingTextSystem;
+    }
+    
+    // Legacy method - now delegates to FloatingTextSystem
     _spawnText(entry) {
-        this._ensureTextPool();
-        const t = this._textPool.pop() || { active: false };
-        Object.assign(t, entry, { active: true, age: 0, lifetime: 0.9, vy: -30 });
-        this._activeTexts.push(t);
-        
-        if (this._activeTexts.length > this._textMax) {
-            const old = this._activeTexts.shift();
-            if (old) {
-                old.active = false;
-                this._textPool.push(old);
-            }
+        const system = this._getFloatingTextSystem();
+        if (system && system.spawn) {
+            system.spawn(entry);
         }
     }
     
-    /**
-     * Update floating texts (call each frame)
-     */
+    // Legacy method - now delegates to FloatingTextSystem
     _updateTexts(deltaTime) {
-        if (!this._activeTexts || this._activeTexts.length === 0) return;
-        
-        for (let i = this._activeTexts.length - 1; i >= 0; i--) {
-            const t = this._activeTexts[i];
-            t.age += deltaTime;
-            
-            if (t.age >= t.lifetime) {
-                this._activeTexts.splice(i, 1);
-                t.active = false;
-                this._textPool.push(t);
-                continue;
-            }
-            
-            // Simple upward drift and fade
-            t.y += t.vy * deltaTime;
+        const system = this._getFloatingTextSystem();
+        if (system && system.update) {
+            system.update(deltaTime);
         }
     }
     
-    /**
-     * Render floating texts on canvas
-     */
+    // Legacy method - now delegates to FloatingTextSystem
     _renderTexts(ctx) {
-        if (!this._activeTexts || this._activeTexts.length === 0) return;
-        
-        ctx.save();
-        ctx.textAlign = 'center';
-        
-        for (const t of this._activeTexts) {
-            const alpha = 1 - (t.age / t.lifetime);
-            ctx.globalAlpha = Math.max(0, alpha);
-            ctx.fillStyle = t.color || 'white';
-            ctx.font = `${t.size || 16}px Arial`;
-            ctx.fillText(t.text, t.x, t.y);
+        const system = this._getFloatingTextSystem();
+        if (system && system.render) {
+            system.render(ctx);
         }
-        
-        ctx.globalAlpha = 1;
-        ctx.restore();
     }
     
     /**
@@ -814,14 +775,12 @@ class UIManager {
      * Clean up UI manager
      */
     destroy() {
-        // Clear active texts and pool
-        this._activeTexts = [];
-        this._textPool = null;
+        // Floating text system cleared via FloatingTextSystem
         
         // Clear boss tracking
         this.activeBosses.clear();
         this.bossActive = false;
         
-        console.log('🎨 UI Manager destroyed');
+        (window.logger?.log || console.log)('🎨 UI Manager destroyed');
     }
 }

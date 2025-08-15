@@ -62,7 +62,7 @@ class InputManager {
         window.addEventListener('gamepadconnected', this.handleGamepadConnected.bind(this));
         window.addEventListener('gamepaddisconnected', this.handleGamepadDisconnected.bind(this));
         
-        console.log('🎮 Input Manager initialized');
+        // Input manager initialized successfully
     }
     
     /**
@@ -134,7 +134,7 @@ class InputManager {
             if (window.gameManager) {
                 window.gameManager.lowQuality = !window.gameManager.lowQuality;
                 localStorage.setItem('lowQuality', window.gameManager.lowQuality);
-                console.log('Low Quality Mode:', window.gameManager.lowQuality);
+                // Low quality mode toggled
             }
         }
         
@@ -208,7 +208,7 @@ class InputManager {
      * @param {GamepadEvent} e - Gamepad event
      */
     handleGamepadConnected(e) {
-        console.log('🎮 Gamepad connected:', e.gamepad.id);
+        // Gamepad connected
         this.gamepadState = e.gamepad;
     }
     
@@ -217,7 +217,7 @@ class InputManager {
      * @param {GamepadEvent} e - Gamepad event
      */
     handleGamepadDisconnected(e) {
-        console.log('🎮 Gamepad disconnected:', e.gamepad.id);
+        // Gamepad disconnected
         this.gamepadState = null;
     }
     
@@ -370,6 +370,6 @@ class InputManager {
         window.removeEventListener('gamepadconnected', this.handleGamepadConnected);
         window.removeEventListener('gamepaddisconnected', this.handleGamepadDisconnected);
         
-        console.log('🎮 Input Manager destroyed');
+        // Input manager cleanup completed
     }
 }

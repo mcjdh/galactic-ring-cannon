@@ -1,37 +1,35 @@
-// TODO: Split this massive Player class into components:
-//       - PlayerMovement for movement and physics
-//       - PlayerCombat for attack systems
-//       - PlayerProgression for XP and upgrades
-//       - PlayerAbilities for special skills
-// FIX: Too many properties and methods - violates Single Responsibility
-// TODO: Use composition over inheritance for player abilities
+// Player class - Core player entity for the game
+// Fixed: Replaced magic numbers with named constants from GameConstants
+// Fixed: Improved const access pattern for better performance and readability
 
 class Player {
     constructor(x, y) {
         this.x = x;
         this.y = y;
         this.type = 'player';
-        this.radius = 20;
+        this.radius = PLAYER_CONSTANTS.RADIUS || 20;
         
-        // TODO: Move all gameplay constants to gameConfig.js
-        // FIX: Magic numbers should be defined as named constants
-        this.speed = 220; // Slightly faster base speed
-        this.health = 120; // More starting health
-        this.maxHealth = 120;
+        // Get constants reference once for better performance
+        const PLAYER_CONSTANTS = window.GAME_CONSTANTS?.PLAYER || {};
+        const COLORS = window.GAME_CONSTANTS?.COLORS || {};
+        
+        // Core player stats - using named constants instead of magic numbers
+        this.speed = PLAYER_CONSTANTS.BASE_SPEED || 220;
+        this.health = PLAYER_CONSTANTS.BASE_HEALTH || 120;
+        this.maxHealth = PLAYER_CONSTANTS.BASE_HEALTH || 120;
         this.xp = 0;
-        this.xpToNextLevel = 212; // Lower first level XP requirement (from 80)
+        this.xpToNextLevel = PLAYER_CONSTANTS.INITIAL_XP_TO_LEVEL || 212;
         this.level = 1;
         this.isDead = false;
         this.isInvulnerable = false;
-        this.invulnerabilityTime = 0.5; // seconds
+        this.invulnerabilityTime = PLAYER_CONSTANTS.INVULNERABILITY_TIME || 0.5;
         this.invulnerabilityTimer = 0;
-        this.color = '#3498db';
+        this.color = COLORS.PLAYER || '#3498db';
         
-        // Attack properties
-        // TODO: Extract attack system to PlayerCombat component
-        this.attackSpeed = 1.2; // Slightly faster base attack speed
-        this.attackDamage = 25; // Increased from 15 for better early game balance
-        this.attackRange = 300;
+        // Attack properties - using named constants
+        this.attackSpeed = PLAYER_CONSTANTS.BASE_ATTACK_SPEED || 1.2;
+        this.attackDamage = PLAYER_CONSTANTS.BASE_ATTACK_DAMAGE || 25;
+        this.attackRange = PLAYER_CONSTANTS.BASE_ATTACK_RANGE || 300;
         this.attackTimer = 0;
         this.attackCooldown = 1 / this.attackSpeed;
         
@@ -41,18 +39,18 @@ class Player {
         this.hasSpreadAttack = false;
         this.hasAOEAttack = false;
         
-        this.projectileSpeed = 450; // Faster projectiles
+        this.projectileSpeed = PLAYER_CONSTANTS.BASE_PROJECTILE_SPEED || 450;
         this.projectileCount = 1;
         this.projectileSpread = 0; // angle in degrees
         this.piercing = 0; // Number of enemies projectile can pierce through
-        this.critChance = 0.10; // 10% base chance (up from 8%)
-        this.critMultiplier = 2.2; // 2.2x damage on crit (up from 2.0)
+        this.critChance = PLAYER_CONSTANTS.BASE_CRIT_CHANCE || 0.10;
+        this.critMultiplier = PLAYER_CONSTANTS.BASE_CRIT_MULTIPLIER || 2.2;
         
-        // AOE attack specific properties
-        this.aoeAttackCooldown = 2.0; // seconds between AOE attacks
+        // AOE attack specific properties - using named constants
+        this.aoeAttackCooldown = PLAYER_CONSTANTS.AOE_ATTACK_COOLDOWN || 2.0;
         this.aoeAttackTimer = 0;
-        this.aoeAttackRange = 150; // shorter than projectile range
-        this.aoeDamageMultiplier = 0.6; // AOE does less damage per hit than projectiles
+        this.aoeAttackRange = PLAYER_CONSTANTS.AOE_ATTACK_RANGE || 150;
+        this.aoeDamageMultiplier = PLAYER_CONSTANTS.AOE_DAMAGE_MULTIPLIER || 0.6;
         
         // Defensive properties
         // TODO: Group related properties into configuration objects
@@ -61,29 +59,30 @@ class Player {
         this.regeneration = 0; // health per second
         this.regenTimer = 0;
         
-        // Special abilities
-        // TODO: Replace magic number with named constant
-        this.magnetRange = 120; // Increased base XP attraction radius
+        // Special abilities - using named constants
+        this.magnetRange = PLAYER_CONSTANTS.BASE_MAGNET_RANGE || 120;
         
         // Upgrade-related properties
         // TODO: Move upgrade system to separate UpgradeManager
         this.upgrades = [];
         
-        // Dodge ability
+        // Dodge ability - using named constants instead of magic numbers
         // TODO: Extract dodge system to PlayerAbilities component
-        // FIX: Dodge properties scattered, should be grouped
         this.canDodge = true;
-        this.dodgeCooldown = 2; // seconds
+        this.dodgeCooldown = PLAYER_CONSTANTS.DODGE_COOLDOWN || 2;
         this.dodgeTimer = 0;
         this.isDodging = false;
-        this.dodgeDuration = 0.3; // seconds
-        this.dodgeSpeed = 600; // faster speed during dodge
+        this.dodgeDuration = PLAYER_CONSTANTS.DODGE_DURATION || 0.3;
+        this.dodgeSpeed = PLAYER_CONSTANTS.DODGE_SPEED || 600;
         this.dodgeDirection = { x: 0, y: 0 };
+    // Separate timers to avoid double-counting between active-dodge and cooldown
+    this.dodgeCooldownTimer = 0; // progresses while dodge is cooling down
+    this.dodgeActiveTimer = 0;   // measures active dodge duration
         
         // Trail effect properties
         // TODO: Move visual effects to PlayerRenderer component
         this.lastTrailPos = { x: 0, y: 0 };
-        this.trailDistance = 15; // Distance before creating a new trail particle
+        this.trailDistance = PLAYER_CONSTANTS.TRAIL_DISTANCE || 15;
         this.isMoving = false;
         
         // Orbit attack properties
@@ -106,9 +105,7 @@ class Player {
         this.hasExplosiveShots = false;
         this.explosionRadius = 0;
         this.explosionDamage = 0;
-    this.explosionChainChance = 0;
-        
-        // Lifesteal properties
+        this.explosionChainChance = 0;        // Lifesteal properties
         this.lifestealAmount = 0;
         this.lifestealCritMultiplier = 1;
         this.lifestealAOE = false;
@@ -130,6 +127,29 @@ class Player {
         this.killStreakTimeout = 5.0; // seconds
     }
     
+    // Prefer pooled particles with graceful fallback
+    spawnParticleViaPoolOrFallback(x, y, vx, vy, size, color, life, type = 'basic') {
+        try {
+            if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
+                window.optimizedParticles.spawnParticle({ x, y, vx, vy, size, color, life, type });
+                return true;
+            }
+            const gm = window.gameManager;
+            if (gm && typeof gm.tryAddParticle === 'function') {
+                if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
+                    window.optimizedParticles.spawnParticle({ x, y, vx, vy, size, color, life, type });
+                } else {
+                    const particle = new Particle(x, y, vx, vy, size, color, life);
+                    gm.tryAddParticle(particle);
+                }
+                return true;
+            }
+        } catch (e) {
+            (window.logger?.warn || (() => {}))('Particle spawn failed in Player', e);
+        }
+        return false;
+    }
+    
     update(deltaTime, game) {
         this.handleMovement(deltaTime, game);
         this.handleAttacks(deltaTime, game);
@@ -148,6 +168,13 @@ class Player {
     }
     
     handleMovement(deltaTime, game) {
+        if (this.isDodging) {
+            // Apply dodge movement
+            this.x += this.dodgeDirection.x * this.dodgeSpeed * deltaTime;
+            this.y += this.dodgeDirection.y * this.dodgeSpeed * deltaTime;
+            return; // Skip normal movement during dodge
+        }
+
         let inputX = 0;
         let inputY = 0;
         
@@ -231,19 +258,14 @@ class Player {
         
     createTrailParticle(x, y) {
         // Respect performance settings
-        if (!gameManager || gameManager.lowQuality) return;
+        if (!window.gameManager || window.gameManager.lowQuality) return;
         const trailSize = this.isDodging ? this.radius * 0.8 : this.radius * 0.5;
         // Slightly shorten in constrained modes
         const baseDuration = this.isDodging ? 0.4 : 0.3;
-        const factor = (gameManager.particleReductionFactor || 1.0);
+        const factor = (window.gameManager.particleReductionFactor || 1.0);
         const duration = baseDuration * (factor < 1 ? Math.max(0.6, factor + 0.4) : 1);
 
-        const particle = new Particle(
-            x, y, 0, 0, trailSize, this.color, duration
-        );
-        
-        // Add respecting budget/caps
-        gameManager.tryAddParticle(particle);
+        this.spawnParticleViaPoolOrFallback(x, y, 0, 0, trailSize, this.color, duration, 'trail');
     }
     
     handleAttacks(deltaTime, game) {
@@ -251,7 +273,9 @@ class Player {
         if (this.attackTimer >= this.attackCooldown) {
             this.attackTimer = 0;
             // Play boss beat on attack cadence; shooting SFX plays once per volley inside attack()
-            audioSystem.playBossBeat();
+            if (window.audioSystem?.playBossBeat) {
+                window.audioSystem.playBossBeat();
+            }
             this.attack(game);
         }
         
@@ -276,37 +300,46 @@ class Player {
     }
     
     heal(amount) {
-        if (this.isDead) return;
+        if (this.isDead || typeof amount !== 'number' || amount <= 0) return;
+        
         const oldHealth = this.health;
         this.health = Math.min(this.maxHealth, this.health + amount);
         
         // Update health bar if health actually changed
         if (oldHealth !== this.health) {
             const healthBar = document.getElementById('health-bar');
-            const healthPercentage = (this.health / this.maxHealth) * 100;
-            healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+            if (healthBar && typeof this.maxHealth === 'number' && this.maxHealth > 0) {
+                const healthPercentage = (this.health / this.maxHealth) * 100;
+                healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+            }
             
             // Show healing text
-            gameManager.showFloatingText(`+${Math.round(this.health - oldHealth)}`, this.x, this.y - 30, '#2ecc71', 16);
+            const gm = window.gameManager || window.gameManagerBridge;
+            if (gm && gm.showFloatingText) {
+                gm.showFloatingText(`+${Math.round(this.health - oldHealth)}`, this.x, this.y - 30, '#2ecc71', 16);
+            }
         }
     }
     
     // CRITICAL FIX: Add missing XP collection method
     addXP(amount) {
-        if (this.isDead) return;
+        if (this.isDead || typeof amount !== 'number' || amount <= 0) return;
         
         this.xp += amount;
         
         // Track XP collected for achievements (guarded)
-        if (gameManager && typeof gameManager.addXpCollected === 'function') {
-            gameManager.addXpCollected(amount);
+        if (window.gameManager && typeof window.gameManager.addXpCollected === 'function') {
+            window.gameManager.addXpCollected(amount);
         }
         
         // Show XP gain text
-        gameManager.showFloatingText(`+${amount} XP`, this.x, this.y - 20, '#f1c40f', 14);
+        const gm = window.gameManager || window.gameManagerBridge;
+        if (gm && typeof gm.showFloatingText === 'function') {
+            gm.showFloatingText(`+${amount} XP`, this.x, this.y - 20, '#f1c40f', 14);
+        }
         
         // Check for level up
-        while (this.xp >= this.xpToNextLevel) {
+        while (this.xp >= this.xpToNextLevel && typeof this.xpToNextLevel === 'number' && this.xpToNextLevel > 0) {
             this.levelUp();
         }
         
@@ -321,23 +354,20 @@ class Player {
     
     updateXPBar() {
         const xpBar = document.getElementById('xp-bar');
-        if (xpBar) {
+        if (xpBar && typeof this.xp === 'number' && typeof this.xpToNextLevel === 'number' && this.xpToNextLevel > 0) {
             const xpPercentage = (this.xp / this.xpToNextLevel) * 100;
             xpBar.style.setProperty('--xp-width', `${Math.min(xpPercentage, 100)}%`);
         }
-        
         // Update level display
-        const levelDisplay = document.getElementById('level-display');
-        if (levelDisplay) {
-            levelDisplay.textContent = `Level: ${this.level}`;
-        }
+        const levelDisplayEl = document.getElementById('level-display');
+        if (levelDisplayEl) levelDisplayEl.textContent = `Level: ${this.level}`;
     }
     
     
     
     attack(game) {
         // Find nearest enemy
-        if (game.enemies.length === 0) return;
+        if (!game || !Array.isArray(game.enemies) || game.enemies.length === 0) return;
         
         // Find closest enemy for reference
         const nearestEnemy = this.findNearestEnemy(game.enemies);
@@ -374,17 +404,11 @@ class Player {
             }
         }
         
-        // Execute AOE attack separately if enabled
-        if (this.hasAOEAttack) {
-            this.aoeAttackTimer += game.deltaTime || 0;
-            if (this.aoeAttackTimer >= this.aoeAttackCooldown) {
-                this.aoeAttackTimer = 0;
-                this.executeAOEAttack(game);
-            }
-        }
+    // Note: AOE attack cooldown is handled in handleAttacks()
     }
     
     executeAOEAttack(game) {
+        if (!game || !Array.isArray(game.enemies) || game.enemies.length === 0) return;
         // Create visual effect for AOE attack
         this.createAOEEffect();
         
@@ -404,24 +428,29 @@ class Player {
                 enemy.takeDamage(damage);
                 
                 if (isCrit) {
-                    gameManager.showFloatingText(`CRIT! ${Math.round(damage)}`, 
-                                                enemy.x, enemy.y - 20, '#f1c40f', 16);
+                    const gm = window.gameManager || window.gameManagerBridge;
+                    if (gm?.showFloatingText) {
+                        gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
+                    }
                 }
             }
         });
         
         // Play AOE attack sound
-        audioSystem.play('aoeAttack', 0.4);
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('aoeAttack', 0.4);
+        }
     }
     
     createAOEEffect() {
         // Visual effect for AOE attack
-        const gm = gameManager;
+        const gm = window.gameManager;
         if (!gm || gm.lowQuality) return;
         const factor = (gm.particleReductionFactor || 1.0);
         const baseCount = 24;
-        const remaining = Math.max(0, (gm.maxParticles || 150) - (gm.particles?.length || 0));
-        const particleCount = Math.max(0, Math.min(Math.floor(baseCount * factor), remaining));
+        const particleCount = window.MathUtils ? 
+            window.MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
+            Math.floor(baseCount * Math.min(factor || 1, 1));
         if (particleCount <= 0) return;
         const radius = this.aoeAttackRange;
         
@@ -429,18 +458,16 @@ class Player {
             const angle = (i / particleCount) * Math.PI * 2;
             const x = this.x + Math.cos(angle) * radius;
             const y = this.y + Math.sin(angle) * radius;
-            
-            // Create particles moving from player to edge of range
-            const particle = new Particle(
+            this.spawnParticleViaPoolOrFallback(
                 this.x,
                 this.y,
                 Math.cos(angle) * 300,
                 Math.sin(angle) * 300,
                 3 + Math.random() * 3,
                 '#3498db',
-                0.3
+                0.3,
+                'spark'
             );
-            gm.tryAddParticle(particle);
         }
     }
     
@@ -453,30 +480,39 @@ class Player {
         this.heal(this.maxHealth * 0.3); // Heal 30% of max health (increased from 20%)
         
         // Update level display
-        document.getElementById('level-display').textContent = `Level: ${this.level}`;
+    const levelDisplayEl = document.getElementById('level-display');
+    if (levelDisplayEl) levelDisplayEl.textContent = `Level: ${this.level}`;
         
         // Track level up achievement
-        if (gameManager) {
-            gameManager.onPlayerLevelUp(this.level);
+        if (window.gameManager && typeof window.gameManager.onPlayerLevelUp === 'function') {
+            window.gameManager.onPlayerLevelUp(this.level);
         }
         
         // Show level up message
-        gameManager.showFloatingText(`LEVEL UP!`, this.x, this.y - 50, '#f39c12', 24);
+        if (window.gameManager && typeof window.gameManager.showFloatingText === 'function') {
+            window.gameManager.showFloatingText(`LEVEL UP!`, this.x, this.y - 50, '#f39c12', 24);
+        }
         
         // Create level up effect
-        gameManager.createLevelUpEffect(this.x, this.y);
+        if (window.gameManager && typeof window.gameManager.createLevelUpEffect === 'function') {
+            window.gameManager.createLevelUpEffect(this.x, this.y);
+        }
         
         // Show upgrade options
         setTimeout(() => {
-            upgradeSystem.showUpgradeOptions();
+            if (window.upgradeSystem && typeof window.upgradeSystem.showUpgradeOptions === 'function') {
+                window.upgradeSystem.showUpgradeOptions();
+            }
         }, 0);
         
         // Play level up sound
-        audioSystem.play('levelUp', 0.6);
+        if (window.audioSystem && typeof window.audioSystem.play === 'function') {
+            window.audioSystem.play('levelUp', 0.6);
+        }
     }
     
     takeDamage(amount) {
-        if (this.isInvulnerable) return;
+        if (this.isInvulnerable || typeof amount !== 'number' || amount <= 0) return;
         
         // Apply damage reduction if present
         if (this.damageReduction && this.damageReduction > 0) {
@@ -485,24 +521,30 @@ class Player {
         
         // Apply dodge chance
         if (this.dodgeChance && Math.random() < this.dodgeChance) {
-            gameManager.showFloatingText(`DODGE!`, this.x, this.y - 20, '#3498db', 18);
+            if (window.gameManager && window.gameManager.showFloatingText) {
+                window.gameManager.showFloatingText(`DODGE!`, this.x, this.y - 20, '#3498db', 18);
+            }
             return;
         }
         
         this.health = Math.max(0, this.health - amount);
         
         // Notify game manager for achievement tracking
-        if (gameManager) {
-            gameManager.onPlayerDamaged();
+        if (window.gameManager) {
+            window.gameManager.onPlayerDamaged();
         }
         
         // Show damage text
-        gameManager.showFloatingText(`-${Math.round(amount)}`, this.x, this.y - 20, '#e74c3c', 18);
+        if (window.gameManager && window.gameManager.showFloatingText) {
+            window.gameManager.showFloatingText(`-${Math.round(amount)}`, this.x, this.y - 20, '#e74c3c', 18);
+        }
         
         // Update health bar
         const healthBar = document.getElementById('health-bar');
-        const healthPercentage = (this.health / this.maxHealth) * 100;
-        healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+        if (healthBar && typeof this.maxHealth === 'number' && this.maxHealth > 0) {
+            const healthPercentage = (this.health / this.maxHealth) * 100;
+            healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+        }
         
         // Trigger invulnerability
         this.isInvulnerable = true;
@@ -514,7 +556,9 @@ class Player {
         }
         
         // Play hit sound
-        audioSystem.play('playerHit', 0.5);
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('playerHit', 0.5);
+        }
     }
     
     applyUpgrade(upgrade) {
@@ -571,7 +615,7 @@ class Player {
                     );
                     
                     // Show additional information about current projectile count
-                    gameManager.showFloatingText(
+                    window.gameManager.showFloatingText(
                         `Now firing ${this.projectileCount} projectiles!`, 
                         this.x, this.y - 60, 
                         '#f39c12', 16
@@ -743,72 +787,83 @@ class Player {
         // Show upgraded message with tier for stacked upgrades
         if (isUpgradeStacked) {
             const tierText = upgrade.tier ? ` ${upgrade.tier}` : '';
-            gameManager.showFloatingText(
-                `${upgrade.name}${tierText} upgraded!`, 
-                this.x, 
-                this.y - 30, 
-                '#e67e22', // Orange color for upgrades
-                18
-            );
+            if (window.gameManager && typeof window.gameManager.showFloatingText === 'function') {
+                window.gameManager.showFloatingText(
+                    `${upgrade.name}${tierText} upgraded!`, 
+                    this.x, 
+                    this.y - 30, 
+                    '#e67e22', // Orange color for upgrades
+                    18
+                );
+            }
             
             // Add more dramatic visual effect for stacked upgrades
             this.createUpgradeStackEffect();
         } else {
-            gameManager.showFloatingText(
-                `${upgrade.name} acquired!`, 
-                this.x, 
-                this.y - 30, 
-                '#3498db', 
-                18
-            );
+            if (window.gameManager && typeof window.gameManager.showFloatingText === 'function') {
+                window.gameManager.showFloatingText(
+                    `${upgrade.name} acquired!`, 
+                    this.x, 
+                    this.y - 30, 
+                    '#3498db', 
+                    18
+                );
+            }
         }
     }
     
     createUpgradeStackEffect() {
-        if (!gameManager?.particles || gameManager.lowQuality) return;
+        if (!window.gameManager?.particles || window.gameManager.lowQuality) return;
         
         // Use simplified budget calculation
-        const count = MathUtils.budget(16, gameManager.particleReductionFactor,
-                                     gameManager.maxParticles, gameManager.particles.length);
+        const count = window.MathUtils ? 
+            window.MathUtils.budget(16, window.gameManager.particleReductionFactor, window.gameManager.maxParticles, window.gameManager.particles.length) :
+            Math.floor(16 * Math.min(window.gameManager.particleReductionFactor || 1, 1));
         if (count <= 0) return;
         
         // Create simple spiral effect
         for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2;
             const distance = 30;
-            
-            const particle = new Particle(
+            this.spawnParticleViaPoolOrFallback(
                 this.x + Math.cos(angle) * distance,
                 this.y + Math.sin(angle) * distance,
                 Math.cos(angle) * 60,
                 Math.sin(angle) * 60,
-                4, '#e67e22', 0.5
+                4,
+                '#e67e22',
+                0.5,
+                'spark'
             );
-            
-            gameManager.tryAddParticle(particle);
         }
         
         // Simple effects
-        gameManager.addScreenShake?.(2, 0.2);
-        audioSystem.play?.('levelUp', 0.3);
+        if (window.gameManager?.addScreenShake) {
+            window.gameManager.addScreenShake(2, 0.2);
+        }
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('levelUp', 0.3);
+        }
     }
     
     handleDodge(deltaTime, game) {
-        // Update dodge cooldown
+        // Progress cooldown timer when dodge is unavailable
         if (!this.canDodge) {
-            this.dodgeTimer += deltaTime;
-            if (this.dodgeTimer >= this.dodgeCooldown) {
+            this.dodgeCooldownTimer += deltaTime;
+            if (!this.isDodging && this.dodgeCooldownTimer >= this.dodgeCooldown) {
                 this.canDodge = true;
-                this.dodgeTimer = 0;
+                this.dodgeCooldownTimer = 0;
             }
         }
         
-        // Check if dodge is active
+        // Handle active dodge duration independently
         if (this.isDodging) {
-            this.dodgeTimer += deltaTime;
-            if (this.dodgeTimer >= this.dodgeDuration) {
+            this.dodgeActiveTimer += deltaTime;
+            // Cooldown also progresses during active dodge
+            this.dodgeCooldownTimer += deltaTime;
+            if (this.dodgeActiveTimer >= this.dodgeDuration) {
                 this.isDodging = false;
-                this.dodgeTimer = 0;
+                this.dodgeActiveTimer = 0;
                 this.isInvulnerable = false;
             }
         }
@@ -817,7 +872,8 @@ class Player {
         const keys = game.keys || {};
         
         // Only activate dodge if game is active (not paused or in level-up menu)
-        if (keys[' '] && this.canDodge && !this.isDodging && !gameManager.isMenuActive()) {
+        if (keys[' '] && this.canDodge && !this.isDodging && 
+            (!window.gameManager?.isMenuActive || !window.gameManager.isMenuActive())) {
             keys[' '] = false; // Prevent holding space
             this.doDodge();
         }
@@ -828,8 +884,8 @@ class Player {
         
         // Check for perfect dodge (dodging just before being hit)
         let wasPerfectDodge = false;
-        if (gameManager && gameManager.game) {
-            for (const enemy of gameManager.game.enemies) {
+        if (window.gameManager && window.gameManager.game) {
+            for (const enemy of window.gameManager.game.enemies) {
                 if (enemy.isAttacking && this.distanceTo(enemy) < 50) {
                     wasPerfectDodge = true;
                     break;
@@ -837,42 +893,51 @@ class Player {
             }
         }
         
-        this.isDodging = true;
-        this.isInvulnerable = true;
-        this.canDodge = false;
-        this.dodgeTimer = 0;
+    this.isDodging = true;
+    this.isInvulnerable = true;
+    this.canDodge = false;
+    this.dodgeActiveTimer = 0;
+    this.dodgeCooldownTimer = 0;
         
         // Track dodge achievement
-        if (gameManager) {
-            gameManager.onDodge(wasPerfectDodge);
+        if (window.gameManager) {
+            window.gameManager.onDodge(wasPerfectDodge);
         }
         
         // Visual effect for dodge
-        gameManager.showFloatingText("Dodge!", this.x, this.y - 30, '#3498db', 18);
+        {
+            const gm = window.gameManager || window.gameManagerBridge;
+            if (gm && typeof gm.showFloatingText === 'function') {
+                gm.showFloatingText("Dodge!", this.x, this.y - 30, '#3498db', 18);
+            }
+        }
         
         // Create dodge effect
-        const gm = gameManager;
+        const gm = window.gameManager || window.gameManagerBridge;
         if (gm && !gm.lowQuality) {
             const factor = (gm.particleReductionFactor || 1.0);
             const baseCount = 10;
-            const remaining = Math.max(0, (gm.maxParticles || 150) - (gm.particles?.length || 0));
-            const count = Math.max(0, Math.min(Math.floor(baseCount * factor), remaining));
+            const count = window.MathUtils && typeof window.MathUtils.budget === 'function' ? 
+                window.MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
+                Math.floor(baseCount * Math.min(factor || 1, 1));
             for (let i = 0; i < count; i++) {
-            const particle = new Particle(
-                this.x, 
-                this.y,
-                (Math.random() - 0.5) * 50,
-                (Math.random() - 0.5) * 50,
-                this.radius / 2,
-                this.color,
-                0.3
-            );
-                gm.tryAddParticle(particle);
+                this.spawnParticleViaPoolOrFallback(
+                    this.x,
+                    this.y,
+                    (Math.random() - 0.5) * 50,
+                    (Math.random() - 0.5) * 50,
+                    this.radius / 2,
+                    this.color,
+                    0.3,
+                    'spark'
+                );
             }
         }
         
         // Play dodge sound
-        audioSystem.play('dodge', 0.7);
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('dodge', 0.7);
+        }
     }
     
     handleInvulnerability(deltaTime) {
@@ -919,7 +984,7 @@ class Player {
         
         // Draw dodge cooldown indicator
         if (!this.canDodge) {
-            const cooldownPercent = this.dodgeTimer / this.dodgeCooldown;
+            const cooldownPercent = Math.min(1, this.dodgeCooldownTimer / this.dodgeCooldown);
             ctx.beginPath();
             ctx.arc(
                 this.x, 
@@ -986,8 +1051,9 @@ class Player {
         }
         
         // Update orbit positions and check for collisions
-        for (let i = 0; i < this.orbitProjectiles.length; i++) {
+        for (let i = 0; i < Math.min(this.orbitProjectiles.length, this.orbitCount); i++) {
             const orb = this.orbitProjectiles[i];
+            if (!orb || typeof orb !== 'object') continue; // Skip invalid orb objects
             orb.angle = this.orbitAngle + (i * angleStep);
             orb.x = this.x + Math.cos(orb.angle) * this.orbitRadius;
             orb.y = this.y + Math.sin(orb.angle) * this.orbitRadius;
@@ -1027,12 +1093,15 @@ class Player {
                     enemy.takeDamage(damage);
                     
                     // Display damage number
-                    if (isCrit) {
-                        gameManager.showFloatingText(`CRIT! ${Math.round(damage)}`, 
-                                                    enemy.x, enemy.y - 20, '#f1c40f', 16);
-                    } else {
-                        gameManager.showFloatingText(`${Math.round(damage)}`, 
-                                                    enemy.x, enemy.y - 20, '#ffffff', 14);
+                    if ((window.gameManager || window.gameManagerBridge) && typeof (window.gameManager || window.gameManagerBridge).showFloatingText === 'function') {
+                        const gm = window.gameManager || window.gameManagerBridge;
+                        if (isCrit) {
+                            gm.showFloatingText(`CRIT! ${Math.round(damage)}`, 
+                                                        enemy.x, enemy.y - 20, '#f1c40f', 16);
+                        } else {
+                            gm.showFloatingText(`${Math.round(damage)}`, 
+                                                        enemy.x, enemy.y - 20, '#ffffff', 14);
+                        }
                     }
                     
                     // Apply lifesteal if player has it
@@ -1046,19 +1115,21 @@ class Player {
                     orb.cooldown = 0.1; // Small cooldown to prevent rapid repeated hits
                     
                     // Create hit effect
-                    if (gameManager.createHitEffect) {
-                        gameManager.createHitEffect(enemy.x, enemy.y);
+                    if ((window.gameManager || window.gameManagerBridge)?.createHitEffect) {
+                        (window.gameManager || window.gameManagerBridge).createHitEffect(enemy.x, enemy.y);
                     }
                     
                     // Play hit sound
-                    audioSystem.play('hit', 0.2);
+                    if (window.audioSystem?.play) {
+                        window.audioSystem.play('hit', 0.2);
+                    }
                 }
             }
         }
         
         // Track orbital count for achievement
-        if (gameManager) {
-            gameManager.onOrbitalCountChanged(this.orbitCount);
+        if (window.gameManager || window.gameManagerBridge) {
+            (window.gameManager || window.gameManagerBridge).onOrbitalCountChanged?.(this.orbitCount);
         }
     }
       processChainLightning(startEnemy, baseDamage, chainsLeft, hitEnemies = new Set()) {
@@ -1069,16 +1140,22 @@ class Player {
         if (!this._chainDepth) this._chainDepth = 0;
         this._chainDepth++;
         if (this._chainDepth > 10) {
-            this._chainDepth = 0;
+            this._chainDepth = 0; // Reset counter
+            return;
+        }
+        
+        // Validate start enemy
+        if (!startEnemy || startEnemy.isDead || typeof startEnemy.x !== 'number' || typeof startEnemy.y !== 'number') {
+            this._chainDepth = Math.max(0, this._chainDepth - 1);
             return;
         }
         
         // Find closest enemy that hasn't been hit
         let closestEnemy = null;
-        let closestDistance = this.chainRange;
+        let closestDistance = this.chainRange || 150; // Fallback range
         
         // Make sure we're accessing the enemies array correctly with validation
-        const enemies = gameManager?.game?.enemies || [];
+        const enemies = window.gameManager?.game?.enemies || [];
         if (!Array.isArray(enemies) || enemies.length === 0) {
             this._chainDepth--;
             return;
@@ -1113,12 +1190,15 @@ class Player {
             closestEnemy.takeDamage(finalDamage);
             
             // Display damage number
-            if (isCrit) {
-                gameManager.showFloatingText(`CHAIN CRIT! ${Math.round(finalDamage)}`, 
-                                           closestEnemy.x, closestEnemy.y - 20, '#3498db', 16);
-            } else {
-                gameManager.showFloatingText(`CHAIN ${Math.round(finalDamage)}`, 
-                                           closestEnemy.x, closestEnemy.y - 20, '#3498db', 14);
+            if ((window.gameManager || window.gameManagerBridge) && typeof (window.gameManager || window.gameManagerBridge).showFloatingText === 'function') {
+                const gm = window.gameManager || window.gameManagerBridge;
+                if (isCrit) {
+                    gm.showFloatingText(`CHAIN CRIT! ${Math.round(finalDamage)}`, 
+                                               closestEnemy.x, closestEnemy.y - 20, '#3498db', 16);
+                } else {
+                    gm.showFloatingText(`CHAIN ${Math.round(finalDamage)}`, 
+                                               closestEnemy.x, closestEnemy.y - 20, '#3498db', 14);
+                }
             }
             
             // Apply lifesteal if player has it
@@ -1132,8 +1212,8 @@ class Player {
             hitEnemies.add(closestEnemy.id);
             
             // Track chain hits for achievement
-            if (gameManager) {
-                gameManager.onChainLightningHit(hitEnemies.size);
+            if (window.gameManager || window.gameManagerBridge) {
+                (window.gameManager || window.gameManagerBridge).onChainLightningHit?.(hitEnemies.size);
             }
               // Continue chain with safety checks
             if (chainsLeft > 1 && hitEnemies.size < 15) {
@@ -1143,8 +1223,10 @@ class Player {
         
         // Reset recursion depth counter
         this._chainDepth = Math.max(0, this._chainDepth - 1);
-    }processRicochet(sourceX, sourceY, damage, bouncesLeft, hitEnemies = new Set()) {
-        if (bouncesLeft <= 0) return;
+    }
+    
+    processRicochet(sourceX, sourceY, damage, bouncesLeft, hitEnemies = new Set()) {
+        if (bouncesLeft <= 0 || hitEnemies.size > 15) return; // Prevent excessive chains
         
         // Safety checks for parameters
         if (typeof sourceX !== 'number' || typeof sourceY !== 'number' || 
@@ -1153,7 +1235,7 @@ class Player {
         }
         
         // Make sure we're accessing the enemies array correctly
-        const enemies = gameManager?.game?.enemies || [];
+        const enemies = (window.gameManager || window.gameManagerBridge)?.game?.enemies || [];
         if (enemies.length === 0) return;
         
         // Find closest enemy that hasn't been hit
@@ -1197,12 +1279,15 @@ class Player {
             closestEnemy.takeDamage(ricochetDamage);
             
             // Display damage number with ricochet indicator
-            if (isCrit) {
-                gameManager.showFloatingText(`BOUNCE CRIT! ${Math.round(ricochetDamage)}`, 
-                                          closestEnemy.x, closestEnemy.y - 20, '#f39c12', 16);
-            } else {
-                gameManager.showFloatingText(`BOUNCE ${Math.round(ricochetDamage)}`, 
-                                          closestEnemy.x, closestEnemy.y - 20, '#f39c12', 14);
+            if ((window.gameManager || window.gameManagerBridge) && typeof (window.gameManager || window.gameManagerBridge).showFloatingText === 'function') {
+                const gm = window.gameManager || window.gameManagerBridge;
+                if (isCrit) {
+                    gm.showFloatingText(`BOUNCE CRIT! ${Math.round(ricochetDamage)}`, 
+                                              closestEnemy.x, closestEnemy.y - 20, '#f39c12', 16);
+                } else {
+                    gm.showFloatingText(`BOUNCE ${Math.round(ricochetDamage)}`, 
+                                              closestEnemy.x, closestEnemy.y - 20, '#f39c12', 14);
+                }
             }
             
             // Apply lifesteal if player has it
@@ -1216,8 +1301,8 @@ class Player {
             hitEnemies.add(closestEnemy.id);
             
             // Track ricochet hits for achievement
-            if (gameManager) {
-                gameManager.onRicochetHit(hitEnemies.size);
+            if (window.gameManager || window.gameManagerBridge) {
+                (window.gameManager || window.gameManagerBridge).onRicochetHit?.(hitEnemies.size);
             }
             
             // Continue ricochet IMMEDIATELY (no setTimeout)
@@ -1233,7 +1318,7 @@ class Player {
 
     createLightningEffect(from, to) {
         // Create lightning particles within performance budget
-        const gm = gameManager;
+        const gm = window.gameManager || window.gameManagerBridge;
         if (!gm || gm.lowQuality) return;
         const factor = (gm.particleReductionFactor || 1.0);
         const segments = Math.max(3, Math.floor(8 * factor)); // scale detail by perf factor
@@ -1247,15 +1332,16 @@ class Player {
             const angle = Math.random() * Math.PI * 2;
             const speed = 20 + Math.random() * 40;
             const size = 2 + Math.random() * 2;
-            const sparkParticle = new Particle(
-                baseX, baseY,
+            this.spawnParticleViaPoolOrFallback(
+                baseX,
+                baseY,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
                 size,
-                '#81ecec', // Lighter blue for the spark
-                0.15
+                '#81ecec',
+                0.15,
+                'spark'
             );
-            gm.tryAddParticle(sparkParticle);
         }
         
         // Calculate main lightning path with increased randomization
@@ -1274,15 +1360,16 @@ class Player {
             const y = straightY + (Math.random() * randomness * 2 - randomness);
             
             // Draw lightning segment with glowing effect
-            const mainParticle = new Particle(
-                prevX, prevY,
-                (x - prevX) * 12, // Faster particle movement for more dynamic effect
+            this.spawnParticleViaPoolOrFallback(
+                prevX,
+                prevY,
+                (x - prevX) * 12,
                 (y - prevY) * 12,
-                4, // Slightly larger
-                '#74b9ff', // Vibrant blue
-                0.2
+                4,
+                '#74b9ff',
+                0.2,
+                'spark'
             );
-            gm.tryAddParticle(mainParticle);
             
             // Create parallel faint lightning traces for glow effect
             const offsetDist = 3;
@@ -1292,15 +1379,16 @@ class Player {
             for (let j = -1; j <= 1; j += 2) {
                 const offsetX = prevX + Math.cos(offsetAngle) * offsetDist * j;
                 const offsetY = prevY + Math.sin(offsetAngle) * offsetDist * j;
-                const glowParticle = new Particle(
-                    offsetX, offsetY,
+                this.spawnParticleViaPoolOrFallback(
+                    offsetX,
+                    offsetY,
                     (x - prevX) * 12,
                     (y - prevY) * 12,
                     3,
-                    'rgba(116, 185, 255, 0.4)', // Semi-transparent blue
-                    0.15
+                    'rgba(116, 185, 255, 0.4)',
+                    0.15,
+                    'spark'
                 );
-                gm.tryAddParticle(glowParticle);
             }
             
             // Store points for branches
@@ -1332,15 +1420,27 @@ class Player {
                 const nextY = branchY + Math.sin(angle) * distance;
                 
                 // Create branch particle
-                const branchParticle = new Particle(
-                    branchX, branchY,
-                    (nextX - branchX) * 10,
-                    (nextY - branchY) * 10,
-                    2,
-                    '#0984e3', // Slightly darker blue for branches
-                    0.15
-                );
-                gm.tryAddParticle(branchParticle);
+                if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
+                    window.optimizedParticles.spawnParticle({
+                        x: branchX, y: branchY,
+                        vx: (nextX - branchX) * 10,
+                        vy: (nextY - branchY) * 10,
+                        size: 2,
+                        color: '#0984e3',
+                        life: 0.15,
+                        type: 'spark'
+                    });
+                } else {
+                    const branchParticle = new Particle(
+                        branchX, branchY,
+                        (nextX - branchX) * 10,
+                        (nextY - branchY) * 10,
+                        2,
+                        '#0984e3',
+                        0.15
+                    );
+                    gm.tryAddParticle(branchParticle);
+                }
                 
                 branchX = nextX;
                 branchY = nextY;
@@ -1348,23 +1448,27 @@ class Player {
         }
         
         // Create enhanced impact flash at target
-        const flash = new Particle(
-            to.x, to.y,
-            0, 0,
-            18, // Larger flash (was 12)
+        this.spawnParticleViaPoolOrFallback(
+            to.x,
+            to.y,
+            0,
+            0,
+            18,
             '#74b9ff',
-            0.2 // Longer duration (was 0.15)
+            0.2,
+            'basic'
         );
-        gm.tryAddParticle(flash);
         
         // Add secondary expanding ring for impact
-        const impactRing = new ShockwaveParticle(
-            to.x, to.y,
-            40, // Size of ring
-            '#0984e3',
-            0.3 // Duration
-        );
-        gm.tryAddParticle(impactRing);
+        if (typeof ShockwaveParticle !== 'undefined') {
+            const impactRing = new ShockwaveParticle(
+                to.x, to.y,
+                40, // Size of ring
+                '#0984e3',
+                0.3 // Duration
+            );
+            gm.tryAddParticle(impactRing);
+        }
         
         // Add small sparks at impact point
         for (let i = 0, n = Math.max(0, Math.floor(8 * factor)); i < n; i++) {
@@ -1372,25 +1476,30 @@ class Player {
             const speed = 30 + Math.random() * 60;
             const size = 1 + Math.random() * 3;
             
-            const sparkParticle = new Particle(
-                to.x, to.y,
+            this.spawnParticleViaPoolOrFallback(
+                to.x,
+                to.y,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
                 size,
-                i % 2 === 0 ? '#74b9ff' : '#0984e3', // Alternate colors
-                0.2 + Math.random() * 0.2
+                i % 2 === 0 ? '#74b9ff' : '#0984e3',
+                0.2 + Math.random() * 0.2,
+                'spark'
             );
-            gm.tryAddParticle(sparkParticle);
         }
         
         // Add subtle screen shake for impact
-        if (gameManager.addScreenShake) {
-            gameManager.addScreenShake(2, 0.2);
+        if ((window.gameManager || window.gameManagerBridge)?.addScreenShake) {
+            (window.gameManager || window.gameManagerBridge).addScreenShake(2, 0.2);
         }
         
         // Play lightning sound
-        audioSystem.play('hit', 0.3);
-    }    findNearestEnemy(enemies) {
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('hit', 0.3);
+        }
+    }
+
+    findNearestEnemy(enemies) {
         if (!enemies || enemies.length === 0) return null;
         
         let nearestEnemy = null;
@@ -1406,7 +1515,8 @@ class Player {
             const distanceSquared = dx * dx + dy * dy;
             
             // Use squared distance to avoid expensive sqrt calculation
-            if (distanceSquared < shortestDistanceSquared && distanceSquared > 0) {
+            // Ensure we have a valid distance and it's not the same position
+            if (distanceSquared < shortestDistanceSquared && distanceSquared >= 1) {
                 shortestDistanceSquared = distanceSquared;
                 nearestEnemy = enemy;
             }
@@ -1454,8 +1564,8 @@ class Player {
                 specialTypes.push('homing');
             }
             
-            // Select primary special type (first one takes priority for display/behavior)
-            let specialType = specialTypes.length > 0 ? specialTypes[0] : null;
+            // Select primary special type (simplified array access)
+            let specialType = specialTypes[0] || null;
             
             // Create projectile via engine pool
             const projectile = game.spawnProjectile(
@@ -1521,7 +1631,9 @@ class Player {
         }
         
     // Play shooting sound (once per volley)
-    audioSystem.play('shoot', 0.3);
+    if (window.audioSystem?.play) {
+        window.audioSystem.play('shoot', 0.3);
+    }
     }
 
     createRicochetEffect(fromX, fromY, toX, toY) {
@@ -1533,35 +1645,43 @@ class Player {
         const normalizedDy = dy / distance;
         
         // Create tracer line with multiple particles
-        const gm = gameManager;
+        const gm = window.gameManager || window.gameManagerBridge;
         if (gm && gm.lowQuality) return;
         const factor = gm ? (gm.particleReductionFactor || 1.0) : 1.0;
-        const particleCount = Math.max(0, Math.floor(Math.min(15, Math.floor(distance / 10)) * factor));
+        const baseParticles = Math.floor(distance / 10);
+        const particleCount = window.MathUtils ? 
+            Math.max(0, Math.floor(window.MathUtils.clamp(baseParticles, 0, 15) * factor)) :
+            Math.max(0, Math.floor(Math.min(Math.max(baseParticles, 0), 15) * factor));
+        if (particleCount <= 0) return;
         for (let i = 0; i < particleCount; i++) {
             const ratio = i / particleCount;
             const x = fromX + dx * ratio;
             const y = fromY + dy * ratio;
             
             // Create particle for tracer line
-            const tracerParticle = new Particle(
-                x, y,
-                0, 0,
-                3 * (1 - ratio),  // Size decreases along path
-                '#f39c12',        // Orange color
-                0.2 + ratio * 0.1 // Duration increases along path
+            this.spawnParticleViaPoolOrFallback(
+                x,
+                y,
+                0,
+                0,
+                3 * (1 - ratio),
+                '#f39c12',
+                0.2 + ratio * 0.1,
+                'spark'
             );
-            gm?.tryAddParticle(tracerParticle);
         }
         
         // Create impact flash at destination
-        const flash = new Particle(
-            toX, toY,
-            0, 0,
+        this.spawnParticleViaPoolOrFallback(
+            toX,
+            toY,
+            0,
+            0,
             12,
-            '#e67e22', // Darker orange
-            0.2
+            '#e67e22',
+            0.2,
+            'basic'
         );
-        gm?.tryAddParticle(flash);
         
         // Add small spark particles at ricochet point
         for (let i = 0, n = Math.max(0, Math.floor(6 * (factor || 1.0))); i < n; i++) {
@@ -1569,54 +1689,54 @@ class Player {
             const speed = 40 + Math.random() * 60;
             const size = 2 + Math.random() * 2;
             
-            const sparkParticle = new Particle(
-                toX, toY,
+            this.spawnParticleViaPoolOrFallback(
+                toX,
+                toY,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
                 size,
                 '#f39c12',
-                0.3
+                0.3,
+                'spark'
             );
-            gm?.tryAddParticle(sparkParticle);
         }
         
         // Create small shockwave at ricochet point
-        const shockwave = new ShockwaveParticle(
-            toX, toY,
-            30, // Size of shockwave
-            '#f39c12',
-            0.25 // Duration
-        );
-        gm?.tryAddParticle(shockwave);
+        if (typeof ShockwaveParticle !== 'undefined') {
+            const shockwave = new ShockwaveParticle(
+                toX, toY,
+                30, // Size of shockwave
+                '#f39c12',
+                0.25 // Duration
+            );
+            gm?.tryAddParticle(shockwave);
+        }
         
         // Add subtle screen shake for ricochet impact
-        if (gameManager.addScreenShake) {
-            gameManager.addScreenShake(1, 0.15);
+        if ((window.gameManager || window.gameManagerBridge)?.addScreenShake) {
+            (window.gameManager || window.gameManagerBridge).addScreenShake(1, 0.15);
         }
         
         // Play ricochet sound
-        audioSystem.play('hit', 0.25);
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('hit', 0.25);
+        }
     }
-
-    dodge() {
-        if (this.dodgeCooldown > 0) return;
-        
-        // Check for perfect dodge (dodging just before being hit)
-        let wasPerfectDodge = false;
-        for (const enemy of this.game.enemies) {
-            if (enemy.isAttacking && this.distanceTo(enemy) < 50) {
-                wasPerfectDodge = true;
-                break;
-            }
+    
+    /**
+     * Calculate distance to another entity
+     * @param {Object} other - Entity with x and y properties
+     * @returns {number} Distance in pixels
+     */
+    distanceTo(other) {
+        if (!other || typeof other.x !== 'number' || typeof other.y !== 'number') {
+            return Infinity;
         }
-        
-        this.dodgeCooldown = this.maxDodgeCooldown;
-        this.dodgeVelocity = this.dodgeSpeed;
-        this.dodgeDirection = this.lastMoveDirection;
-        
-        // Notify game manager about the dodge
-        if (typeof gameManager !== 'undefined') {
-            gameManager.onDodge(wasPerfectDodge);
+        if (typeof this.x !== 'number' || typeof this.y !== 'number') {
+            return Infinity; // Ensure this player instance is also valid
         }
+        const dx = this.x - other.x;
+        const dy = this.y - other.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 }
