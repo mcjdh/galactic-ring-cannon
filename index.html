@@ -140,13 +140,19 @@
     <script src="src/utils/MathUtils.js"></script>
     <script src="src/utils/CollisionUtils.js"></script>
     <script src="src/systems/OptimizedParticlePool.js"></script>
+    <script src="src/systems/ResonantParticleEnhancer.js"></script>
     <script src="src/utils/ParticleHelpers.js"></script>
     <script src="src/systems/audio.js"></script>
     <script src="src/systems/performance.js"></script>
+    <script src="src/systems/ResonantPerformanceMonitor.js"></script>
+    <script src="src/systems/ResonantAIEnhancer.js"></script>
     <script src="src/systems/ResonanceSystem.js"></script>
     <script src="src/systems/IntelligentSpawner.js"></script>
     <script src="src/systems/EnemySpawner.js"></script>
     <script src="src/utils/debug.js"></script>
+    <script src="src/utils/PlayerMigrationDiagnostic.js"></script>
+    <script src="src/utils/LegacyEnemyMigrator.js"></script>
+    <script src="src/utils/ResonantDebugCenter.js"></script>
     
     <!-- Add error detection for script loading -->
     <script>
@@ -179,10 +185,12 @@
     <!-- Enemy class -->
     <script src="src/entities/enemy.js"></script>
     <!-- Remove phantom Player component tags (files not present) -->
-    <!-- Player class -->
+    <!-- Player classes - both legacy and modern for compatibility -->
     <script src="src/entities/player.js"></script>
+    <script src="src/entities/PlayerRefactored.js"></script>
     <script src="src/systems/upgrades.js"></script>
     <script src="src/systems/achievements.js"></script>
+    <script src="src/core/systems/CollisionSystem.js"></script>
     <script src="src/core/systems/UnifiedCollisionSystem.js"></script>
     <script src="src/core/systems/EntityManager.js"></script>
     <!-- Missing core systems - adding them -->
@@ -391,11 +399,27 @@
             try {
                 (window.logger?.log || console.log)('🌊 DOM loaded, initializing game bridge...');
                 
-                // Wait for all scripts to load - check for core dependencies
+                // Wait for all scripts to load with better retry logic
                 let attempts = 0;
-                while (attempts < 10 && (typeof GameEngine === 'undefined' || typeof Player === 'undefined')) {
-                    await new Promise(resolve => setTimeout(resolve, 50));
+                const maxAttempts = 20; // Increased from 10
+                const retryDelay = 100; // Increased from 50ms
+                
+                while (attempts < maxAttempts) {
+                    const coreClassesLoaded = typeof GameEngine !== 'undefined' && 
+                                            typeof Player !== 'undefined' && 
+                                            typeof Enemy !== 'undefined' &&
+                                            typeof Projectile !== 'undefined';
+                    
+                    if (coreClassesLoaded) {
+                        break;
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
                     attempts++;
+                }
+                
+                if (attempts >= maxAttempts) {
+                    throw new Error('Core classes failed to load after maximum retries');
                 }
                 
                 (window.logger?.log || console.log)('🔍 Checking system availability...');

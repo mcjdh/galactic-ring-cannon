@@ -67,10 +67,11 @@ class GameEngine {
     // Object pools - partially implemented for projectiles and particles
     // 🤖 RESONANT NOTE FOR ALL CODING AGENTS:
     // Object pooling is partially implemented - DO NOT create competing pool systems
-    // Current pools: projectilePool, particlePool
+    // Current pools: projectilePool, particlePool, enemyProjectilePool
     // Missing pools: Enemy objects, XP orbs, damage zones
     // Coordinate to avoid 3+ different pooling implementations
     this.projectilePool = [];
+    this.enemyProjectilePool = [];
     this.particlePool = [];
     this.maxPoolSize = 100; // Pool size works well for most devices
         
@@ -400,19 +401,36 @@ class GameEngine {
     }
     
     updateSpatialGrid() {
-        // Clear grid
-        this.spatialGrid.clear();
+        // Clear grid efficiently by reusing arrays instead of creating new ones
+        for (const [key, entities] of this.spatialGrid) {
+            entities.length = 0; // Clear array without deallocating
+        }
         
-        // Add entities to grid
+        // Add entities to grid with bounds checking
         for (const entity of this.entities) {
+            if (!entity || entity.isDead || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
+                continue;
+            }
+            
             const gridX = Math.floor(entity.x / this.gridSize);
             const gridY = Math.floor(entity.y / this.gridSize);
             const key = `${gridX},${gridY}`;
             
-            if (!this.spatialGrid.has(key)) {
-                this.spatialGrid.set(key, []);
+            let cellEntities = this.spatialGrid.get(key);
+            if (!cellEntities) {
+                cellEntities = [];
+                this.spatialGrid.set(key, cellEntities);
             }
-            this.spatialGrid.get(key).push(entity);
+            cellEntities.push(entity);
+        }
+        
+        // Clean up empty cells periodically to prevent memory bloat
+        if (this.entities.length % 100 === 0) {
+            for (const [key, entities] of this.spatialGrid) {
+                if (entities.length === 0) {
+                    this.spatialGrid.delete(key);
+                }
+            }
         }
     }
     
@@ -429,10 +447,29 @@ class GameEngine {
     }
     
     checkCollisionsInCell(entities) {
+        // Early return if not enough entities to collide
+        if (entities.length < 2) return;
+        
         for (let i = 0; i < entities.length; i++) {
+            const entity1 = entities[i];
+            // Skip invalid or dead entities
+            if (!entity1 || entity1.isDead) continue;
+            
             for (let j = i + 1; j < entities.length; j++) {
-                if (this.isColliding(entities[i], entities[j])) {
-                    this.handleCollision(entities[i], entities[j]);
+                const entity2 = entities[j];
+                // Skip invalid or dead entities
+                if (!entity2 || entity2.isDead) continue;
+                
+                // Quick distance check before expensive collision test
+                const dx = entity1.x - entity2.x;
+                const dy = entity1.y - entity2.y;
+                const maxRadius = (entity1.radius || 0) + (entity2.radius || 0);
+                
+                // Use squared distance to avoid sqrt
+                if (dx * dx + dy * dy < maxRadius * maxRadius) {
+                    if (this.isColliding(entity1, entity2)) {
+                        this.handleCollision(entity1, entity2);
+                    }
                 }
             }
         }
@@ -595,14 +632,23 @@ class GameEngine {
 
     render() {
         // Check for context loss before rendering
-        if (this.contextLost || !this.ctx) {
-            (window.logger?.warn || console.warn)('Canvas context unavailable, skipping render');
+        if (this.contextLost || !this.ctx || !this.canvas) {
+            if (window.debugManager?.debugMode) {
+                console.warn('Canvas context unavailable, skipping render');
+            }
             return;
         }
 
         try {
             // Double buffer protection - ensure we have valid canvas state
-            if (!this.canvas.width || !this.canvas.height) {
+            if (!this.canvas.width || !this.canvas.height || 
+                this.canvas.width <= 0 || this.canvas.height <= 0) {
+                return;
+            }
+            
+            // Validate context state before clearing
+            if (this.ctx.isContextLost && this.ctx.isContextLost()) {
+                this.handleContextLoss(new Event('webglcontextlost'));
                 return;
             }
             
@@ -744,43 +790,82 @@ class GameEngine {
         return (dx * dx + dy * dy) < (r * r);
     }
       cleanupEntities() {
-        // Simple and efficient cleanup with null checks
-        this.entities = this.entities.filter(entity => 
-            entity && !entity.isDead && typeof entity === 'object'
-        );
+        // Batch cleanup with reduced array operations
+        let entityIndex = 0;
+        let enemyIndex = 0;
+        let xpOrbIndex = 0;
+        let projectileIndex = 0;
+        let enemyProjectileIndex = 0;
         
-        this.enemies = this.enemies.filter(enemy => 
-            enemy && !enemy.isDead && typeof enemy === 'object'
-        );
-        
-        this.xpOrbs = this.xpOrbs.filter(orb => 
-            orb && !orb.isDead && typeof orb === 'object'
-        );
-        
-        // Clean up projectiles and return to pool
-        const liveProjectiles = [];
-        for (const p of this.projectiles) {
-            if (!p || p.isDead || typeof p !== 'object') {
-                if (p && p.type === 'projectile') this._releaseProjectile(p);
-                continue;
-            }
-            liveProjectiles.push(p);
-        }
-        this.projectiles = liveProjectiles;
-        
-        if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
-            const liveEnemyProjectiles = [];
-            for (const ep of this.enemyProjectiles) {
-                if (!ep || ep.isDead || typeof ep !== 'object') {
-                    if (ep && ep.type === 'enemyProjectile') this._releaseEnemyProjectile(ep);
-                    continue;
+        // Clean main entities array using write-back approach for better performance
+        for (let i = 0; i < this.entities.length; i++) {
+            const entity = this.entities[i];
+            if (entity && !entity.isDead && typeof entity === 'object') {
+                if (entityIndex !== i) {
+                    this.entities[entityIndex] = entity;
                 }
-                liveEnemyProjectiles.push(ep);
+                entityIndex++;
+            } else if (entity && entity.type === 'projectile') {
+                this._releaseProjectile(entity);
             }
-            this.enemyProjectiles = liveEnemyProjectiles;
+        }
+        this.entities.length = entityIndex;
+        
+        // Clean enemies array
+        for (let i = 0; i < this.enemies.length; i++) {
+            const enemy = this.enemies[i];
+            if (enemy && !enemy.isDead && typeof enemy === 'object') {
+                if (enemyIndex !== i) {
+                    this.enemies[enemyIndex] = enemy;
+                }
+                enemyIndex++;
+            }
+        }
+        this.enemies.length = enemyIndex;
+        
+        // Clean XP orbs array
+        for (let i = 0; i < this.xpOrbs.length; i++) {
+            const orb = this.xpOrbs[i];
+            if (orb && !orb.isDead && typeof orb === 'object') {
+                if (xpOrbIndex !== i) {
+                    this.xpOrbs[xpOrbIndex] = orb;
+                }
+                xpOrbIndex++;
+            }
+        }
+        this.xpOrbs.length = xpOrbIndex;
+        
+        // Clean projectiles array
+        for (let i = 0; i < this.projectiles.length; i++) {
+            const p = this.projectiles[i];
+            if (p && !p.isDead && typeof p === 'object') {
+                if (projectileIndex !== i) {
+                    this.projectiles[projectileIndex] = p;
+                }
+                projectileIndex++;
+            } else if (p && p.type === 'projectile') {
+                this._releaseProjectile(p);
+            }
+        }
+        this.projectiles.length = projectileIndex;
+        
+        // Clean enemy projectiles array
+        if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
+            for (let i = 0; i < this.enemyProjectiles.length; i++) {
+                const ep = this.enemyProjectiles[i];
+                if (ep && !ep.isDead && typeof ep === 'object') {
+                    if (enemyProjectileIndex !== i) {
+                        this.enemyProjectiles[enemyProjectileIndex] = ep;
+                    }
+                    enemyProjectileIndex++;
+                } else if (ep && ep.type === 'enemyProjectile') {
+                    this._releaseEnemyProjectile(ep);
+                }
+            }
+            this.enemyProjectiles.length = enemyProjectileIndex;
         }
         
-        // Basic entity limit enforcement
+        // Basic entity limit enforcement (unchanged)
         const maxEntities = 2000;
         if (this.entities.length > maxEntities) {
             const nonPlayerEntities = this.entities.filter(e => e && e.type !== 'player');
@@ -790,17 +875,28 @@ class GameEngine {
                     nonPlayerEntities[i].isDead = true;
                 }
             }
-            this.entities = this.entities.filter(entity => entity && !entity.isDead);
+            // Re-run cleanup after marking entities as dead
+            this.cleanupEntities();
         }
     }
 
     // Projectile pooling helpers
     spawnProjectile(x, y, vx, vy, damage, piercing = 0, isCrit = false, specialType = null) {
-        // Validate parameters
+        // Validate parameters with proper error logging
         if (typeof x !== 'number' || typeof y !== 'number' || 
             typeof vx !== 'number' || typeof vy !== 'number' || 
             typeof damage !== 'number' || damage <= 0) {
-            console.warn('Invalid projectile parameters:', { x, y, vx, vy, damage });
+            if (window.debugManager?.debugMode) {
+                console.warn('Invalid projectile parameters:', { x, y, vx, vy, damage });
+            }
+            return null;
+        }
+        
+        // Check for NaN values which can cause rendering issues
+        if (isNaN(x) || isNaN(y) || isNaN(vx) || isNaN(vy) || isNaN(damage)) {
+            if (window.debugManager?.debugMode) {
+                console.warn('NaN detected in projectile parameters:', { x, y, vx, vy, damage });
+            }
             return null;
         }
         
@@ -811,27 +907,37 @@ class GameEngine {
                 console.error('Projectile class not available');
                 return null;
             }
-            proj = new Projectile(x, y, vx, vy, damage, piercing, isCrit, specialType);
-        } else {
-            // Reset pooled projectile safely
-            proj.x = x; proj.y = y; proj.vx = vx; proj.vy = vy;
-            proj.damage = damage; proj.piercing = piercing || 0; proj.isCrit = !!isCrit;
-            proj.radius = 5; proj.type = 'projectile';
-            proj.active = true; proj.isDead = false;
-            proj.lifetime = 5.0; proj.age = 0;
-            if (proj.hitEnemies && typeof proj.hitEnemies.clear === 'function') proj.hitEnemies.clear(); else proj.hitEnemies = new Set();
-            proj.specialType = null;
-            proj.chainLightning = null; proj.explosive = null; proj.ricochet = null; proj.homing = null;
-            // reset trail circular buffer
-            if (Array.isArray(proj.trail)) {
-                proj.trailWrite = 0; proj.trailCount = 0;
-            } else {
-                proj.trail = new Array(proj.maxTrailLength || 10); proj.trailWrite = 0; proj.trailCount = 0;
+            try {
+                proj = new Projectile(x, y, vx, vy, damage, piercing, isCrit, specialType);
+            } catch (error) {
+                console.error('Failed to create new Projectile:', error);
+                return null;
             }
-            // Initialize primary special type if provided
-            if (specialType) {
-                proj.specialType = specialType;
-                if (typeof proj.initializeSpecialType === 'function') proj.initializeSpecialType(specialType);
+        } else {
+            // Reset pooled projectile safely with validation
+            try {
+                proj.x = x; proj.y = y; proj.vx = vx; proj.vy = vy;
+                proj.damage = damage; proj.piercing = piercing || 0; proj.isCrit = !!isCrit;
+                proj.radius = 5; proj.type = 'projectile';
+                proj.active = true; proj.isDead = false;
+                proj.lifetime = 5.0; proj.age = 0;
+                if (proj.hitEnemies && typeof proj.hitEnemies.clear === 'function') proj.hitEnemies.clear(); else proj.hitEnemies = new Set();
+                proj.specialType = null;
+                proj.chainLightning = null; proj.explosive = null; proj.ricochet = null; proj.homing = null;
+                // reset trail circular buffer
+                if (Array.isArray(proj.trail)) {
+                    proj.trailWrite = 0; proj.trailCount = 0;
+                } else {
+                    proj.trail = new Array(proj.maxTrailLength || 10); proj.trailWrite = 0; proj.trailCount = 0;
+                }
+                // Initialize primary special type if provided
+                if (specialType && typeof proj.initializeSpecialType === 'function') {
+                    proj.specialType = specialType;
+                    proj.initializeSpecialType(specialType);
+                }
+            } catch (error) {
+                console.error('Failed to reset pooled Projectile:', error);
+                return null;
             }
         }
         
@@ -850,12 +956,80 @@ class GameEngine {
     }
 
     spawnEnemyProjectile(x, y, vx, vy, damage) {
-        const ep = new EnemyProjectile(x, y, vx, vy, damage);
-        this.addEntity(ep);
+        // Validate parameters
+        if (typeof x !== 'number' || typeof y !== 'number' || 
+            typeof vx !== 'number' || typeof vy !== 'number' || 
+            typeof damage !== 'number' || damage <= 0) {
+            if (window.debugManager?.debugMode) {
+                console.warn('Invalid enemy projectile parameters:', { x, y, vx, vy, damage });
+            }
+            return null;
+        }
+        
+        // Check for NaN values
+        if (isNaN(x) || isNaN(y) || isNaN(vx) || isNaN(vy) || isNaN(damage)) {
+            if (window.debugManager?.debugMode) {
+                console.warn('NaN detected in enemy projectile parameters:', { x, y, vx, vy, damage });
+            }
+            return null;
+        }
+        
+        // Initialize enemy projectile pool if it doesn't exist
+        if (!this.enemyProjectilePool) {
+            this.enemyProjectilePool = [];
+        }
+        
+        let ep = this.enemyProjectilePool.length > 0 ? this.enemyProjectilePool.pop() : null;
+        
+        if (!ep) {
+            // Check if EnemyProjectile class is available
+            if (typeof EnemyProjectile === 'undefined') {
+                console.error('EnemyProjectile class not available');
+                return null;
+            }
+            try {
+                ep = new EnemyProjectile(x, y, vx, vy, damage);
+            } catch (error) {
+                console.error('Failed to create new EnemyProjectile:', error);
+                return null;
+            }
+        } else {
+            // Reset pooled enemy projectile safely
+            try {
+                ep.x = x; ep.y = y; ep.vx = vx; ep.vy = vy;
+                ep.damage = damage;
+                ep.isDead = false;
+                ep.timer = 0;
+                ep.lifetime = 3;
+                ep.radius = 5;
+                ep.type = 'enemyProjectile';
+                ep.color = '#9b59b6';
+                ep.glowColor = 'rgba(155, 89, 182, 0.45)';
+            } catch (error) {
+                console.error('Failed to reset pooled EnemyProjectile:', error);
+                return null;
+            }
+        }
+        
+        if (ep) {
+            this.addEntity(ep);
+        }
         return ep;
     }
 
-    _releaseEnemyProjectile(ep) {}
+    _releaseEnemyProjectile(ep) {
+        // Basic sanitize of enemy projectile before pooling
+        if (ep) {
+            ep.isDead = true;
+            // Initialize pool if it doesn't exist
+            if (!this.enemyProjectilePool) {
+                this.enemyProjectilePool = [];
+            }
+            if (this.enemyProjectilePool.length < this.maxPoolSize) {
+                this.enemyProjectilePool.push(ep);
+            }
+        }
+    }
       // Add error handling to addEntity
     addEntity(entity) {
         if (!entity) {
@@ -1094,9 +1268,13 @@ class GameEngine {
         // Clean up dead entities
         this.cleanupEntities();
         
-        // Clear unused object pools
+        // Clean up unused object pools
         if (this.projectilePool.length > this.maxPoolSize) {
             this.projectilePool.length = this.maxPoolSize;
+        }
+        
+        if (this.enemyProjectilePool && this.enemyProjectilePool.length > this.maxPoolSize) {
+            this.enemyProjectilePool.length = this.maxPoolSize;
         }
         
         if (this.particlePool.length > this.maxPoolSize) {
@@ -1190,6 +1368,7 @@ class GameEngine {
         
         // Clear pools
         this.projectilePool = [];
+        this.enemyProjectilePool = [];
         this.particlePool = [];
         
         (window.logger?.log || console.log)('Game engine shutdown complete');

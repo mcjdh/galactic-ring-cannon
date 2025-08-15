@@ -33,6 +33,13 @@ class Particle {
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
         
+        // Kill particles that are too far off screen to prevent memory bloat
+        const maxDistance = 2000; // pixels from origin
+        if (Math.abs(this.x) > maxDistance || Math.abs(this.y) > maxDistance) {
+            this.isDead = true;
+            return;
+        }
+        
         // Apply gravity
         if (this.gravity !== 0) {
             this.vy += this.gravity * deltaTime;

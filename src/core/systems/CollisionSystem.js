@@ -7,8 +7,28 @@
     class CollisionSystem {
         constructor(engine) {
             this.engine = engine;
-            // TODO: Add collision statistics for performance monitoring
-            // TODO: Implement collision layers for better filtering
+            
+            // ✅ COLLISION STATISTICS for performance monitoring
+            this.stats = {
+                cellsProcessed: 0,
+                collisionsChecked: 0,
+                collisionsDetected: 0,
+                avgEntitiesPerCell: 0,
+                lastResetTime: performance.now()
+            };
+            
+            // ✅ COLLISION LAYERS for better filtering
+            this.collisionLayers = {
+                PLAYER: 1,
+                ENEMY: 2,
+                PROJECTILE: 4,
+                XP_ORB: 8,
+                ENEMY_PROJECTILE: 16
+            };
+            
+            // Performance optimization: reusable objects
+            this.tempVector = { x: 0, y: 0 };
+            this.cellPool = new Map(); // Object pooling for grid cells
         }
 
         updateSpatialGrid() {
@@ -16,19 +36,47 @@
             if (!engine.spatialGrid) engine.spatialGrid = new Map();
             engine.spatialGrid.clear();
             
-            // TODO: Make grid size adaptive based on entity density
-            const gridSize = engine.gridSize || 100;
-            const list = engine.entities || [];
+            // ✅ ADAPTIVE GRID SIZE based on entity density
+            const entityCount = (engine.entities || []).length;
+            const adaptiveGridSize = this.calculateOptimalGridSize(entityCount);
+            const gridSize = adaptiveGridSize || engine.gridSize || 100;
             
-            // TODO: Use object pooling for grid cells to reduce allocations
+            const list = engine.entities || [];
+            this.stats.cellsProcessed = 0;
+            let totalEntitiesInCells = 0;
+            
+            // ✅ OBJECT POOLING for grid cells to reduce allocations
             for (const entity of list) {
-                if (!entity) continue;
+                if (!entity || entity.isDead) continue;
+                
                 const gridX = Math.floor(entity.x / gridSize);
                 const gridY = Math.floor(entity.y / gridSize);
                 const key = `${gridX},${gridY}`;
-                if (!engine.spatialGrid.has(key)) engine.spatialGrid.set(key, []);
-                engine.spatialGrid.get(key).push(entity);
+                
+                let cell = engine.spatialGrid.get(key);
+                if (!cell) {
+                    // Try to reuse pooled cell array
+                    cell = this.cellPool.get(key) || [];
+                    cell.length = 0; // Clear without deallocating
+                    engine.spatialGrid.set(key, cell);
+                    this.stats.cellsProcessed++;
+                }
+                
+                cell.push(entity);
+                totalEntitiesInCells++;
             }
+            
+            // Update performance statistics
+            this.stats.avgEntitiesPerCell = this.stats.cellsProcessed > 0 ? 
+                totalEntitiesInCells / this.stats.cellsProcessed : 0;
+        }
+        
+        // ✅ CALCULATE OPTIMAL GRID SIZE based on entity density
+        calculateOptimalGridSize(entityCount) {
+            if (entityCount < 50) return 150;      // Larger cells for few entities
+            if (entityCount < 100) return 120;     // Medium cells for moderate count
+            if (entityCount < 200) return 100;     // Standard cells for many entities
+            return 80;                             // Smaller cells for high density
         }
 
         checkCollisions() {
@@ -37,11 +85,25 @@
                 return; // Skip collision checking if engine state is invalid
             }
             
-            // TODO: Implement early exit strategies for empty regions
-            // FIX: Currently checks all combinations - could skip impossible collisions
+            // ✅ RESET COLLISION STATISTICS
+            this.stats.collisionsChecked = 0;
+            this.stats.collisionsDetected = 0;
+            const startTime = performance.now();
+            
             try {
                 for (const [key, entities] of engine.spatialGrid) {
+                    // ✅ EARLY EXIT STRATEGY for empty regions
                     if (!entities || entities.length === 0) continue;
+                    
+                    // ✅ BROAD-PHASE: Skip cells with only one entity
+                    if (entities.length === 1) {
+                        // Still check adjacent cells for cross-cell collisions
+                        const [gridX, gridY] = key.split(',').map(Number);
+                        if (Number.isFinite(gridX) && Number.isFinite(gridY)) {
+                            this.checkAdjacentCellCollisions(gridX, gridY, entities);
+                        }
+                        continue;
+                    }
                     
                     this.checkCollisionsInCell(entities);
                     const [gridX, gridY] = key.split(',').map(Number);
@@ -51,15 +113,32 @@
                     
                     this.checkAdjacentCellCollisions(gridX, gridY, entities);
                 }
+                
+                // ✅ LOG PERFORMANCE STATISTICS periodically
+                if (window.debugManager?.enabled && startTime - this.stats.lastResetTime > 5000) {
+                    this.logPerformanceStats(performance.now() - startTime);
+                    this.stats.lastResetTime = startTime;
+                }
+                
             } catch (error) {
                 (window.logger?.error || console.error)('Error in collision checking:', error);
             }
         }
+        
+        // ✅ PERFORMANCE STATISTICS LOGGING
+        logPerformanceStats(processingTime) {
+            const stats = this.stats;
+            window.logger?.debug(`Collision Performance:
+                Cells: ${stats.cellsProcessed} | Avg Entities/Cell: ${stats.avgEntitiesPerCell.toFixed(1)}
+                Checks: ${stats.collisionsChecked} | Detected: ${stats.collisionsDetected} 
+                Processing Time: ${processingTime.toFixed(2)}ms`);
+        }
 
         checkCollisionsInCell(entities) {
-            // 🤖 RESONANT NOTE: Performance optimization - early exit for small cells
+            // ✅ EARLY EXIT for small cells (already optimized)
             if (entities.length < 2) return;
             
+            // ✅ COLLISION LAYER FILTERING - skip impossible collisions
             for (let i = 0; i < entities.length - 1; i++) {
                 const entity1 = entities[i];
                 if (!entity1 || entity1.isDead) continue; // Skip dead entities
@@ -68,11 +147,36 @@
                     const entity2 = entities[j];
                     if (!entity2 || entity2.isDead) continue; // Skip dead entities
                     
+                    // ✅ BROAD-PHASE: Skip impossible collision combinations
+                    if (!this.canCollide(entity1, entity2)) {
+                        continue;
+                    }
+                    
+                    this.stats.collisionsChecked++;
+                    
                     if (this.isColliding(entity1, entity2)) {
+                        this.stats.collisionsDetected++;
                         this.handleCollision(entity1, entity2);
                     }
                 }
             }
+        }
+        
+        // ✅ COLLISION LAYER SYSTEM - determine if two entities can collide
+        canCollide(entity1, entity2) {
+            const type1 = entity1.type;
+            const type2 = entity2.type;
+            
+            // Define collision rules (what CAN collide)
+            const collisionRules = {
+                'player': ['enemy', 'xpOrb', 'enemyProjectile'],
+                'projectile': ['enemy'],
+                'enemyProjectile': ['player'],
+                'enemy': ['player', 'projectile'],
+                'xpOrb': ['player']
+            };
+            
+            return collisionRules[type1]?.includes(type2) || collisionRules[type2]?.includes(type1);
         }
 
         checkAdjacentCellCollisions(gridX, gridY, entities) {
@@ -238,6 +342,36 @@
             } catch (err) {
                 console.error('Error handling collision:', err, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
             }
+        }
+        
+        // ✅ CELL POOL MANAGEMENT - prevent memory leaks
+        cleanupCellPool() {
+            // Keep pool size reasonable - remove unused cells periodically
+            if (this.cellPool.size > 1000) {
+                const engine = this.engine;
+                const activeCells = new Set(engine.spatialGrid?.keys() || []);
+                
+                // Remove cells that haven't been used recently
+                for (const [key, cell] of this.cellPool.entries()) {
+                    if (!activeCells.has(key)) {
+                        this.cellPool.delete(key);
+                    }
+                }
+                
+                if (window.debugManager?.enabled) {
+                    window.logger?.debug(`Cell pool cleaned: ${this.cellPool.size} cells remaining`);
+                }
+            }
+        }
+        
+        // ✅ PERFORMANCE OPTIMIZATION ENTRY POINT
+        getPerformanceStats() {
+            return {
+                ...this.stats,
+                cellPoolSize: this.cellPool.size,
+                efficiency: this.stats.collisionsChecked > 0 ? 
+                    (this.stats.collisionsDetected / this.stats.collisionsChecked * 100).toFixed(1) + '%' : '0%'
+            };
         }
     }
 

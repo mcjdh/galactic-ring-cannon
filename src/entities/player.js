@@ -310,8 +310,11 @@ class Player {
         if (oldHealth !== this.health) {
             const healthBar = document.getElementById('health-bar');
             if (healthBar && typeof this.maxHealth === 'number' && this.maxHealth > 0) {
-                const healthPercentage = (this.health / this.maxHealth) * 100;
-                healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+                const healthPercentage = Math.max(0, Math.min(100, (this.health / this.maxHealth) * 100));
+                // Ensure percentage is valid before setting CSS property
+                if (isFinite(healthPercentage)) {
+                    healthBar.style.setProperty('--health-width', `${healthPercentage}%`);
+                }
             }
             
             // Show healing text
@@ -361,12 +364,17 @@ class Player {
     updateXPBar() {
         const xpBar = document.getElementById('xp-bar');
         if (xpBar && typeof this.xp === 'number' && typeof this.xpToNextLevel === 'number' && this.xpToNextLevel > 0) {
-            const xpPercentage = (this.xp / this.xpToNextLevel) * 100;
-            xpBar.style.setProperty('--xp-width', `${Math.min(xpPercentage, 100)}%`);
+            const xpPercentage = Math.min((this.xp / this.xpToNextLevel) * 100, 100);
+            // Ensure percentage is valid before setting CSS property
+            if (isFinite(xpPercentage) && xpPercentage >= 0) {
+                xpBar.style.setProperty('--xp-width', `${xpPercentage}%`);
+            }
         }
-        // Update level display
+        // Update level display with validation
         const levelDisplayEl = document.getElementById('level-display');
-        if (levelDisplayEl) levelDisplayEl.textContent = `Level: ${this.level}`;
+        if (levelDisplayEl && typeof this.level === 'number' && isFinite(this.level)) {
+            levelDisplayEl.textContent = `Level: ${this.level}`;
+        }
     }
     
     
@@ -854,9 +862,9 @@ class Player {
     
     handleDodge(deltaTime, game) {
         // Progress cooldown timer when dodge is unavailable
-        if (!this.canDodge) {
+        if (!this.canDodge && !this.isDodging) {
             this.dodgeCooldownTimer += deltaTime;
-            if (!this.isDodging && this.dodgeCooldownTimer >= this.dodgeCooldown) {
+            if (this.dodgeCooldownTimer >= this.dodgeCooldown) {
                 this.canDodge = true;
                 this.dodgeCooldownTimer = 0;
             }
@@ -865,12 +873,12 @@ class Player {
         // Handle active dodge duration independently
         if (this.isDodging) {
             this.dodgeActiveTimer += deltaTime;
-            // Cooldown also progresses during active dodge
-            this.dodgeCooldownTimer += deltaTime;
             if (this.dodgeActiveTimer >= this.dodgeDuration) {
                 this.isDodging = false;
                 this.dodgeActiveTimer = 0;
                 this.isInvulnerable = false;
+                // Start cooldown timer after dodge ends
+                this.dodgeCooldownTimer = 0;
             }
         }
         
@@ -878,8 +886,11 @@ class Player {
         const keys = game.keys || {};
         
         // Only activate dodge if game is active (not paused or in level-up menu)
-        if (keys[' '] && this.canDodge && !this.isDodging && 
-            (!window.gameManager?.isMenuActive || !window.gameManager.isMenuActive())) {
+        const isMenuActive = window.upgradeSystem?.isLevelUpActive?.() || 
+                           window.gameManager?.isMenuActive?.() || 
+                           game.isPaused;
+        
+        if (keys[' '] && this.canDodge && !this.isDodging && !isMenuActive) {
             keys[' '] = false; // Prevent holding space
             this.doDodge();
         }
@@ -1161,9 +1172,10 @@ class Player {
         let closestDistance = this.chainRange || 150; // Fallback range
         
         // Make sure we're accessing the enemies array correctly with validation
-        const enemies = window.gameManager?.game?.enemies || [];
+        const gameManager = window.gameManager || window.gameManagerBridge;
+        const enemies = gameManager?.game?.enemies || [];
         if (!Array.isArray(enemies) || enemies.length === 0) {
-            this._chainDepth--;
+            this._chainDepth = Math.max(0, this._chainDepth - 1);
             return;
         }
         
@@ -1241,8 +1253,9 @@ class Player {
         }
         
         // Make sure we're accessing the enemies array correctly
-        const enemies = (window.gameManager || window.gameManagerBridge)?.game?.enemies || [];
-        if (enemies.length === 0) return;
+        const gameManager = window.gameManager || window.gameManagerBridge;
+        const enemies = gameManager?.game?.enemies || [];
+        if (!Array.isArray(enemies) || enemies.length === 0) return;
         
         // Find closest enemy that hasn't been hit
         let closestEnemy = null;
