@@ -386,9 +386,11 @@ class EnemySpawner {
         // Notify game manager
         if (window.gameManager) {
             window.gameManager.bossActive = true;
-            if (window.gameManager.uiManager) {
+            if (window.gameManager.uiManager && typeof window.gameManager.uiManager.addBoss === 'function') {
                 window.gameManager.uiManager.addBoss(boss);
             }
+            // Track last boss on bridge for cleanup
+            window.gameManager._lastBossId = boss.id;
         }
         
         this.showNewEnemyMessage("⚠️ BOSS INCOMING! ⚠️");

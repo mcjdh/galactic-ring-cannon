@@ -36,6 +36,8 @@ class GameManagerBridge {
         this.effects = (typeof window !== 'undefined' && window.EffectsManager)
             ? new window.EffectsManager(this)
             : null;
+        // UI manager (DOM HUD)
+        this.uiManager = null;
         
         // Combat text system
         this.combatTexts = [];
@@ -53,8 +55,90 @@ class GameManagerBridge {
         
         // Screen shake
         this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
+
+        // Minimap
+        this.minimap = {
+            ctx: null,
+            width: 150,
+            height: 150,
+            scale: 0.12,
+            lastUpdate: 0,
+            intervalMs: 100
+        };
         
         (window.logger?.log || console.log)('🌊 GameManager Bridge ready');
+    }
+
+    /**
+     * Minimap: initialize canvas refs and context
+     */
+    initializeMinimap() {
+        try {
+            const container = document.getElementById('minimap-container');
+            const canvas = document.getElementById('minimap');
+            if (!container || !canvas) return;
+            canvas.width = this.minimap.width;
+            canvas.height = this.minimap.height;
+            this.minimap.ctx = canvas.getContext('2d');
+        } catch (_) {}
+    }
+
+    /**
+     * Minimap: render periodically
+     */
+    renderMinimap() {
+        const ctx = this.minimap.ctx;
+        if (!ctx || !this.game || !this.game.player) return;
+        const now = Date.now();
+        if (now - this.minimap.lastUpdate < this.minimap.intervalMs) return;
+        this.minimap.lastUpdate = now;
+
+        const { width, height, scale } = this.minimap;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const player = this.game.player;
+
+        // Clear background
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, width, height);
+
+        // Draw player
+        ctx.fillStyle = '#3498db';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw enemies
+        if (Array.isArray(this.game.enemies)) {
+            for (const enemy of this.game.enemies) {
+                if (!enemy || enemy.isDead) continue;
+                const dx = (enemy.x - player.x) * scale;
+                const dy = (enemy.y - player.y) * scale;
+                const x = centerX + dx;
+                const y = centerY + dy;
+                if (x < 0 || x > width || y < 0 || y > height) continue;
+                ctx.fillStyle = enemy.isBoss ? '#f1c40f' : (enemy.isElite ? '#e67e22' : '#e74c3c');
+                ctx.fillRect(x - 1, y - 1, enemy.isBoss ? 4 : 2, enemy.isBoss ? 4 : 2);
+            }
+        }
+
+        // Draw XP orbs
+        if (Array.isArray(this.game.xpOrbs)) {
+            ctx.fillStyle = '#2ecc71';
+            for (const orb of this.game.xpOrbs) {
+                if (!orb || orb.isDead) continue;
+                const dx = (orb.x - player.x) * scale;
+                const dy = (orb.y - player.y) * scale;
+                const x = centerX + dx;
+                const y = centerY + dy;
+                if (x < 0 || x > width || y < 0 || y > height) continue;
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
     }
 
     // Prefer pooled particles with graceful fallback
@@ -102,6 +186,15 @@ class GameManagerBridge {
                 return false;
             }
             
+            // Initialize minimap after core systems
+            this.initializeMinimap();
+
+            // Initialize UI Manager for HUD (timer, bars, boss UI)
+            if (typeof window.UIManager !== 'undefined') {
+                this.uiManager = new window.UIManager(this);
+                (window.logger?.log || console.log)('✅ UIManager initialized');
+            }
+
             (window.logger?.log || console.log)('✅ Game engine initialized successfully');
             return true;
             
@@ -220,6 +313,11 @@ class GameManagerBridge {
         if (window.audioSystem && window.audioSystem.play) {
             window.audioSystem.play('bossKilled', 0.6);
         }
+
+        // Update boss HUD tracking
+        if (this.uiManager && typeof this.uiManager.removeBoss === 'function') {
+            try { this.uiManager.removeBoss(this._lastBossId || null); } catch (_) {}
+        }
     }
     
     /**
@@ -230,6 +328,10 @@ class GameManagerBridge {
         
         // Update game time
         this.gameTime += deltaTime;
+        // Update HUD periodically
+        if (this.uiManager && typeof this.uiManager.update === 'function') {
+            this.uiManager.update(deltaTime);
+        }
         
         // Update enemy spawner
         if (this.enemySpawner) {

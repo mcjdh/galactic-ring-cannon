@@ -310,6 +310,10 @@ class GameEngine {
         if (window.gameManager && typeof window.gameManager.update === 'function') {
             try {
                 window.gameManager.update(deltaTime);
+                // Update minimap via bridge if available
+                if (typeof window.gameManager.renderMinimap === 'function') {
+                    window.gameManager.renderMinimap();
+                }
             } catch (error) {
                 if (window.debugManager?.enabled) {
                     (window.logger?.error || console.error)('GameManager update error:', error);

@@ -549,6 +549,30 @@ class EnemyAbilities {
             }
         } catch (_) { /* no-op */ }
     }
+
+    createDamageZoneWarning(x, y) {
+        try {
+            if (!window.optimizedParticles) return;
+            // Draw a quick warning ring at target location
+            const segments = 24;
+            const radius = 60;
+            for (let i = 0; i < segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                const px = x + Math.cos(angle) * radius;
+                const py = y + Math.sin(angle) * radius;
+                window.optimizedParticles.spawnParticle({
+                    x: px,
+                    y: py,
+                    vx: 0,
+                    vy: 0,
+                    size: 2,
+                    color: '#e74c3c',
+                    life: 0.4,
+                    type: 'spark'
+                });
+            }
+        } catch (_) { /* no-op */ }
+    }
     createMuzzleFlash(angle) {
         if (window.optimizedParticles) {
             for (let i = 0; i < 3; i++) {
@@ -628,6 +652,29 @@ class EnemyAbilities {
                 });
             }
         }
+    }
+
+    createShieldEffect() {
+        try {
+            if (!window.optimizedParticles) return;
+            const segments = 20;
+            const radius = (this.enemy.radius || 15) + 10;
+            for (let i = 0; i < segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                const x = this.enemy.x + Math.cos(angle) * radius;
+                const y = this.enemy.y + Math.sin(angle) * radius;
+                window.optimizedParticles.spawnParticle({
+                    x,
+                    y,
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 0.5) * 20,
+                    size: 2,
+                    color: '#3498db',
+                    life: 0.4,
+                    type: 'spark'
+                });
+            }
+        } catch (_) { /* no-op */ }
     }
     
     /**
