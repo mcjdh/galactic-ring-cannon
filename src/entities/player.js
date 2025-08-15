@@ -7,11 +7,12 @@ class Player {
         this.x = x;
         this.y = y;
         this.type = 'player';
-        this.radius = PLAYER_CONSTANTS.RADIUS || 20;
         
         // Get constants reference once for better performance
         const PLAYER_CONSTANTS = window.GAME_CONSTANTS?.PLAYER || {};
         const COLORS = window.GAME_CONSTANTS?.COLORS || {};
+        
+        this.radius = PLAYER_CONSTANTS.RADIUS || 20;
         
         // Core player stats - using named constants instead of magic numbers
         this.speed = PLAYER_CONSTANTS.BASE_SPEED || 220;
@@ -332,10 +333,15 @@ class Player {
             window.gameManager.addXpCollected(amount);
         }
         
-        // Show XP gain text
-        const gm = window.gameManager || window.gameManagerBridge;
-        if (gm && typeof gm.showFloatingText === 'function') {
-            gm.showFloatingText(`+${amount} XP`, this.x, this.y - 20, '#f1c40f', 14);
+        // Show XP gain text using UnifiedUIManager for better positioning
+        if (window.gameEngine?.unifiedUI) {
+            window.gameEngine.unifiedUI.addXPGain(amount, this.x, this.y);
+        } else {
+            // Fallback to old system
+            const gm = window.gameManager || window.gameManagerBridge;
+            if (gm && typeof gm.showFloatingText === 'function') {
+                gm.showFloatingText(`+${amount} XP`, this.x, this.y - 20, '#f1c40f', 14);
+            }
         }
         
         // Check for level up

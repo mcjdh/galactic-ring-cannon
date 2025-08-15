@@ -219,5 +219,10 @@ class PerformanceManager {
     }
 }
 
+// Make globally available
+if (typeof window !== 'undefined') {
+    window.PerformanceManager = PerformanceManager;
+}
+
 // Initialize performance manager
 PerformanceManager.init();

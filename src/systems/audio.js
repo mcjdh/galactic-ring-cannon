@@ -588,3 +588,8 @@ AudioSystem.prototype.playBossBeat = function() {
     osc.start(now);
     osc.stop(now + 0.4);
 };
+
+// Make globally available
+if (typeof window !== 'undefined') {
+    window.AudioSystem = AudioSystem;
+}

@@ -389,10 +389,8 @@ class Enemy {
             this.renderBossCrown(ctx);
         }
         
-        // Draw health bar for bosses and elites
-        if (this.isBoss || this.isElite) {
-            this.renderHealthBar(ctx);
-        }
+        // Health bars now handled by UnifiedUIManager for better performance and positioning
+        // (Removed from individual enemy rendering to prevent coordinate system conflicts)
         
         // Draw phase indicator for multi-phase bosses
         if (this.hasPhases && this.currentPhase > 1) {
@@ -564,8 +562,12 @@ class Enemy {
         }
     }
     
-    showDamageText(damage) {
-        if (window.gameManager) {
+    showDamageText(damage, isCritical = false) {
+        // Use UnifiedUIManager for better damage number display
+        if (window.gameEngine?.unifiedUI) {
+            window.gameEngine.unifiedUI.addDamageNumber(damage, this.x, this.y, isCritical);
+        } else if (window.gameManager) {
+            // Fallback to old system
             const color = damage > this.maxHealth * 0.2 ? '#e74c3c' : '#f39c12';
             window.gameManager.showFloatingText(
                 `-${damage}`,
@@ -620,8 +622,7 @@ class Enemy {
             // Save context state to avoid interference
             ctx.save();
             
-            // Reset any transforms or filters
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            // Reset filters and alpha but preserve camera transform
             ctx.filter = 'none';
             ctx.globalAlpha = 1.0;
             

@@ -188,10 +188,16 @@ class GameManagerBridge {
             this.highestCombo = this.currentCombo;
         }
         
-        // Show combo text at higher combos
+        // Show combo text at higher combos using UnifiedUIManager
         if (this.currentCombo >= 5) {
-            this.addCombatText(`${this.currentCombo}x COMBO!`, 
-                this.game.player.x, this.game.player.y - 50, '#FFD700', 1.5);
+            if (this.game.unifiedUI) {
+                this.game.unifiedUI.addComboText(this.currentCombo, 
+                    this.game.player.x, this.game.player.y - 50);
+            } else {
+                // Fallback to old system
+                this.showCombatText(`${this.currentCombo}x COMBO!`, 
+                    this.game.player.x, this.game.player.y - 50, 'combo', 18);
+            }
         }
     }
     
@@ -206,8 +212,8 @@ class GameManagerBridge {
         
         // Show boss kill text
         if (this.game && this.game.player) {
-            this.addCombatText('BOSS DEFEATED!', 
-                this.game.canvas.width / 2, this.game.canvas.height / 2, '#FFD700', 2.0);
+            this.showCombatText('BOSS DEFEATED!', 
+                this.game.canvas.width / 2, this.game.canvas.height / 2, 'critical', 32);
         }
         
         // Play victory sound if available
@@ -359,6 +365,11 @@ class GameManagerBridge {
         };
         
         this.showFloatingText(text, x, y, colors[type] || '#ffffff', size);
+    }
+    
+    // Alias for backward compatibility
+    addCombatText(text, x, y, color, size) {
+        this.showFloatingText(text, x, y, color, size);
     }
     
     /**
@@ -678,6 +689,14 @@ class GameManagerBridge {
         if (vendorDisplay) {
             vendorDisplay.textContent = '⭐ ' + this.metaStars;
         }
+    }
+    
+    /**
+     * Handle when a meta upgrade is maxed out
+     */
+    onUpgradeMaxed(upgradeId) {
+        (window.logger?.log || console.log)('Meta upgrade maxed:', upgradeId);
+        // Could trigger achievements or other effects here
     }
     
     /**

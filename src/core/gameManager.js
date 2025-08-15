@@ -10,11 +10,8 @@
  * - StatsManager: Statistics tracking, achievements, combos, progression
  */
 
-import UIManager from './systems/UIManager.js';
-import EffectsManager from './systems/EffectsManager.js';
-import DifficultyManager from './systems/DifficultyManager.js';
-import StatsManager from './systems/StatsManager.js';
-import { GAME_CONSTANTS } from '../config/GameConstants.js';
+// Use global window objects instead of ES6 imports for script-tag compatibility
+// Managers are accessed directly via window.UIManager, window.EffectsManager, etc.
 
 class GameManager {
     constructor() {
@@ -30,10 +27,10 @@ class GameManager {
         this.isPaused = false;
         
         // Initialize components using composition with safety checks
-        this.uiManager = (typeof UIManager !== 'undefined') ? new UIManager(this) : null;
-        this.effectsManager = (typeof EffectsManager !== 'undefined') ? new EffectsManager(this) : null;
-        this.difficultyManager = (typeof DifficultyManager !== 'undefined') ? new DifficultyManager(this) : null;
-        this.statsManager = (typeof StatsManager !== 'undefined') ? new StatsManager(this) : null;
+        this.uiManager = (typeof window.UIManager !== 'undefined') ? new window.UIManager(this) : null;
+        this.effectsManager = (typeof window.EffectsManager !== 'undefined') ? new window.EffectsManager(this) : null;
+        this.difficultyManager = (typeof window.DifficultyManager !== 'undefined') ? new window.DifficultyManager(this) : null;
+        this.statsManager = (typeof window.StatsManager !== 'undefined') ? new window.StatsManager(this) : null;
         
         // Warn if components are missing
         if (!this.uiManager) (window.logger?.warn || console.warn)('UIManager not available');
@@ -171,8 +168,8 @@ class GameManager {
         }
         
         // Check win condition (if not endless mode)
-        const winDuration = (GAME_CONSTANTS && GAME_CONSTANTS.MODES && GAME_CONSTANTS.MODES.NORMAL_DURATION)
-            ? GAME_CONSTANTS.MODES.NORMAL_DURATION
+        const winDuration = (window.GAME_CONSTANTS && window.GAME_CONSTANTS.MODES && window.GAME_CONSTANTS.MODES.NORMAL_DURATION)
+            ? window.GAME_CONSTANTS.MODES.NORMAL_DURATION
             : 180;
         if (!this.endlessMode && !this.gameWon && this.gameTime >= winDuration) {
             this.gameWon = true;
@@ -589,10 +586,7 @@ class GameManager {
     }
 }
 
-// Export for ES6 module system
-export default GameManager;
-
-// Also make globally available for backward compatibility
+// Make globally available for script-tag loading
 if (typeof window !== 'undefined') {
     window.GameManager = GameManager;
 }

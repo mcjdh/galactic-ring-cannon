@@ -619,5 +619,9 @@ class UpgradeSystem {
 // Clean architecture: UpgradeSystem -> PlayerUpgrades.apply() -> Player methods
 // This eliminates global state dependencies and improves testability
 
+// Make globally available
+if (typeof window !== 'undefined') {
+    window.UpgradeSystem = UpgradeSystem;
+}
 
 // 🤖 RESONANT NOTE: XP bonus logic should be moved to XP orb collection logic

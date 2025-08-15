@@ -99,6 +99,21 @@ class GameEngine {
             (window.logger?.warn || console.warn)('EntityManager initialization failed, continuing with legacy arrays.', e);
 			this.entityManager = null;
 		}
+
+		// Initialize Unified UI Manager for proper health bars and floating text
+		try {
+			this.unifiedUI = (typeof window !== 'undefined' && window.UnifiedUIManager)
+				? new window.UnifiedUIManager(this)
+				: null;
+				
+			// Make game engine globally accessible for UI systems
+			if (!window.gameEngine) {
+				window.gameEngine = this;
+			}
+		} catch (e) {
+			(window.logger?.warn || console.warn)('UnifiedUIManager initialization failed, using legacy UI systems.', e);
+			this.unifiedUI = null;
+		}
           // Input handling with additional pause key support and error handling
         this.keys = {};
         try {
@@ -311,6 +326,11 @@ class GameEngine {
             }
         } catch (error) {
             (window.logger?.error || console.error)('Error in collision detection:', error);
+        }
+
+        // Update unified UI system
+        if (this.unifiedUI) {
+            this.unifiedUI.update(deltaTime);
         }
         
         // Clean up dead entities
@@ -613,8 +633,11 @@ class GameEngine {
                 try { this.player.render(this.ctx); } catch(e) { (window.logger?.error || console.error)('Player render error', e); }
             }
             
-            // Render floating/combat texts if available
-            if (window.gameManager && typeof window.gameManager._renderTexts === 'function') {
+            // Render UI elements using unified system (replaces buggy floating text)
+            if (this.unifiedUI) {
+                this.unifiedUI.render();
+            } else if (window.gameManager && typeof window.gameManager._renderTexts === 'function') {
+                // Fallback to old system if unified UI not available
                 window.gameManager._renderTexts(this.ctx);
             } else if (window.floatingTextSystem && typeof window.floatingTextSystem.render === 'function') {
                 window.floatingTextSystem.render(this.ctx);

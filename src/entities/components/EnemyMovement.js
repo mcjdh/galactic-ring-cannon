@@ -35,6 +35,10 @@ class EnemyMovement {
         this.stuckTimer = 0;
         this.stuckThreshold = 2.0; // Seconds before considering enemy stuck
         
+        // Temporary pattern change state
+        this.tempPatternTimer = 0;
+        this.originalPattern = null;
+        
         // Special movement states
         this.isKnockback = false;
         this.knockbackVelocity = { x: 0, y: 0 };
@@ -46,8 +50,8 @@ class EnemyMovement {
      * Update movement system
      */
     update(deltaTime, game) {
-        // Store last position for stuck detection
-        this.lastPosition = { x: this.enemy.x, y: this.enemy.y };
+        // Store last position for stuck detection (at END of update)
+        // Note: lastPosition will be updated at end of this method
         
         // Update movement timers
         this.updateTimers(deltaTime);
@@ -74,6 +78,9 @@ class EnemyMovement {
         
         // Check if enemy is stuck
         this.checkStuckState(deltaTime);
+        
+        // Update last position for next frame's stuck detection
+        this.lastPosition = { x: this.enemy.x, y: this.enemy.y };
     }
     
     /**
@@ -91,6 +98,16 @@ class EnemyMovement {
             
             if (this.knockbackTimer <= 0) {
                 this.isKnockback = false;
+            }
+        }
+        
+        // Handle temporary pattern change timer
+        if (this.tempPatternTimer > 0) {
+            this.tempPatternTimer -= deltaTime;
+            
+            if (this.tempPatternTimer <= 0 && this.originalPattern) {
+                this.movementPattern = this.originalPattern;
+                this.originalPattern = null;
             }
         }
     }
@@ -482,21 +499,17 @@ class EnemyMovement {
      * Handle when enemy gets stuck
      */
     handleStuckState() {
-        // Apply random impulse to unstuck the enemy
+        // Apply gentle random impulse to unstuck the enemy
         const angle = Math.random() * Math.PI * 2;
-        const force = 200 + Math.random() * 100;
+        const force = 50 + Math.random() * 25; // Much gentler force
         
         this.velocity.x += Math.cos(angle) * force;
         this.velocity.y += Math.sin(angle) * force;
         
-        // Change movement pattern temporarily
-        const originalPattern = this.movementPattern;
+        // Temporarily change movement pattern using a timer instead of setTimeout
+        this.tempPatternTimer = 2.0; // 2 seconds
+        this.originalPattern = this.movementPattern;
         this.movementPattern = 'random';
-        
-        // Reset to original pattern after 2 seconds
-        setTimeout(() => {
-            this.movementPattern = originalPattern;
-        }, 2000);
     }
     
     /**
