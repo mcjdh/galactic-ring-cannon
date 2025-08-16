@@ -43,17 +43,17 @@ class PlayerMovement {
         let inputY = 0;
         
         // Get input from InputManager if available, fallback to direct key checking
-        if (window.inputManager) {
-            const input = window.inputManager.getMovementInput();
+        if (window.inputManager && typeof window.inputManager.getMovementVector === 'function') {
+            const input = window.inputManager.getMovementVector();
             inputX = input.x;
             inputY = input.y;
         } else {
             // Fallback input handling
             const keys = game.keys || {};
-            if (keys['KeyW'] || keys['ArrowUp']) inputY -= 1;
-            if (keys['KeyS'] || keys['ArrowDown']) inputY += 1;
-            if (keys['KeyA'] || keys['ArrowLeft']) inputX -= 1;
-            if (keys['KeyD'] || keys['ArrowRight']) inputX += 1;
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) inputY -= 1;
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) inputY += 1;
+            if (keys['a'] || keys['A'] || keys['ArrowLeft']) inputX -= 1;
+            if (keys['d'] || keys['D'] || keys['ArrowRight']) inputX += 1;
         }
         
         // Normalize diagonal movement
@@ -107,12 +107,12 @@ class PlayerMovement {
             let shouldDodge = false;
             
             // Check dodge input from InputManager or fallback
-            if (window.inputManager) {
-                shouldDodge = window.inputManager.isDodgePressed();
+            if (window.inputManager && typeof window.inputManager.isActionPressed === 'function') {
+                shouldDodge = window.inputManager.isActionPressed('dodge');
             } else {
                 // Fallback: check for space key
                 const keys = game.keys || {};
-                shouldDodge = keys['Space'];
+                shouldDodge = keys[' '] || keys['Space'];
             }
             
             if (shouldDodge) {
@@ -131,17 +131,17 @@ class PlayerMovement {
         let dodgeX = 0;
         let dodgeY = 0;
         
-        if (window.inputManager) {
-            const input = window.inputManager.getMovementInput();
+        if (window.inputManager && typeof window.inputManager.getMovementVector === 'function') {
+            const input = window.inputManager.getMovementVector();
             dodgeX = input.x;
             dodgeY = input.y;
         } else {
             // Fallback input handling
             const keys = game.keys || {};
-            if (keys['KeyW'] || keys['ArrowUp']) dodgeY -= 1;
-            if (keys['KeyS'] || keys['ArrowDown']) dodgeY += 1;
-            if (keys['KeyA'] || keys['ArrowLeft']) dodgeX -= 1;
-            if (keys['KeyD'] || keys['ArrowRight']) dodgeX += 1;
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) dodgeY -= 1;
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) dodgeY += 1;
+            if (keys['a'] || keys['A'] || keys['ArrowLeft']) dodgeX -= 1;
+            if (keys['d'] || keys['D'] || keys['ArrowRight']) dodgeX += 1;
         }
         
         // If no movement input, dodge forward (upward)

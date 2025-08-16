@@ -274,6 +274,18 @@ class UIManager {
             
             this.minimap.canvas = minimapCanvas;
             this.minimap.ctx = minimapCanvas.getContext('2d');
+        } else {
+            // If the HTML already provides a minimap canvas, use it
+            const existingCanvas = minimapContainer.querySelector('canvas') || document.getElementById('minimap');
+            if (existingCanvas) {
+                existingCanvas.width = this.minimap.width;
+                existingCanvas.height = this.minimap.height;
+                this.minimap.canvas = existingCanvas;
+                this.minimap.ctx = existingCanvas.getContext('2d');
+                if (this.minimap.ctx) {
+                    this.minimap.ctx.imageSmoothingEnabled = false;
+                }
+            }
         }
         
         this.elements.minimapContainer = minimapContainer;
@@ -444,10 +456,8 @@ class UIManager {
         const ctx = this.minimap.ctx;
         const player = this.gameManager.game.player;
         
-        // Clear minimap
+        // Clear + background
         ctx.clearRect(0, 0, this.minimap.width, this.minimap.height);
-        
-        // Draw background
         ctx.fillStyle = '#1a1a1a';
         ctx.fillRect(0, 0, this.minimap.width, this.minimap.height);
         
@@ -463,10 +473,10 @@ class UIManager {
         // Draw entities relative to player
         this.drawMinimapEntities(ctx, player, centerX, centerY);
         
-        // Draw player (always at center)
+        // Draw player (always at center) with crisp positioning
         ctx.fillStyle = '#3498db';
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+        ctx.arc(Math.round(centerX), Math.round(centerY), 3, 0, Math.PI * 2);
         ctx.fill();
     }
     
@@ -488,8 +498,8 @@ class UIManager {
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
                 if (distance <= maxDistance) {
-                    const x = centerX + dx * scale;
-                    const y = centerY + dy * scale;
+                    const x = Math.round(centerX + dx * scale);
+                    const y = Math.round(centerY + dy * scale);
                     
                     // Different colors for different enemy types
                     if (enemy.isBoss || enemy.isMegaBoss) {
@@ -499,9 +509,7 @@ class UIManager {
                         ctx.fill();
                     } else {
                         ctx.fillStyle = enemy.isElite ? '#f1c40f' : '#e74c3c';
-                        ctx.beginPath();
-                        ctx.arc(x, y, 2, 0, Math.PI * 2);
-                        ctx.fill();
+                        ctx.fillRect(x - 1, y - 1, 2, 2);
                     }
                 }
             });
@@ -518,12 +526,9 @@ class UIManager {
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
                 if (distance <= maxDistance) {
-                    const x = centerX + dx * scale;
-                    const y = centerY + dy * scale;
-                    
-                    ctx.beginPath();
-                    ctx.arc(x, y, 1, 0, Math.PI * 2);
-                    ctx.fill();
+                    const x = Math.round(centerX + dx * scale);
+                    const y = Math.round(centerY + dy * scale);
+                    ctx.fillRect(x, y, 1, 1);
                 }
             });
         }

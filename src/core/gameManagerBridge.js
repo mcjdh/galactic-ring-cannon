@@ -80,6 +80,12 @@ class GameManagerBridge {
             canvas.width = this.minimap.width;
             canvas.height = this.minimap.height;
             this.minimap.ctx = canvas.getContext('2d');
+            if (this.minimap.ctx) {
+                // Ensure crisp markers and avoid smoothing-induced blur/flicker
+                this.minimap.ctx.imageSmoothingEnabled = false;
+                this.minimap.ctx.msImageSmoothingEnabled = false;
+                this.minimap.ctx.webkitImageSmoothingEnabled = false;
+            }
         } catch (_) {}
     }
 
@@ -122,8 +128,8 @@ class GameManagerBridge {
                 const dyWorld = enemy.y - player.y;
                 const dx = dxWorld * scale;
                 const dy = dyWorld * scale;
-                const x = centerX + dx;
-                const y = centerY + dy;
+                const x = Math.round(centerX + dx);
+                const y = Math.round(centerY + dy);
 
                 if (enemy.isBoss) {
                     const dist = Math.hypot(dxWorld, dyWorld);
@@ -196,8 +202,8 @@ class GameManagerBridge {
                 if (!orb || orb.isDead) continue;
                 const dx = (orb.x - player.x) * scale;
                 const dy = (orb.y - player.y) * scale;
-                const x = centerX + dx;
-                const y = centerY + dy;
+                const x = Math.round(centerX + dx);
+                const y = Math.round(centerY + dy);
                 if (x < 0 || x > width || y < 0 || y > height) continue;
                 ctx.fillRect(x, y, 1, 1);
             }
@@ -363,8 +369,8 @@ class GameManagerBridge {
     onBossKilled() {
         (window.logger?.log || console.log)('👑 Boss killed!');
         
-        // Add screen shake for dramatic effect
-        this.addScreenShake(20, 1000);
+        // Add screen shake for dramatic effect (duration in seconds for bridge)
+        this.addScreenShake(20, 1.0);
         
         // Show boss kill text
         if (this.game && this.game.player) {

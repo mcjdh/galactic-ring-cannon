@@ -11,11 +11,9 @@ class StatsManager {
     constructor(gameManager) {
         this.gameManager = gameManager;
         
-        // Get GAME_CONSTANTS from global scope
-        const GAME_CONSTANTS = window.GAME_CONSTANTS || {
-            COMBO: { TIMEOUT: 0.8, TARGET: 8, MAX_MULTIPLIER: 2.5 },
-            DIFFICULTY: { BASE_INTERVAL: 20 }
-        };
+        // Get GAME_CONSTANTS from global scope with safe fallbacks
+        const GAME_CONSTANTS = window.GAME_CONSTANTS || {};
+        const COMBO_CONFIG = (GAME_CONSTANTS && GAME_CONSTANTS.COMBO) || { TIMEOUT: 0.8, TARGET: 8, MAX_MULTIPLIER: 2.5 };
         
         // Core game statistics
         this.killCount = 0;
@@ -42,11 +40,11 @@ class StatsManager {
         // Combo system
         this.comboCount = 0;
         this.comboTimer = 0;
-        this.comboTimeout = GAME_CONSTANTS.COMBO.TIMEOUT; // 0.8 seconds
-        this.comboTarget = GAME_CONSTANTS.COMBO.TARGET; // 8 kills
+        this.comboTimeout = (COMBO_CONFIG && COMBO_CONFIG.TIMEOUT != null) ? COMBO_CONFIG.TIMEOUT : 0.8; // seconds
+        this.comboTarget = (COMBO_CONFIG && COMBO_CONFIG.TARGET != null) ? COMBO_CONFIG.TARGET : 8; // kills
         this.highestCombo = 0;
         this.comboMultiplier = 1.0;
-        this.maxComboMultiplier = GAME_CONSTANTS.COMBO.MAX_MULTIPLIER; // 2.5
+        this.maxComboMultiplier = (COMBO_CONFIG && COMBO_CONFIG.MAX_MULTIPLIER != null) ? COMBO_CONFIG.MAX_MULTIPLIER : 2.5;
         
         // Achievement tracking
         this.achievementProgress = new Map();
@@ -304,7 +302,6 @@ class StatsManager {
      */
     incrementKills() {
         this.killCount++;
-        this.gameStats.totalEnemiesSpawned++; // Track total spawned
         
         // Handle combo system
         this.comboCount++;
@@ -425,6 +422,11 @@ class StatsManager {
                 this.gameStats.highestEnemyCount = currentEnemyCount;
             }
         }
+
+        // Sync total enemies spawned from EnemySpawner if available
+        if (this.gameManager.enemySpawner && typeof this.gameManager.enemySpawner.totalEnemiesSpawned === 'number') {
+            this.gameStats.totalEnemiesSpawned = this.gameManager.enemySpawner.totalEnemiesSpawned;
+        }
     }
     
     /**
@@ -436,6 +438,17 @@ class StatsManager {
         
         // Save to localStorage
         localStorage.setItem('starTokens', this.starTokens.toString());
+
+        // Sync with GameManager metaStars and update UI
+        if (this.gameManager) {
+            this.gameManager.metaStars = this.starTokens;
+            if (typeof this.gameManager.updateStarDisplay === 'function') {
+                this.gameManager.updateStarDisplay();
+            }
+            if (typeof this.gameManager.saveStarTokens === 'function') {
+                this.gameManager.saveStarTokens();
+            }
+        }
         
         // Show notification
         if (this.gameManager.effectsManager && this.gameManager.game.player) {
@@ -455,6 +468,17 @@ class StatsManager {
         if (this.starTokens >= amount) {
             this.starTokens -= amount;
             localStorage.setItem('starTokens', this.starTokens.toString());
+
+            // Sync with GameManager metaStars and update UI
+            if (this.gameManager) {
+                this.gameManager.metaStars = this.starTokens;
+                if (typeof this.gameManager.updateStarDisplay === 'function') {
+                    this.gameManager.updateStarDisplay();
+                }
+                if (typeof this.gameManager.saveStarTokens === 'function') {
+                    this.gameManager.saveStarTokens();
+                }
+            }
             return true;
         }
         return false;

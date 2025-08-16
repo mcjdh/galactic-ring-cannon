@@ -287,6 +287,14 @@ class InputManager {
         
         return movement;
     }
+
+    /**
+     * Backwards-compatible alias used by some components
+     * @returns {Object} Movement vector {x, y}
+     */
+    getMovementInput() {
+        return this.getMovementVector();
+    }
     
     /**
      * Check if any UI menus are currently active

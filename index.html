@@ -140,6 +140,7 @@
     <script src="src/utils/MathUtils.js"></script>
     <script src="src/utils/CollisionUtils.js"></script>
     <script src="src/systems/OptimizedParticlePool.js"></script>
+    <script src="src/systems/InputManager.js"></script>
     <script src="src/systems/ResonantParticleEnhancer.js"></script>
     <script src="src/utils/ParticleHelpers.js"></script>
     <script src="src/systems/audio.js"></script>
@@ -455,6 +456,17 @@
                 (window.logger?.log || console.log)('✅ GameManager bridge created successfully');
                 
                 // Initialize supporting systems
+                if (typeof InputManager !== 'undefined') {
+                    if (!window.inputManager) {
+                        window.inputManager = new InputManager();
+                        inputManager = window.inputManager;
+                        (window.logger?.log || console.log)('✅ InputManager initialized');
+                    } else {
+                        (window.logger?.log || console.log)('ℹ️ InputManager already initialized');
+                    }
+                } else {
+                    (window.logger?.warn || console.warn)('⚠️ InputManager not available');
+                }
                 if (typeof UpgradeSystem !== 'undefined') {
                     window.upgradeSystem = new UpgradeSystem();
                     (window.logger?.log || console.log)('✅ UpgradeSystem initialized');
@@ -510,6 +522,43 @@
             // Simple initialization - just set up the basic button handlers
             const btnNormal = document.getElementById('btn-normal');
             const btnEndless = document.getElementById('btn-endless');
+            const btnSettings = document.getElementById('btn-settings');
+            const btnShop = document.getElementById('btn-shop');
+            const btnAchievements = document.getElementById('btn-achievements');
+            const resumeButton = document.getElementById('resume-button');
+            const restartButton = document.getElementById('restart-button-pause');
+            const returnButton = document.getElementById('return-button-pause');
+            const settingsClose = document.getElementById('settings-close');
+            const shopClose = document.getElementById('shop-close');
+            const achievementsClose = document.getElementById('achievements-close');
+            
+            const showPanel = (id) => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('hidden');
+            };
+            const hidePanel = (id) => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            };
+            const updateAchievementsUI = () => {
+                const countEl = document.getElementById('achievements-count');
+                if (countEl && window.achievementSystem) {
+                    const unlocked = window.achievementSystem.getUnlockedCount();
+                    const total = window.achievementSystem.getTotalCount();
+                    countEl.textContent = `${unlocked}/${total}`;
+                }
+                const listEl = document.getElementById('achievements-list');
+                if (listEl && window.achievementSystem) {
+                    const items = window.achievementSystem.achievements || {};
+                    listEl.innerHTML = '';
+                    Object.values(items).forEach(a => {
+                        const div = document.createElement('div');
+                        div.className = 'achievement-item';
+                        div.textContent = `${a.icon || ''} ${a.name}${a.unlocked ? ' ✅' : ''}`;
+                        listEl.appendChild(div);
+                    });
+                }
+            };
             
             if (btnNormal) {
                 btnNormal.addEventListener('click', () => {
@@ -538,6 +587,92 @@
                     }
                 });
             }
+
+            // Settings panel open/close
+            if (btnSettings) {
+                btnSettings.addEventListener('click', () => {
+                    showPanel('settings-panel');
+                });
+            }
+            if (settingsClose) {
+                settingsClose.addEventListener('click', () => {
+                    // Apply basic settings
+                    const mute = document.getElementById('mute-checkbox');
+                    const vol = document.getElementById('volume-range');
+                    const lowq = document.getElementById('lowquality-checkbox');
+                    const diff = document.getElementById('difficulty-select');
+                    if (mute && window.audioSystem) {
+                        window.audioSystem.setEnabled(!mute.checked);
+                        localStorage.setItem('soundEnabled', (!mute.checked).toString());
+                    }
+                    if (vol && window.audioSystem && window.audioSystem.masterGain) {
+                        window.audioSystem.masterGain.gain.value = Number(vol.value || 0.5);
+                    }
+                    if (lowq && window.gameManager) {
+                        window.gameManager.lowQuality = !!lowq.checked;
+                        localStorage.setItem('lowQuality', window.gameManager.lowQuality ? 'true' : 'false');
+                    }
+                    if (diff) {
+                        localStorage.setItem('difficulty', diff.value);
+                    }
+                    hidePanel('settings-panel');
+                });
+            }
+
+            // Shop panel open/close
+            if (btnShop) {
+                btnShop.addEventListener('click', () => {
+                    if (window.gameManager && typeof window.gameManager.updateStarDisplay === 'function') {
+                        window.gameManager.updateStarDisplay();
+                    }
+                    showPanel('shop-panel');
+                });
+            }
+            if (shopClose) {
+                shopClose.addEventListener('click', () => hidePanel('shop-panel'));
+            }
+
+            // Achievements panel open/close
+            if (btnAchievements) {
+                btnAchievements.addEventListener('click', () => {
+                    updateAchievementsUI();
+                    showPanel('achievements-panel');
+                });
+            }
+            if (achievementsClose) {
+                achievementsClose.addEventListener('click', () => hidePanel('achievements-panel'));
+            }
+
+            // Pause menu controls
+            if (resumeButton) {
+                resumeButton.addEventListener('click', () => {
+                    if (window.gameManager?.game) {
+                        window.gameManager.game.resumeGame();
+                    }
+                });
+            }
+            if (restartButton) {
+                restartButton.addEventListener('click', () => {
+                    if (window.gameManager?.startGame) {
+                        window.gameManager.startGame();
+                    }
+                });
+            }
+            if (returnButton) {
+                returnButton.addEventListener('click', () => {
+                    hidePanel('pause-menu');
+                    const gameContainer = document.getElementById('game-container');
+                    const mainMenu = document.getElementById('main-menu');
+                    if (gameContainer) gameContainer.classList.add('hidden');
+                    if (mainMenu) mainMenu.classList.remove('hidden');
+                    if (window.gameManager?.game) {
+                        window.gameManager.game.pauseGame();
+                    }
+                    if (window.gameManager && typeof window.gameManager.updateStarDisplay === 'function') {
+                        window.gameManager.updateStarDisplay();
+                    }
+                });
+            }
             
             // Hide loading screen and show main menu
             setTimeout(() => {
@@ -546,6 +681,20 @@
                 const menu = document.getElementById('main-menu');
                 if (menu) menu.classList.remove('hidden');
                 (window.logger?.log || console.log)('✅ Game ready to play!');
+                // Reflect stored settings into UI controls
+                const mute = document.getElementById('mute-checkbox');
+                const vol = document.getElementById('volume-range');
+                const lowq = document.getElementById('lowquality-checkbox');
+                if (mute) {
+                    const enabled = localStorage.getItem('soundEnabled');
+                    if (enabled !== null) mute.checked = !(enabled === 'true');
+                }
+                if (vol && window.audioSystem?.masterGain) {
+                    vol.value = String(window.audioSystem.masterGain.gain.value ?? 0.5);
+                }
+                if (lowq && window.gameManager) {
+                    lowq.checked = !!window.gameManager.lowQuality;
+                }
             }, 1000);
         } // End of initializeApp function
     </script>

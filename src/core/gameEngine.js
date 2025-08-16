@@ -118,25 +118,11 @@ class GameEngine {
           // Input handling with additional pause key support and error handling
         this.keys = {};
         try {
-            window.addEventListener('keydown', e => {
-                this.keys[e.key] = true;
-                
-                // Pause game when pressing P or Escape
-                if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-                    this.togglePause();
-                }
-                
-                // Toggle debug mode with F3
-                if (e.key === 'F3') {
-                    this.debugMode = !this.debugMode;
-                }
-                
-                // Toggle performance mode with 'O' key (O for Optimize)
-                if (e.key === 'o' || e.key === 'O') {
-                    this.togglePerformanceMode();
-                }
-            });
-            window.addEventListener('keyup', e => this.keys[e.key] = false);
+            // Store bound input handlers so we can remove them during cleanup
+            this.boundHandleKeyDown = this.onKeyDown.bind(this);
+            this.boundHandleKeyUp = this.onKeyUp.bind(this);
+            window.addEventListener('keydown', this.boundHandleKeyDown);
+            window.addEventListener('keyup', this.boundHandleKeyUp);
         } catch (error) {
             (window.logger?.error || console.error)('Error setting up input handling:', error);
         }
@@ -159,6 +145,31 @@ class GameEngine {
         this.canvas.addEventListener('webglcontextlost', this.boundHandleContextLoss);
         this.canvas.addEventListener('webglcontextrestored', this.boundHandleContextRestore);
         this.contextLost = false;
+    }
+    
+    onKeyDown(e) {
+        this.keys[e.key] = true;
+        if (e.code) this.keys[e.code] = true;
+        
+        // Toggle debug mode with F3
+        if (e.key === 'F3') {
+            this.debugMode = !this.debugMode;
+        }
+        
+        // Toggle performance mode with 'O' key (O for Optimize)
+        if (e.key === 'o' || e.key === 'O') {
+            this.togglePerformanceMode();
+        }
+
+        // Pause/resume with P or Escape
+        if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+            this.togglePause();
+        }
+    }
+    
+    onKeyUp(e) {
+        this.keys[e.key] = false;
+        if (e.code) this.keys[e.code] = false;
     }
     
     resizeCanvas() {
@@ -260,6 +271,11 @@ class GameEngine {
             deltaTime = window.resonanceSystem.update(deltaTime);
         }
         
+        // Update gamepad state if available
+        if (window.inputManager && typeof window.inputManager.updateGamepad === 'function') {
+            window.inputManager.updateGamepad();
+        }
+        
         // Update performance manager if available
         if (window.performanceManager && typeof window.performanceManager.update === 'function') {
             window.performanceManager.update(deltaTime);
@@ -311,8 +327,8 @@ class GameEngine {
         if (window.gameManager && typeof window.gameManager.update === 'function') {
             try {
                 window.gameManager.update(deltaTime);
-                // Update minimap via bridge if available
-                if (typeof window.gameManager.renderMinimap === 'function') {
+                // Update minimap via bridge only when UIManager is not active
+                if (typeof window.gameManager.renderMinimap === 'function' && !window.gameManager.uiManager) {
                     window.gameManager.renderMinimap();
                 }
             } catch (error) {
@@ -1343,6 +1359,12 @@ class GameEngine {
             }
             if (this.boundHandleBlurChange) {
                 window.removeEventListener('blur', this.boundHandleBlurChange);
+            }
+            if (this.boundHandleKeyDown) {
+                window.removeEventListener('keydown', this.boundHandleKeyDown);
+            }
+            if (this.boundHandleKeyUp) {
+                window.removeEventListener('keyup', this.boundHandleKeyUp);
             }
             
             (window.logger?.log || console.log)('Event listeners cleaned up successfully');

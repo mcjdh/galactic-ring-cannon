@@ -168,8 +168,8 @@ class GameManager {
         }
         
         // Check win condition (if not endless mode)
-        const winDuration = (window.GAME_CONSTANTS && window.GAME_CONSTANTS.MODES && window.GAME_CONSTANTS.MODES.NORMAL_DURATION)
-            ? window.GAME_CONSTANTS.MODES.NORMAL_DURATION
+        const winDuration = (window.GAME_CONSTANTS && window.GAME_CONSTANTS.GAME && typeof window.GAME_CONSTANTS.GAME.WIN_TIME === 'number')
+            ? window.GAME_CONSTANTS.GAME.WIN_TIME
             : 180;
         if (!this.endlessMode && !this.gameWon && this.gameTime >= winDuration) {
             this.gameWon = true;
@@ -488,15 +488,15 @@ class GameManager {
         this.bossModeTimer = 0;
         
         // Reset all components
-        this.statsManager.resetSession();
-        this.difficultyManager.reset();
-        this.effectsManager.clearAllEffects();
+        if (this.statsManager && typeof this.statsManager.resetSession === 'function') this.statsManager.resetSession();
+        if (this.difficultyManager && typeof this.difficultyManager.reset === 'function') this.difficultyManager.reset();
+        if (this.effectsManager && typeof this.effectsManager.clearAllEffects === 'function') this.effectsManager.clearAllEffects();
         
         // Start the game engine
         this.game.start();
         
         // Hide UI screens
-        this.uiManager.hideLevelUpScreen();
+        if (this.uiManager && typeof this.uiManager.hideLevelUpScreen === 'function') this.uiManager.hideLevelUpScreen();
         
         const gameOverScreen = document.getElementById('game-over');
         if (gameOverScreen) {
@@ -547,9 +547,9 @@ class GameManager {
         this.bossModeTimer = 0;
         
         // Reset all components
-        this.statsManager.resetSession();
-        this.difficultyManager.reset();
-        this.effectsManager.clearAllEffects();
+        if (this.statsManager && typeof this.statsManager.resetSession === 'function') this.statsManager.resetSession();
+        if (this.difficultyManager && typeof this.difficultyManager.reset === 'function') this.difficultyManager.reset();
+        if (this.effectsManager && typeof this.effectsManager.clearAllEffects === 'function') this.effectsManager.clearAllEffects();
         
         // Restart game engine
         if (this.game.restart) {
@@ -557,7 +557,7 @@ class GameManager {
         }
         
         // Hide UI screens
-        this.uiManager.hideLevelUpScreen();
+        if (this.uiManager && typeof this.uiManager.hideLevelUpScreen === 'function') this.uiManager.hideLevelUpScreen();
         
         const gameOverScreen = document.getElementById('game-over');
         if (gameOverScreen) {

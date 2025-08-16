@@ -115,6 +115,10 @@ class AudioSystem {
                 case 'levelUp':
                     this.playLevelUpSound(adjustedVolume);
                     break;
+                case 'upgrade':
+                    // Use pickup-like chime for upgrades
+                    this.playPickupSound(adjustedVolume);
+                    break;
                 case 'dodge':
                     this.playDodgeSound(adjustedVolume);
                     break;
@@ -129,6 +133,9 @@ class AudioSystem {
                 case 'bossKilled':
                     this.playBossSound(adjustedVolume);
                     break;
+                case 'bossMode':
+                    this.playBossSound(adjustedVolume);
+                    break;
                 case 'playerHit':
                     this.playPlayerHitSound(adjustedVolume);
                     break;
@@ -139,12 +146,40 @@ class AudioSystem {
                     // Map generic 'explosion' to enemy death explosion sound
                     this.playEnemyDeathSound(adjustedVolume);
                     break;
+                case 'gameOver':
+                    // Use deep impact for game over
+                    this.playEnemyDeathSound(adjustedVolume);
+                    break;
+                case 'victory':
+                    // Triumphant chord
+                    this.playLevelUpSound(adjustedVolume);
+                    break;
                 default:
                     // Use logger instead of console.warn
                     (window.logger?.warn || (() => {}))(`Unknown sound name: ${soundName}`);
             }
         } catch (error) {
             console.error(`Error playing sound ${soundName}:`, error);
+        }
+    }
+
+    // Enable/disable audio explicitly (used by UI)
+    setEnabled(enabled) {
+        try {
+            // Initialize context on first toggle if needed
+            if (!this.audioContext && this.isWebAudioSupported) {
+                this.initializeAudioContext();
+            }
+            this.isMuted = !enabled;
+            const target = enabled ? 0.5 : 0;
+            if (this.masterGain) {
+                this.masterGain.gain.value = target;
+            }
+            if (this.masterGainNode) {
+                this.masterGainNode.gain.value = target;
+            }
+        } catch (error) {
+            console.error('Error setting audio enabled state:', error);
         }
     }
     
