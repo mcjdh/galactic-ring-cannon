@@ -141,19 +141,13 @@
     <script src="src/utils/CollisionUtils.js"></script>
     <script src="src/systems/OptimizedParticlePool.js"></script>
     <script src="src/systems/InputManager.js"></script>
-    <script src="src/systems/ResonantParticleEnhancer.js"></script>
     <script src="src/utils/ParticleHelpers.js"></script>
     <script src="src/systems/audio.js"></script>
     <script src="src/systems/performance.js"></script>
-    <script src="src/systems/ResonantPerformanceMonitor.js"></script>
-    <script src="src/systems/ResonantAIEnhancer.js"></script>
     <script src="src/systems/ResonanceSystem.js"></script>
-    <script src="src/systems/IntelligentSpawner.js"></script>
     <script src="src/systems/EnemySpawner.js"></script>
     <script src="src/utils/debug.js"></script>
-    <script src="src/utils/PlayerMigrationDiagnostic.js"></script>
-    <script src="src/utils/LegacyEnemyMigrator.js"></script>
-    <script src="src/utils/ResonantDebugCenter.js"></script>
+    <!-- Dev utilities moved to conditional loader above -->
     
     <!-- Add error detection for script loading -->
     <script>
@@ -169,8 +163,32 @@
             }
         });
     </script>
-    <!-- Diagnostic script -->
-    <script src="diagnostic.js"></script>
+    <!-- Diagnostic and developer utilities will load conditionally in debug mode -->
+    <script>
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const debug = params.get('debug') === 'true' || localStorage.getItem('debugMode') === 'true';
+            if (!debug) return;
+
+            const devScripts = [
+                'diagnostic.js',
+                'src/utils/PlayerMigrationDiagnostic.js',
+                'src/utils/LegacyEnemyMigrator.js',
+                'src/utils/ResonantDebugCenter.js',
+                'src/entities/PlayerRefactored.js',
+                'src/systems/ResonantParticleEnhancer.js',
+                'src/systems/ResonantPerformanceMonitor.js',
+                'src/systems/ResonantAIEnhancer.js'
+            ];
+
+            devScripts.forEach(function(src) {
+                const s = document.createElement('script');
+                s.src = src;
+                s.defer = true;
+                document.head.appendChild(s);
+            });
+        })();
+    </script>
     <!-- Core entities - load synchronously to ensure proper initialization order -->
     <script src="src/entities/particle.js"></script>
     <script src="src/entities/ShockwaveParticle.js"></script>
@@ -186,9 +204,8 @@
     <!-- Enemy class -->
     <script src="src/entities/enemy.js"></script>
     <!-- Remove phantom Player component tags (files not present) -->
-    <!-- Player classes - both legacy and modern for compatibility -->
+    <!-- Player class (modern PlayerRefactored loads only in debug via loader above) -->
     <script src="src/entities/player.js"></script>
-    <script src="src/entities/PlayerRefactored.js"></script>
     <script src="src/systems/upgrades.js"></script>
     <script src="src/systems/achievements.js"></script>
     <script src="src/core/systems/CollisionSystem.js"></script>
@@ -202,7 +219,6 @@
     <script src="src/core/gameEngine.js"></script>
     <script src="src/core/systems/EffectsManager.js"></script>
     <script src="src/core/systems/FloatingTextSystem.js"></script>
-    <script src="src/ui/uiEnhancements.js"></script>
     
     <!-- Script loading validation -->
     <script>
@@ -390,8 +406,7 @@
         }
     </script>
     
-    <!-- Load GameManager and Bridge for compatibility -->
-    <script src="src/core/gameManager.js"></script>
+    <!-- Load GameManager Bridge only (GameManager class not required at runtime) -->
     <script src="src/core/gameManagerBridge.js"></script>
     
     <script>
