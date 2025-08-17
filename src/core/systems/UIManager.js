@@ -472,7 +472,69 @@ class UIManager {
         
         // Draw entities relative to player
         this.drawMinimapEntities(ctx, player, centerX, centerY);
-        
+
+        // Off-minimap boss indicator (arrow + distance)
+        if (this.gameManager?.game?.enemies) {
+            let closestBoss = null;
+            let closestBossDist = Infinity;
+            const scale = this.minimap.scale;
+            const width = this.minimap.width;
+            const height = this.minimap.height;
+            for (const enemy of this.gameManager.game.enemies) {
+                if (!enemy || enemy.isDead || !(enemy.isBoss || enemy.isMegaBoss)) continue;
+                const dxWorld = enemy.x - player.x;
+                const dyWorld = enemy.y - player.y;
+                const dist = Math.hypot(dxWorld, dyWorld);
+                if (dist < closestBossDist) {
+                    closestBossDist = dist;
+                    closestBoss = { dxWorld, dyWorld };
+                }
+            }
+            if (closestBoss) {
+                const bx = Math.round(centerX + closestBoss.dxWorld * scale);
+                const by = Math.round(centerY + closestBoss.dyWorld * scale);
+                const inBounds = bx >= 0 && bx <= width && by >= 0 && by <= height;
+                const angle = Math.atan2(closestBoss.dyWorld, closestBoss.dxWorld);
+                ctx.save();
+                ctx.fillStyle = '#f1c40f';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
+                if (inBounds) {
+                    ctx.beginPath();
+                    ctx.arc(Math.max(0, Math.min(width, bx)), Math.max(0, Math.min(height, by)), 6, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    const margin = 8;
+                    const vx = Math.cos(angle);
+                    const vy = Math.sin(angle);
+                    const tx = vx !== 0 ? ((vx > 0 ? (width/2 - margin) : (-width/2 + margin)) / vx) : Infinity;
+                    const ty = vy !== 0 ? ((vy > 0 ? (height/2 - margin) : (-height/2 + margin)) / vy) : Infinity;
+                    const t = Math.min(Math.abs(tx), Math.abs(ty));
+                    const ax = centerX + vx * t;
+                    const ay = centerY + vy * t;
+                    ctx.translate(ax, ay);
+                    ctx.rotate(angle);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(-8, 4);
+                    ctx.lineTo(-8, -4);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    const meters = Math.round(closestBossDist / 10);
+                    ctx.rotate(-angle);
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeText(`${meters}m`, 0, -8);
+                    ctx.fillText(`${meters}m`, 0, -8);
+                }
+                ctx.restore();
+            }
+        }
+
         // Draw player (always at center) with crisp positioning
         ctx.fillStyle = '#3498db';
         ctx.beginPath();

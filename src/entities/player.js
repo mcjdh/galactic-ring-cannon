@@ -392,31 +392,8 @@ class Player {
         const dy = nearestEnemy.y - this.y;
         const baseAngle = Math.atan2(dy, dx);
         
-        // Execute basic or spread attack
-        if (this.hasBasicAttack && this.projectileCount === 1) {
-            this.fireProjectile(game, baseAngle);
-        } else if (this.hasSpreadAttack || (this.hasBasicAttack && this.projectileCount > 1)) {
-            // Improved spread calculation for more projectiles
-            let totalSpread = this.projectileSpread;
-            
-            // Dynamically adjust spread angle based on projectile count
-            // More projectiles = slightly wider total spread
-            if (this.projectileCount > 5) {
-                totalSpread *= (1 + (this.projectileCount - 5) * 0.1);
-            }
-            
-            for (let i = 0; i < this.projectileCount; i++) {
-                let spreadAngle;
-                if (this.projectileCount <= 1) {
-                    spreadAngle = 0;
-                } else {
-                    // Evenly distribute projectiles across the spread angle
-                    spreadAngle = -totalSpread / 2 + (totalSpread / (this.projectileCount - 1)) * i;
-                }
-                const angle = baseAngle + (spreadAngle * Math.PI / 180);
-                this.fireProjectile(game, angle);
-            }
-        }
+        // Fire a volley; multi-shot handling is inside fireProjectile()
+        this.fireProjectile(game, baseAngle);
         
     // Note: AOE attack cooldown is handled in handleAttacks()
     }
@@ -1519,46 +1496,99 @@ class Player {
     }
 
     findNearestEnemy(enemies) {
-        if (!enemies || enemies.length === 0) return null;
-        
+        if (!Array.isArray(enemies) || enemies.length === 0) return null;
+
+        // Prefer spatial grid when available for O(k) neighbor search
+        const game = window.gameManager?.game || window.gameEngine;
+        const useGrid = game && game.spatialGrid && typeof game.gridSize === 'number' && game.gridSize > 0;
+
         let nearestEnemy = null;
         let shortestDistanceSquared = Infinity;
-        
-        for (const enemy of enemies) {
-            // Validate enemy object
-            if (!enemy || typeof enemy.x !== 'number' || typeof enemy.y !== 'number' || 
-                enemy.isDead) continue;
-            
-            const dx = enemy.x - this.x;
-            const dy = enemy.y - this.y;
-            const distanceSquared = dx * dx + dy * dy;
-            
-            // Use squared distance to avoid expensive sqrt calculation
-            // Ensure we have a valid distance and it's not the same position
-            if (distanceSquared < shortestDistanceSquared && distanceSquared >= 1) {
-                shortestDistanceSquared = distanceSquared;
-                nearestEnemy = enemy;
+
+        if (useGrid) {
+            const gridSize = game.gridSize;
+            const gx = Math.floor(this.x / gridSize);
+            const gy = Math.floor(this.y / gridSize);
+            // Search a small ring of neighbor cells around the player; expand adaptively
+            const maxRing = 2; // up to 5x5 cells
+            for (let ring = 0; ring <= maxRing; ring++) {
+                let foundAny = false;
+                for (let dx = -ring; dx <= ring; dx++) {
+                    for (let dy = -ring; dy <= ring; dy++) {
+                        const key = `${gx + dx},${gy + dy}`;
+                        const cell = game.spatialGrid.get(key);
+                        if (!cell || cell.length === 0) continue;
+                        foundAny = true;
+                        for (const enemy of cell) {
+                            if (!enemy || enemy.isDead || enemy.type !== 'enemy') continue;
+                            if (typeof enemy.x !== 'number' || typeof enemy.y !== 'number') continue;
+                            const ddx = enemy.x - this.x;
+                            const ddy = enemy.y - this.y;
+                            const d2 = ddx * ddx + ddy * ddy;
+                            if (d2 < shortestDistanceSquared && d2 >= 1) {
+                                shortestDistanceSquared = d2;
+                                nearestEnemy = enemy;
+                            }
+                        }
+                    }
+                }
+                if (nearestEnemy) break; // stop early when we found something in closer rings
+                // If we didn't find any enemies in the examined ring cells, expand search next loop
+                if (!foundAny && ring >= 1 && enemies.length > 0) {
+                    // Fallback early to linear scan if grid region is sparse
+                    break;
+                }
             }
         }
-        
+
+        if (!nearestEnemy) {
+            // Fallback to linear scan
+            for (const enemy of enemies) {
+                if (!enemy || typeof enemy.x !== 'number' || typeof enemy.y !== 'number' || enemy.isDead) continue;
+                const dx = enemy.x - this.x;
+                const dy = enemy.y - this.y;
+                const distanceSquared = dx * dx + dy * dy;
+                if (distanceSquared < shortestDistanceSquared && distanceSquared >= 1) {
+                    shortestDistanceSquared = distanceSquared;
+                    nearestEnemy = enemy;
+                }
+            }
+        }
+
         return nearestEnemy;
     }
 
     fireProjectile(game, angle) {
         // Calculate base projectile count (split shot)
-        const projectileCount = this.projectileCount || 1;
+        const projectileCount = Math.max(1, Math.floor(Number.isFinite(this.projectileCount) ? this.projectileCount : 1));
         
         // Calculate spread for multiple projectiles
-        const baseSpread = (this.projectileSpread || 30) * (Math.PI / 180); // Convert to radians
-        const spreadStep = projectileCount > 1 ? baseSpread / (projectileCount - 1) : 0;
-        const spreadStart = projectileCount > 1 ? -baseSpread / 2 : 0;
+        let spreadDegrees = Math.max(0, Number.isFinite(this.projectileSpread) ? this.projectileSpread : 0);
+        // Ensure a visible default spread when firing multiple projectiles
+        if (projectileCount > 1 && spreadDegrees <= 0) {
+            // More pronounced default: base 30°, +6° per extra projectile beyond 2, capped at 90°
+            const extra = Math.min(90, 30 + Math.max(0, (projectileCount - 2)) * 6);
+            spreadDegrees = Math.max(spreadDegrees, extra);
+        }
+        // Clamp spread to avoid absurd angles
+        spreadDegrees = Math.min(spreadDegrees, 90);
+        const baseSpread = spreadDegrees * (Math.PI / 180); // Convert to radians
+        const spreadStep = projectileCount > 1 ? (baseSpread / (projectileCount - 1)) : 0;
+        const spreadStart = projectileCount > 1 ? (-baseSpread / 2) : 0;
         
         // Fire each projectile
+        let spawned = 0;
         for (let i = 0; i < projectileCount; i++) {
             // Calculate angle for this projectile (with spread for multi-shot)
             const projectileAngle = angle + spreadStart + (spreadStep * i);
-            const vx = Math.cos(projectileAngle) * this.projectileSpeed;
-            const vy = Math.sin(projectileAngle) * this.projectileSpeed;
+            const speed = Math.max(50, Number.isFinite(this.projectileSpeed) ? this.projectileSpeed : 450);
+            let vx = Math.cos(projectileAngle) * speed;
+            let vy = Math.sin(projectileAngle) * speed;
+            // Guard against NaN/invalid
+            if (!Number.isFinite(vx) || !Number.isFinite(vy)) {
+                vx = Math.cos(angle) * speed;
+                vy = Math.sin(angle) * speed;
+            }
             
             // Determine if this shot is a critical hit
             const isCrit = Math.random() < this.critChance;
@@ -1566,93 +1596,103 @@ class Player {
                 this.attackDamage * this.critMultiplier : 
                 this.attackDamage;
             
-            // Determine special projectile type for each projectile independently
-            // Allow multiple special types with reduced probability for combinations
-            let specialTypes = [];
-            
-            if (this.hasChainLightning && Math.random() < this.chainChance) {
-                specialTypes.push('chain');
-            }
-            if (this.hasExplosiveShots && Math.random() < 0.3) {
-                specialTypes.push('explosive');
-            }
-            if (this.hasRicochet && Math.random() < 0.25) {
-                specialTypes.push('ricochet');
-            }
-            if (this.hasHomingShots && Math.random() < 0.2) {
-                specialTypes.push('homing');
-            }
-            
-            // Select primary special type (simplified array access)
-            let specialType = specialTypes[0] || null;
-            
-            // Create projectile via engine pool
+            // Determine special types, spawn and configure projectile via helpers
+            const specialTypes = this._determineSpecialTypesForShot();
+            const primaryType = specialTypes[0] || null;
             const projectile = game.spawnProjectile(
-                this.x,
-                this.y,
-                vx,
-                vy,
-                damage,
-                this.piercing,
-                isCrit,
-                specialType
+                this.x, this.y, vx, vy, damage, this.piercing, isCrit, primaryType
             );
-            
-            // Add secondary special effects for combination builds
-            if (specialTypes.length > 1) {
-                for (let i = 1; i < specialTypes.length; i++) {
-                    const secondaryType = specialTypes[i];
-                    if (secondaryType === 'explosive' && !projectile.explosive) {
-                        projectile.initializeSpecialType('explosive');
-                    } else if (secondaryType === 'chain' && !projectile.chainLightning) {
-                        projectile.initializeSpecialType('chain');
-                    } else if (secondaryType === 'ricochet' && !projectile.ricochet) {
-                        projectile.initializeSpecialType('ricochet');
-                    } else if (secondaryType === 'homing' && !projectile.homing) {
-                        projectile.initializeSpecialType('homing');
-                    }
-                }
+            if (projectile) {
+                this._configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit);
+                // Ensure projectile inherits player piercing if set; clamp non-negative
+                projectile.piercing = Math.max(0, projectile.piercing || this.piercing || 0);
+                spawned++;
             }
-            
-            // For critical hits, make projectiles larger and faster
-            if (isCrit) {
-                projectile.radius *= 1.3;
-                projectile.vx *= 1.15;
-                projectile.vy *= 1.15;
-            }
-            
-            // Add lifesteal if player has it
-            if (this.lifestealAmount > 0) {
-                projectile.lifesteal = this.lifestealAmount;
-                if (isCrit && this.lifestealCritMultiplier > 1) {
-                    projectile.lifesteal *= this.lifestealCritMultiplier;
-                }
-            }
-            
-            // Override special properties with player's upgraded values for all special types
-            for (const type of specialTypes) {
-                if (type === 'chain' && projectile.chainLightning) {
-                    projectile.chainLightning.chainRange = this.chainRange || 150;
-                    projectile.chainLightning.maxChains = this.maxChains || 3;
-                    projectile.chainLightning.chainDamage = (this.chainDamage || damage) * 0.7;
-                } else if (type === 'explosive' && projectile.explosive) {
-                    projectile.explosive.radius = this.explosionRadius || 80;
-                    // Fix explosion damage calculation - explosionDamage is a multiplier
-                    const damageMultiplier = this.explosionDamage > 0 ? this.explosionDamage : 0.8;
-                    projectile.explosive.damage = damage * damageMultiplier;
-                } else if (type === 'ricochet' && projectile.ricochet) {
-                    projectile.ricochet.bounces = this.ricochetBounces || 3;
-                    projectile.ricochet.range = this.ricochetRange || 200;
-                }
-            }
-            
             // Entity already added by spawnProjectile
+        }
+        // Fallback: if nothing spawned for any reason, fire a single central shot
+        if (spawned === 0) {
+            const speed = Math.max(50, Number.isFinite(this.projectileSpeed) ? this.projectileSpeed : 450);
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            const isCrit = Math.random() < this.critChance;
+            const damage = isCrit ? this.attackDamage * this.critMultiplier : this.attackDamage;
+            const specialTypes = this._determineSpecialTypesForShot();
+            const primaryType = specialTypes[0] || null;
+            const projectile = game.spawnProjectile(this.x, this.y, vx, vy, damage, this.piercing, isCrit, primaryType);
+            if (projectile) this._configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit);
         }
         
     // Play shooting sound (once per volley)
     if (window.audioSystem?.play) {
         window.audioSystem.play('shoot', 0.3);
     }
+    }
+
+    _determineSpecialTypesForShot() {
+        const types = [];
+        if (this.hasChainLightning && Math.random() < this.chainChance) types.push('chain');
+        if (this.hasExplosiveShots && Math.random() < 0.3) types.push('explosive');
+        if (this.hasRicochet && Math.random() < 0.25) types.push('ricochet');
+        if (this.hasHomingShots && Math.random() < 0.2) types.push('homing');
+        return types;
+    }
+
+    _configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit) {
+        // Add any secondary special types the projectile lacks
+        if (Array.isArray(specialTypes) && specialTypes.length > 1) {
+            for (let idx = 1; idx < specialTypes.length; idx++) {
+                const t = specialTypes[idx];
+                if (t === 'explosive' && !projectile.explosive) {
+                    projectile.initializeSpecialType('explosive');
+                } else if (t === 'chain' && !projectile.chainLightning) {
+                    projectile.initializeSpecialType('chain');
+                } else if (t === 'ricochet' && !projectile.ricochet) {
+                    projectile.initializeSpecialType('ricochet');
+                } else if (t === 'homing' && !projectile.homing) {
+                    projectile.initializeSpecialType('homing');
+                }
+            }
+        }
+
+        // Crit visual/speed boost
+        if (isCrit) {
+            projectile.radius *= 1.3;
+            projectile.vx *= 1.15;
+            projectile.vy *= 1.15;
+        }
+
+        // Lifesteal
+        if (this.lifestealAmount > 0) {
+            projectile.lifesteal = this.lifestealAmount;
+            if (isCrit && this.lifestealCritMultiplier > 1) {
+                projectile.lifesteal *= this.lifestealCritMultiplier;
+            }
+        }
+
+        // Scale special types from player stats
+        for (const type of specialTypes) {
+            if (type === 'chain' && projectile.chainLightning) {
+                projectile.chainLightning.chainRange = this.chainRange || 150;
+                projectile.chainLightning.maxChains = this.maxChains || 3;
+                const multiplier = (typeof this.chainDamage === 'number' && this.chainDamage > 0) ? this.chainDamage : 0.7;
+                projectile.chainLightning.chainDamage = Math.max(1, damage * multiplier);
+            } else if (type === 'explosive' && projectile.explosive) {
+                projectile.explosive.radius = this.explosionRadius || 80;
+                const damageMultiplier = this.explosionDamage > 0 ? this.explosionDamage : 0.8;
+                projectile.explosive.damage = damage * damageMultiplier;
+            } else if (type === 'ricochet' && projectile.ricochet) {
+                projectile.ricochet.bounces = this.ricochetBounces || 3;
+                projectile.ricochet.range = this.ricochetRange || 200;
+            } else if (type === 'homing' && projectile.homing) {
+                if (typeof this.homingRange === 'number') {
+                    projectile.homing.range = Math.max(projectile.homing.range, this.homingRange);
+                }
+                if (typeof this.homingTurnSpeed === 'number') {
+                    projectile.homing.turnSpeed = Math.max(projectile.homing.turnSpeed, this.homingTurnSpeed);
+                }
+            }
+        }
     }
 
     createRicochetEffect(fromX, fromY, toX, toY) {

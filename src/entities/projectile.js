@@ -95,19 +95,29 @@ class Projectile {
             this.updateHomingMovement(deltaTime);
         }
         
-        // Update position
+        // Update position with guard against NaN velocities
+        if (!Number.isFinite(this.vx) || !Number.isFinite(this.vy)) {
+            // Reset to a small forward motion to avoid spiraling glitches
+            const speed = 300;
+            const angle = Math.atan2(this.vy || 0, this.vx || 1);
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+        }
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
 
-        // Check if off-screen and mark for cleanup
+        // Check if far off-screen and mark for cleanup (use generous margins to prevent premature despawn)
         if (game && game.canvas) {
-            if (this.isOffScreen(game.canvas, game.player)) {
-                // Trigger explosion if explosive type reaches edge
-                if (this.explosive && !this.explosive.exploded) {
-                    this.explode(game);
+            if (this.isOffScreen(game.canvas, game.player, 2.2)) {
+                // Allow homing/ricochet projectiles to roam outside view; rely on lifetime instead
+                const hasReturnBehavior = !!(this.homing || this.ricochet);
+                if (!hasReturnBehavior) {
+                    if (this.explosive && !this.explosive.exploded) {
+                        this.explode(game);
+                    }
+                    this.isDead = true;
+                    return;
                 }
-                this.isDead = true;
-                return;
             }
         }
 
@@ -123,8 +133,8 @@ class Projectile {
     acquireHomingTarget(game) {
     if (!game.enemies || game.enemies.length === 0) return;
         
-        // If we already have a valid target that's still alive and reasonably close, keep it
-        if (this.homing.target && !this.homing.target.isDead) {
+        // If we already have a valid target that's still alive, not already hit, and reasonably close, keep it
+        if (this.homing.target && !this.homing.target.isDead && !(this.hitEnemies && this.hitEnemies.has(this.homing.target.id))) {
             const currentTarget = this.homing.target;
             const dx = currentTarget.x - this.x;
             const dy = currentTarget.y - this.y;
@@ -141,11 +151,15 @@ class Projectile {
         let closestDistance = this.homing.range;
         
         const candidates = this._getNearbyEnemies(game, this.homing.range);
+        // Minor random jitter to avoid all projectiles picking the exact same target in dense clusters
+        const jitter = 0.0001 * (Math.random() - 0.5);
         for (const enemy of candidates) {
             if (!enemy || enemy.isDead || typeof enemy.x !== 'number' || typeof enemy.y !== 'number') continue;
+            // Avoid reacquiring enemies this projectile already hit
+            if (this.hitEnemies && this.hitEnemies.has(enemy.id)) continue;
             const dx = enemy.x - this.x;
             const dy = enemy.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distance = Math.sqrt(dx * dx + dy * dy) + jitter;
             if (distance < closestDistance && distance > 0) {
                 const currentAngle = Math.atan2(this.vy, this.vx);
                 const targetAngle = Math.atan2(dy, dx);
@@ -214,10 +228,16 @@ class Projectile {
             angleDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
         }
         
-        // Calculate new angle and velocity
+        // Calculate new angle and velocity with guards against zero/NaN speed
         const newAngle = currentAngle + angleDiff;
-        this.vx = Math.cos(newAngle) * currentSpeed;
-        this.vy = Math.sin(newAngle) * currentSpeed;
+        let speed = currentSpeed;
+        if (!Number.isFinite(speed) || speed <= 0) {
+            // Fallback to base speed from current velocity magnitude or a default
+            const fallback = Math.sqrt((this.vx * this.vx) + (this.vy * this.vy));
+            speed = Number.isFinite(fallback) && fallback > 0 ? fallback : 300;
+        }
+        this.vx = Math.cos(newAngle) * speed;
+        this.vy = Math.sin(newAngle) * speed;
     }
     
     explode(game) {
@@ -556,20 +576,27 @@ class Projectile {
     }
 
     // Helper method to check if projectile is off screen (accounting for camera)
-    isOffScreen(canvas, player) {
+    // marginMultiplier expands the culling bounds beyond the viewport (e.g., 1.5 = 150% of viewport)
+    isOffScreen(canvas, player, marginMultiplier = 1.0) {
         // If no player (camera), use basic screen bounds
         if (!player) {
-            return this.x < -this.radius || 
-                   this.x > canvas.width + this.radius || 
-                   this.y < -this.radius || 
-                   this.y > canvas.height + this.radius;
+            const marginX = canvas.width * (marginMultiplier - 1) * 0.5;
+            const marginY = canvas.height * (marginMultiplier - 1) * 0.5;
+            return this.x < -this.radius - marginX || 
+                   this.x > canvas.width + this.radius + marginX || 
+                   this.y < -this.radius - marginY || 
+                   this.y > canvas.height + this.radius + marginY;
         }
         
         // Calculate screen bounds relative to camera (player position)
-        const screenLeft = player.x - canvas.width / 2 - this.radius;
-        const screenRight = player.x + canvas.width / 2 + this.radius;
-        const screenTop = player.y - canvas.height / 2 - this.radius;
-        const screenBottom = player.y + canvas.height / 2 + this.radius;
+        const halfW = canvas.width / 2;
+        const halfH = canvas.height / 2;
+        const extraW = halfW * (marginMultiplier - 1);
+        const extraH = halfH * (marginMultiplier - 1);
+        const screenLeft = player.x - halfW - this.radius - extraW;
+        const screenRight = player.x + halfW + this.radius + extraW;
+        const screenTop = player.y - halfH - this.radius - extraH;
+        const screenBottom = player.y + halfH + this.radius + extraH;
         
         return this.x < screenLeft || this.x > screenRight || 
                this.y < screenTop || this.y > screenBottom;

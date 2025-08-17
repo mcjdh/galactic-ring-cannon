@@ -578,65 +578,48 @@ class GameEngine {
         if (!hitSuccessful) return;
 
         if (typeof enemy.takeDamage === 'function' && typeof projectile.damage === 'number') {
-            const wasCritical = projectile.isCritical || false;
+            const wasCritical = !!(projectile.isCrit);
             const wasKilled = enemy.health <= projectile.damage;
-            
             enemy.takeDamage(projectile.damage);
-            
-            // Trigger resonance effects
             if (window.resonanceSystem) {
                 const intensity = Math.min(projectile.damage / 100, 1.0);
                 const position = { x: enemy.x, y: enemy.y };
-                
-                if (wasKilled) {
-                    window.resonanceSystem.triggerImpactResonance(intensity * 1.5, 'kill', position);
-                } else if (wasCritical) {
-                    window.resonanceSystem.triggerImpactResonance(intensity * 1.2, 'critical', position);
-                } else {
-                    window.resonanceSystem.triggerImpactResonance(intensity, 'hit', position);
-                }
+                if (wasKilled) window.resonanceSystem.triggerImpactResonance(intensity * 1.5, 'kill', position);
+                else if (wasCritical) window.resonanceSystem.triggerImpactResonance(intensity * 1.2, 'critical', position);
+                else window.resonanceSystem.triggerImpactResonance(intensity, 'hit', position);
             }
-            
-            if (window.gameManager) {
-                window.gameManager.createHitEffect(enemy.x, enemy.y, projectile.damage);
-            }
-            if (window.audioSystem && window.audioSystem.play) {
-                window.audioSystem.play('hit', 0.2);
-            }
+            if (window.gameManager) window.gameManager.createHitEffect(enemy.x, enemy.y, projectile.damage);
+            if (window.audioSystem?.play) window.audioSystem.play('hit', 0.2);
         }
 
-        if (projectile.hitEnemies) {
-            projectile.hitEnemies.add(enemy.id);
-        }
+        if (projectile.hitEnemies) projectile.hitEnemies.add(enemy.id);
 
         if (projectile.chainLightning) projectile.triggerChainLightning(this, enemy);
 
         if (this.player && projectile.lifesteal) {
             const healAmount = projectile.damage * projectile.lifesteal;
             this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
-            if (window.gameManager) {
-                window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, this.player.x, this.player.y - 30, '#2ecc71', 14);
-            }
+            window.gameManager?.showFloatingText?.(`+${Math.round(healAmount)}`, this.player.x, this.player.y - 30, '#2ecc71', 14);
         }
 
+        // Align projectile termination with CollisionSystem behavior
         let projectileShouldDie = true;
-        if (projectile.piercing > 0) {
+        if (typeof projectile.piercing === 'number' && projectile.piercing > 0) {
             projectile.piercing--;
             projectileShouldDie = false;
         } else if (projectile.ricochet && projectile.ricochet.bounced < projectile.ricochet.bounces) {
-            if (projectile.type === 'projectile' && projectile instanceof Projectile) {
-                projectileShouldDie = !Projectile.prototype.ricochet.call(projectile, this);
+            if (projectile.type === 'projectile') {
+                try {
+                    const ok = Projectile.prototype.ricochet.call(projectile, this);
+                    projectileShouldDie = !ok;
+                } catch (_) {}
             }
         }
-        
-        if (projectile.explosive) {
+        if (projectile.explosive && (projectileShouldDie || (typeof projectile.piercing === 'number' && projectile.piercing <= 0))) {
             projectile.explode(this);
             projectileShouldDie = true;
         }
-
-        if (projectileShouldDie) {
-            projectile.isDead = true;
-        }
+        if (projectileShouldDie) projectile.isDead = true;
     }
 
     _handleEnemyProjectilePlayerCollision(enemyProjectile, player) {

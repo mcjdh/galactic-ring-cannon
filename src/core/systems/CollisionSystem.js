@@ -40,6 +40,8 @@
             const entityCount = (engine.entities || []).length;
             const adaptiveGridSize = this.calculateOptimalGridSize(entityCount);
             const gridSize = adaptiveGridSize || engine.gridSize || 100;
+            // Sync engine gridSize so helpers (e.g., projectile targeting) use the same value
+            engine.gridSize = gridSize;
             
             const list = engine.entities || [];
             this.stats.cellsProcessed = 0;
@@ -181,15 +183,19 @@
 
         checkAdjacentCellCollisions(gridX, gridY, entities) {
             const engine = this.engine;
+            // Check only forward neighbors to avoid duplicate pair processing
             const adjacentOffsets = [
-                [0, 1], [1, 0], [1, 1], [0, -1], [-1, 0], [-1, -1], [1, -1], [-1, 1]
+                [1, 0], [0, 1], [1, 1], [-1, 1]
             ];
             for (const [dx, dy] of adjacentOffsets) {
                 const adjacentKey = `${gridX + dx},${gridY + dy}`;
                 const adjacentEntities = engine.spatialGrid.get(adjacentKey);
-                if (!adjacentEntities) continue;
+                if (!adjacentEntities || adjacentEntities.length === 0) continue;
                 for (const e of entities) {
+                    if (!e || e.isDead) continue;
                     for (const ae of adjacentEntities) {
+                        if (!ae || ae.isDead) continue;
+                        if (!this.canCollide(e, ae)) continue;
                         if (this.isColliding(e, ae)) {
                             this.handleCollision(e, ae);
                         }
