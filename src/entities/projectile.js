@@ -26,6 +26,17 @@ class Projectile {
         this.specialType = specialType;
         this.special = null;
 
+        // Ability flags and data that can be toggled post-construction
+        this.hasChainLightning = false;
+        this.hasRicochet = false;
+        this.hasExplosive = false;
+        this.hasHoming = false;
+
+        this.chainData = null;
+        this.ricochetData = null;
+        this.explosiveData = null;
+        this.homingData = null;
+
         if (specialType) {
             this.initializeSpecial(specialType);
         }
@@ -82,19 +93,23 @@ class Projectile {
     initializeSpecial(type) {
         switch (type) {
             case 'chain':
-                this.special = { maxChains: 2, used: 0, range: 150 };
+                this.special = { maxChains: 2, used: 0, range: 150, damageMultiplier: 0.7 };
+                this.hasChainLightning = true;
                 this.radius = 6;
                 break;
             case 'explosive':
-                this.special = { radius: 60, damage: this.damage * 0.7 };
+                this.special = { radius: 60, damage: this.damage * 0.7, exploded: false };
+                this.hasExplosive = true;
                 this.radius = 7;
                 break;
             case 'ricochet':
-                this.special = { bounces: 2, used: 0, range: 180 };
+                this.special = { bounces: 2, used: 0, range: 180, damageMultiplier: 0.8 };
+                this.hasRicochet = true;
                 this.radius = 6;
                 break;
             case 'homing':
                 this.special = { target: null, turnSpeed: 2.0, range: 200 };
+                this.hasHoming = true;
                 this.radius = 5;
                 break;
         }
@@ -196,13 +211,25 @@ class Projectile {
             return;
         }
 
-        // Initialize explosive special data if not already set
-        if (!this.special || typeof this.special.radius !== 'number') {
-            this.special = { radius: 60, damage: this.damage * 0.7, exploded: false };
+        let data = null;
+        if (this.specialType === 'explosive' && this.special) {
+            data = this.special;
+        } else if (this.explosiveData) {
+            data = this.explosiveData;
         }
 
-        if (this.special.exploded) return;
-        this.special.exploded = true;
+        if (!data || typeof data.radius !== 'number') {
+            data = { radius: 60, damageMultiplier: 0.7, exploded: false };
+        }
+
+        if (data.exploded) return;
+        data.exploded = true;
+
+        if (this.specialType === 'explosive') {
+            this.special = data;
+        } else {
+            this.explosiveData = data;
+        }
 
         // Simple explosion - damage nearby enemies
         if (game?.enemies && Array.isArray(game.enemies)) {
@@ -213,9 +240,10 @@ class Projectile {
                 const dy = enemy.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                if (dist <= this.special.radius) {
-                    const falloff = Math.max(0.3, 1 - (dist / this.special.radius));
-                    const damage = this.special.damage * falloff;
+                if (dist <= data.radius) {
+                    const falloff = Math.max(0.3, 1 - (dist / data.radius));
+                    const baseDamage = data.damage !== undefined ? data.damage : this.damage * (data.damageMultiplier || 0.7);
+                    const damage = baseDamage * falloff;
                     if (typeof enemy.takeDamage === 'function') {
                         enemy.takeDamage(Math.max(1, damage));
 
@@ -230,7 +258,7 @@ class Projectile {
 
         // Simple visual effect
         if (window.gameManager?.createExplosion) {
-            window.gameManager.createExplosion(this.x, this.y, this.special.radius, '#ff8800');
+            window.gameManager.createExplosion(this.x, this.y, data.radius, '#ff8800');
         }
 
         this.isDead = true;
@@ -244,11 +272,18 @@ class Projectile {
         }
 
         // Initialize chain special data if not already set
-        if (!this.special || typeof this.special.maxChains !== 'number') {
-            this.special = { maxChains: 2, used: 0, range: 150 };
+        let data = null;
+        if (this.specialType === 'chain' && this.special) {
+            data = this.special;
+        } else if (this.chainData) {
+            data = this.chainData;
         }
 
-        if (this.special.used >= this.special.maxChains) {
+        if (!data || typeof data.maxChains !== 'number') {
+            data = { maxChains: 2, used: 0, range: 180, damageMultiplier: 0.75 };
+        }
+
+        if (data.used >= data.maxChains) {
             return;
         }
 
@@ -259,7 +294,7 @@ class Projectile {
 
         // Simple chain - find nearest enemy and damage it
         let nearest = null;
-        let minDist = this.special.range;
+        let minDist = data.range || 180;
 
         for (const enemy of game.enemies) {
             if (!enemy || enemy.isDead || enemy === hitEnemy || this.hitEnemies.has(enemy.id)) continue;
@@ -275,11 +310,16 @@ class Projectile {
         }
 
         if (nearest) {
-            const chainDamage = this.damage * 0.6;
+            const chainDamage = this.damage * (data.damageMultiplier ?? 0.75);
             if (typeof nearest.takeDamage === 'function') {
                 nearest.takeDamage(chainDamage);
                 this.hitEnemies.add(nearest.id);
-                this.special.used++;
+                data.used = (data.used || 0) + 1;
+                if (this.specialType === 'chain') {
+                    this.special = data;
+                } else {
+                    this.chainData = data;
+                }
 
                 // Simple visual effect
                 this.createLightningEffect(this.x, this.y, nearest.x, nearest.y);
@@ -294,17 +334,24 @@ class Projectile {
 
     ricochet(game) {
         // Check if projectile has ricochet ability
-        const hasRicochetAbility = this.specialType === 'ricochet';
+        const hasRicochetAbility = this.specialType === 'ricochet' || this.hasRicochet;
         if (!hasRicochetAbility) {
             return false;
         }
 
         // Initialize ricochet special data if not already set
-        if (!this.special || typeof this.special.bounces !== 'number') {
-            this.special = { bounces: 2, used: 0, range: 180 };
+        let data = null;
+        if (this.specialType === 'ricochet' && this.special) {
+            data = this.special;
+        } else if (this.ricochetData) {
+            data = this.ricochetData;
         }
 
-        if (this.special.used >= this.special.bounces) {
+        if (!data || typeof data.bounces !== 'number') {
+            data = { bounces: 2, used: 0, range: 200, damageMultiplier: 0.8 };
+        }
+
+        if (data.used >= data.bounces) {
             return false;
         }
 
@@ -315,7 +362,7 @@ class Projectile {
 
         // Simple ricochet - find nearest enemy and bounce towards it
         let nearest = null;
-        let minDist = this.special.range;
+        let minDist = data.range || 200;
 
         for (const enemy of game.enemies) {
             if (!enemy || enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
@@ -340,8 +387,14 @@ class Projectile {
                 if (speed > 0) {
                     this.vx = (dx / dist) * speed;
                     this.vy = (dy / dist) * speed;
-                    this.damage *= 0.8; // Reduce damage slightly
-                    this.special.used++;
+                    const dmgMultiplier = data.damageMultiplier ?? 0.8;
+                    this.damage = Math.max(1, this.damage * dmgMultiplier);
+                    data.used = (data.used || 0) + 1;
+                    if (this.specialType === 'ricochet') {
+                        this.special = data;
+                    } else {
+                        this.ricochetData = data;
+                    }
                     return true;
                 }
             }
@@ -434,6 +487,7 @@ class Projectile {
         if (window.debugProjectiles) {
             console.log(`[Projectile ${this.id}] Non-piercing hit on enemy ${enemy.id}`);
         }
+        this.hitEnemies.add(enemy.id);
         return true;
     }
 

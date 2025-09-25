@@ -13,9 +13,9 @@ class PlayerAbilities {
 
         // Chain lightning properties
         this.hasChainLightning = false;
-        this.chainChance = 0;
-        this.chainDamage = 0;
-        this.chainRange = 0;
+        this.chainChance = 0.0;
+        this.chainDamage = 0.0;
+        this.chainRange = 0.0;
         this.maxChains = 0;
 
         // Explosion properties
@@ -27,7 +27,7 @@ class PlayerAbilities {
 
         // Ricochet properties
         this.hasRicochet = false;
-        this.ricochetChance = 0.25; // 25% chance when ability is acquired
+        this.ricochetChance = 0.4; // Baseline 40% chance once unlocked
         this.ricochetBounces = 0;
         this.ricochetRange = 0;
         this.ricochetDamage = 0;
@@ -476,10 +476,10 @@ class PlayerAbilities {
                     this.orbitRadius = upgrade.orbitRadius || 80;
                 } else if (upgrade.specialType === 'chain') {
                     this.hasChainLightning = true;
-                    this.chainChance = upgrade.value || 0.3;
-                    this.chainDamage = upgrade.chainDamage || 0.7;
-                    this.chainRange = upgrade.chainRange || 150;
-                    this.maxChains = upgrade.maxChains || 1;
+                    this.chainChance = Math.min(0.85, Math.max(this.chainChance, upgrade.value || 0.5));
+                    this.chainDamage = Math.max(this.chainDamage, upgrade.chainDamage || 0.85);
+                    this.chainRange = Math.max(this.chainRange, upgrade.chainRange || 240);
+                    this.maxChains = Math.max(this.maxChains, upgrade.maxChains || 2);
                 } else if (upgrade.specialType === 'explosion') {
                     this.hasExplosiveShots = true;
                     this.explosiveChance = upgrade.explosiveChance || this.explosiveChance || 0.3;
@@ -487,10 +487,10 @@ class PlayerAbilities {
                     this.explosionDamage = upgrade.explosionDamage || 0.5;
                 } else if (upgrade.specialType === 'ricochet') {
                     this.hasRicochet = true;
-                    this.ricochetChance = upgrade.ricochetChance || this.ricochetChance || 0.25;
-                    this.ricochetBounces = upgrade.bounces || 1;
-                    this.ricochetRange = upgrade.bounceRange || 180;
-                    this.ricochetDamage = upgrade.bounceDamage || 0.8;
+                    this.ricochetChance = Math.min(0.9, Math.max(this.ricochetChance, upgrade.ricochetChance || 0.45));
+                    this.ricochetBounces = Math.max(this.ricochetBounces, upgrade.bounces || 2);
+                    this.ricochetRange = Math.max(this.ricochetRange, upgrade.bounceRange || 260);
+                    this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.bounceDamage || 0.85);
                 } else if (upgrade.specialType === 'aoe') {
                     this.player.combat.hasAOEAttack = true;
                     this.player.combat.aoeAttackRange = Math.max(150, this.player.combat.aoeAttackRange);
@@ -515,15 +515,26 @@ class PlayerAbilities {
                 break;
 
             case 'chain':
-                this.chainChance = upgrade.value || this.chainChance;
-                if (upgrade.maxChains) this.maxChains = upgrade.maxChains;
+                if (upgrade.value) {
+                    this.chainChance = Math.min(0.9, Math.max(this.chainChance, upgrade.value));
+                }
+                if (upgrade.maxChains) this.maxChains = Math.max(this.maxChains, upgrade.maxChains);
+                if (upgrade.rangeBonus) {
+                    this.chainRange = Math.max(this.chainRange, 1);
+                    this.chainRange += upgrade.rangeBonus;
+                }
                 break;
 
             case 'chainDamage':
-                this.chainDamage = upgrade.value || this.chainDamage;
+                if (upgrade.value) {
+                    this.chainDamage = Math.max(this.chainDamage, upgrade.value);
+                }
                 break;
 
             case 'chainRange':
+                if (this.chainRange <= 0) {
+                    this.chainRange = 240; // sensible default before scaling
+                }
                 this.chainRange *= upgrade.multiplier || 1;
                 break;
 
@@ -541,10 +552,18 @@ class PlayerAbilities {
 
             case 'ricochetBounces':
                 this.ricochetBounces += upgrade.value || 1;
+                if (upgrade.rangeBonus) {
+                    this.ricochetRange = Math.max(this.ricochetRange, 0) + upgrade.rangeBonus;
+                }
+                if (upgrade.chanceBonus) {
+                    this.ricochetChance = Math.min(0.95, this.ricochetChance + upgrade.chanceBonus);
+                }
                 break;
 
             case 'ricochetDamage':
-                this.ricochetDamage = upgrade.value || this.ricochetDamage;
+                if (upgrade.value) {
+                    this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.value);
+                }
                 break;
         }
     }

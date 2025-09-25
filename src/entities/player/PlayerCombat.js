@@ -367,25 +367,73 @@ class PlayerCombat {
         // Scale special types from player stats
         const abilities = this.player.abilities;
         for (const type of specialTypes) {
-            if (type === 'chain' && projectile.chainLightning && abilities) {
-                projectile.chainLightning.chainRange = abilities.chainRange || 150;
-                projectile.chainLightning.maxChains = abilities.maxChains || 3;
-                const multiplier = (typeof abilities.chainDamage === 'number' && abilities.chainDamage > 0) ? abilities.chainDamage : 0.7;
-                projectile.chainLightning.chainDamage = Math.max(1, damage * multiplier);
-            } else if (type === 'explosive' && projectile.explosive && abilities) {
-                projectile.explosive.radius = abilities.explosionRadius || 80;
-                const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.8;
-                projectile.explosive.damage = damage * damageMultiplier;
-            } else if (type === 'ricochet' && projectile.ricochet && abilities) {
-                projectile.ricochet.bounces = abilities.ricochetBounces || 3;
-                projectile.ricochet.range = abilities.ricochetRange || 200;
-            } else if (type === 'homing' && projectile.homing && abilities) {
-                if (typeof abilities.homingRange === 'number') {
-                    projectile.homing.range = Math.max(projectile.homing.range, abilities.homingRange);
+            switch (type) {
+                case 'chain': {
+                    if (!abilities) break;
+                    const chainData = (projectile.specialType === 'chain' && projectile.special)
+                        ? { ...projectile.special }
+                        : (projectile.chainData ? { ...projectile.chainData } : { used: 0 });
+
+                    chainData.maxChains = Math.max(chainData.maxChains || 0, abilities.maxChains || 2);
+                    chainData.range = Math.max(chainData.range || 0, abilities.chainRange || 240);
+                    const dmgMultiplier = (typeof abilities.chainDamage === 'number' && abilities.chainDamage > 0)
+                        ? abilities.chainDamage
+                        : 0.8;
+                    chainData.damageMultiplier = dmgMultiplier;
+
+                    projectile.hasChainLightning = true;
+                    if (projectile.specialType === 'chain') {
+                        projectile.special = chainData;
+                    }
+                    projectile.chainData = chainData;
+                    break;
                 }
-                if (typeof abilities.homingTurnSpeed === 'number') {
-                    projectile.homing.turnSpeed = Math.max(projectile.homing.turnSpeed, abilities.homingTurnSpeed);
+                case 'explosive': {
+                    if (!abilities) break;
+                    const radius = abilities.explosionRadius || 90;
+                    const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.85;
+                    projectile.hasExplosive = true;
+                    projectile.explosiveData = {
+                        radius,
+                        damageMultiplier,
+                        exploded: false
+                    };
+                    break;
                 }
+                case 'ricochet': {
+                    if (!abilities) break;
+                    const ricochetData = (projectile.specialType === 'ricochet' && projectile.special)
+                        ? { ...projectile.special }
+                        : (projectile.ricochetData ? { ...projectile.ricochetData } : { used: 0 });
+
+                    ricochetData.bounces = Math.max(ricochetData.bounces || 0, abilities.ricochetBounces || 2);
+                    ricochetData.range = Math.max(ricochetData.range || 0, abilities.ricochetRange || 260);
+                    // Damage multiplier dictates how much damage is retained per bounce
+                    ricochetData.damageMultiplier = Math.min(1, Math.max(abilities.ricochetDamage || 0.85, 0.5));
+
+                    projectile.hasRicochet = true;
+                    if (projectile.specialType === 'ricochet') {
+                        projectile.special = ricochetData;
+                    }
+                    projectile.ricochetData = ricochetData;
+                    break;
+                }
+                case 'homing': {
+                    if (!abilities) break;
+                    projectile.hasHoming = true;
+                    if (projectile.specialType === 'homing' && projectile.special) {
+                        projectile.special.range = Math.max(projectile.special.range, abilities.homingRange || projectile.special.range);
+                        projectile.special.turnSpeed = Math.max(projectile.special.turnSpeed, abilities.homingTurnSpeed || projectile.special.turnSpeed);
+                    } else {
+                        projectile.homingData = {
+                            range: abilities.homingRange || 250,
+                            turnSpeed: abilities.homingTurnSpeed || 3
+                        };
+                    }
+                    break;
+                }
+                default:
+                    break;
             }
         }
     }
