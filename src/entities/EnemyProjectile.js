@@ -43,7 +43,7 @@ class EnemyProjectile {
         // Collision with player is handled centrally by the CollisionSystem/GameEngine
         
         // Check if projectile is off-screen (performance optimization)
-        this.checkBounds();
+        this.checkBounds(game);
     }
     
     /**
@@ -54,13 +54,18 @@ class EnemyProjectile {
     checkPlayerCollision(game) { /* no-op */ }
     
     /**
-     * Check if projectile is outside reasonable bounds
+     * Check if projectile is outside reasonable bounds (camera-aware)
      */
-    checkBounds() {
-        // Remove projectiles that are way off screen
-        const maxDistance = 2000;
-        if (Math.abs(this.x) > maxDistance || Math.abs(this.y) > maxDistance) {
-            this.isDead = true;
+    checkBounds(game) {
+        // Remove projectiles that are too far from camera viewport
+        if (game?.player && game?.canvas) {
+            const maxDistance = 2000; // pixels from camera center
+            const player = game.player;
+            const distanceFromCamera = Math.abs(this.x - player.x) + Math.abs(this.y - player.y);
+
+            if (distanceFromCamera > maxDistance) {
+                this.isDead = true;
+            }
         }
     }
     

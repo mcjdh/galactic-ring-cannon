@@ -33,11 +33,16 @@ class Particle {
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
         
-        // Kill particles that are too far off screen to prevent memory bloat
-        const maxDistance = 2000; // pixels from origin
-        if (Math.abs(this.x) > maxDistance || Math.abs(this.y) > maxDistance) {
-            this.isDead = true;
-            return;
+        // Kill particles that are too far from camera viewport to prevent memory bloat
+        if (game?.player && game?.canvas) {
+            const maxDistance = 2000; // pixels from camera center
+            const player = game.player;
+            const distanceFromCamera = Math.abs(this.x - player.x) + Math.abs(this.y - player.y);
+
+            if (distanceFromCamera > maxDistance) {
+                this.isDead = true;
+                return;
+            }
         }
         
         // Apply gravity
