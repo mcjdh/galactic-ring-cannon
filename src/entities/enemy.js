@@ -272,6 +272,12 @@ class Enemy {
                 window.gameManagerBridge.enemySpawner.onEnemyKilled(this);
             } catch (_) { /* no-op */ }
         }
+
+        if (this.isBoss && window.gameManagerBridge?.onBossKilled) {
+            try {
+                window.gameManagerBridge.onBossKilled();
+            } catch (_) { /* no-op */ }
+        }
         
         // Play death sound
         if (window.audioSystem) {

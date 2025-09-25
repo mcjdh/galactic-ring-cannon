@@ -265,19 +265,18 @@ class PlayerCombat {
                 this._configureProjectileFromUpgrades(projectile, volleySpecialTypes, damage, isCrit);
 
                 // POTENTIAL BUG: This might be overriding the piercing value!
-                const originalProjectilePiercing = projectile.piercing;
-                projectile.piercing = Math.max(0, projectile.piercing || this.piercing || 0);
-
-                if (window.debugProjectiles && originalProjectilePiercing !== projectile.piercing) {
-                    console.log(`[PlayerCombat] PIERCING CHANGED: Projectile ${projectile.id} piercing ${originalProjectilePiercing} -> ${projectile.piercing}`);
+                const basePiercing = Number.isFinite(this.piercing) ? Math.max(0, this.piercing) : 0;
+                if (projectile.piercing !== basePiercing) {
+                    if (window.debugProjectiles) {
+                        console.log(`[PlayerCombat] Normalizing projectile ${projectile.id} piercing: ${projectile.piercing} -> ${basePiercing}`);
+                    }
+                    projectile.piercing = basePiercing;
                 }
 
-                // Store original piercing for potential ricochet restoration
                 if (projectile.piercing > 0) {
                     projectile.originalPiercing = projectile.piercing;
-                    if (window.debugProjectiles) {
-                        console.log(`[PlayerCombat] Projectile ${projectile.id} final piercing = ${projectile.piercing}, originalPiercing = ${projectile.originalPiercing}`);
-                    }
+                } else {
+                    projectile.originalPiercing = 0;
                 }
 
                 // Apply ALL special types as properties (not just primary)

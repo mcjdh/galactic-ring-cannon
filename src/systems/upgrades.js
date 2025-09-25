@@ -288,6 +288,35 @@ class UpgradeSystem {
         this.levelUpKeyListener = null; // Store reference to listener for cleanup
         this.comboEffects = new Set();
     }
+
+    resetForNewRun() {
+        // Clear any persistent upgrade state between runs
+        if (Array.isArray(this.selectedUpgrades)) {
+            this.selectedUpgrades.length = 0;
+        } else {
+            this.selectedUpgrades = [];
+        }
+
+        if (this.comboEffects?.clear) {
+            this.comboEffects.clear();
+        } else {
+            this.comboEffects = new Set();
+        }
+
+        this.levelUpActive = false;
+        this.removeKeyboardShortcuts();
+
+        // Refresh DOM references in case the UI was re-rendered
+        this.levelUpContainer = document.getElementById('level-up-container');
+        this.upgradeOptionsContainer = document.getElementById('upgrade-options');
+
+        if (this.levelUpContainer) {
+            this.levelUpContainer.classList.add('hidden');
+        }
+        if (this.upgradeOptionsContainer) {
+            this.upgradeOptionsContainer.innerHTML = '';
+        }
+    }
     
     showUpgradeOptions() {
         // Set level up active state BEFORE pausing the game

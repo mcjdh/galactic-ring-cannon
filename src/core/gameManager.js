@@ -24,6 +24,7 @@ class GameManager {
         this.gameOver = false;
         this.gameWon = false;
         this.winScreenDisplayed = false;
+        this.endScreenShown = false;
         this.isPaused = false;
         
         // Initialize components using composition with safety checks
@@ -173,14 +174,6 @@ class GameManager {
             this.onGameOver();
         }
         
-        // Check win condition (if not endless mode)
-        const winDuration = (window.GAME_CONSTANTS && window.GAME_CONSTANTS.GAME && typeof window.GAME_CONSTANTS.GAME.WIN_TIME === 'number')
-            ? window.GAME_CONSTANTS.GAME.WIN_TIME
-            : 180;
-        if (!this.endlessMode && !this.gameWon && this.gameTime >= winDuration) {
-            this.gameWon = true;
-            this.onGameWon();
-        }
     }
     
     /**
@@ -213,12 +206,12 @@ class GameManager {
         
         // Show game over screen
         if (this.uiManager) this.uiManager.showGameOverScreen();
-        
+
         // Play game over sound
         if (window.audioSystem) {
             window.audioSystem.play('gameOver', 0.7);
         }
-        
+
         // Create dramatic death effect
         if (this.game.player && this.effectsManager) {
             this.effectsManager.createExplosion(
@@ -229,21 +222,40 @@ class GameManager {
             );
             this.effectsManager.addScreenShake(20, 2.0);
         }
+
+        this.showRunSummary({
+            title: 'Defeat',
+            subtitle: `You survived ${this.formatTime(this.gameTime)}.`,
+            outcome: 'defeat',
+            buttons: [
+                { label: 'Retry Run', action: () => this.startGame() },
+                { label: 'Main Menu', action: () => this.returnToMenu() }
+            ]
+        });
     }
     
     /**
      * Handle game won
      */
     onGameWon() {
-        if (this.winScreenDisplayed) return;
+        if (this.endScreenShown) return;
         this.winScreenDisplayed = true;
-        
+
         // Award bonus star tokens for winning
         if (this.statsManager) this.statsManager.earnStarTokens(10);
-        
+
         // Show win screen
-        this.showWinScreen();
-        
+        this.showRunSummary({
+            title: 'Victory!',
+            subtitle: `Boss defeated in ${this.formatTime(this.gameTime)}.`,
+            outcome: 'victory',
+            buttons: [
+                { label: 'Continue Run', action: () => this.resumeRun() },
+                { label: 'Start New Run', action: () => this.startGame() },
+                { label: 'Main Menu', action: () => this.returnToMenu() }
+            ]
+        });
+
         // Play victory sound
         if (window.audioSystem) {
             window.audioSystem.play('victory', 0.8);
@@ -264,26 +276,135 @@ class GameManager {
     /**
      * Show win screen
      */
-    showWinScreen() {
-        const winScreen = document.getElementById('win-screen');
-        if (winScreen) {
-            winScreen.classList.remove('hidden');
-            
-            // Update win screen with final stats
-            const finalStats = this.statsManager.getStatsSummary();
-            
-            const winStats = document.getElementById('win-stats');
-            if (winStats) {
-                winStats.innerHTML = `
-                    <h3>Victory Statistics</h3>
-                    <p>Enemies Defeated: ${finalStats.killCount}</p>
-                    <p>Level Reached: ${finalStats.highestLevel}</p>
-                    <p>Highest Combo: ${finalStats.highestCombo}x</p>
-                    <p>Survival Rating: ${finalStats.survivalRating}</p>
-                    <p>Star Tokens Earned: ${finalStats.starTokensEarned}</p>
-                `;
+    showWinScreen() {}
+
+    formatTime(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(totalSeconds || 0));
+        const minutes = Math.floor(seconds / 60);
+        const remaining = seconds % 60;
+        if (minutes > 0) {
+            return `${minutes}m ${remaining.toString().padStart(2, '0')}s`;
+        }
+        return `${remaining}s`;
+    }
+
+    getRunSummaryStats() {
+        const stats = [];
+
+        if (this.statsManager?.getStatsSummary) {
+            const summary = this.statsManager.getStatsSummary();
+            stats.push({ label: 'Enemies Defeated', value: summary.killCount ?? 0 });
+
+            const level = summary.highestLevel ?? summary.level ?? this.game?.player?.level ?? 1;
+            stats.push({ label: 'Highest Level', value: level });
+
+            if (summary.highestCombo !== undefined) {
+                stats.push({ label: 'Best Combo', value: `${summary.highestCombo || 0}x` });
+            }
+
+            if (summary.totalDamageDealt !== undefined) {
+                stats.push({ label: 'Damage Dealt', value: Math.round(summary.totalDamageDealt) });
+            }
+
+            stats.push({ label: 'Survival Time', value: this.formatTime(this.gameTime) });
+
+            if (summary.starTokensEarned !== undefined) {
+                stats.push({ label: 'Star Tokens Earned', value: summary.starTokensEarned });
+            }
+
+            if (summary.survivalRating) {
+                stats.push({ label: 'Survival Rating', value: summary.survivalRating });
+            }
+        } else {
+            stats.push({ label: 'Survival Time', value: this.formatTime(this.gameTime) });
+            const kills = this.statsManager?.killCount ?? this.game?.player?.stats?.killStreak ?? 0;
+            stats.push({ label: 'Enemies Defeated', value: kills });
+        }
+
+        return stats;
+    }
+
+    showRunSummary({ title, subtitle = '', outcome = 'summary', buttons = [] }) {
+        if (this.endScreenShown) return;
+        this.endScreenShown = true;
+
+        const stats = this.getRunSummaryStats();
+
+        if (window.resultScreen && typeof window.resultScreen.show === 'function') {
+            window.resultScreen.show({
+                title,
+                subtitle,
+                stats,
+                outcome,
+                buttons
+            });
+        } else {
+            let message = `${title}\n${subtitle}`.trim();
+            stats.forEach(stat => {
+                message += `\n${stat.label}: ${stat.value}`;
+            });
+            alert(message);
+        }
+
+        if (this.game) {
+            this.game.isPaused = true;
+        }
+    }
+
+    returnToMenu() {
+        const gameContainer = document.getElementById('game-container');
+        const mainMenu = document.getElementById('main-menu');
+        if (gameContainer) gameContainer.classList.add('hidden');
+        if (mainMenu) mainMenu.classList.remove('hidden');
+
+        const pauseMenu = document.getElementById('pause-menu');
+        if (pauseMenu) pauseMenu.classList.add('hidden');
+
+        if (this.game) {
+            if (typeof this.game.resumeGame === 'function') {
+                this.game.resumeGame();
+            }
+            if (typeof this.game.prepareNewRun === 'function') {
+                this.game.prepareNewRun();
+            }
+            this.game.isPaused = true;
+        }
+
+        this.gameOver = true;
+        this.gameWon = false;
+        this.endScreenShown = false;
+        this.winScreenDisplayed = false;
+
+        if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
+            window.resultScreen.hide();
+        }
+
+        this.uiManager?.updatePauseButton?.();
+        this.updateStarDisplay?.();
+
+        const bossCountdown = document.getElementById('boss-countdown');
+        if (bossCountdown) bossCountdown.classList.add('hidden');
+    }
+
+    resumeRun() {
+        if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
+            window.resultScreen.hide();
+        }
+
+        this.gameWon = false;
+        this.gameOver = false;
+        this.endScreenShown = false;
+        this.winScreenDisplayed = false;
+
+        if (this.game) {
+            if (typeof this.game.resumeGame === 'function') {
+                this.game.resumeGame();
+            } else {
+                this.game.isPaused = false;
             }
         }
+
+        this.uiManager?.updatePauseButton?.();
     }
     
     /**
@@ -339,6 +460,11 @@ class GameManager {
         if (enemy.isBoss || enemy.isMegaBoss) {
             this.effectsManager.createBossDeathEffect(enemy.x, enemy.y);
             this.statsManager.onBossKilled();
+
+            if (!this.endlessMode && !this.gameWon) {
+                this.gameWon = true;
+                this.onGameWon();
+            }
         } else {
             this.effectsManager.createHitEffect(enemy.x, enemy.y, enemy.maxHealth);
         }
@@ -490,28 +616,35 @@ class GameManager {
         this.gameOver = false;
         this.gameWon = false;
         this.winScreenDisplayed = false;
+        this.endScreenShown = false;
         this.bossMode = false;
         this.bossModeTimer = 0;
-        
+
         // Reset all components
         if (this.statsManager && typeof this.statsManager.resetSession === 'function') this.statsManager.resetSession();
         if (this.difficultyManager && typeof this.difficultyManager.reset === 'function') this.difficultyManager.reset();
         if (this.effectsManager && typeof this.effectsManager.clearAllEffects === 'function') this.effectsManager.clearAllEffects();
-        
+        if (this.enemySpawner && typeof this.enemySpawner.reset === 'function') this.enemySpawner.reset();
+
+        if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
+            window.resultScreen.hide();
+        }
+
         // Start the game engine
-        this.game.start();
-        
+        if (this.game) {
+            this.game.start();
+            if (typeof this.game.resumeGame === 'function') {
+                this.game.resumeGame();
+            } else {
+                this.game.isPaused = false;
+            }
+        }
+
         // Hide UI screens
         if (this.uiManager && typeof this.uiManager.hideLevelUpScreen === 'function') this.uiManager.hideLevelUpScreen();
         
-        const gameOverScreen = document.getElementById('game-over');
-        if (gameOverScreen) {
-            gameOverScreen.classList.add('hidden');
-        }
-        
-        const winScreen = document.getElementById('win-screen');
-        if (winScreen) {
-            winScreen.classList.add('hidden');
+        if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
+            window.resultScreen.hide();
         }
     }
     

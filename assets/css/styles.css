@@ -1429,6 +1429,89 @@ body {
     border-radius: 10px;
     min-width: 300px;
 }
+
+/* Result screen overlay */
+#result-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 12, 25, 0.88);
+    backdrop-filter: blur(4px);
+    z-index: 700;
+    padding: 20px;
+}
+
+#result-screen:not(.hidden) {
+    display: flex;
+}
+
+#result-screen .settings-content {
+    background: linear-gradient(160deg, rgba(46, 49, 65, 0.95), rgba(26, 28, 42, 0.95));
+    padding: 32px;
+    border-radius: 14px;
+    color: #ecf0f1;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#result-title {
+    margin: 0 0 0.75rem;
+    font-size: 2rem;
+    letter-spacing: 1px;
+}
+
+#result-subtitle {
+    margin: 0 0 1.25rem;
+    font-size: 1rem;
+    opacity: 0.8;
+}
+
+#result-screen[data-outcome="victory"] #result-title {
+    color: #f1c40f;
+}
+
+#result-screen[data-outcome="defeat"] #result-title {
+    color: #e74c3c;
+}
+
+#result-screen[data-outcome="summary"] #result-title {
+    color: #74b9ff;
+}
+
+#result-buttons {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.result-stats-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+
+.result-stats-list li {
+    margin-bottom: 0.35rem;
+    font-size: 0.95rem;
+}
+
+.result-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+.result-buttons .menu-button {
+    min-width: 140px;
+}
 #vendor-star-display {
     font-size: 18px;
     text-align: center;

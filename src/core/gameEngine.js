@@ -140,8 +140,110 @@ class GameEngine {
         this.canvas.addEventListener('webglcontextlost', this.boundHandleContextLoss);
         this.canvas.addEventListener('webglcontextrestored', this.boundHandleContextRestore);
         this.contextLost = false;
+
+        // Track if the render loop has already been bootstrapped
+        this._loopInitialized = false;
     }
-    
+
+    prepareNewRun() {
+        // Abort if canvas or player constructor are missing
+        if (!this.canvas) {
+            return;
+        }
+
+        (window.logger?.log || console.log)('🔄 Preparing game engine for new run');
+
+        // Reset core timing/performance metrics
+        this.gameTime = 0;
+        this.lastTime = 0;
+        this.lastFrameTime = 0;
+        this.lastRenderTime = 0;
+        this.lastFpsUpdate = 0;
+        this.frameCount = 0;
+        this.deltaTimeHistory = null;
+
+        // Reset pause/visibility state
+        this.isPaused = false;
+        this.contextLost = false;
+        this.performanceMode = false;
+        this.lowPerformanceMode = false;
+        this.isVisible = true;
+        this.isMinimized = false;
+
+        // Hide pause overlay if it was left open
+        const pauseMenu = document.getElementById('pause-menu');
+        if (pauseMenu) pauseMenu.classList.add('hidden');
+
+        // Clear entity collections
+        this.entities.length = 0;
+        this.enemies.length = 0;
+        this.xpOrbs.length = 0;
+        this.projectiles.length = 0;
+        if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
+            this.enemyProjectiles.length = 0;
+        }
+
+        // Reset pooled resources
+        if (Array.isArray(this.enemyProjectilePool)) {
+            this.enemyProjectilePool.length = 0;
+        }
+        if (Array.isArray(this.particlePool)) {
+            this.particlePool.length = 0;
+        }
+
+        // Reset spatial caches
+        if (this.spatialGrid && typeof this.spatialGrid.clear === 'function') {
+            this.spatialGrid.clear();
+        }
+        if (this.spatialGridCache && typeof this.spatialGridCache.clear === 'function') {
+            this.spatialGridCache.clear();
+        }
+
+        // Reset auxiliary managers
+        this.entityManager?.clear?.();
+        this.unifiedUI?.clearAllFloatingText?.();
+        if (window.optimizedParticles?.clear) {
+            window.optimizedParticles.clear();
+        }
+
+        // Reset input state to avoid stuck keys between runs
+        this.keys = {};
+
+        // Reset upgrade UI/system state so the next run starts clean
+        if (window.upgradeSystem?.resetForNewRun) {
+            try {
+                window.upgradeSystem.resetForNewRun();
+            } catch (error) {
+                (window.logger?.warn || console.warn)('UpgradeSystem reset failed:', error);
+            }
+        }
+
+        // Drop reference to prior player and spawn a fresh instance
+        this.player = null;
+        if (typeof Player !== 'undefined') {
+            const spawnX = (this.canvas.width || window.innerWidth || 0) / 2;
+            const spawnY = (this.canvas.height || window.innerHeight || 0) / 2;
+            const player = new Player(spawnX, spawnY);
+            this.addEntity(player);
+
+            // Refresh HUD elements to reflect the new baseline stats
+            try {
+                player?.stats?.updateXPBar?.();
+            } catch (error) {
+                (window.logger?.warn || console.warn)('Failed to update XP bar on new run:', error);
+            }
+
+            const levelDisplay = document.getElementById('level-display');
+            if (levelDisplay) levelDisplay.textContent = 'Level: 1';
+
+            const xpBar = document.getElementById('xp-bar');
+            if (xpBar) xpBar.style.setProperty('--xp-width', '0%');
+
+            const healthBar = document.getElementById('health-bar');
+            if (healthBar) healthBar.style.setProperty('--health-width', '100%');
+        }
+    }
+
     onKeyDown(e) {
         this.keys[e.key] = true;
         if (e.code) this.keys[e.code] = true;
@@ -186,22 +288,21 @@ class GameEngine {
     
     start() {
         (window.logger?.log || console.log)('🚀 GameEngine starting...');
-        
-        // Initialize player if not exists
-        if (!this.player && typeof Player !== 'undefined') {
-            (window.logger?.log || console.log)('Creating player...');
-            this.player = new Player(
-                this.canvas.width / 2, 
-                this.canvas.height / 2
-            );
-            this.addEntity(this.player);
-            (window.logger?.log || console.log)('✅ Player created and added');
+
+        this.prepareNewRun();
+
+        const now = performance.now();
+        this.lastTime = now;
+        this.lastFrameTime = now;
+        this.lastRenderTime = now;
+
+        if (!this._loopInitialized) {
+            this._loopInitialized = true;
+            this.gameLoop(now);
+            (window.logger?.log || console.log)('✅ Game loop started');
+        } else {
+            (window.logger?.log || console.log)('🔁 Game loop already active - refreshed run state');
         }
-        
-        // Start the main game loop
-        this.lastTime = performance.now();
-        this.gameLoop(this.lastTime);
-        (window.logger?.log || console.log)('✅ Game loop started');
     }
     
     gameLoop(timestamp) {
@@ -1138,8 +1239,11 @@ class GameEngine {
     pauseGame() {
         this.isPaused = true;
         
-        // Only show pause menu if we're not in level-up mode
-        if (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive()) {
+        const resultScreen = document.getElementById('result-screen');
+        const resultVisible = resultScreen && !resultScreen.classList.contains('hidden');
+
+        // Only show pause menu if we're not in level-up mode or result screen
+        if (!resultVisible && (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive())) {
             const pauseMenu = document.getElementById('pause-menu');
             if (pauseMenu) pauseMenu.classList.remove('hidden');
         }
@@ -1154,6 +1258,9 @@ class GameEngine {
         if (window.upgradeSystem && window.upgradeSystem.isLevelUpActive()) {
             return;
         }
+        if (!this.canAutoResume()) {
+            return;
+        }
         
         this.isPaused = false;
         
@@ -1164,6 +1271,22 @@ class GameEngine {
         if (window.audioSystem) {
             window.audioSystem.resumeAudioContext();
         }
+    }
+
+    canAutoResume() {
+        const gm = window.gameManager || window.gameManagerBridge;
+        if (gm) {
+            if (gm.endScreenShown || gm.gameOver || gm.gameWon) {
+                return false;
+            }
+        }
+
+        const resultScreen = document.getElementById('result-screen');
+        if (resultScreen && !resultScreen.classList.contains('hidden')) {
+            return false;
+        }
+
+        return true;
     }
     
     getVisibleEntities() {
@@ -1257,15 +1380,15 @@ class GameEngine {
             this.pauseGame();
             this.reduceResourceUsage();
         } else {
-            this.resumeGame();
             this.restoreResourceUsage();
+            this.resumeGame();
         }
     }
     
     handleFocusChange() {
         this.isMinimized = false;
-        this.resumeGame();
         this.restoreResourceUsage();
+        this.resumeGame();
     }
     
     handleBlurChange() {

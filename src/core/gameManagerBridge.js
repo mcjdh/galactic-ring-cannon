@@ -17,6 +17,7 @@ class GameManagerBridge {
         this.gameOver = false;
         this.gameWon = false;
         this.winScreenDisplayed = false;
+        this.endScreenShown = false;
         this.isPaused = false;
         this.running = false;
         
@@ -296,6 +297,11 @@ class GameManagerBridge {
         if (this.game && typeof this.game.start === 'function') {
             (window.logger?.log || console.log)('▶️ Starting game engine...');
             this.game.start();
+            if (typeof this.game.resumeGame === 'function') {
+                this.game.resumeGame();
+            } else {
+                this.game.isPaused = false;
+            }
             this.running = true;
             (window.logger?.log || console.log)('✅ Game started successfully!');
             (window.logger?.log || console.log)('🎮 Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
@@ -315,6 +321,7 @@ class GameManagerBridge {
         this.gameOver = false;
         this.gameWon = false;
         this.winScreenDisplayed = false;
+        this.endScreenShown = false;
         this.isPaused = false;
         
         // Reset statistics
@@ -330,7 +337,15 @@ class GameManagerBridge {
         this.particles = [];
         this.combatTexts = [];
         this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
-        
+
+        if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
+            window.resultScreen.hide();
+        }
+
+        if (this.enemySpawner && typeof this.enemySpawner.reset === 'function') {
+            this.enemySpawner.reset();
+        }
+
         (window.logger?.log || console.log)('🔄 Game state reset');
     }
     
@@ -387,6 +402,10 @@ class GameManagerBridge {
         if (this.uiManager && typeof this.uiManager.removeBoss === 'function') {
             try { this.uiManager.removeBoss(this._lastBossId || null); } catch (_) {}
         }
+
+        if (!this.endlessMode && !this.gameWon) {
+            this.onGameWon();
+        }
     }
     
     /**
@@ -441,10 +460,6 @@ class GameManagerBridge {
             this.onGameOver();
         }
         
-        // Check win condition (3 minutes for normal mode)
-        if (!this.endlessMode && !this.gameWon && this.gameTime >= 180) {
-            this.onGameWon();
-        }
     }
     
     /**
@@ -460,11 +475,16 @@ class GameManagerBridge {
             this.createExplosion(this.game.player.x, this.game.player.y, 100, '#e74c3c');
             this.addScreenShake(15, 1.5);
         }
-        
-        // Show game over screen (implement later)
-        setTimeout(() => {
-            alert(`Game Over! You survived ${Math.floor(this.gameTime)}s and killed ${this.killCount} enemies.`);
-        }, 1000);
+
+        this.showRunSummary({
+            title: 'Defeat',
+            subtitle: `You survived ${this.formatTime(this.gameTime)}.`,
+            outcome: 'defeat',
+            buttons: [
+                { label: 'Retry Run', action: () => this.startGame() },
+                { label: 'Main Menu', action: () => this.returnToMenu() }
+            ]
+        });
     }
     
     /**
@@ -474,19 +494,127 @@ class GameManagerBridge {
         (window.logger?.log || console.log)('🏆 Victory!');
         this.gameWon = true;
         this.running = false;
-        
+
         // Award bonus stars
         this.earnStarTokens(10);
-        
+
         // Create victory effect
         if (this.game.player) {
             this.createLevelUpEffect(this.game.player.x, this.game.player.y);
             this.showFloatingText('VICTORY!', this.game.player.x, this.game.player.y - 50, '#f1c40f', 36);
         }
-        
-        setTimeout(() => {
-            alert(`Victory! You survived the full 3 minutes and killed ${this.killCount} enemies!`);
-        }, 1000);
+
+        this.showRunSummary({
+            title: 'Victory!',
+            subtitle: `Boss defeated in ${this.formatTime(this.gameTime)}.`,
+            outcome: 'victory',
+            buttons: [
+                { label: 'Continue Run', action: () => this.resumeRun() },
+                { label: 'Start New Run', action: () => this.startGame() },
+                { label: 'Main Menu', action: () => this.returnToMenu() }
+            ]
+        });
+    }
+
+    formatTime(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(totalSeconds || 0));
+        const minutes = Math.floor(seconds / 60);
+        const remaining = seconds % 60;
+        if (minutes > 0) {
+            return `${minutes}m ${remaining.toString().padStart(2, '0')}s`;
+        }
+        return `${remaining}s`;
+    }
+
+    getRunSummaryStats() {
+        return [
+            { label: 'Enemies Defeated', value: this.killCount },
+            { label: 'Highest Combo', value: `${this.highestCombo || 0}x` },
+            { label: 'Survival Time', value: this.formatTime(this.gameTime) },
+            { label: 'Star Tokens', value: this.metaStars }
+        ];
+    }
+
+    showRunSummary({ title, subtitle = '', outcome = 'summary', buttons = [] }) {
+        if (this.endScreenShown) return;
+        this.endScreenShown = true;
+
+        const stats = this.getRunSummaryStats();
+
+        if (window.resultScreen && typeof window.resultScreen.show === 'function') {
+            window.resultScreen.show({
+                title,
+                subtitle,
+                stats,
+                outcome,
+                buttons
+            });
+        } else {
+            let message = `${title}\n${subtitle}`.trim();
+            stats.forEach(stat => {
+                message += `\n${stat.label}: ${stat.value}`;
+            });
+            alert(message);
+        }
+
+        if (this.game) {
+            this.game.isPaused = true;
+        }
+    }
+
+    returnToMenu() {
+        const gameContainer = document.getElementById('game-container');
+        const mainMenu = document.getElementById('main-menu');
+        if (gameContainer) gameContainer.classList.add('hidden');
+        if (mainMenu) mainMenu.classList.remove('hidden');
+
+        const pauseMenu = document.getElementById('pause-menu');
+        if (pauseMenu) pauseMenu.classList.add('hidden');
+
+        if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
+            window.resultScreen.hide();
+        }
+
+        this.running = false;
+        this.gameOver = true;
+        this.gameWon = false;
+        this.endScreenShown = false;
+
+        if (this.game) {
+            if (typeof this.game.resumeGame === 'function') {
+                this.game.resumeGame();
+            }
+            if (typeof this.game.prepareNewRun === 'function') {
+                this.game.prepareNewRun();
+            }
+            this.game.isPaused = true;
+        }
+
+        this.updateStarDisplay();
+
+        const bossCountdown = document.getElementById('boss-countdown');
+        if (bossCountdown) bossCountdown.classList.add('hidden');
+    }
+
+    resumeRun() {
+        if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
+            window.resultScreen.hide();
+        }
+
+        this.endScreenShown = false;
+        this.gameWon = false;
+        this.gameOver = false;
+        this.running = true;
+
+        if (this.game) {
+            if (typeof this.game.resumeGame === 'function') {
+                this.game.resumeGame();
+            } else {
+                this.game.isPaused = false;
+            }
+        }
+
+        this.updateStarDisplay();
     }
     
     /**
@@ -874,6 +1002,14 @@ class GameManagerBridge {
         const bossCountdownElement = document.getElementById('boss-countdown');
 
         if (bossCountdownElement) {
+            if (typeof this.enemySpawner.isBossAlive === 'function' && this.enemySpawner.isBossAlive()) {
+                bossCountdownElement.classList.remove('hidden');
+                bossCountdownElement.style.color = '#f1c40f';
+                bossCountdownElement.style.animation = 'pulse 1.5s infinite';
+                bossCountdownElement.textContent = 'Boss active!';
+                return;
+            }
+
             const timeUntilBoss = this.enemySpawner.bossInterval - this.enemySpawner.bossTimer;
 
             // Debug once per second

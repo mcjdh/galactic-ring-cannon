@@ -20,6 +20,10 @@ class EnemySpawner {
         this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 60;
         this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 800;
 
+        this.baseSpawnRate = this.spawnRate;
+        this.baseMaxEnemies = this.maxEnemies;
+        this.baseEliteChance = typeof EN.ELITE_CHANCE_BASE === 'number' ? EN.ELITE_CHANCE_BASE : 0.05;
+
         // Performance monitoring and adaptive limits
         this.performanceMonitor = {
             frameTimeHistory: [],
@@ -62,6 +66,9 @@ class EnemySpawner {
         this.bossInterval = this.bossSpawnTimes[this.bossSpawnIndex] || 60; // First boss timing
         this.bossScaleFactor = 1.0;
         this.bossesKilled = 0;
+
+        this.baseBossInterval = this.bossInterval;
+        this.activeBossId = null;
         
         // Wave system
         // TODO: Implement more sophisticated wave patterns
@@ -252,6 +259,21 @@ class EnemySpawner {
      * @param {number} deltaTime - Time since last update
      */
     updateBossSpawning(deltaTime) {
+        const bossAlive = this.isBossAlive();
+
+        if (bossAlive) {
+            // Hold timer steady while current boss is alive
+            this.bossTimer = Math.min(this.bossTimer, this.bossInterval);
+            if (window.gameManager) {
+                window.gameManager.bossActive = true;
+            }
+            return;
+        }
+
+        if (window.gameManager) {
+            window.gameManager.bossActive = false;
+        }
+
         this.bossTimer += deltaTime;
 
         // Debug logging
@@ -474,23 +496,33 @@ class EnemySpawner {
      */
     spawnBoss() {
         if (!this.game.player) return;
-        
+
+        // Prevent multiple bosses from stacking
+        if (window.gameManager?.bossActive || this.isBossAlive()) {
+            if (window.debugManager?.enabled) {
+                console.log('[EnemySpawner] Boss spawn skipped - boss already active');
+            }
+            return;
+        }
+
         const spawnPos = this.getSpawnPosition();
         const boss = new Enemy(spawnPos.x, spawnPos.y, 'boss');
-        
+
         // Apply boss scaling
         boss.maxHealth = Math.floor(boss.maxHealth * this.bossScaleFactor);
         boss.health = boss.maxHealth;
         boss.damage = Math.floor(boss.damage * this.bossScaleFactor);
         
         this.game.addEntity(boss);
-        
+        this.activeBossId = boss.id;
+
         // Update boss scaling for next boss
         this.bossScaleFactor += 0.2;
-        
+
         // Notify game manager
         if (window.gameManager) {
             window.gameManager.bossActive = true;
+            window.gameManager._activeBossId = boss.id;
             if (window.gameManager.uiManager && typeof window.gameManager.uiManager.addBoss === 'function') {
                 window.gameManager.uiManager.addBoss(boss);
             }
@@ -500,6 +532,29 @@ class EnemySpawner {
         
         this.showNewEnemyMessage("⚠️ BOSS INCOMING! ⚠️");
         // Boss spawned successfully
+    }
+
+    isBossAlive() {
+        const enemies = this.game?.enemies;
+        if (!Array.isArray(enemies) || enemies.length === 0) {
+            return false;
+        }
+
+        if (this.activeBossId) {
+            const boss = enemies.find(enemy => enemy && !enemy.isDead && enemy.id === this.activeBossId);
+            if (boss) {
+                return true;
+            }
+            this.activeBossId = null;
+        }
+
+        const existingBoss = enemies.find(enemy => enemy && !enemy.isDead && enemy.isBoss);
+        if (existingBoss) {
+            this.activeBossId = existingBoss.id;
+            return true;
+        }
+
+        return false;
     }
     
     /**
@@ -554,11 +609,21 @@ class EnemySpawner {
         if (enemy.isBoss) {
             this.bossesKilled++;
             // Boss defeated - tracking for difficulty scaling
+            this.onBossCleared();
         }
-        
+
         // Update health multiplier for sustained challenge
         if (this.totalEnemiesSpawned % 50 === 0) {
             this.enemyHealthMultiplier *= 1.05;
+        }
+    }
+
+    onBossCleared() {
+        this.activeBossId = null;
+        this.bossTimer = 0;
+        if (window.gameManager) {
+            window.gameManager.bossActive = false;
+            window.gameManager._activeBossId = null;
         }
     }
     
@@ -584,22 +649,35 @@ class EnemySpawner {
      * Reset spawner for new game
      */
     reset() {
-        this.spawnRate = 1;
-        this.spawnCooldown = 1;
-        this.maxEnemies = 50;
+        this.spawnRate = this.baseSpawnRate;
+        this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
+        this.maxEnemies = this.baseMaxEnemies;
         this.enemyTypes = ['basic'];
+        this.spawnTimer = 0;
         this.difficultyTimer = 0;
         this.bossTimer = 0;
+        this.bossSpawnIndex = 0;
+        this.bossInterval = this.bossSpawnTimes[this.bossSpawnIndex] || this.baseBossInterval || 60;
+        this.activeBossId = null;
         this.waveTimer = 0;
         this.waveCount = 0;
-        this.eliteChance = 0.05;
+        this.eliteChance = this.baseEliteChance;
+        this.eliteTimer = 0;
         this.bossScaleFactor = 1.0;
         this.totalEnemiesSpawned = 0;
         this.bossesKilled = 0;
         this.enemyHealthMultiplier = 1.0;
         this.enemiesKilledThisWave = 0;
-        
+        this.performanceMonitor.frameTimeHistory.length = 0;
+        this.performanceMonitor.isLagging = false;
+        this.performanceMonitor.adaptiveMaxEnemies = this.maxEnemies;
+        this.performanceMonitor.lastFrameTime = 0;
+
         // Enemy spawner reset for new game
+        if (window.gameManager) {
+            window.gameManager.bossActive = false;
+            window.gameManager._activeBossId = null;
+        }
     }
     
     /**
