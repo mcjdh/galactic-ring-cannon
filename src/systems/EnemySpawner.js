@@ -257,7 +257,9 @@ class EnemySpawner {
         // Debug logging
         if (Math.floor(this.bossTimer) !== this._lastLoggedBossTimer) {
             this._lastLoggedBossTimer = Math.floor(this.bossTimer);
-            console.log(`[EnemySpawner] Boss timer: ${this.bossTimer.toFixed(1)}s / ${this.bossInterval}s`);
+            if (window.debugManager?.enabled) {
+                console.log(`[EnemySpawner] Boss timer: ${this.bossTimer.toFixed(1)}s / ${this.bossInterval}s`);
+            }
         }
 
         if (this.bossTimer >= this.bossInterval) {
