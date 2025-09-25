@@ -21,6 +21,44 @@ class Player {
 
         // Upgrade tracking
         this.upgrades = [];
+
+        // Apply meta upgrades from Star Vendor
+        this.applyMetaUpgrades();
+    }
+
+    /**
+     * Apply meta upgrades from Star Vendor (persistent upgrades)
+     */
+    applyMetaUpgrades() {
+        const getMetaLevel = (id) => parseInt(localStorage.getItem(`meta_${id}`) || '0', 10);
+
+        // Enhanced Firepower - Starting damage boost
+        const damageLevel = getMetaLevel('starting_damage');
+        if (damageLevel > 0) {
+            const damageBonus = 1 + (damageLevel * 0.25); // 25% per level
+            this.combat.attackDamage *= damageBonus;
+        }
+
+        // Reinforced Hull - Starting health boost
+        const healthLevel = getMetaLevel('starting_health');
+        if (healthLevel > 0) {
+            const healthBonus = 1 + (healthLevel * 0.20); // 20% per level
+            this.stats.maxHealth *= healthBonus;
+            this.stats.health = this.stats.maxHealth; // Set current health to new max
+        }
+
+        // Ion Thrusters - Starting speed boost
+        const speedLevel = getMetaLevel('starting_speed');
+        if (speedLevel > 0) {
+            const speedBonus = 1 + (speedLevel * 0.15); // 15% per level
+            this.movement.speed *= speedBonus;
+        }
+
+        // Chain Lightning Mastery - Improved chain lightning
+        const chainLevel = getMetaLevel('chain_upgrade');
+        if (chainLevel > 0) {
+            this.abilities.maxChains = Math.max(this.abilities.maxChains || 2, 2 + chainLevel);
+        }
     }
 
     // Main update method coordinates all systems

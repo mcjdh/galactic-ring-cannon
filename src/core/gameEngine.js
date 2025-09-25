@@ -722,10 +722,10 @@ class GameEngine {
         // Don't add to hitEnemies here - the projectile.hit() method already handles this for piercing projectiles
 
         // Trigger chain lightning if projectile has this ability
-        if (projectile.hasChainLightning || projectile.chainLightning || projectile.specialType === 'chain') {
-            if (typeof projectile.triggerChain === 'function') {
-                projectile.triggerChain(this, enemy);
-            }
+        // Check both new flags and specialType for compatibility
+        if ((projectile.hasChainLightning || projectile.specialType === 'chain') &&
+            typeof projectile.triggerChain === 'function') {
+            projectile.triggerChain(this, enemy);
         }
 
         if (this.player && projectile.lifesteal) {
@@ -794,11 +794,10 @@ class GameEngine {
             }
         }
         // Trigger explosion if projectile should die or has exhausted piercing
-        if ((projectile.hasExplosive || projectile.explosive || projectile.specialType === 'explosive') &&
-            (projectileShouldDie || (typeof projectile.piercing === 'number' && projectile.piercing < 0))) {
-            if (typeof projectile.explode === 'function') {
-                projectile.explode(this);
-            }
+        if ((projectile.hasExplosive || projectile.specialType === 'explosive') &&
+            (projectileShouldDie || (typeof projectile.piercing === 'number' && projectile.piercing < 0)) &&
+            typeof projectile.explode === 'function') {
+            projectile.explode(this);
             projectileShouldDie = true;
         }
         if (projectileShouldDie) projectile.isDead = true;
@@ -1036,7 +1035,8 @@ class GameEngine {
                         this.enemyProjectiles[enemyProjectileIndex] = ep;
                     }
                     enemyProjectileIndex++;
-                } else if (ep && ep.type === 'enemyProjectile') {
+                } else if (ep && ep.isDead && ep.type === 'enemyProjectile') {
+                    // Release dead enemy projectiles back to pool
                     this._releaseEnemyProjectile(ep);
                 }
             }

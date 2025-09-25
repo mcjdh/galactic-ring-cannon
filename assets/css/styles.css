@@ -1530,12 +1530,76 @@ body {
 .shop-item {
     background-color: #333;
     margin: 10px 0;
-    padding: 10px;
-    border-radius: 6px;
+    padding: 15px;
+    border-radius: 8px;
     color: white;
-    max-height: 80vh;
-    overflow-y: auto;
-    width: 350px;
+    border: 2px solid #555;
+    transition: border-color 0.2s;
+}
+
+.shop-item:hover {
+    border-color: #777;
+}
+
+.shop-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.shop-item-icon {
+    font-size: 24px;
+    min-width: 30px;
+}
+
+.shop-item-name {
+    font-weight: bold;
+    font-size: 16px;
+    flex-grow: 1;
+}
+
+.shop-item-level {
+    font-size: 14px;
+    color: #bbb;
+}
+
+.shop-item-description {
+    color: #ddd;
+    margin: 8px 0 12px 0;
+    line-height: 1.4;
+}
+
+.shop-item-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.shop-buy-btn {
+    background-color: #f1c40f;
+    color: #222;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.shop-buy-btn:hover {
+    background-color: #f39c12;
+}
+
+.shop-buy-btn.disabled {
+    background-color: #666;
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+.shop-item-maxed {
+    color: #2ecc71;
+    font-weight: bold;
+    padding: 8px 16px;
 }
 
 .shop-item h3 {

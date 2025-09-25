@@ -28,7 +28,7 @@
             
             // Performance optimization: reusable objects
             this.tempVector = { x: 0, y: 0 };
-            this.cellPool = new Map(); // Object pooling for grid cells
+            // Note: Cell pooling disabled due to correctness issues
         }
 
         updateSpatialGrid() {

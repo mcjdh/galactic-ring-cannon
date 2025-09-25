@@ -229,8 +229,15 @@ class PlayerCombat {
         // Calculate total spread arc - default based on projectile count for good visuals
         let totalSpreadRadians = 0;
         if (projectileCount > 1) {
-            const spreadDegrees = this.projectileSpread > 0 ? this.projectileSpread :
-                Math.min(60, 20 + (projectileCount * 8)); // Smart default: more projectiles = wider spread
+            // Use explicitly set spread if available, otherwise calculate smart default
+            let spreadDegrees;
+            if (this.projectileSpread > 0) {
+                // Use the explicitly set spread (from upgrades like "Wide Spread")
+                spreadDegrees = this.projectileSpread;
+            } else {
+                // Calculate smart default: more projectiles = wider spread
+                spreadDegrees = Math.min(60, 20 + (projectileCount * 8));
+            }
             totalSpreadRadians = (spreadDegrees * Math.PI) / 180;
         }
 

@@ -795,6 +795,7 @@
                 if (window.gameManager && typeof window.gameManager.updateStarDisplay === 'function') {
                     window.gameManager.updateStarDisplay();
                 }
+                populateShop();
                 showPanel('shop-panel');
             });
 
@@ -852,6 +853,12 @@
                 if (loadingScreen) loadingScreen.classList.add('hidden');
                 const menu = document.getElementById('main-menu');
                 if (menu) menu.classList.remove('hidden');
+
+                // Update star display on main menu load
+                if (window.gameManager && typeof window.gameManager.updateStarDisplay === 'function') {
+                    window.gameManager.updateStarDisplay();
+                }
+
                 (window.logger?.log || console.log)('✅ Game ready to play!');
                 // Reflect stored settings into UI controls with validation
                 try {
@@ -920,6 +927,129 @@
                     // Continue with defaults
                 }
             };
+
+            // Star Vendor System - Meta Upgrades
+            const metaUpgrades = [
+                {
+                    id: 'starting_damage',
+                    name: 'Enhanced Firepower',
+                    description: 'Start each run with +25% damage',
+                    cost: 5,
+                    maxLevel: 5,
+                    icon: '🔥',
+                    effect: 'Starting damage multiplier'
+                },
+                {
+                    id: 'starting_health',
+                    name: 'Reinforced Hull',
+                    description: 'Start each run with +20% health',
+                    cost: 4,
+                    maxLevel: 5,
+                    icon: '🛡️',
+                    effect: 'Starting health boost'
+                },
+                {
+                    id: 'starting_speed',
+                    name: 'Ion Thrusters',
+                    description: 'Start each run with +15% movement speed',
+                    cost: 3,
+                    maxLevel: 4,
+                    icon: '🚀',
+                    effect: 'Starting speed boost'
+                },
+                {
+                    id: 'star_chance',
+                    name: 'Stellar Fortune',
+                    description: 'Increase star token drop rate',
+                    cost: 8,
+                    maxLevel: 3,
+                    icon: '⭐',
+                    effect: 'Better star drops'
+                },
+                {
+                    id: 'chain_upgrade',
+                    name: 'Lightning Mastery',
+                    description: 'Chain lightning effects +1 additional chain',
+                    cost: 12,
+                    maxLevel: 2,
+                    icon: '⚡',
+                    effect: 'Improved chain lightning'
+                }
+            ];
+
+            function getMetaUpgradeLevel(upgradeId) {
+                return parseInt(localStorage.getItem(`meta_${upgradeId}`) || '0', 10);
+            }
+
+            function setMetaUpgradeLevel(upgradeId, level) {
+                localStorage.setItem(`meta_${upgradeId}`, level.toString());
+            }
+
+            function populateShop() {
+                const shopContainer = document.getElementById('shop-items');
+                if (!shopContainer) return;
+
+                shopContainer.innerHTML = '';
+
+                metaUpgrades.forEach(upgrade => {
+                    const currentLevel = getMetaUpgradeLevel(upgrade.id);
+                    const isMaxed = currentLevel >= upgrade.maxLevel;
+                    const cost = upgrade.cost + (currentLevel * Math.floor(upgrade.cost * 0.5));
+                    const canAfford = window.gameManager && window.gameManager.metaStars >= cost;
+
+                    const item = document.createElement('div');
+                    item.className = 'shop-item';
+                    item.innerHTML = `
+                        <div class="shop-item-header">
+                            <span class="shop-item-icon">${upgrade.icon}</span>
+                            <span class="shop-item-name">${upgrade.name}</span>
+                            <span class="shop-item-level">${currentLevel}/${upgrade.maxLevel}</span>
+                        </div>
+                        <div class="shop-item-description">${upgrade.description}</div>
+                        <div class="shop-item-footer">
+                            ${isMaxed ?
+                                '<span class="shop-item-maxed">MAXED</span>' :
+                                `<button class="shop-buy-btn ${canAfford ? '' : 'disabled'}"
+                                    ${canAfford ? `onclick="purchaseUpgrade('${upgrade.id}')"` : ''}>
+                                    ${canAfford ? `Buy for ${cost} ⭐` : `Need ${cost} ⭐`}
+                                </button>`
+                            }
+                        </div>
+                    `;
+                    shopContainer.appendChild(item);
+                });
+            }
+
+            function purchaseUpgrade(upgradeId) {
+                const upgrade = metaUpgrades.find(u => u.id === upgradeId);
+                if (!upgrade || !window.gameManager) return;
+
+                const currentLevel = getMetaUpgradeLevel(upgradeId);
+                if (currentLevel >= upgrade.maxLevel) return;
+
+                const cost = upgrade.cost + (currentLevel * Math.floor(upgrade.cost * 0.5));
+                if (window.gameManager.metaStars < cost) return;
+
+                // Purchase the upgrade
+                window.gameManager.metaStars -= cost;
+                setMetaUpgradeLevel(upgradeId, currentLevel + 1);
+
+                // Update displays
+                if (typeof window.gameManager.updateStarDisplay === 'function') {
+                    window.gameManager.updateStarDisplay();
+                }
+                if (typeof window.gameManager.saveStarTokens === 'function') {
+                    window.gameManager.saveStarTokens();
+                }
+
+                // Refresh shop display
+                populateShop();
+
+                console.log(`Purchased ${upgrade.name} level ${currentLevel + 1}`);
+            }
+
+            // Make purchaseUpgrade globally available
+            window.purchaseUpgrade = purchaseUpgrade;
 
             // Wait for core systems to be ready instead of hardcoded timeout
             const checkSystemsReady = () => {

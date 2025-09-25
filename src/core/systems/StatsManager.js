@@ -433,8 +433,22 @@ class StatsManager {
      * Earn star tokens
      */
     earnStarTokens(amount) {
-        this.starTokens += amount;
-        this.starTokensEarned += amount;
+        // Apply Stellar Fortune bonus from Star Vendor
+        const stellarFortuneLevel = parseInt(localStorage.getItem('meta_star_chance') || '0', 10);
+        let finalAmount = amount;
+
+        if (stellarFortuneLevel > 0) {
+            // Each level gives a chance for bonus stars
+            const bonusChance = stellarFortuneLevel * 0.33; // 33% chance per level
+            for (let i = 0; i < amount; i++) {
+                if (Math.random() < bonusChance) {
+                    finalAmount++;
+                }
+            }
+        }
+
+        this.starTokens += finalAmount;
+        this.starTokensEarned += finalAmount;
         
         // Save to localStorage
         localStorage.setItem('starTokens', this.starTokens.toString());
@@ -452,8 +466,11 @@ class StatsManager {
         
         // Show notification
         if (this.gameManager.effectsManager && this.gameManager.game.player) {
+            const displayText = finalAmount > amount ?
+                `+${finalAmount} ⭐ (${finalAmount - amount} bonus!)` :
+                `+${finalAmount} ⭐`;
             this.gameManager.effectsManager.showCombatText(
-                `+${amount} ⭐`,
+                displayText,
                 this.gameManager.game.player.x,
                 this.gameManager.game.player.y - 40,
                 'xp', 18

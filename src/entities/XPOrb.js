@@ -205,14 +205,27 @@ class XPOrb {
      * Create visual effect when orb is collected
      */
     createCollectionEffect() {
-        if (window.gameManager && window.gameManager.particleManager) {
-            // Create sparkle effect
-            window.gameManager.particleManager.createSparkleEffect(
-                this.x, 
-                this.y, 
-                this.color, 
-                8
-            );
+        // Use optimizedParticles for sparkle effect
+        if (window.optimizedParticles?.spawnParticle) {
+            const particleCount = 8;
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (i / particleCount) * Math.PI * 2;
+                const speed = 50 + Math.random() * 50;
+
+                window.optimizedParticles.spawnParticle({
+                    x: this.x,
+                    y: this.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 2,
+                    color: this.color,
+                    life: 0.5,
+                    type: 'spark'
+                });
+            }
+        } else if (window.ParticleHelpers?.createHitEffect) {
+            // Fallback to ParticleHelpers
+            window.ParticleHelpers.createHitEffect(this.x, this.y, 25);
         }
     }
     

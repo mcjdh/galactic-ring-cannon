@@ -17,14 +17,15 @@ class PlayerUpgrades {
                 p.projectileCount += u.value || 1;
                 if (p.projectileCount > 1) {
                     p.hasSpreadAttack = true;
-                    p.projectileSpread = Math.max(
-                        p.projectileSpread, 
-                        30 * (1 + (p.projectileCount - 2) * 0.15)
-                    );
-                    
+
+                    // Only set default spread if no explicit spread has been set by upgrades
+                    if (p.projectileSpread === 0) {
+                        p.projectileSpread = 30 * (1 + (p.projectileCount - 2) * 0.15);
+                    }
+
                     if (window.gameManager) {
                         window.gameManager.showFloatingText(
-                            `Now firing ${p.projectileCount} projectiles!`, 
+                            `Now firing ${p.projectileCount} projectiles!`,
                             p.x, p.y - 60, '#f39c12', 16
                         );
                     }

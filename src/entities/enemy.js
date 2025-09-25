@@ -562,7 +562,11 @@ class Enemy {
      * Visual effect methods
      */
     createHitEffect(damage) {
-        if (window.gameManager && window.gameManager.createHitEffect) {
+        // Use effectsManager for proper rendering
+        if (window.gameManager?.effectsManager?.createHitEffect) {
+            window.gameManager.effectsManager.createHitEffect(this.x, this.y, damage);
+        } else if (window.gameManager?.createHitEffect) {
+            // Fallback to old API if effectsManager not available
             window.gameManager.createHitEffect(this.x, this.y, damage);
         }
     }
