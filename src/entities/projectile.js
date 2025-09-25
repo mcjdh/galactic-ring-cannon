@@ -315,19 +315,53 @@ class Projectile {
     }
 
     createLightningEffect(x1, y1, x2, y2) {
-        // Simple lightning effect
-        if (window.optimizedParticles?.spawnParticle) {
-            const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * 20;
-            const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * 20;
+        // Use the better ParticleHelpers lightning effect if available
+        if (window.ParticleHelpers?.createLightningEffect) {
+            window.ParticleHelpers.createLightningEffect(x1, y1, x2, y2);
+            return;
+        }
 
-            window.optimizedParticles.spawnParticle({
-                x: midX, y: midY,
-                vx: (Math.random() - 0.5) * 50,
-                vy: (Math.random() - 0.5) * 50,
-                size: 3,
-                color: '#3498db',
-                life: 0.2,
-                type: 'spark'
+        // Enhanced fallback lightning effect - create multiple segments
+        if (window.optimizedParticles?.spawnParticle) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const segments = Math.max(3, Math.floor(distance / 15));
+
+            // Create segmented lightning bolt
+            for (let i = 0; i <= segments; i++) {
+                const ratio = i / segments;
+                const baseX = x1 + dx * ratio;
+                const baseY = y1 + dy * ratio;
+
+                // Add random deviation for lightning effect
+                const deviation = Math.min(25, distance * 0.1);
+                const offsetX = (Math.random() - 0.5) * deviation;
+                const offsetY = (Math.random() - 0.5) * deviation;
+
+                window.optimizedParticles.spawnParticle({
+                    x: baseX + offsetX,
+                    y: baseY + offsetY,
+                    vx: (Math.random() - 0.5) * 30,
+                    vy: (Math.random() - 0.5) * 30,
+                    size: 2 + Math.random() * 3,
+                    color: i === 0 || i === segments ? '#74b9ff' : '#3498db', // Brighter ends
+                    life: 0.3 + Math.random() * 0.2, // Longer life for visibility
+                    type: 'spark'
+                });
+            }
+
+            // Add extra bright flash at both ends for better visibility
+            [{ x: x1, y: y1 }, { x: x2, y: y2 }].forEach(pos => {
+                window.optimizedParticles.spawnParticle({
+                    x: pos.x,
+                    y: pos.y,
+                    vx: 0, vy: 0,
+                    size: 8,
+                    color: '#ffffff',
+                    life: 0.15,
+                    type: 'glow'
+                });
             });
         }
     }

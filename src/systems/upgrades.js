@@ -168,7 +168,7 @@ class UpgradeSystem {
             {
                 id: 'ricochet_1',
                 name: 'Ricochet Shot',
-                description: 'Projectiles can bounce to a new target once',
+                description: '25% chance for projectiles to bounce to a new target once',
                 type: 'special',
                 specialType: 'ricochet',
                 bounces: 1,
@@ -195,7 +195,7 @@ class UpgradeSystem {
             {
                 id: 'ricochet_damage',
                 name: 'Momentum Transfer',
-                description: 'Ricochets deal 100% damage instead of 80%',
+                description: 'Ricochets deal 100% damage instead of reduced damage',
                 type: 'ricochetDamage',
                 value: 1.0,
                 icon: '↩️💥',
@@ -209,7 +209,7 @@ class UpgradeSystem {
             {
                 id: 'explosive_shots_1',
                 name: 'Explosive Rounds',
-                description: 'Projectiles explode on impact, dealing area damage',
+                description: '30% chance for projectiles to explode on impact, dealing area damage',
                 type: 'special',
                 specialType: 'explosion',
                 explosionRadius: 60,
@@ -235,7 +235,7 @@ class UpgradeSystem {
             {
                 id: 'explosive_shots_3',
                 name: 'Devastating Blasts',
-                description: 'Explosions deal 75% of hit damage instead of 50%',
+                description: 'Explosions deal 75% of hit damage (up from 50%)',
                 type: 'explosionDamage',
                 value: 0.75,
                 icon: '💥💥',

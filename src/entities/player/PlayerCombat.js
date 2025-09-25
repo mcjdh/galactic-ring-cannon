@@ -229,19 +229,19 @@ class PlayerCombat {
             totalSpreadRadians = (spreadDegrees * Math.PI) / 180;
         }
 
+        // Determine special effects ONCE per volley for consistency
+        const volleySpecialTypes = this._determineSpecialTypesForShot();
+        const primaryType = volleySpecialTypes[0] || null;
+
         // Fire projectiles using clean, consistent distribution
         for (let i = 0; i < projectileCount; i++) {
             const projectileAngle = this._calculateProjectileAngle(angle, i, projectileCount, totalSpreadRadians);
             const vx = Math.cos(projectileAngle) * baseSpeed;
             const vy = Math.sin(projectileAngle) * baseSpeed;
 
-            // Calculate damage and crit for this projectile
+            // Calculate damage and crit for this projectile (each projectile can crit independently)
             const isCrit = Math.random() < (this.critChance || 0);
             const damage = isCrit ? this.attackDamage * (this.critMultiplier || 2) : this.attackDamage;
-
-            // Determine special effects for this projectile
-            const specialTypes = this._determineSpecialTypesForShot();
-            const primaryType = specialTypes[0] || null;
 
             // Spawn the projectile - robust by design, no fallbacks needed
             const projectile = game.spawnProjectile(
@@ -249,7 +249,7 @@ class PlayerCombat {
             );
 
             if (projectile) {
-                this._configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit);
+                this._configureProjectileFromUpgrades(projectile, volleySpecialTypes, damage, isCrit);
                 projectile.piercing = Math.max(0, projectile.piercing || this.piercing || 0);
             }
         }
@@ -284,29 +284,28 @@ class PlayerCombat {
     _determineSpecialTypesForShot() {
         const types = [];
         const abilities = this.player.abilities;
-        if (abilities && abilities.hasChainLightning && Math.random() < abilities.chainChance) types.push('chain');
-        if (abilities && abilities.hasExplosiveShots && Math.random() < 0.3) types.push('explosive');
-        if (abilities && abilities.hasRicochet && Math.random() < 0.25) types.push('ricochet');
-        if (abilities && abilities.hasHomingShots && Math.random() < 0.2) types.push('homing');
+
+        // Use configurable chance values for consistent upgrade behavior
+        if (abilities && abilities.hasChainLightning && Math.random() < (abilities.chainChance || 0.4)) {
+            types.push('chain');
+        }
+        if (abilities && abilities.hasExplosiveShots && Math.random() < (abilities.explosiveChance || 0.3)) {
+            types.push('explosive');
+        }
+        if (abilities && abilities.hasRicochet && Math.random() < (abilities.ricochetChance || 0.25)) {
+            types.push('ricochet');
+        }
+        if (abilities && abilities.hasHomingShots && Math.random() < (abilities.homingChance || 0.2)) {
+            types.push('homing');
+        }
+
         return types;
     }
 
     _configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit) {
-        // Add any secondary special types the projectile lacks
-        if (Array.isArray(specialTypes) && specialTypes.length > 1) {
-            for (let idx = 1; idx < specialTypes.length; idx++) {
-                const t = specialTypes[idx];
-                if (t === 'explosive' && !projectile.explosive) {
-                    projectile.initializeSpecialType('explosive');
-                } else if (t === 'chain' && !projectile.chainLightning) {
-                    projectile.initializeSpecialType('chain');
-                } else if (t === 'ricochet' && !projectile.ricochet) {
-                    projectile.initializeSpecialType('ricochet');
-                } else if (t === 'homing' && !projectile.homing) {
-                    projectile.initializeSpecialType('homing');
-                }
-            }
-        }
+        // Note: Projectiles only support one special type at a time
+        // Multiple special types in a volley are handled by consistent volley-wide application
+        // The primary type is already set during projectile creation
 
         // Crit visual/speed boost
         if (isCrit) {

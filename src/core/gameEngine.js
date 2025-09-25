@@ -249,7 +249,7 @@ class GameEngine {
     }
     
     update(deltaTime) {
-        // Validate deltaTime (avoid noisy logs when it's 0 on first frames)
+        // Validate and smooth deltaTime to prevent jitter
         if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > 1) {
             // 🤖 RESONANT NOTE: Reduced console spam - only log critical deltaTime issues
             if (deltaTime > 0.1 && window.debugManager?.enabled) {
@@ -260,6 +260,23 @@ class GameEngine {
             // Use a small timestep silently when browsers report 0ms frame
             deltaTime = 1/60;
         }
+
+        // Smooth deltaTime to reduce movement jitter from frame rate fluctuations
+        if (!this.deltaTimeHistory) {
+            this.deltaTimeHistory = [deltaTime, deltaTime, deltaTime]; // Initialize with current value
+        }
+
+        // Add current deltaTime and maintain history of last 3 frames
+        this.deltaTimeHistory.push(deltaTime);
+        if (this.deltaTimeHistory.length > 3) {
+            this.deltaTimeHistory.shift();
+        }
+
+        // Use smoothed deltaTime (weighted average favoring recent frames)
+        const smoothedDelta = (this.deltaTimeHistory[0] * 0.1 +
+                              this.deltaTimeHistory[1] * 0.3 +
+                              this.deltaTimeHistory[2] * 0.6);
+        deltaTime = Math.max(1/120, Math.min(1/30, smoothedDelta)); // Clamp between 30-120fps
         
         // Apply resonance time scaling for enhanced game feel
         if (window.resonanceSystem) {

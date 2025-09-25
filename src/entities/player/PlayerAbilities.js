@@ -20,18 +20,21 @@ class PlayerAbilities {
 
         // Explosion properties
         this.hasExplosiveShots = false;
+        this.explosiveChance = 0.3; // 30% chance when ability is acquired
         this.explosionRadius = 0;
         this.explosionDamage = 0;
         this.explosionChainChance = 0;
 
         // Ricochet properties
         this.hasRicochet = false;
+        this.ricochetChance = 0.25; // 25% chance when ability is acquired
         this.ricochetBounces = 0;
         this.ricochetRange = 0;
         this.ricochetDamage = 0;
 
         // Homing projectile properties
         this.hasHomingShots = false;
+        this.homingChance = 0.2; // 20% chance when ability is acquired
         this.homingTurnSpeed = 3.0;
         this.homingRange = 250;
 
@@ -479,10 +482,12 @@ class PlayerAbilities {
                     this.maxChains = upgrade.maxChains || 1;
                 } else if (upgrade.specialType === 'explosion') {
                     this.hasExplosiveShots = true;
+                    this.explosiveChance = upgrade.explosiveChance || this.explosiveChance || 0.3;
                     this.explosionRadius = upgrade.explosionRadius || 60;
                     this.explosionDamage = upgrade.explosionDamage || 0.5;
                 } else if (upgrade.specialType === 'ricochet') {
                     this.hasRicochet = true;
+                    this.ricochetChance = upgrade.ricochetChance || this.ricochetChance || 0.25;
                     this.ricochetBounces = upgrade.bounces || 1;
                     this.ricochetRange = upgrade.bounceRange || 180;
                     this.ricochetDamage = upgrade.bounceDamage || 0.8;
