@@ -1,0 +1,476 @@
+class PlayerCombat {
+    constructor(player) {
+        this.player = player;
+
+        const PLAYER_CONSTANTS = window.GAME_CONSTANTS?.PLAYER || {};
+
+        // Attack properties
+        this.attackSpeed = PLAYER_CONSTANTS.BASE_ATTACK_SPEED || 1.2;
+        this.attackDamage = PLAYER_CONSTANTS.BASE_ATTACK_DAMAGE || 25;
+        this.attackRange = PLAYER_CONSTANTS.BASE_ATTACK_RANGE || 300;
+        this.attackTimer = 0;
+        this.attackCooldown = 1 / this.attackSpeed;
+
+        // Attack type flags
+        this.hasBasicAttack = true;
+        this.hasSpreadAttack = false;
+        this.hasAOEAttack = false;
+
+        // Projectile properties
+        this.projectileSpeed = PLAYER_CONSTANTS.BASE_PROJECTILE_SPEED || 450;
+        this.projectileCount = 1;
+        this.projectileSpread = 0;
+        this.piercing = 0;
+        this.critChance = PLAYER_CONSTANTS.BASE_CRIT_CHANCE || 0.10;
+        this.critMultiplier = PLAYER_CONSTANTS.BASE_CRIT_MULTIPLIER || 2.2;
+
+        // AOE attack properties
+        this.aoeAttackCooldown = PLAYER_CONSTANTS.AOE_ATTACK_COOLDOWN || 2.0;
+        this.aoeAttackTimer = 0;
+        this.aoeAttackRange = PLAYER_CONSTANTS.AOE_ATTACK_RANGE || 150;
+        this.aoeDamageMultiplier = PLAYER_CONSTANTS.AOE_DAMAGE_MULTIPLIER || 0.6;
+
+        // Mathematical balance constants for upgrade scaling
+        this.BALANCE = {
+            // Diminishing returns scaling factors
+            ATTACK_SPEED_SCALING: 0.9,   // Each stack reduces effectiveness by 10%
+            DAMAGE_SCALING: 0.95,        // Gradual diminishing for damage
+            CRIT_SOFT_CAP: 0.8,         // 80% maximum crit chance
+            MAX_PROJECTILE_SPEED: 1200,  // Prevent infinite speed exploits
+
+            // Stack thresholds for different scaling behavior
+            HIGH_STACK_THRESHOLD: 5,     // After 5 stacks, apply stronger diminishing
+            EXTREME_STACK_THRESHOLD: 10, // After 10 stacks, cap further scaling
+        };
+    }
+
+    update(deltaTime, game) {
+        // Update attack cooldown dynamically in case attack speed changed
+        this.updateAttackCooldown();
+        this.handleAttacks(deltaTime, game);
+    }
+
+    updateAttackCooldown() {
+        const newCooldown = 1 / this.attackSpeed;
+        if (this.attackCooldown !== newCooldown) {
+            // Scale current timer proportionally to maintain timing consistency
+            const timerProgress = this.attackTimer / this.attackCooldown;
+            this.attackCooldown = newCooldown;
+            this.attackTimer = timerProgress * this.attackCooldown;
+        }
+    }
+
+    handleAttacks(deltaTime, game) {
+        this.attackTimer += deltaTime;
+        if (this.attackTimer >= this.attackCooldown) {
+            this.attackTimer = 0;
+            if (window.audioSystem?.playBossBeat) {
+                window.audioSystem.playBossBeat();
+            }
+            this.attack(game);
+        }
+
+        // Handle AOE attack cooldown
+        if (this.hasAOEAttack) {
+            this.aoeAttackTimer += deltaTime;
+            if (this.aoeAttackTimer >= this.aoeAttackCooldown) {
+                this.aoeAttackTimer = 0;
+                this.executeAOEAttack(game);
+            }
+        }
+    }
+
+    attack(game) {
+        // Find nearest enemy
+        if (!game || !Array.isArray(game.enemies) || game.enemies.length === 0) return;
+
+        // Find closest enemy for reference
+        const nearestEnemy = this.findNearestEnemy(game.enemies);
+        if (!nearestEnemy) return;
+
+        // Calculate direction to enemy
+        const dx = nearestEnemy.x - this.player.x;
+        const dy = nearestEnemy.y - this.player.y;
+        const baseAngle = Math.atan2(dy, dx);
+
+        // Fire a volley; multi-shot handling is inside fireProjectile()
+        this.fireProjectile(game, baseAngle);
+    }
+
+    executeAOEAttack(game) {
+        if (!game || !Array.isArray(game.enemies) || game.enemies.length === 0) return;
+
+        // Create visual effect for AOE attack
+        this.createAOEEffect();
+
+        // Create AOE damage around player
+        game.enemies.forEach(enemy => {
+            const dx = enemy.x - this.player.x;
+            const dy = enemy.y - this.player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance <= this.aoeAttackRange) {
+                const isCrit = Math.random() < this.critChance;
+                const baseDamage = this.attackDamage * this.aoeDamageMultiplier;
+                const damage = isCrit ?
+                    baseDamage * this.critMultiplier :
+                    baseDamage;
+
+                enemy.takeDamage(damage);
+
+                if (isCrit) {
+                    const gm = window.gameManager || window.gameManagerBridge;
+                    if (gm?.showFloatingText) {
+                        gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
+                    }
+                }
+            }
+        });
+
+        // Play AOE attack sound
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('aoeAttack', 0.4);
+        }
+    }
+
+    createAOEEffect() {
+        // Visual effect for AOE attack
+        const gm = window.gameManager;
+        if (!gm || gm.lowQuality) return;
+        const factor = (gm.particleReductionFactor || 1.0);
+        const baseCount = 24;
+        const particleCount = window.MathUtils ?
+            window.MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
+            Math.floor(baseCount * Math.min(factor || 1, 1));
+        if (particleCount <= 0) return;
+        const radius = this.aoeAttackRange;
+
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (i / particleCount) * Math.PI * 2;
+            const x = this.player.x + Math.cos(angle) * radius;
+            const y = this.player.y + Math.sin(angle) * radius;
+            this.player.spawnParticle(
+                this.player.x,
+                this.player.y,
+                Math.cos(angle) * 300,
+                Math.sin(angle) * 300,
+                3 + Math.random() * 3,
+                '#3498db',
+                0.3,
+                'spark'
+            );
+        }
+    }
+
+    findNearestEnemy(enemies) {
+        if (!enemies?.length) return null;
+
+        let nearestEnemy = null;
+        let shortestDistanceSquared = Infinity;
+
+        // Try spatial grid first for better performance with many enemies
+        const game = window.gameEngine || window.gameManager?.game;
+        if (game?.spatialGrid && game.gridSize > 0) {
+            const gridSize = game.gridSize;
+            const gx = Math.floor(this.player.x / gridSize);
+            const gy = Math.floor(this.player.y / gridSize);
+
+            // Check a 3x3 area around the player
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const cell = game.spatialGrid.get(`${gx + dx},${gy + dy}`);
+                    if (!cell) continue;
+
+                    for (const enemy of cell) {
+                        if (enemy?.isDead || enemy?.type !== 'enemy') continue;
+
+                        const ddx = enemy.x - this.player.x;
+                        const ddy = enemy.y - this.player.y;
+                        const distanceSquared = ddx * ddx + ddy * ddy;
+
+                        if (distanceSquared < shortestDistanceSquared) {
+                            shortestDistanceSquared = distanceSquared;
+                            nearestEnemy = enemy;
+                        }
+                    }
+                }
+            }
+        }
+
+        // If spatial grid didn't find anything, do linear search
+        if (!nearestEnemy) {
+            for (const enemy of enemies) {
+                if (enemy?.isDead) continue;
+
+                const dx = enemy.x - this.player.x;
+                const dy = enemy.y - this.player.y;
+                const distanceSquared = dx * dx + dy * dy;
+
+                if (distanceSquared < shortestDistanceSquared) {
+                    shortestDistanceSquared = distanceSquared;
+                    nearestEnemy = enemy;
+                }
+            }
+        }
+
+        return nearestEnemy;
+    }
+
+    fireProjectile(game, angle) {
+        // Clean split shot implementation - consistent math for any projectile count
+        const projectileCount = Math.max(1, Math.floor(this.projectileCount || 1));
+        const baseSpeed = Math.max(50, this.projectileSpeed || 450);
+
+        // Calculate total spread arc - default based on projectile count for good visuals
+        let totalSpreadRadians = 0;
+        if (projectileCount > 1) {
+            const spreadDegrees = this.projectileSpread > 0 ? this.projectileSpread :
+                Math.min(60, 20 + (projectileCount * 8)); // Smart default: more projectiles = wider spread
+            totalSpreadRadians = (spreadDegrees * Math.PI) / 180;
+        }
+
+        // Fire projectiles using clean, consistent distribution
+        for (let i = 0; i < projectileCount; i++) {
+            const projectileAngle = this._calculateProjectileAngle(angle, i, projectileCount, totalSpreadRadians);
+            const vx = Math.cos(projectileAngle) * baseSpeed;
+            const vy = Math.sin(projectileAngle) * baseSpeed;
+
+            // Calculate damage and crit for this projectile
+            const isCrit = Math.random() < (this.critChance || 0);
+            const damage = isCrit ? this.attackDamage * (this.critMultiplier || 2) : this.attackDamage;
+
+            // Determine special effects for this projectile
+            const specialTypes = this._determineSpecialTypesForShot();
+            const primaryType = specialTypes[0] || null;
+
+            // Spawn the projectile - robust by design, no fallbacks needed
+            const projectile = game.spawnProjectile(
+                this.player.x, this.player.y, vx, vy, damage, this.piercing || 0, isCrit, primaryType
+            );
+
+            if (projectile) {
+                this._configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit);
+                projectile.piercing = Math.max(0, projectile.piercing || this.piercing || 0);
+            }
+        }
+
+        // Single sound effect per volley
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('shoot', 0.3);
+        }
+    }
+
+    _calculateProjectileAngle(baseAngle, projectileIndex, totalProjectiles, totalSpread) {
+        // Single, consistent formula that works for any projectile count:
+        // Distribute projectiles evenly across the total spread arc
+
+        if (totalProjectiles === 1) {
+            return baseAngle; // Single shot goes straight
+        }
+
+        if (totalProjectiles === 2) {
+            // Two projectiles: one left, one right of center
+            return baseAngle + (projectileIndex === 0 ? -totalSpread/2 : totalSpread/2);
+        }
+
+        // For 3+ projectiles: distribute evenly from -spread/2 to +spread/2
+        // This ensures odd counts have one projectile going straight
+        const spreadPerGap = totalSpread / (totalProjectiles - 1);
+        const offsetFromCenter = (projectileIndex - (totalProjectiles - 1) / 2) * spreadPerGap;
+
+        return baseAngle + offsetFromCenter;
+    }
+
+    _determineSpecialTypesForShot() {
+        const types = [];
+        const abilities = this.player.abilities;
+        if (abilities && abilities.hasChainLightning && Math.random() < abilities.chainChance) types.push('chain');
+        if (abilities && abilities.hasExplosiveShots && Math.random() < 0.3) types.push('explosive');
+        if (abilities && abilities.hasRicochet && Math.random() < 0.25) types.push('ricochet');
+        if (abilities && abilities.hasHomingShots && Math.random() < 0.2) types.push('homing');
+        return types;
+    }
+
+    _configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit) {
+        // Add any secondary special types the projectile lacks
+        if (Array.isArray(specialTypes) && specialTypes.length > 1) {
+            for (let idx = 1; idx < specialTypes.length; idx++) {
+                const t = specialTypes[idx];
+                if (t === 'explosive' && !projectile.explosive) {
+                    projectile.initializeSpecialType('explosive');
+                } else if (t === 'chain' && !projectile.chainLightning) {
+                    projectile.initializeSpecialType('chain');
+                } else if (t === 'ricochet' && !projectile.ricochet) {
+                    projectile.initializeSpecialType('ricochet');
+                } else if (t === 'homing' && !projectile.homing) {
+                    projectile.initializeSpecialType('homing');
+                }
+            }
+        }
+
+        // Crit visual/speed boost
+        if (isCrit) {
+            projectile.radius *= 1.3;
+            projectile.vx *= 1.15;
+            projectile.vy *= 1.15;
+        }
+
+        // Lifesteal
+        const stats = this.player.stats;
+        if (stats && stats.lifestealAmount > 0) {
+            projectile.lifesteal = stats.lifestealAmount;
+            if (isCrit && stats.lifestealCritMultiplier > 1) {
+                projectile.lifesteal *= stats.lifestealCritMultiplier;
+            }
+        }
+
+        // Scale special types from player stats
+        const abilities = this.player.abilities;
+        for (const type of specialTypes) {
+            if (type === 'chain' && projectile.chainLightning && abilities) {
+                projectile.chainLightning.chainRange = abilities.chainRange || 150;
+                projectile.chainLightning.maxChains = abilities.maxChains || 3;
+                const multiplier = (typeof abilities.chainDamage === 'number' && abilities.chainDamage > 0) ? abilities.chainDamage : 0.7;
+                projectile.chainLightning.chainDamage = Math.max(1, damage * multiplier);
+            } else if (type === 'explosive' && projectile.explosive && abilities) {
+                projectile.explosive.radius = abilities.explosionRadius || 80;
+                const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.8;
+                projectile.explosive.damage = damage * damageMultiplier;
+            } else if (type === 'ricochet' && projectile.ricochet && abilities) {
+                projectile.ricochet.bounces = abilities.ricochetBounces || 3;
+                projectile.ricochet.range = abilities.ricochetRange || 200;
+            } else if (type === 'homing' && projectile.homing && abilities) {
+                if (typeof abilities.homingRange === 'number') {
+                    projectile.homing.range = Math.max(projectile.homing.range, abilities.homingRange);
+                }
+                if (typeof abilities.homingTurnSpeed === 'number') {
+                    projectile.homing.turnSpeed = Math.max(projectile.homing.turnSpeed, abilities.homingTurnSpeed);
+                }
+            }
+        }
+    }
+
+    // Upgrade application for combat-related upgrades
+    applyCombatUpgrade(upgrade) {
+        switch (upgrade.type) {
+            case 'attackSpeed':
+                // Mathematically sound scaling with diminishing returns
+                const baseIncrease = upgrade.multiplier - 1; // e.g., 1.15 -> 0.15
+                const scalingFactor = Math.pow(0.9, upgrade.stackCount - 1); // Diminishing returns
+                const adjustedIncrease = baseIncrease * scalingFactor;
+                this.attackSpeed *= (1 + adjustedIncrease);
+                // Don't update cooldown here - let updateAttackCooldown handle it
+                break;
+
+            case 'attackDamage':
+                // Mathematical scaling with gradual diminishing returns
+                const baseDamageIncrease = upgrade.multiplier - 1;
+                const damageScaling = Math.pow(0.95, upgrade.stackCount - 1); // Gradual diminishing
+                const adjustedDamageIncrease = baseDamageIncrease * damageScaling;
+                this.attackDamage *= (1 + adjustedDamageIncrease);
+                break;
+
+            case 'projectileCount':
+                // Clean projectile count upgrade - just add to the count
+                this.projectileCount += upgrade.value;
+
+                // Enable spread attack flag for UI/effects
+                if (this.projectileCount > 1) {
+                    this.hasSpreadAttack = true;
+                }
+
+                // Show upgrade feedback
+                const gm = window.gameManager || window.gameManagerBridge;
+                if (gm?.showFloatingText) {
+                    gm.showFloatingText(
+                        `Split Shot: ${this.projectileCount} projectiles`,
+                        this.player.x, this.player.y - 60, '#f39c12', 16
+                    );
+                }
+                break;
+
+            case 'projectileSpread':
+                this.projectileSpread += upgrade.value;
+                break;
+
+            case 'piercing':
+                this.piercing += upgrade.value || 1; // Add piercing count
+                break;
+
+            case 'projectileSpeed':
+                // Apply scaling with soft cap to prevent infinite speed
+                const currentSpeed = this.projectileSpeed;
+                const baseSpeedIncrease = upgrade.multiplier - 1;
+                let scaledIncrease = baseSpeedIncrease;
+
+                // Apply diminishing returns for high speeds
+                if (currentSpeed > 600) {
+                    const speedRatio = currentSpeed / this.BALANCE.MAX_PROJECTILE_SPEED;
+                    scaledIncrease *= Math.max(0.1, 1 - speedRatio);
+                }
+
+                this.projectileSpeed = Math.min(
+                    this.BALANCE.MAX_PROJECTILE_SPEED,
+                    currentSpeed * (1 + scaledIncrease)
+                );
+                break;
+
+            case 'critChance':
+                // Mathematical crit chance scaling with configurable soft cap
+                const currentCrit = this.critChance;
+                const baseCritIncrease = upgrade.value;
+                const softCap = this.BALANCE.CRIT_SOFT_CAP;
+
+                // Use exponential decay as we approach the soft cap
+                const distanceFromCap = Math.max(0, softCap - currentCrit);
+                const critScalingFactor = distanceFromCap / softCap;
+                const adjustedCritIncrease = baseCritIncrease * critScalingFactor;
+
+                this.critChance = Math.min(softCap, currentCrit + adjustedCritIncrease);
+                break;
+
+            case 'critDamage':
+                // Crit damage with gradual diminishing returns for extreme values
+                const baseCritDamageIncrease = upgrade.value;
+                let scaledCritIncrease = baseCritDamageIncrease;
+
+                // Apply diminishing returns if crit multiplier gets very high
+                if (this.critMultiplier > 4.0) {
+                    const excessMultiplier = (this.critMultiplier - 4.0) / 2.0; // Scale factor
+                    scaledCritIncrease *= Math.max(0.3, 1 - excessMultiplier);
+                }
+
+                this.critMultiplier += scaledCritIncrease;
+                break;
+        }
+    }
+
+    // Render AOE attack range indicator
+    renderAOEIndicator(ctx) {
+        if (this.hasAOEAttack) {
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, this.aoeAttackRange, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.stroke();
+        }
+    }
+
+    // Get debug information
+    getDebugInfo() {
+        return {
+            attackSpeed: this.attackSpeed,
+            attackDamage: this.attackDamage,
+            attackRange: this.attackRange,
+            projectileCount: this.projectileCount,
+            projectileSpeed: this.projectileSpeed,
+            critChance: this.critChance,
+            critMultiplier: this.critMultiplier,
+            hasAOEAttack: this.hasAOEAttack,
+            hasSpreadAttack: this.hasSpreadAttack,
+            // Balance information
+            speedScaling: `${(this.projectileSpeed / (window.GAME_CONSTANTS?.PLAYER?.BASE_PROJECTILE_SPEED || 450) * 100).toFixed(0)}%`,
+            critCapUtilization: `${(this.critChance / this.BALANCE.CRIT_SOFT_CAP * 100).toFixed(0)}%`,
+            attackCooldown: this.attackCooldown.toFixed(3)
+        };
+    }
+}

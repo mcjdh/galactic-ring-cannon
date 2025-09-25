@@ -1,6 +1,6 @@
 class Projectile {
     constructor(x, y, vx, vy, damage, piercing = 0, isCrit = false, specialType = null) {
-        this.id = Math.random().toString(36).substr(2, 9); // Unique ID for collision tracking
+        this.id = Math.random().toString(36).substr(2, 9);
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -9,620 +9,399 @@ class Projectile {
         this.piercing = piercing;
         this.isCrit = isCrit;
         this.radius = 5;
-        this.type = 'projectile'; // CRITICAL: Add type property
-        this.active = true;
-        this.isDead = false; // CRITICAL: Add isDead property
-    // Circular buffer trail (no push/shift allocations)
-    this.maxTrailLength = 10;
-    this.trail = new Array(this.maxTrailLength);
-    this.trailWrite = 0;
-    this.trailCount = 0;
-        this.lifetime = 5.0; // Projectiles die after 5 seconds
+        this.type = 'projectile';
+        this.isDead = false;
+        // Calculate dynamic lifetime based on projectile speed and expected travel distance
+        this.calculateLifetime();
         this.age = 0;
-        this.hitEnemies = new Set(); // Track hit enemies for piercing
-        
-        // Special attack properties
+        this.initialSpeed = Math.sqrt(vx * vx + vy * vy);
+        this.hitEnemies = new Set();
+
+        // Simple trail - just store last few positions
+        this.trail = [];
+        this.maxTrailLength = 5; // Much simpler
+
+        // Simplified special types - one per projectile
         this.specialType = specialType;
-        this.chainLightning = null;
-        this.explosive = null;
-        this.ricochet = null;
-        this.homing = null;
-        
-        // Initialize special properties based on type
+        this.special = null;
+
         if (specialType) {
-            this.initializeSpecialType(specialType);
+            this.initializeSpecial(specialType);
         }
     }
-    
-    initializeSpecialType(type) {
+
+    calculateLifetime() {
+        // Get game constants for enemy spawn distances and screen size
+        const ENEMIES = window.GAME_CONSTANTS?.ENEMIES || {};
+        const maxSpawnDistance = ENEMIES.SPAWN_DISTANCE_MAX || 800;
+
+        // Calculate maximum expected travel distance
+        // Account for: screen diagonal + spawn distance + safety margin
+        const screenDiagonal = 1400; // Reasonable estimate for most screens
+        const maxTravelDistance = screenDiagonal + maxSpawnDistance + 200;
+
+        // Calculate base lifetime: distance / speed + safety margin
+        const baseLifetime = (maxTravelDistance / this.initialSpeed) + 1.0;
+
+        // Apply special type modifiers
+        let lifetimeModifier = 1.0;
+        if (this.specialType === 'homing') {
+            lifetimeModifier = 1.5; // Homing needs more time to track
+        } else if (this.specialType === 'ricochet') {
+            lifetimeModifier = 1.3; // Ricochet needs time for bounces
+        } else if (this.specialType === 'chain') {
+            lifetimeModifier = 1.2; // Chain needs time for secondary effects
+        }
+
+        // Set minimum and maximum bounds for sanity
+        this.lifetime = Math.max(2.0, Math.min(8.0, baseLifetime * lifetimeModifier));
+    }
+
+    // Recalculate lifetime when projectile properties change (e.g., speed upgrades)
+    updateLifetimeForNewSpeed() {
+        const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (currentSpeed > 0 && Math.abs(currentSpeed - this.initialSpeed) > 50) {
+            // Significant speed change - recalculate lifetime
+            const originalLifetime = this.lifetime;
+            this.initialSpeed = currentSpeed;
+            this.calculateLifetime();
+
+            // If new lifetime is longer, extend current projectile life
+            if (this.lifetime > originalLifetime) {
+                // Scale remaining time proportionally
+                const remainingTime = Math.max(0, originalLifetime - this.age);
+                const timeRatio = this.lifetime / originalLifetime;
+                this.age = this.lifetime - (remainingTime * timeRatio);
+            }
+        }
+    }
+
+    initializeSpecial(type) {
         switch (type) {
             case 'chain':
-                this.chainLightning = {
-                    maxChains: 3,
-                    chainsUsed: 0,
-                    chainRange: 180, // Increased from 150 - better chaining range
-                    chainDamage: Math.max(1, this.damage * 0.75)  // Increased from 0.7 - better chain damage
-                };
+                this.special = { maxChains: 2, used: 0, range: 150 };
                 this.radius = 6;
                 break;
-                
             case 'explosive':
-                this.explosive = {
-                    exploded: false,
-                    radius: 80,
-                    damage: Math.max(1, this.damage * 0.8)  // Ensure minimum damage
-                };
+                this.special = { radius: 60, damage: this.damage * 0.7 };
                 this.radius = 7;
                 break;
-                
             case 'ricochet':
-                this.ricochet = {
-                    bounces: 3,
-                    bounced: 0,
-                    range: 200,
-                    damageReduction: 0.1 // Reduced from 0.15 - less damage loss per bounce
-                };
+                this.special = { bounces: 2, used: 0, range: 180 };
                 this.radius = 6;
                 break;
-                
             case 'homing':
-                this.homing = {
-                    turnSpeed: 3.5, // Reduced from 4.0 - smoother turning
-                    range: 280, // Slightly reduced - more balanced acquisition
-                    target: null,
-                    hasAcquiredTarget: false
-                };
+                this.special = { target: null, turnSpeed: 2.0, range: 200 };
                 this.radius = 5;
                 break;
         }
     }
 
     update(deltaTime, game) {
-        // Update age
         this.age += deltaTime;
-        
-        // Check lifetime
+
+        // Check for speed changes periodically (every ~0.1 seconds to avoid excessive calculations)
+        if (Math.floor(this.age * 10) !== Math.floor((this.age - deltaTime) * 10)) {
+            this.updateLifetimeForNewSpeed();
+        }
+
+        // Simple lifetime check
         if (this.age >= this.lifetime) {
             this.isDead = true;
             return;
         }
-        
-        // Handle homing behavior
-        if (this.homing && !this.homing.hasAcquiredTarget) {
-            this.acquireHomingTarget(game);
+
+        // Simple homing - just turn towards nearest enemy
+        if (this.specialType === 'homing' && game?.enemies?.length > 0) {
+            this.updateHoming(deltaTime, game);
         }
-        
-        if (this.homing && this.homing.target && !this.homing.target.isDead) {
-            this.updateHomingMovement(deltaTime);
-        }
-        
-        // Update position with guard against NaN velocities
-        if (!Number.isFinite(this.vx) || !Number.isFinite(this.vy)) {
-            // If velocities are invalid, mark projectile as dead instead of trying to fix them
-            console.warn('Projectile with invalid velocity detected, removing:', this.vx, this.vy);
+
+        // Update position - add validation
+        if (Number.isFinite(this.vx) && Number.isFinite(this.vy)) {
+            this.x += this.vx * deltaTime;
+            this.y += this.vy * deltaTime;
+        } else {
+            // Invalid velocity - mark as dead
             this.isDead = true;
             return;
         }
-        this.x += this.vx * deltaTime;
-        this.y += this.vy * deltaTime;
 
-        // Check if far off-screen and mark for cleanup (use generous margins to prevent premature despawn)
-        if (game && game.canvas) {
-            if (this.isOffScreen(game.canvas, game.player, 2.2)) {
-                // Allow homing/ricochet projectiles to roam outside view; rely on lifetime instead
-                const hasReturnBehavior = !!(this.homing || this.ricochet);
-                if (!hasReturnBehavior) {
-                    if (this.explosive && !this.explosive.exploded) {
-                        this.explode(game);
-                    }
-                    this.isDead = true;
-                    return;
-                }
-            }
+        // Simple trail update
+        this.trail.push({ x: this.x, y: this.y });
+        if (this.trail.length > this.maxTrailLength) {
+            this.trail.shift();
         }
 
-    // Update circular trail (reuse objects)
-    const idx = this.trailWrite;
-    let pt = this.trail[idx];
-    if (!pt) { pt = this.trail[idx] = { x: this.x, y: this.y }; }
-    else { pt.x = this.x; pt.y = this.y; }
-    this.trailWrite = (this.trailWrite + 1) % this.maxTrailLength;
-    this.trailCount = Math.min(this.trailCount + 1, this.maxTrailLength);
-    }
-    
-    acquireHomingTarget(game) {
-    if (!game.enemies || game.enemies.length === 0) return;
-        
-        // If we already have a valid target that's still alive, not already hit, and reasonably close, keep it
-        if (this.homing.target && !this.homing.target.isDead && !(this.hitEnemies && this.hitEnemies.has(this.homing.target.id))) {
-            const currentTarget = this.homing.target;
-            const dx = currentTarget.x - this.x;
-            const dy = currentTarget.y - this.y;
-            const distanceToCurrentTarget = Math.sqrt(dx * dx + dy * dy);
-            
-            // Keep current target if it's within extended range (hysteresis)
-            if (distanceToCurrentTarget <= this.homing.range * 1.3) {
-                this.homing.hasAcquiredTarget = true;
-                return;
+        // Simple bounds check
+        if (this.isOffScreen(game)) {
+            if (this.specialType === 'explosive' && this.special) {
+                this.explode(game);
             }
-        }
-        
-        let closestEnemy = null;
-        let closestDistance = this.homing.range;
-        
-        const candidates = this._getNearbyEnemies(game, this.homing.range);
-        // Minor random jitter to avoid all projectiles picking the exact same target in dense clusters
-        const jitter = 0.0001 * (Math.random() - 0.5);
-        for (const enemy of candidates) {
-            if (!enemy || enemy.isDead || typeof enemy.x !== 'number' || typeof enemy.y !== 'number') continue;
-            // Avoid reacquiring enemies this projectile already hit
-            if (this.hitEnemies && this.hitEnemies.has(enemy.id)) continue;
-            const dx = enemy.x - this.x;
-            const dy = enemy.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy) + jitter;
-            if (distance < closestDistance && distance > 0) {
-                const currentAngle = Math.atan2(this.vy, this.vx);
-                const targetAngle = Math.atan2(dy, dx);
-                let angleDiff = Math.abs(targetAngle - currentAngle);
-                if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-                const anglePreference = angleDiff < Math.PI * 0.5 ? 1.0 : 0.7;
-                const effectiveDistance = distance / anglePreference;
-                if (effectiveDistance < closestDistance) {
-                    closestEnemy = enemy;
-                    closestDistance = effectiveDistance;
-                }
-            }
-        }
-        
-        if (closestEnemy) {
-            this.homing.target = closestEnemy;
-            this.homing.hasAcquiredTarget = true;
+            this.isDead = true;
         }
     }
-    
-    updateHomingMovement(deltaTime) {
-        const target = this.homing.target;
-        
-        // Validate target is still alive and within reasonable range
-        if (!target || target.isDead) {
-            this.homing.target = null;
-            this.homing.hasAcquiredTarget = false;
-            return;
-        }
-        
-        const dx = target.x - this.x;
-        const dy = target.y - this.y;
-        const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
-        
-        // If target is too far, release it and look for a closer one
-        if (distanceToTarget > this.homing.range * 1.5) {
-            this.homing.target = null;
-            this.homing.hasAcquiredTarget = false;
-            return;
-        }
-        
-        // Calculate desired direction
-        const desiredAngle = Math.atan2(dy, dx);
-        
-        // Current velocity direction
-        const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const currentAngle = Math.atan2(this.vy, this.vx);
-        
-        // Calculate angle difference
-        let angleDiff = desiredAngle - currentAngle;
-        
-        // Normalize angle difference to [-π, π]
-        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-        
-        // Adaptive turn speed based on distance and angle difference
-        const distanceFactor = Math.min(1, distanceToTarget / 120);
-        const angleFactor = 1 - Math.abs(angleDiff) / Math.PI; // Slower when turning sharply
-        const adaptiveTurnSpeed = this.homing.turnSpeed * (0.2 + 0.8 * distanceFactor) * (0.5 + 0.5 * angleFactor);
-        const maxTurn = adaptiveTurnSpeed * deltaTime;
-        
-        // Apply turn speed limit with smoothing (guard MathUtils)
-        if (window.MathUtils && typeof window.MathUtils.clamp === 'function') {
-            angleDiff = window.MathUtils.clamp(angleDiff, -maxTurn, maxTurn);
-        } else {
-            angleDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
-        }
-        
-        // Calculate new angle and velocity with guards against zero/NaN speed
-        const newAngle = currentAngle + angleDiff;
-        let speed = currentSpeed;
-        if (!Number.isFinite(speed) || speed <= 0) {
-            // Fallback to base speed from current velocity magnitude or a default
-            const fallback = Math.sqrt((this.vx * this.vx) + (this.vy * this.vy));
-            speed = Number.isFinite(fallback) && fallback > 0 ? fallback : 300;
-        }
-        this.vx = Math.cos(newAngle) * speed;
-        this.vy = Math.sin(newAngle) * speed;
-    }
-    
-    explode(game) {
-        if (this.explosive.exploded) return;
-        this.explosive.exploded = true;
-        
-        // Create explosion effect
-        {
-            const gm = window.gameManager || window.gameManagerBridge;
-            if (gm?.createExplosion) {
-                gm.createExplosion(this.x, this.y, this.explosive.radius, '#ff8800');
-            }
-        }
-        
-        // Damage enemies in explosion radius with improved calculation
-        const impactedEnemies = [];
-        if (game.enemies) {
-            let enemiesHit = 0;
+
+    updateHoming(deltaTime, game) {
+        // Find nearest enemy if we don't have a target
+        if (!this.special.target || this.special.target.isDead) {
+            let nearest = null;
+            let minDist = this.special.range;
+
             for (const enemy of game.enemies) {
-                if (enemy.isDead) continue;
-                
+                if (!enemy || enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
+
                 const dx = enemy.x - this.x;
                 const dy = enemy.y - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                const effectiveRange = this.explosive.radius + enemy.radius;
-                
-                if (distance <= effectiveRange) {
-                    // Calculate damage falloff based on distance
-                    const falloffFactor = Math.max(0.3, 1 - (distance / effectiveRange));
-                    const explosionDamage = Math.max(1, this.explosive.damage * falloffFactor);
-                    
-                    enemy.takeDamage(explosionDamage);
-                    enemiesHit++;
-                    impactedEnemies.push(enemy);
-                    
-                    // Show explosion damage
-                    {
-                        const gm = window.gameManager || window.gameManagerBridge;
-                        gm?.showFloatingText?.(`${Math.round(explosionDamage)}`, enemy.x, enemy.y - 30, '#ff8800', 16);
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < minDist && dist > 0) {
+                    nearest = enemy;
+                    minDist = dist;
+                }
+            }
+            this.special.target = nearest;
+        }
+
+        // Simple steering towards target
+        if (this.special.target && !this.special.target.isDead) {
+            const dx = this.special.target.x - this.x;
+            const dy = this.special.target.y - this.y;
+            const targetAngle = Math.atan2(dy, dx);
+            const currentAngle = Math.atan2(this.vy, this.vx);
+
+            let angleDiff = targetAngle - currentAngle;
+            // Normalize to [-π, π]
+            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+            const maxTurn = this.special.turnSpeed * deltaTime;
+            const turn = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), maxTurn);
+
+            const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            if (speed > 0) {
+                const newAngle = currentAngle + turn;
+                this.vx = Math.cos(newAngle) * speed;
+                this.vy = Math.sin(newAngle) * speed;
+            }
+        }
+    }
+
+    explode(game) {
+        if (!this.special || this.special.exploded) return;
+        this.special.exploded = true;
+
+        // Simple explosion - damage nearby enemies
+        if (game?.enemies && Array.isArray(game.enemies)) {
+            for (const enemy of game.enemies) {
+                if (!enemy || enemy.isDead) continue;
+
+                const dx = enemy.x - this.x;
+                const dy = enemy.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist <= this.special.radius) {
+                    const falloff = Math.max(0.3, 1 - (dist / this.special.radius));
+                    const damage = this.special.damage * falloff;
+                    if (typeof enemy.takeDamage === 'function') {
+                        enemy.takeDamage(Math.max(1, damage));
+
+                        // Show damage text
+                        if (window.gameManager?.showFloatingText) {
+                            window.gameManager.showFloatingText(`${Math.round(damage)}`, enemy.x, enemy.y - 30, '#ff8800', 16);
+                        }
                     }
                 }
             }
         }
 
-        // Optional: chain reaction explosions (smaller) if player has upgrade
-        const player = game?.player;
-        if (player && player.explosionChainChance > 0 && impactedEnemies.length > 0) {
-            if (Math.random() < player.explosionChainChance) {
-                const target = impactedEnemies[Math.floor(Math.random() * impactedEnemies.length)];
-                if (target && !target.isDead) {
-                    // Visual mini-explosion
-                    {
-                        const gm = window.gameManager || window.gameManagerBridge;
-                        if (gm?.createExplosion) {
-                            gm.createExplosion(target.x, target.y, (this.explosive.radius || 60) * 0.6, '#ffbb66');
-                        }
-                    }
-                    // Apply small extra damage in a tight radius
-                    for (const e of game.enemies) {
-                        if (!e || e.isDead) continue;
-                        const dx2 = e.x - target.x; const dy2 = e.y - target.y;
-                        const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-                        const range2 = (this.explosive.radius || 60) * 0.6 + e.radius;
-                        if (dist2 <= range2) {
-                            const fall = Math.max(0.3, 1 - (dist2 / range2));
-                            const dmg2 = Math.max(1, (this.explosive.damage || this.damage * 0.5) * 0.5 * fall);
-                            e.takeDamage(dmg2);
-                            (window.gameManager || window.gameManagerBridge)?.showFloatingText?.(`${Math.round(dmg2)}`, e.x, e.y - 24, '#ffbb66', 12);
-                        }
-                    }
-                }
-            }
+        // Simple visual effect
+        if (window.gameManager?.createExplosion) {
+            window.gameManager.createExplosion(this.x, this.y, this.special.radius, '#ff8800');
         }
-        
+
         this.isDead = true;
     }
-    
-    triggerChainLightning(game, hitEnemy) {
-        if (!this.chainLightning || this.chainLightning.chainsUsed >= this.chainLightning.maxChains) {
+
+    triggerChain(game, hitEnemy) {
+        if (this.specialType !== 'chain' || !this.special || this.special.used >= this.special.maxChains) {
             return;
         }
-        
-        // Find nearby enemies for chaining
-        let chainTargets = [];
-        const candidates = this._getNearbyEnemies(game, this.chainLightning.chainRange);
-        for (const enemy of candidates) {
-            if (enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
-            // Allow chaining through the just-hit enemy if projectile has piercing remaining
-            if (enemy === hitEnemy && (!this.piercing || this.piercing <= 0)) continue;
+
+        // Ensure we have enemies to chain to
+        if (!game?.enemies || !Array.isArray(game.enemies) || game.enemies.length === 0) {
+            return;
+        }
+
+        // Simple chain - find nearest enemy and damage it
+        let nearest = null;
+        let minDist = this.special.range;
+
+        for (const enemy of game.enemies) {
+            if (!enemy || enemy.isDead || enemy === hitEnemy || this.hitEnemies.has(enemy.id)) continue;
+
             const dx = enemy.x - this.x;
             const dy = enemy.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance <= this.chainLightning.chainRange) {
-                chainTargets.push({ enemy, distance });
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < minDist) {
+                nearest = enemy;
+                minDist = dist;
             }
         }
-        
-        // Sort by distance and take closest targets
-        chainTargets.sort((a, b) => a.distance - b.distance);
-        const chainsToCreate = Math.min(2, chainTargets.length); // Chain to up to 2 enemies
-        
-        for (let i = 0; i < chainsToCreate; i++) {
-            const target = chainTargets[i].enemy;
-            
-            // Create chain lightning effect
-            this.createLightningEffect(this.x, this.y, target.x, target.y);
-            
-            // Apply chain damage with minimum damage guarantee
-            const chainDamage = Math.max(1, this.chainLightning.chainDamage);
-            target.takeDamage(chainDamage);
-            this.hitEnemies.add(target.id);
-            
-            // Show chain damage
-            {
-                const gm = window.gameManager || window.gameManagerBridge;
-                gm?.showFloatingText?.(`${Math.round(chainDamage)}`, target.x, target.y - 30, '#3498db', 14);
-            }
-            
-            this.chainLightning.chainsUsed++;
-        }
-    }
-    
-    createLightningEffect(x1, y1, x2, y2) {
-    const gm = window.gameManager || window.gameManagerBridge;
-        if (!gm || gm.lowQuality) return;
-        
-        // Create lightning particles between points (pool-first)
-        const factor = (gm.particleReductionFactor || 1.0);
-        const segments = Math.max(3, Math.floor(8 * factor));
-        for (let i = 0; i <= segments; i++) {
-            const t = i / segments;
-            const x = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 20;
-            const y = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 20;
-            if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
-                window.optimizedParticles.spawnParticle({
-                    x, y,
-                    vx: (Math.random() - 0.5) * 50,
-                    vy: (Math.random() - 0.5) * 50,
-                    size: 3,
-                    color: '#3498db',
-                    life: 0.3,
-                    type: 'spark'
-                });
-            } else if (gm.tryAddParticle) {
-                const particle = new Particle(
-                    x, y,
-                    (Math.random() - 0.5) * 50,
-                    (Math.random() - 0.5) * 50,
-                    3,
-                    '#3498db',
-                    0.3
-                );
-                gm.tryAddParticle(particle);
+
+        if (nearest) {
+            const chainDamage = this.damage * 0.6;
+            if (typeof nearest.takeDamage === 'function') {
+                nearest.takeDamage(chainDamage);
+                this.hitEnemies.add(nearest.id);
+                this.special.used++;
+
+                // Simple visual effect
+                this.createLightningEffect(this.x, this.y, nearest.x, nearest.y);
+
+                // Show damage text
+                if (window.gameManager?.showFloatingText) {
+                    window.gameManager.showFloatingText(`${Math.round(chainDamage)}`, nearest.x, nearest.y - 30, '#3498db', 14);
+                }
             }
         }
     }
-    
+
     ricochet(game) {
-        if (!this.ricochet || this.ricochet.bounced >= this.ricochet.bounces) {
+        if (this.specialType !== 'ricochet' || !this.special || this.special.used >= this.special.bounces) {
             return false;
         }
-        
-        // Find nearby enemy to bounce to
-        let bounceTarget = null;
-        let closestDistance = this.ricochet.range;
-        const candidates = this._getNearbyEnemies(game, this.ricochet.range);
-        for (const enemy of candidates) {
-            if (enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
+
+        // Ensure we have enemies to ricochet to
+        if (!game?.enemies || !Array.isArray(game.enemies) || game.enemies.length === 0) {
+            return false;
+        }
+
+        // Simple ricochet - find nearest enemy and bounce towards it
+        let nearest = null;
+        let minDist = this.special.range;
+
+        for (const enemy of game.enemies) {
+            if (!enemy || enemy.isDead || this.hitEnemies.has(enemy.id)) continue;
+
             const dx = enemy.x - this.x;
             const dy = enemy.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < closestDistance) {
-                bounceTarget = enemy;
-                closestDistance = distance;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < minDist && dist > 0) {
+                nearest = enemy;
+                minDist = dist;
             }
         }
-        
-        if (bounceTarget) {
-            // Calculate new direction
-            const dx = bounceTarget.x - this.x;
-            const dy = bounceTarget.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance > 0) {
+
+        if (nearest) {
+            const dx = nearest.x - this.x;
+            const dy = nearest.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 0) {
                 const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-                this.vx = (dx / distance) * speed;
-                this.vy = (dy / distance) * speed;
-                
-                // Reduce damage for next hit
-                this.damage *= (1 - this.ricochet.damageReduction);
-                this.ricochet.bounced++;
-                
-                // Visual effect
-                {
-                    const gm = window.gameManager || window.gameManagerBridge;
-                    if (gm?.createExplosion) {
-                        gm.createExplosion(this.x, this.y, 15, '#44ff44');
-                    }
+                if (speed > 0) {
+                    this.vx = (dx / dist) * speed;
+                    this.vy = (dy / dist) * speed;
+                    this.damage *= 0.8; // Reduce damage slightly
+                    this.special.used++;
+                    return true;
                 }
-                
-                return true; // Successfully ricocheted
             }
         }
-        
-        return false; // No ricochet target found
+
+        return false;
     }
-    
-    // Compatibility method for collision system
+
+    createLightningEffect(x1, y1, x2, y2) {
+        // Simple lightning effect
+        if (window.optimizedParticles?.spawnParticle) {
+            const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * 20;
+            const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * 20;
+
+            window.optimizedParticles.spawnParticle({
+                x: midX, y: midY,
+                vx: (Math.random() - 0.5) * 50,
+                vy: (Math.random() - 0.5) * 50,
+                size: 3,
+                color: '#3498db',
+                life: 0.2,
+                type: 'spark'
+            });
+        }
+    }
+
     hit(enemy) {
-        // For piercing projectiles, only hit each enemy once
         if (this.piercing > 0) {
             if (this.hitEnemies.has(enemy.id)) {
-                return false; // Already hit this enemy
+                return false;
             }
             this.hitEnemies.add(enemy.id);
         }
-        
-        return true; // Hit was successful
+        return true;
     }
 
     render(ctx) {
-        // Draw trail with special colors based on type
-        if (this.trailCount > 1) {
+        // Simple trail
+        if (this.trail.length > 1) {
             ctx.beginPath();
-            // Render from oldest to newest across circular buffer
-            const count = this.trailCount;
-            const start = (this.trailWrite - count + this.maxTrailLength) % this.maxTrailLength;
-            let first = true;
-            for (let i = 0; i < count; i++) {
-                const idx = (start + i) % this.maxTrailLength;
-                const p = this.trail[idx];
-                if (!p) continue;
-                if (first) { ctx.moveTo(p.x, p.y); first = false; }
-                else { ctx.lineTo(p.x, p.y); }
+            ctx.moveTo(this.trail[0].x, this.trail[0].y);
+            for (let i = 1; i < this.trail.length; i++) {
+                ctx.lineTo(this.trail[i].x, this.trail[i].y);
             }
-            
-            // Different trail colors for different types
-            if (this.chainLightning) {
-                ctx.strokeStyle = 'rgba(52, 152, 219, 0.4)';
-            } else if (this.explosive) {
-                ctx.strokeStyle = 'rgba(255, 136, 0, 0.4)';
-            } else if (this.ricochet) {
-                ctx.strokeStyle = 'rgba(68, 255, 68, 0.4)';
-            } else if (this.homing) {
-                ctx.strokeStyle = 'rgba(155, 89, 182, 0.4)';
-            } else {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            }
-            
+            ctx.strokeStyle = this.getTrailColor();
             ctx.lineWidth = 2;
             ctx.stroke();
         }
 
-        // Draw projectile with special effects
+        // Simple projectile body
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        
-        // Set color and effects based on type
-        if (this.isCrit) {
-            // Critical hit - bright red with pulsing effect
-            const pulse = 1 + 0.3 * Math.sin(this.age * 10);
-            ctx.save();
-            ctx.scale(pulse, pulse);
-            ctx.fillStyle = '#ff4444';
-        } else if (this.chainLightning) {
-            // Chain lightning - blue with electric effect
-            ctx.fillStyle = '#3498db';
-        } else if (this.explosive) {
-            // Explosive - orange with fire effect
-            ctx.fillStyle = '#ff8800';
-        } else if (this.ricochet) {
-            // Ricochet - green with spinning effect
-            ctx.save();
-            ctx.translate(this.x, this.y);
-            ctx.rotate(this.age * 5);
-            ctx.translate(-this.x, -this.y);
-            ctx.fillStyle = '#44ff44';
-        } else if (this.homing) {
-            // Homing - purple with target-seeking indicator
-            ctx.fillStyle = '#9b59b6';
-        } else {
-            ctx.fillStyle = '#ffffff';
-        }
-        
+        ctx.fillStyle = this.getColor();
         ctx.fill();
-        
-        // Special visual effects
-        if (this.chainLightning) {
-            // Electric sparks around chain lightning projectiles
-            for (let i = 0; i < 3; i++) {
-                const angle = (this.age * 3 + i * Math.PI * 2 / 3) % (Math.PI * 2);
-                const sparkX = this.x + Math.cos(angle) * (this.radius + 3);
-                const sparkY = this.y + Math.sin(angle) * (this.radius + 3);
-                
-                ctx.beginPath();
-                ctx.arc(sparkX, sparkY, 2, 0, Math.PI * 2);
-                ctx.fillStyle = '#74b9ff';
-                ctx.fill();
-            }
-        } else if (this.explosive) {
-            // Flames around explosive projectiles
-            const flameCount = 4;
-            for (let i = 0; i < flameCount; i++) {
-                const angle = (this.age * 4 + i * Math.PI * 2 / flameCount) % (Math.PI * 2);
-                const flameX = this.x + Math.cos(angle) * (this.radius + 2);
-                const flameY = this.y + Math.sin(angle) * (this.radius + 2);
-                
-                ctx.beginPath();
-                ctx.arc(flameX, flameY, 1, 0, Math.PI * 2);
-                ctx.fillStyle = '#fd79a8';
-                ctx.fill();
-            }
-        } else if (this.homing && this.homing.target) {
-            // Draw targeting line to homing target (subtle)
+
+        // Simple glow
+        if (this.specialType) {
             ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(this.homing.target.x, this.homing.target.y);
-            ctx.strokeStyle = 'rgba(155, 89, 182, 0.2)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        }
-
-        // Add glow effect (stronger for special types)
-        const glowSize = this.specialType ? this.radius + 4 : this.radius + 2;
-        const glowAlpha = this.specialType ? 0.4 : 0.2;
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, glowSize, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${glowAlpha})`;
-        ctx.fill();
-        
-        // Restore context if we modified it
-        if (this.isCrit || this.ricochet) {
-            ctx.restore();
+            ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
+            ctx.fillStyle = this.getColor().replace(')', ', 0.3)').replace('rgb', 'rgba');
+            ctx.fill();
         }
     }
 
-    // Helper method to check if projectile is off screen (accounting for camera)
-    // marginMultiplier expands the culling bounds beyond the viewport (e.g., 1.5 = 150% of viewport)
-    isOffScreen(canvas, player, marginMultiplier = 1.0) {
-        // If no player (camera), use basic screen bounds
-        if (!player) {
-            const marginX = canvas.width * (marginMultiplier - 1) * 0.5;
-            const marginY = canvas.height * (marginMultiplier - 1) * 0.5;
-            return this.x < -this.radius - marginX || 
-                   this.x > canvas.width + this.radius + marginX || 
-                   this.y < -this.radius - marginY || 
-                   this.y > canvas.height + this.radius + marginY;
+    getColor() {
+        if (this.isCrit) return '#ff4444';
+        switch (this.specialType) {
+            case 'chain': return '#3498db';
+            case 'explosive': return '#ff8800';
+            case 'ricochet': return '#44ff44';
+            case 'homing': return '#9b59b6';
+            default: return '#ffffff';
         }
-        
-        // Calculate screen bounds relative to camera (player position)
-        const halfW = canvas.width / 2;
-        const halfH = canvas.height / 2;
-        const extraW = halfW * (marginMultiplier - 1);
-        const extraH = halfH * (marginMultiplier - 1);
-        const screenLeft = player.x - halfW - this.radius - extraW;
-        const screenRight = player.x + halfW + this.radius + extraW;
-        const screenTop = player.y - halfH - this.radius - extraH;
-        const screenBottom = player.y + halfH + this.radius + extraH;
-        
-        return this.x < screenLeft || this.x > screenRight || 
-               this.y < screenTop || this.y > screenBottom;
     }
-} 
 
-// Helper: get nearby enemies using GameEngine.spatialGrid if available
-Projectile.prototype._getNearbyEnemies = function(game, range) {
-    if (!game || !Array.isArray(game.enemies)) return [];
-    if (!game.spatialGrid || !game.gridSize || typeof range !== 'number' || range <= 0) {
-        return game.enemies;
+    getTrailColor() {
+        const color = this.getColor();
+        return color.replace(')', ', 0.4)').replace('rgb', 'rgba');
     }
-    
-    const gridRange = Math.ceil(range / game.gridSize);
-    const gx = Math.floor(this.x / game.gridSize);
-    const gy = Math.floor(this.y / game.gridSize);
-    const out = [];
-    for (let dx = -gridRange; dx <= gridRange; dx++) {
-        for (let dy = -gridRange; dy <= gridRange; dy++) {
-            const key = `${gx + dx},${gy + dy}`;
-            const bucket = game.spatialGrid.get(key);
-            if (!bucket || !Array.isArray(bucket)) continue;
-            for (const e of bucket) {
-                if (e && e.type === 'enemy' && !e.isDead) out.push(e);
-            }
-        }
+
+    isOffScreen(game) {
+        if (!game?.canvas || !game?.player) return false;
+
+        // Camera follows player - calculate viewport bounds relative to player position
+        const margin = 800; // Very generous margin - projectiles can travel far beyond screen
+        const canvas = game.canvas;
+        const player = game.player;
+
+        // Calculate camera-relative viewport bounds
+        const viewportLeft = player.x - canvas.width / 2 - margin;
+        const viewportRight = player.x + canvas.width / 2 + margin;
+        const viewportTop = player.y - canvas.height / 2 - margin;
+        const viewportBottom = player.y + canvas.height / 2 + margin;
+
+        // Check if projectile is outside the camera-relative viewport
+        return this.x < viewportLeft || this.x > viewportRight ||
+               this.y < viewportTop || this.y > viewportBottom;
     }
-    return out.length ? out : game.enemies;
-};
+}

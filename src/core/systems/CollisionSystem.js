@@ -273,29 +273,34 @@
                         if (entity1.hitEnemies) entity1.hitEnemies.add(entity2.id);
 
                         let projectileShouldDie = false;
-                        if (entity1.chainLightning) entity1.triggerChainLightning(engine, entity2);
+
+                        // Simplified special effects
+                        if (entity1.specialType === 'chain') {
+                            entity1.triggerChain(engine, entity2);
+                        }
+
+                        // Lifesteal
                         if (engine.player && entity1.lifesteal) {
                             const healAmount = entity1.damage * entity1.lifesteal;
                             engine.player.health = Math.min(engine.player.maxHealth, engine.player.health + healAmount);
                             if (window.gameManager) window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, engine.player.x, engine.player.y - 30, '#2ecc71', 14);
                         }
+
+                        // Handle piercing and death
                         if (entity1.piercing && entity1.piercing > 0) {
                             entity1.piercing--;
                             if (entity1.piercing <= 0) projectileShouldDie = true;
-                        } else if (entity1.ricochet && entity1.ricochet.bounced < entity1.ricochet.bounces) {
-                            if (entity1.type === 'projectile' && typeof Projectile !== 'undefined') {
-                                const ok = Projectile.prototype.ricochet.call(entity1, engine);
-                                if (!ok) projectileShouldDie = true;
-                            } else {
-                                projectileShouldDie = true;
-                            }
+                        } else if (entity1.specialType === 'ricochet' && entity1.ricochet(engine)) {
+                            // Successfully ricocheted, don't die
                         } else {
                             projectileShouldDie = true;
                         }
-                        if (entity1.explosive && (projectileShouldDie || (entity1.piercing !== undefined && entity1.piercing <= 0))) {
+
+                        // Explosion handling
+                        if (entity1.specialType === 'explosive' && projectileShouldDie) {
                             entity1.explode(engine);
-                            projectileShouldDie = true;
                         }
+
                         if (projectileShouldDie) entity1.isDead = true;
                     }
                 } else if (entity2.type === 'projectile' && entity1.type === 'enemy' && !entity1.isDead) {
@@ -310,23 +315,32 @@
                             if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
                         }
                         if (entity2.hitEnemies) entity2.hitEnemies.add(entity1.id);
-                        if (entity2.chainLightning) entity2.triggerChainLightning(engine, entity1);
+
+                        // Simplified special effects
+                        if (entity2.specialType === 'chain') {
+                            entity2.triggerChain(engine, entity1);
+                        }
+
+                        // Lifesteal
                         if (engine.player && entity2.lifesteal) {
                             const healAmount = entity2.damage * entity2.lifesteal;
                             engine.player.health = Math.min(engine.player.maxHealth, engine.player.health + healAmount);
                             if (window.gameManager) window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, engine.player.x, engine.player.y - 30, '#2ecc71', 14);
                         }
-                        if (entity2.explosive) { entity2.explode(engine); return; }
+
+                        // Explosion handling
+                        if (entity2.specialType === 'explosive') {
+                            entity2.explode(engine);
+                            entity2.isDead = true;
+                            return;
+                        }
+
+                        // Handle piercing and death
                         if (entity2.piercing && entity2.piercing > 0) {
                             entity2.piercing--;
                             if (entity2.piercing <= 0) entity2.isDead = true;
-                        } else if (entity2.ricochet && entity2.ricochet.bounced < entity2.ricochet.bounces) {
-                            if (entity2.type === 'projectile' && typeof Projectile !== 'undefined') {
-                                const ok = Projectile.prototype.ricochet.call(entity2, engine);
-                                if (!ok) entity2.isDead = true;
-                            } else {
-                                entity2.isDead = true;
-                            }
+                        } else if (entity2.specialType === 'ricochet' && entity2.ricochet(engine)) {
+                            // Successfully ricocheted, don't die
                         } else {
                             entity2.isDead = true;
                         }
