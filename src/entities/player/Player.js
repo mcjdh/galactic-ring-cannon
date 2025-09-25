@@ -34,30 +34,30 @@ class Player {
 
         // Enhanced Firepower - Starting damage boost
         const damageLevel = getMetaLevel('starting_damage');
-        if (damageLevel > 0) {
-            const damageBonus = 1 + (damageLevel * 0.25); // 25% per level
+        if (damageLevel > 0 && this.combat && typeof this.combat.attackDamage === 'number') {
+            const damageBonus = Math.max(1, Math.min(3, 1 + (damageLevel * 0.25))); // 25% per level, capped at 3x
             this.combat.attackDamage *= damageBonus;
         }
 
         // Reinforced Hull - Starting health boost
         const healthLevel = getMetaLevel('starting_health');
-        if (healthLevel > 0) {
-            const healthBonus = 1 + (healthLevel * 0.20); // 20% per level
+        if (healthLevel > 0 && this.stats && typeof this.stats.maxHealth === 'number') {
+            const healthBonus = Math.max(1, Math.min(3, 1 + (healthLevel * 0.20))); // 20% per level, capped at 3x
             this.stats.maxHealth *= healthBonus;
             this.stats.health = this.stats.maxHealth; // Set current health to new max
         }
 
         // Ion Thrusters - Starting speed boost
         const speedLevel = getMetaLevel('starting_speed');
-        if (speedLevel > 0) {
-            const speedBonus = 1 + (speedLevel * 0.15); // 15% per level
+        if (speedLevel > 0 && this.movement && typeof this.movement.speed === 'number') {
+            const speedBonus = Math.max(1, Math.min(2.5, 1 + (speedLevel * 0.15))); // 15% per level, capped at 2.5x
             this.movement.speed *= speedBonus;
         }
 
         // Chain Lightning Mastery - Improved chain lightning
         const chainLevel = getMetaLevel('chain_upgrade');
-        if (chainLevel > 0) {
-            this.abilities.maxChains = Math.max(this.abilities.maxChains || 2, 2 + chainLevel);
+        if (chainLevel > 0 && this.abilities) {
+            this.abilities.maxChains = Math.max(this.abilities.maxChains || 2, 2 + Math.min(chainLevel, 5)); // Cap at +5 chains
         }
     }
 

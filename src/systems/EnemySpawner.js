@@ -571,12 +571,24 @@ class EnemySpawner {
         const waveSize = Math.min(maxWaveSize, base + levelBonus);
         
         // Wave spawning initiated
-        
+
+        // Store timeout IDs for cleanup if needed
+        if (!this.waveTimeouts) this.waveTimeouts = [];
+
         for (let i = 0; i < waveSize; i++) {
             // Delay spawning slightly to spread out the wave
-            setTimeout(() => {
-                this.spawnEnemy();
+            const timeoutId = setTimeout(() => {
+                // Clear this timeout from the list
+                const index = this.waveTimeouts.indexOf(timeoutId);
+                if (index !== -1) this.waveTimeouts.splice(index, 1);
+
+                // Only spawn if spawner is still active
+                if (this.game && !this.game.isShuttingDown) {
+                    this.spawnEnemy();
+                }
             }, i * 100);
+
+            this.waveTimeouts.push(timeoutId);
         }
         
         this.showNewEnemyMessage(`Wave ${this.waveCount} incoming!`);
@@ -649,6 +661,12 @@ class EnemySpawner {
      * Reset spawner for new game
      */
     reset() {
+        // Clear any pending wave timeouts to prevent memory leaks
+        if (this.waveTimeouts) {
+            this.waveTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+            this.waveTimeouts = [];
+        }
+
         this.spawnRate = this.baseSpawnRate;
         this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
         this.maxEnemies = this.baseMaxEnemies;

@@ -108,17 +108,17 @@ class Enemy {
      */
     updateBossSpecifics(deltaTime, game) {
         // Handle phase transitions
-        if (this.hasPhases) {
-            const healthPercent = this.health / this.maxHealth;
+        if (this.hasPhases && Array.isArray(this.phaseThresholds) && this.phaseThresholds.length > 0) {
+            const healthPercent = this.health / (this.maxHealth || 1); // Prevent division by zero
             let newPhase = 1;
-            
+
             for (let i = 0; i < this.phaseThresholds.length; i++) {
                 if (healthPercent <= this.phaseThresholds[i]) {
                     newPhase = i + 2;
                     break;
                 }
             }
-            
+
             if (newPhase !== this.currentPhase) {
                 this.onPhaseChange(newPhase, game);
                 this.currentPhase = newPhase;

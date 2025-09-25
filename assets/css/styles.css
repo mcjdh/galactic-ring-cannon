@@ -313,17 +313,7 @@ body {
     border-radius: 5px;
 }
 
-#timer-display {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 18px;
-    font-weight: bold;
-    z-index: 10;
-    background-color: rgba(0, 0, 0, 0.5);
-    padding: 5px 10px;
-    border-radius: 5px;
-}
+/* Removed duplicate #timer-display rule - already defined above in #timer-container */
 /* Star token meta-progress display */
 #star-token-display {
     position: absolute;

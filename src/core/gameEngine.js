@@ -625,7 +625,13 @@ class GameEngine {
         }
     }
       handleCollision(entity1, entity2) {
-        if (!entity1 || !entity2 || entity1.isDead || entity2.isDead || entity1 === entity2 || (entity1.id && entity1.id === entity2.id)) {
+        // Comprehensive validation to prevent invalid collisions
+        if (!entity1 || !entity2 || entity1.isDead || entity2.isDead || entity1 === entity2) {
+            return;
+        }
+
+        // Additional ID check only if both entities have IDs and they match
+        if (entity1.id && entity2.id && entity1.id === entity2.id) {
             return;
         }
 
@@ -1159,9 +1165,22 @@ class GameEngine {
     }
 
     _releaseEnemyProjectile(ep) {
-        // Basic sanitize of enemy projectile before pooling
+        // Properly sanitize enemy projectile before pooling to prevent state corruption
         if (ep) {
             ep.isDead = true;
+            ep.x = 0;
+            ep.y = 0;
+            ep.vx = 0;
+            ep.vy = 0;
+            ep.timer = 0;
+            ep.damage = 0;
+            ep.radius = 5;
+            ep.color = '#9b59b6';
+            ep.glowColor = 'rgba(155, 89, 182, 0.45)';
+            // Clear any references that might prevent garbage collection
+            if (ep.target) ep.target = null;
+            if (ep.hitEnemies) ep.hitEnemies.clear();
+
             // Initialize pool if it doesn't exist
             if (!this.enemyProjectilePool) {
                 this.enemyProjectilePool = [];
