@@ -274,9 +274,11 @@
 
                         let projectileShouldDie = false;
 
-                        // Simplified special effects
-                        if (entity1.specialType === 'chain') {
-                            entity1.triggerChain(engine, entity2);
+                        // Chain lightning effects
+                        if (entity1.hasChainLightning || entity1.chainLightning || entity1.specialType === 'chain') {
+                            if (typeof entity1.triggerChain === 'function') {
+                                entity1.triggerChain(engine, entity2);
+                            }
                         }
 
                         // Lifesteal
@@ -286,19 +288,64 @@
                             if (window.gameManager) window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, engine.player.x, engine.player.y - 30, '#2ecc71', 14);
                         }
 
-                        // Handle piercing and death
-                        if (entity1.piercing && entity1.piercing > 0) {
+                        // Handle piercing and death - UPDATED to match gameEngine logic
+                        let piercingExhausted = false;
+                        if (typeof entity1.piercing === 'number' && entity1.piercing > 0) {
+                            if (window.debugProjectiles) {
+                                console.log(`[CollisionSystem] Projectile ${entity1.id} piercing hit. Piercing: ${entity1.piercing} -> ${entity1.piercing - 1}`);
+                            }
                             entity1.piercing--;
-                            if (entity1.piercing <= 0) projectileShouldDie = true;
-                        } else if (entity1.specialType === 'ricochet' && entity1.ricochet(engine)) {
-                            // Successfully ricocheted, don't die
-                        } else {
-                            projectileShouldDie = true;
+                            projectileShouldDie = false; // Continue after piercing
+
+                            if (entity1.piercing < 0) {
+                                piercingExhausted = true;
+                                projectileShouldDie = true; // Should die unless ricochet saves it
+                                if (window.debugProjectiles) {
+                                    console.log(`[CollisionSystem] Projectile ${entity1.id} piercing exhausted, should die unless ricochet saves it`);
+                                }
+                            } else {
+                                if (window.debugProjectiles) {
+                                    console.log(`[CollisionSystem] Projectile ${entity1.id} still has piercing charges: ${entity1.piercing}`);
+                                }
+                            }
+                        }
+
+                        // Check for ricochet only when projectile would normally die
+                        if (projectileShouldDie && (entity1.hasRicochet || entity1.ricochet || entity1.specialType === 'ricochet')) {
+                            if (window.debugProjectiles) {
+                                console.log(`[CollisionSystem] Projectile ${entity1.id} attempting ricochet. hasRicochet: ${!!entity1.hasRicochet}, specialType: ${entity1.specialType}`);
+                            }
+                            try {
+                                const ok = entity1.ricochet(engine);
+                                if (ok) {
+                                    projectileShouldDie = false; // Ricochet successful
+                                    if (window.debugProjectiles) {
+                                        console.log(`[CollisionSystem] Projectile ${entity1.id} ricochet successful!`);
+                                    }
+                                    // Reset piercing if projectile ricocheted
+                                    if (piercingExhausted && entity1.originalPiercing > 0) {
+                                        entity1.piercing = Math.max(1, Math.floor(entity1.originalPiercing / 2));
+                                        if (window.debugProjectiles) {
+                                            console.log(`[CollisionSystem] Projectile ${entity1.id} piercing restored: ${entity1.piercing}`);
+                                        }
+                                    }
+                                } else {
+                                    if (window.debugProjectiles) {
+                                        console.log(`[CollisionSystem] Projectile ${entity1.id} ricochet failed`);
+                                    }
+                                }
+                            } catch (e) {
+                                if (window.debugProjectiles) {
+                                    console.log(`[CollisionSystem] Projectile ${entity1.id} ricochet error:`, e);
+                                }
+                            }
                         }
 
                         // Explosion handling
-                        if (entity1.specialType === 'explosive' && projectileShouldDie) {
-                            entity1.explode(engine);
+                        if ((entity1.hasExplosive || entity1.explosive || entity1.specialType === 'explosive') && projectileShouldDie) {
+                            if (typeof entity1.explode === 'function') {
+                                entity1.explode(engine);
+                            }
                         }
 
                         if (projectileShouldDie) entity1.isDead = true;
@@ -316,9 +363,11 @@
                         }
                         if (entity2.hitEnemies) entity2.hitEnemies.add(entity1.id);
 
-                        // Simplified special effects
-                        if (entity2.specialType === 'chain') {
-                            entity2.triggerChain(engine, entity1);
+                        // Chain lightning effects
+                        if (entity2.hasChainLightning || entity2.chainLightning || entity2.specialType === 'chain') {
+                            if (typeof entity2.triggerChain === 'function') {
+                                entity2.triggerChain(engine, entity1);
+                            }
                         }
 
                         // Lifesteal
@@ -328,22 +377,70 @@
                             if (window.gameManager) window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, engine.player.x, engine.player.y - 30, '#2ecc71', 14);
                         }
 
-                        // Explosion handling
-                        if (entity2.specialType === 'explosive') {
-                            entity2.explode(engine);
+                        // Explosion handling - trigger for explosive projectiles that should die
+                        if (entity2.hasExplosive || entity2.explosive || entity2.specialType === 'explosive') {
+                            if (typeof entity2.explode === 'function') {
+                                entity2.explode(engine);
+                            }
                             entity2.isDead = true;
                             return;
                         }
 
-                        // Handle piercing and death
-                        if (entity2.piercing && entity2.piercing > 0) {
+                        // Handle piercing and death - UPDATED to match gameEngine logic
+                        let projectileShouldDie2 = true;
+                        let piercingExhausted2 = false;
+                        if (typeof entity2.piercing === 'number' && entity2.piercing > 0) {
+                            if (window.debugProjectiles) {
+                                console.log(`[CollisionSystem] Projectile ${entity2.id} piercing hit. Piercing: ${entity2.piercing} -> ${entity2.piercing - 1}`);
+                            }
                             entity2.piercing--;
-                            if (entity2.piercing <= 0) entity2.isDead = true;
-                        } else if (entity2.specialType === 'ricochet' && entity2.ricochet(engine)) {
-                            // Successfully ricocheted, don't die
-                        } else {
-                            entity2.isDead = true;
+                            projectileShouldDie2 = false; // Continue after piercing
+
+                            if (entity2.piercing < 0) {
+                                piercingExhausted2 = true;
+                                projectileShouldDie2 = true; // Should die unless ricochet saves it
+                                if (window.debugProjectiles) {
+                                    console.log(`[CollisionSystem] Projectile ${entity2.id} piercing exhausted, should die unless ricochet saves it`);
+                                }
+                            } else {
+                                if (window.debugProjectiles) {
+                                    console.log(`[CollisionSystem] Projectile ${entity2.id} still has piercing charges: ${entity2.piercing}`);
+                                }
+                            }
                         }
+
+                        // Check for ricochet only when projectile would normally die
+                        if (projectileShouldDie2 && (entity2.hasRicochet || entity2.ricochet || entity2.specialType === 'ricochet')) {
+                            if (window.debugProjectiles) {
+                                console.log(`[CollisionSystem] Projectile ${entity2.id} attempting ricochet. hasRicochet: ${!!entity2.hasRicochet}, specialType: ${entity2.specialType}`);
+                            }
+                            try {
+                                const ok = entity2.ricochet(engine);
+                                if (ok) {
+                                    projectileShouldDie2 = false; // Ricochet successful
+                                    if (window.debugProjectiles) {
+                                        console.log(`[CollisionSystem] Projectile ${entity2.id} ricochet successful!`);
+                                    }
+                                    // Reset piercing if projectile ricocheted
+                                    if (piercingExhausted2 && entity2.originalPiercing > 0) {
+                                        entity2.piercing = Math.max(1, Math.floor(entity2.originalPiercing / 2));
+                                        if (window.debugProjectiles) {
+                                            console.log(`[CollisionSystem] Projectile ${entity2.id} piercing restored: ${entity2.piercing}`);
+                                        }
+                                    }
+                                } else {
+                                    if (window.debugProjectiles) {
+                                        console.log(`[CollisionSystem] Projectile ${entity2.id} ricochet failed`);
+                                    }
+                                }
+                            } catch (e) {
+                                if (window.debugProjectiles) {
+                                    console.log(`[CollisionSystem] Projectile ${entity2.id} ricochet error:`, e);
+                                }
+                            }
+                        }
+
+                        if (projectileShouldDie2) entity2.isDead = true;
                     }
                 }
 

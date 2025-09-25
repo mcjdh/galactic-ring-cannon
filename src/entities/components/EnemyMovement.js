@@ -17,7 +17,7 @@ class EnemyMovement {
         
         // Movement patterns
         this.movementPattern = 'direct'; // direct, circular, zigzag, random
-        this.patternTimer = 0;
+        this.patternTimer = Math.random() * 2.0; // Randomize initial timer to desync movement patterns
         this.patternData = {}; // Pattern-specific data
         
         // Collision detection
@@ -148,15 +148,25 @@ class EnemyMovement {
             this.speed = this.enemy.baseSpeed || 100;
         }
         
-        // Update target direction with smoothing to reduce jitter
-        const smoothingFactor = 0.9; // Increase smoothing to reduce jitter in direction changes
-        if (this.currentDirection.x !== 0 || this.currentDirection.y !== 0) {
-            // Smooth the direction change
-            this.currentDirection.x = this.currentDirection.x * smoothingFactor + baseDirection.x * (1 - smoothingFactor);
-            this.currentDirection.y = this.currentDirection.y * smoothingFactor + baseDirection.y * (1 - smoothingFactor);
-        } else {
-            // First time setting direction
-            this.currentDirection = { x: baseDirection.x, y: baseDirection.y };
+        // Update target direction with increased smoothing to reduce jitter
+        const smoothingFactor = 0.95; // Much higher smoothing for stability
+
+        // Add stability check - only update if change is significant
+        const directionChange = Math.sqrt(
+            Math.pow(baseDirection.x - this.currentDirection.x, 2) +
+            Math.pow(baseDirection.y - this.currentDirection.y, 2)
+        );
+
+        // Only apply direction changes if they're significant enough (reduces micro-jitters)
+        if (directionChange > 0.05) {
+            if (this.currentDirection.x !== 0 || this.currentDirection.y !== 0) {
+                // Smooth the direction change
+                this.currentDirection.x = this.currentDirection.x * smoothingFactor + baseDirection.x * (1 - smoothingFactor);
+                this.currentDirection.y = this.currentDirection.y * smoothingFactor + baseDirection.y * (1 - smoothingFactor);
+            } else {
+                // First time setting direction
+                this.currentDirection = { x: baseDirection.x, y: baseDirection.y };
+            }
         }
     }
     
@@ -191,24 +201,27 @@ class EnemyMovement {
     applyZigzagPattern(baseDirection, deltaTime) {
         // Initialize pattern data if needed
         if (!this.patternData.zigzagPhase) {
-            this.patternData.zigzagPhase = 0;
-            this.patternData.zigzagFrequency = 2 + Math.random() * 3;
-            this.patternData.zigzagAmplitude = 0.5 + Math.random() * 0.5;
+            this.patternData.zigzagPhase = Math.random() * Math.PI * 2; // Random start phase
+            this.patternData.zigzagFrequency = 1.5 + Math.random() * 2; // Reduced from 2-5 to 1.5-3.5
+            this.patternData.zigzagAmplitude = 0.3 + Math.random() * 0.3; // Reduced amplitude
+            this.patternData.lastZigzagValue = 0; // Track last value for smoothing
         }
-        
+
         // Update zigzag phase
         this.patternData.zigzagPhase += this.patternData.zigzagFrequency * deltaTime;
-        
+
         // Calculate perpendicular direction for zigzag
         const perpX = -baseDirection.y;
         const perpY = baseDirection.x;
-        
-        // Apply zigzag offset
-        const zigzagOffset = Math.sin(this.patternData.zigzagPhase) * this.patternData.zigzagAmplitude;
-        
+
+        // Apply zigzag offset with smoothing to reduce jitter
+        const targetZigzagOffset = Math.sin(this.patternData.zigzagPhase) * this.patternData.zigzagAmplitude;
+        const smoothingFactor = 0.7; // Smooth zigzag transitions
+        this.patternData.lastZigzagValue = this.patternData.lastZigzagValue * smoothingFactor + targetZigzagOffset * (1 - smoothingFactor);
+
         return {
-            x: baseDirection.x + perpX * zigzagOffset,
-            y: baseDirection.y + perpY * zigzagOffset
+            x: baseDirection.x + perpX * this.patternData.lastZigzagValue,
+            y: baseDirection.y + perpY * this.patternData.lastZigzagValue
         };
     }
     
@@ -305,20 +318,24 @@ class EnemyMovement {
             this.velocity.x *= Math.pow(this.friction, deltaTime);
             this.velocity.y *= Math.pow(this.friction, deltaTime);
         } else {
-            // Apply mild damping even when moving to reduce jitter
-            const dampingFactor = 0.98;
+            // Apply stronger damping even when moving to reduce jitter accumulation
+            const dampingFactor = 0.95; // More aggressive damping
             this.velocity.x *= Math.pow(dampingFactor, deltaTime);
             this.velocity.y *= Math.pow(dampingFactor, deltaTime);
         }
-        
-        // Limit maximum velocity
-        const maxSpeed = this.speed * 1.2; // Allow 20% overspeed for smooth movement
+
+        // Velocity clamping to prevent runaway values that could cause jitter
+        const maxVelocity = this.speed * 1.5; // Allow 50% overshoot for responsiveness
         const currentSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
-        
-        if (currentSpeed > maxSpeed) {
-            this.velocity.x = (this.velocity.x / currentSpeed) * maxSpeed;
-            this.velocity.y = (this.velocity.y / currentSpeed) * maxSpeed;
+        if (currentSpeed > maxVelocity) {
+            const scale = maxVelocity / currentSpeed;
+            this.velocity.x *= scale;
+            this.velocity.y *= scale;
         }
+
+        // Deadzone to eliminate tiny movements that cause visual jitter
+        if (Math.abs(this.velocity.x) < 0.5) this.velocity.x = 0;
+        if (Math.abs(this.velocity.y) < 0.5) this.velocity.y = 0;
     }
     
     /**
@@ -531,7 +548,8 @@ class EnemyMovement {
             case 'fast':
                 this.speed = 180;
                 this.movementPattern = 'zigzag';
-                this.acceleration = 800;
+                this.acceleration = 400; // Reduced from 800 to prevent jitter with zigzag
+                this.friction = 0.85; // Lower friction for more responsive but stable movement
                 break;
             case 'tank':
                 this.speed = 60;

@@ -582,7 +582,14 @@ class GameEngine {
     }
 
     _handleProjectileEnemyCollision(projectile, enemy) {
+        if (window.debugProjectiles) {
+            console.log(`[GameEngine] _handleProjectileEnemyCollision: Projectile ${projectile.id} hitting enemy ${enemy.id}. Projectile piercing: ${projectile.piercing}`);
+        }
+
         if (enemy.isDead || (projectile.hitEnemies && projectile.hitEnemies.has(enemy.id))) {
+            if (window.debugProjectiles) {
+                console.log(`[GameEngine] Collision skipped - enemy dead: ${enemy.isDead}, already hit: ${projectile.hitEnemies && projectile.hitEnemies.has(enemy.id)}`);
+            }
             return;
         }
 
@@ -604,9 +611,14 @@ class GameEngine {
             if (window.audioSystem?.play) window.audioSystem.play('hit', 0.2);
         }
 
-        if (projectile.hitEnemies) projectile.hitEnemies.add(enemy.id);
+        // Don't add to hitEnemies here - the projectile.hit() method already handles this for piercing projectiles
 
-        if (projectile.chainLightning) projectile.triggerChainLightning(this, enemy);
+        // Trigger chain lightning if projectile has this ability
+        if (projectile.hasChainLightning || projectile.chainLightning || projectile.specialType === 'chain') {
+            if (typeof projectile.triggerChain === 'function') {
+                projectile.triggerChain(this, enemy);
+            }
+        }
 
         if (this.player && projectile.lifesteal) {
             const healAmount = projectile.damage * projectile.lifesteal;
@@ -616,19 +628,69 @@ class GameEngine {
 
         // Align projectile termination with CollisionSystem behavior
         let projectileShouldDie = true;
+        let piercingExhausted = false;
+
+        // Handle piercing - projectile continues if it still has piercing charges
         if (typeof projectile.piercing === 'number' && projectile.piercing > 0) {
+            if (window.debugProjectiles) {
+                console.log(`[Collision] Projectile ${projectile.id} piercing hit. Piercing: ${projectile.piercing} -> ${projectile.piercing - 1}`);
+            }
             projectile.piercing--;
-            projectileShouldDie = false;
-        } else if (projectile.ricochet && projectile.ricochet.bounced < projectile.ricochet.bounces) {
+            projectileShouldDie = false; // Projectile continues after piercing hit
+
+            // Check if piercing is now exhausted
+            if (projectile.piercing < 0) {
+                piercingExhausted = true;
+                projectileShouldDie = true; // Now it should die unless ricochet saves it
+                if (window.debugProjectiles) {
+                    console.log(`[Collision] Projectile ${projectile.id} piercing exhausted, should die unless ricochet saves it`);
+                }
+            } else {
+                if (window.debugProjectiles) {
+                    console.log(`[Collision] Projectile ${projectile.id} still has piercing charges: ${projectile.piercing}`);
+                }
+            }
+        }
+
+        // Check for ricochet only when projectile would normally die
+        // This allows ricochet to work after piercing is exhausted OR for non-piercing projectiles
+        if (projectileShouldDie && (projectile.hasRicochet || projectile.ricochet || projectile.specialType === 'ricochet')) {
+            if (window.debugProjectiles) {
+                console.log(`[Collision] Projectile ${projectile.id} attempting ricochet. hasRicochet: ${!!projectile.hasRicochet}, specialType: ${projectile.specialType}`);
+            }
             if (projectile.type === 'projectile') {
                 try {
                     const ok = Projectile.prototype.ricochet.call(projectile, this);
-                    projectileShouldDie = !ok;
-                } catch (_) {}
+                    if (ok) {
+                        projectileShouldDie = false; // Ricochet successful, projectile continues
+                        if (window.debugProjectiles) {
+                            console.log(`[Collision] Projectile ${projectile.id} ricochet successful!`);
+                        }
+                        // Reset piercing if projectile ricocheted (balanced gameplay choice)
+                        if (piercingExhausted && projectile.originalPiercing > 0) {
+                            projectile.piercing = Math.max(0, Math.floor(projectile.originalPiercing / 2));
+                            if (window.debugProjectiles) {
+                                console.log(`[Collision] Projectile ${projectile.id} piercing restored: ${projectile.piercing}`);
+                            }
+                        }
+                    } else {
+                        if (window.debugProjectiles) {
+                            console.log(`[Collision] Projectile ${projectile.id} ricochet failed`);
+                        }
+                    }
+                } catch (e) {
+                    if (window.debugProjectiles) {
+                        console.log(`[Collision] Projectile ${projectile.id} ricochet error:`, e);
+                    }
+                }
             }
         }
-        if (projectile.explosive && (projectileShouldDie || (typeof projectile.piercing === 'number' && projectile.piercing <= 0))) {
-            projectile.explode(this);
+        // Trigger explosion if projectile should die or has exhausted piercing
+        if ((projectile.hasExplosive || projectile.explosive || projectile.specialType === 'explosive') &&
+            (projectileShouldDie || (typeof projectile.piercing === 'number' && projectile.piercing < 0))) {
+            if (typeof projectile.explode === 'function') {
+                projectile.explode(this);
+            }
             projectileShouldDie = true;
         }
         if (projectileShouldDie) projectile.isDead = true;
@@ -897,6 +959,11 @@ class GameEngine {
             return null;
         }
 
+        // Debug logging for piercing
+        if (window.debugProjectiles && piercing > 0) {
+            console.log(`[GameEngine] spawnProjectile called with piercing = ${piercing}, specialType = ${specialType}`);
+        }
+
         // Ensure reasonable velocity limits to prevent physics issues
         const speed = Math.sqrt(vx * vx + vy * vy);
         if (speed < 10 || speed > 2000) {
@@ -907,6 +974,12 @@ class GameEngine {
         try {
             // Create projectile with automatic lifetime calculation
             const proj = new Projectile(x, y, vx, vy, damage, piercing, isCrit, specialType);
+
+            // Debug logging after projectile creation
+            if (window.debugProjectiles && (piercing > 0 || proj.piercing > 0)) {
+                console.log(`[GameEngine] Projectile ${proj.id} created: input piercing = ${piercing}, actual piercing = ${proj.piercing}`);
+            }
+
             this.addEntity(proj);
             return proj;
         } catch (error) {
@@ -1233,14 +1306,30 @@ class GameEngine {
       cleanupResources() {
         // Clean up dead entities
         this.cleanupEntities();
-        
-        // Clean up unused object pools
-        if (this.enemyProjectilePool && this.enemyProjectilePool.length > this.maxPoolSize) {
-            this.enemyProjectilePool.length = this.maxPoolSize;
+
+        // More aggressive pool management for better memory usage
+        const maxPoolSize = this.maxPoolSize || 100;
+        const performanceMode = this.lowPerformanceMode || false;
+
+        // Reduce pool sizes more aggressively when in low performance mode
+        const targetPoolSize = performanceMode ? Math.floor(maxPoolSize * 0.5) : maxPoolSize;
+
+        if (this.enemyProjectilePool && this.enemyProjectilePool.length > targetPoolSize) {
+            this.enemyProjectilePool.length = targetPoolSize;
         }
 
-        if (this.particlePool.length > this.maxPoolSize) {
-            this.particlePool.length = this.maxPoolSize;
+        if (this.particlePool && this.particlePool.length > targetPoolSize) {
+            this.particlePool.length = targetPoolSize;
+        }
+
+        // Clean up particle system if it exists
+        if (window.optimizedParticles && typeof window.optimizedParticles.cleanup === 'function') {
+            window.optimizedParticles.cleanup();
+        }
+
+        // Clean up spatial grid cache periodically
+        if (this.spatialGridCache) {
+            this.spatialGridCache.clear();
         }
         
         // Clear spatial grid

@@ -10,17 +10,25 @@ class EnemySpawner {
         this.game = game;
         
         // Basic spawning parameters
-        // TODO: Make spawning parameters configurable via game settings
-        // TODO: Implement adaptive spawn rate based on player performance
         const GC = (window.GAME_CONSTANTS || {});
         const EN = GC.ENEMIES || {};
         const MODES = GC.MODES || {};
         const DIFF = GC.DIFFICULTY || {};
-        this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 1.2; // slight early-game bump
+        this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 1.2;
         this.spawnTimer = 0;
         this.spawnCooldown = 1 / this.spawnRate;
-        this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 60; // allow a bit more density early
-        this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 800; // Distance from player to spawn enemies
+        this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 60;
+        this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 800;
+
+        // Performance monitoring and adaptive limits
+        this.performanceMonitor = {
+            frameTimeHistory: [],
+            maxHistory: 10,
+            lagThreshold: 33, // 30 FPS threshold
+            isLagging: false,
+            adaptiveMaxEnemies: this.maxEnemies,
+            lastFrameTime: 0
+        };
         
         // Enemy types progression
         // TODO: Move enemy unlock data to configuration file
@@ -86,6 +94,7 @@ class EnemySpawner {
      * @param {number} deltaTime - Time since last update
      */
     update(deltaTime) {
+        this.updatePerformanceMonitoring(deltaTime);
         this.updateDifficulty(deltaTime);
         this.applyPlayerLevelWeighting();
         this.updateBossSpawning(deltaTime);
@@ -93,7 +102,72 @@ class EnemySpawner {
         this.updateRegularSpawning(deltaTime);
         this.updateEliteChance(deltaTime);
     }
-    
+
+    /**
+     * Monitor performance and adjust enemy limits
+     * @param {number} deltaTime - Time since last update
+     */
+    updatePerformanceMonitoring(deltaTime) {
+        const monitor = this.performanceMonitor;
+        const frameTime = deltaTime * 1000; // Convert to milliseconds
+
+        // Track frame time history
+        monitor.frameTimeHistory.push(frameTime);
+        if (monitor.frameTimeHistory.length > monitor.maxHistory) {
+            monitor.frameTimeHistory.shift();
+        }
+
+        // Calculate average frame time every few frames
+        if (monitor.frameTimeHistory.length >= monitor.maxHistory) {
+            const avgFrameTime = monitor.frameTimeHistory.reduce((a, b) => a + b) / monitor.frameTimeHistory.length;
+            const wasLagging = monitor.isLagging;
+            monitor.isLagging = avgFrameTime > monitor.lagThreshold;
+
+            // Adjust adaptive limits based on performance
+            if (monitor.isLagging && !wasLagging) {
+                // Performance degraded - reduce enemy count
+                monitor.adaptiveMaxEnemies = Math.max(30, Math.floor(this.maxEnemies * 0.7));
+                this.cullDistantEnemies(); // Remove distant enemies immediately
+            } else if (!monitor.isLagging && wasLagging) {
+                // Performance improved - gradually increase limit
+                monitor.adaptiveMaxEnemies = Math.min(this.maxEnemies, monitor.adaptiveMaxEnemies + 5);
+            }
+        }
+
+        monitor.lastFrameTime = frameTime;
+    }
+
+    /**
+     * Remove enemies that are far from player to improve performance
+     */
+    cullDistantEnemies() {
+        if (!this.game.player || !this.game.enemies) return;
+
+        const player = this.game.player;
+        const cullDistance = this.spawnRadius * 2.5; // Cull beyond spawn range
+        const cullDistanceSq = cullDistance * cullDistance;
+
+        let culledCount = 0;
+        const enemies = this.game.enemies;
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            if (!enemy || enemy.isBoss) continue; // Never cull bosses
+
+            const dx = enemy.x - player.x;
+            const dy = enemy.y - player.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq > cullDistanceSq) {
+                enemies.splice(i, 1);
+                culledCount++;
+
+                // Stop culling once we've removed enough
+                if (culledCount >= 10) break;
+            }
+        }
+    }
+
     /**
      * Update difficulty scaling
      * @param {number} deltaTime - Time since last update
@@ -103,11 +177,13 @@ class EnemySpawner {
         
         if (this.difficultyTimer >= this.difficultyInterval) {
             this.difficultyTimer = 0;
-            
-            // Increase spawn rate and max enemies
-            this.spawnRate = Math.min(5, this.spawnRate * 1.2);
-            this.spawnCooldown = 1 / this.spawnRate;
-            this.maxEnemies = Math.min(200, this.maxEnemies + 10);
+
+            // Performance-aware difficulty scaling
+            if (!this.performanceMonitor.isLagging) {
+                this.spawnRate = Math.min(4, this.spawnRate * 1.15); // Slower scaling
+                this.spawnCooldown = 1 / this.spawnRate;
+                this.maxEnemies = Math.min(150, this.maxEnemies + 8); // Lower cap
+            }
             
             // Unlock new enemy types
             this.unlockNewEnemyTypes();
@@ -192,7 +268,8 @@ class EnemySpawner {
     updateRegularSpawning(deltaTime) {
         this.spawnTimer += deltaTime;
         
-        if (this.spawnTimer >= this.spawnCooldown && this.game.enemies.length < this.maxEnemies) {
+        const effectiveMaxEnemies = this.performanceMonitor.adaptiveMaxEnemies;
+        if (this.spawnTimer >= this.spawnCooldown && this.game.enemies.length < effectiveMaxEnemies) {
             this.spawnTimer = 0;
             this.spawnEnemy();
         }
@@ -407,7 +484,9 @@ class EnemySpawner {
         // Wave size scales with wave index and player level for higher intensity
         const base = 5 + this.waveCount;
         const levelBonus = Math.floor(playerLevel * 1.2);
-        const waveSize = Math.min(40, base + levelBonus);
+        // Performance-aware wave sizing
+        const maxWaveSize = this.performanceMonitor.isLagging ? 15 : 25;
+        const waveSize = Math.min(maxWaveSize, base + levelBonus);
         
         // Wave spawning initiated
         
@@ -534,7 +613,16 @@ class EnemySpawner {
             this.spawnCooldown = 1 / this.spawnRate;
             const baseMax = typeof (window.GAME_CONSTANTS?.ENEMIES?.BASE_MAX_ENEMIES) === 'number'
                 ? window.GAME_CONSTANTS.ENEMIES.BASE_MAX_ENEMIES : 60;
-            this.maxEnemies = Math.min(320, Math.floor(baseMax * (0.8 + clamped * 0.7)));
+            // Performance-aware max enemies with much lower ceiling
+            const theoreticalMax = Math.min(180, Math.floor(baseMax * (0.8 + clamped * 0.6)));
+            this.maxEnemies = theoreticalMax;
+
+            // Update adaptive limit based on performance
+            if (this.performanceMonitor.isLagging) {
+                this.performanceMonitor.adaptiveMaxEnemies = Math.floor(theoreticalMax * 0.7);
+            } else {
+                this.performanceMonitor.adaptiveMaxEnemies = theoreticalMax;
+            }
 
             // Increase elite chance with player level (capped)
             const desiredElite = Math.min(0.35, 0.05 + level * 0.01);

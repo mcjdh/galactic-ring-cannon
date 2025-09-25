@@ -134,7 +134,7 @@ class Projectile {
 
         // Simple bounds check
         if (this.isOffScreen(game)) {
-            if (this.specialType === 'explosive' && this.special) {
+            if (this.specialType === 'explosive' || this.hasExplosive) {
                 this.explode(game);
             }
             this.isDead = true;
@@ -187,7 +187,18 @@ class Projectile {
     }
 
     explode(game) {
-        if (!this.special || this.special.exploded) return;
+        // Check if projectile has explosive ability (multiple ways it can be set)
+        const hasExplosiveAbility = this.specialType === 'explosive' || this.hasExplosive;
+        if (!hasExplosiveAbility) {
+            return;
+        }
+
+        // Initialize explosive special data if not already set
+        if (!this.special || typeof this.special.radius !== 'number') {
+            this.special = { radius: 60, damage: this.damage * 0.7, exploded: false };
+        }
+
+        if (this.special.exploded) return;
         this.special.exploded = true;
 
         // Simple explosion - damage nearby enemies
@@ -223,7 +234,18 @@ class Projectile {
     }
 
     triggerChain(game, hitEnemy) {
-        if (this.specialType !== 'chain' || !this.special || this.special.used >= this.special.maxChains) {
+        // Check if projectile has chain ability (multiple ways it can be set)
+        const hasChainAbility = this.specialType === 'chain' || this.hasChainLightning;
+        if (!hasChainAbility) {
+            return;
+        }
+
+        // Initialize chain special data if not already set
+        if (!this.special || typeof this.special.maxChains !== 'number') {
+            this.special = { maxChains: 2, used: 0, range: 150 };
+        }
+
+        if (this.special.used >= this.special.maxChains) {
             return;
         }
 
@@ -268,7 +290,18 @@ class Projectile {
     }
 
     ricochet(game) {
-        if (this.specialType !== 'ricochet' || !this.special || this.special.used >= this.special.bounces) {
+        // Check if projectile has ricochet ability (multiple ways it can be set)
+        const hasRicochetAbility = this.specialType === 'ricochet' || this.hasRicochet;
+        if (!hasRicochetAbility) {
+            return false;
+        }
+
+        // Initialize ricochet special data if not already set
+        if (!this.special || typeof this.special.bounces !== 'number') {
+            this.special = { bounces: 2, used: 0, range: 180 };
+        }
+
+        if (this.special.used >= this.special.bounces) {
             return false;
         }
 
@@ -367,11 +400,36 @@ class Projectile {
     }
 
     hit(enemy) {
+        // Debug logging for piercing issues
+        if (window.debugProjectiles) {
+            console.log(`[Projectile ${this.id}] hit() called:`, {
+                piercing: this.piercing,
+                enemyId: enemy.id,
+                alreadyHit: this.hitEnemies.has(enemy.id),
+                hitEnemiesSize: this.hitEnemies.size
+            });
+        }
+
+        // For piercing projectiles, track hit enemies but don't prevent subsequent hits
         if (this.piercing > 0) {
             if (this.hitEnemies.has(enemy.id)) {
+                // Already hit this enemy, don't hit again
+                if (window.debugProjectiles) {
+                    console.log(`[Projectile ${this.id}] Already hit enemy ${enemy.id}, skipping`);
+                }
                 return false;
             }
+            // Add enemy to hit list but allow projectile to continue
             this.hitEnemies.add(enemy.id);
+            if (window.debugProjectiles) {
+                console.log(`[Projectile ${this.id}] Hit enemy ${enemy.id}, piercing remaining: ${this.piercing}`);
+            }
+            return true; // Hit successful, projectile continues
+        }
+
+        // Non-piercing projectile - normal hit
+        if (window.debugProjectiles) {
+            console.log(`[Projectile ${this.id}] Non-piercing hit on enemy ${enemy.id}`);
         }
         return true;
     }

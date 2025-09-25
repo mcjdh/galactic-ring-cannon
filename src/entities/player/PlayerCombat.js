@@ -243,14 +243,51 @@ class PlayerCombat {
             const isCrit = Math.random() < (this.critChance || 0);
             const damage = isCrit ? this.attackDamage * (this.critMultiplier || 2) : this.attackDamage;
 
+            // Debug logging for piercing value tracing
+            if (window.debugProjectiles && this.piercing > 0) {
+                console.log(`[PlayerCombat] Spawning projectile with piercing. this.piercing = ${this.piercing}`);
+            }
+
             // Spawn the projectile - robust by design, no fallbacks needed
             const projectile = game.spawnProjectile(
                 this.player.x, this.player.y, vx, vy, damage, this.piercing || 0, isCrit, primaryType
             );
 
             if (projectile) {
+                if (window.debugProjectiles) {
+                    console.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
+                }
                 this._configureProjectileFromUpgrades(projectile, volleySpecialTypes, damage, isCrit);
+
+                // POTENTIAL BUG: This might be overriding the piercing value!
+                const originalProjectilePiercing = projectile.piercing;
                 projectile.piercing = Math.max(0, projectile.piercing || this.piercing || 0);
+
+                if (window.debugProjectiles && originalProjectilePiercing !== projectile.piercing) {
+                    console.log(`[PlayerCombat] PIERCING CHANGED: Projectile ${projectile.id} piercing ${originalProjectilePiercing} -> ${projectile.piercing}`);
+                }
+
+                // Store original piercing for potential ricochet restoration
+                if (projectile.piercing > 0) {
+                    projectile.originalPiercing = projectile.piercing;
+                    if (window.debugProjectiles) {
+                        console.log(`[PlayerCombat] Projectile ${projectile.id} final piercing = ${projectile.piercing}, originalPiercing = ${projectile.originalPiercing}`);
+                    }
+                }
+
+                // Apply ALL special types as properties (not just primary)
+                if (volleySpecialTypes.includes('chain')) {
+                    projectile.hasChainLightning = true;
+                }
+                if (volleySpecialTypes.includes('explosive')) {
+                    projectile.hasExplosive = true;
+                }
+                if (volleySpecialTypes.includes('ricochet')) {
+                    projectile.hasRicochet = true;
+                }
+                if (volleySpecialTypes.includes('homing')) {
+                    projectile.hasHoming = true;
+                }
             }
         }
 
@@ -393,7 +430,11 @@ class PlayerCombat {
                 break;
 
             case 'piercing':
+                const oldPiercing = this.piercing;
                 this.piercing += upgrade.value || 1; // Add piercing count
+                if (window.debugProjectiles) {
+                    console.log(`[PlayerCombat] Piercing upgrade applied: ${oldPiercing} -> ${this.piercing} (added ${upgrade.value || 1})`);
+                }
                 break;
 
             case 'projectileSpeed':

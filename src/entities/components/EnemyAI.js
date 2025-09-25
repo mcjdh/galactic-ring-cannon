@@ -15,13 +15,13 @@ class EnemyAI {
         
         // Targeting system
         this.target = null;
-        this.targetUpdateTimer = 0;
-        this.targetUpdateInterval = 0.5; // Update target every 0.5 seconds
+        this.targetUpdateTimer = Math.random() * 0.5; // Randomize initial timer to desync enemies
+        this.targetUpdateInterval = 0.4 + Math.random() * 0.3; // Random interval 0.4-0.7s
         this.maxTargetDistance = 800; // Maximum distance to consider player as target
         
         // Attack AI
-        this.attackTimer = 0;
-        this.attackCooldown = 2.0; // Base attack cooldown
+        this.attackTimer = Math.random() * 1.0; // Randomize initial attack timer
+        this.attackCooldown = 1.8 + Math.random() * 0.4; // Random cooldown 1.8-2.2s
         this.lastAttackTime = 0;
         
         // Boss-specific AI
@@ -59,9 +59,17 @@ class EnemyAI {
             this.updateBossAI(deltaTime, game);
         }
         
-        // Calculate avoidance if enabled
+        // Calculate avoidance if enabled (throttled for performance)
         if (this.canAvoidOthers) {
-            this.calculateAvoidance(game);
+            // Only recalculate avoidance every few frames to prevent jittering
+            if (!this.avoidanceUpdateTimer) this.avoidanceUpdateTimer = Math.random() * 0.1;
+            if (!this.avoidanceUpdateInterval) this.avoidanceUpdateInterval = 0.08 + Math.random() * 0.04; // 80-120ms random
+            this.avoidanceUpdateTimer += deltaTime;
+
+            if (this.avoidanceUpdateTimer >= this.avoidanceUpdateInterval) {
+                this.calculateAvoidance(game);
+                this.avoidanceUpdateTimer = 0;
+            }
         }
     }
     
@@ -188,21 +196,29 @@ class EnemyAI {
             this.attackTimer = 0;
         }
         
-        // Slight movement to maintain optimal attack distance
+        // Slight movement to maintain optimal attack distance (with hysteresis to prevent jittering)
         const optimalDistance = this.getAttackRange() * 0.8;
-        if (distance < optimalDistance) {
-            // Too close, back away slightly
+        const hysteresisRange = optimalDistance * 0.2; // 20% buffer zone
+
+        if (distance < optimalDistance - hysteresisRange) {
+            // Too close, back away
             const direction = this.getDirectionToTarget(this.target);
             this.enemy.targetDirection = {
-                x: -direction.x * 0.3,
-                y: -direction.y * 0.3
+                x: -direction.x * 0.2,
+                y: -direction.y * 0.2
+            };
+        } else if (distance > optimalDistance + hysteresisRange) {
+            // Too far, move closer
+            const direction = this.getDirectionToTarget(this.target);
+            this.enemy.targetDirection = {
+                x: direction.x * 0.15,
+                y: direction.y * 0.15
             };
         } else {
-            // Maintain position or move slightly closer
-            const direction = this.getDirectionToTarget(this.target);
+            // In optimal range, minimal movement
             this.enemy.targetDirection = {
-                x: direction.x * 0.2,
-                y: direction.y * 0.2
+                x: this.enemy.targetDirection.x * 0.8,  // Dampen existing movement
+                y: this.enemy.targetDirection.y * 0.8
             };
         }
     }
@@ -536,9 +552,9 @@ class EnemyAI {
                 this.separationRadius = 30;
                 break;
             case 'fast':
-                this.attackCooldown = 1.5;
+                this.attackCooldown = 1.3 + Math.random() * 0.4; // Random 1.3-1.7s instead of fixed 1.5s
                 this.separationRadius = 25;
-                this.targetUpdateInterval = 0.3;
+                this.targetUpdateInterval = 0.5 + Math.random() * 0.3; // Random 0.5-0.8s to desync
                 break;
             case 'tank':
                 this.attackCooldown = 3.0;

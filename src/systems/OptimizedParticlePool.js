@@ -230,10 +230,36 @@ class OptimizedParticlePool {
     cleanupPool() {
         // Keep pool size reasonable to avoid memory bloat
         const maxPoolSize = Math.max(this.poolSize, this.activeParticles.length);
-        
+
         while (this.pool.length > maxPoolSize) {
             this.pool.pop();
         }
+    }
+
+    // Performance-aware cleanup method for external calls
+    cleanup() {
+        // Reduce particle count if performance is struggling
+        const performanceMode = window.gameManager?.lowPerformanceMode || false;
+
+        if (performanceMode) {
+            // Aggressively reduce particles in low performance mode
+            const maxAllowed = Math.floor(this.maxParticles * 0.3); // Only 30% in performance mode
+
+            while (this.activeParticles.length > maxAllowed) {
+                const particle = this.activeParticles.pop();
+                particle.active = false;
+                this.pool.push(particle);
+            }
+
+            // Also reduce maximum to prevent future overload
+            this.maxParticles = Math.min(this.maxParticles, 80);
+        }
+
+        // Clean up batches
+        this.batchedParticles.clear();
+
+        // Run standard pool cleanup
+        this.cleanupPool();
     }
     
     // Spawn common particle types with optimized settings
