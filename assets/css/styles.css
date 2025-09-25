@@ -96,6 +96,43 @@ body {
     transition: width 0.2s linear;
 }
 
+/* Timer container at top center */
+#timer-container {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 1000;
+}
+
+/* Timer and boss countdown */
+#timer-display {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ecf0f1;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    margin-bottom: 5px;
+}
+
+#boss-countdown {
+    font-size: 16px;
+    font-weight: bold;
+    color: #ecf0f1;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    transition: color 0.3s ease;
+}
+
+#boss-countdown.hidden {
+    display: none;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
 #level-up-container {
     position: absolute;
     top: 50%;

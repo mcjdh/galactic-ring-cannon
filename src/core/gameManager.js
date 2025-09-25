@@ -117,7 +117,13 @@ class GameManager {
         
         // Update game time
         this.gameTime += deltaTime;
-        
+
+        // Update timer display
+        this.updateTimerDisplay();
+
+        // Update boss countdown
+        this.updateBossCountdown();
+
         // Update all components
         this.updateComponents(deltaTime);
         
@@ -534,6 +540,40 @@ class GameManager {
         };
     }
     
+    /**
+     * Update the timer display
+     */
+    updateTimerDisplay() {
+        const timerElement = document.getElementById('timer-display');
+        if (timerElement) {
+            const minutes = Math.floor(this.gameTime / 60);
+            const seconds = Math.floor(this.gameTime % 60);
+            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+
+    /**
+     * Update boss spawn countdown
+     */
+    updateBossCountdown() {
+        if (!this.enemySpawner) return;
+
+        const bossCountdownElement = document.getElementById('boss-countdown');
+        const bossTimerElement = document.getElementById('boss-timer');
+
+        if (bossCountdownElement && bossTimerElement) {
+            const timeUntilBoss = this.enemySpawner.bossInterval - this.enemySpawner.bossTimer;
+
+            // Show countdown when boss spawn is within 10 seconds
+            if (timeUntilBoss <= 10 && timeUntilBoss > 0) {
+                bossCountdownElement.classList.remove('hidden');
+                bossTimerElement.textContent = Math.ceil(timeUntilBoss);
+            } else {
+                bossCountdownElement.classList.add('hidden');
+            }
+        }
+    }
+
     /**
      * Restart game
      */

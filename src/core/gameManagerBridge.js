@@ -394,9 +394,16 @@ class GameManagerBridge {
      */
     update(deltaTime) {
         if (!this.running || this.gameOver || this.isPaused) return;
-        
+
         // Update game time
         this.gameTime += deltaTime;
+
+        // Update timer display
+        this.updateTimerDisplay();
+
+        // Update boss countdown
+        this.updateBossCountdown();
+
         // Update HUD periodically
         if (this.uiManager && typeof this.uiManager.update === 'function') {
             this.uiManager.update(deltaTime);
@@ -844,6 +851,72 @@ class GameManagerBridge {
         }
     }
     
+    /**
+     * Update the timer display
+     */
+    updateTimerDisplay() {
+        const timerElement = document.getElementById('timer-display');
+        if (timerElement) {
+            const minutes = Math.floor(this.gameTime / 60);
+            const seconds = Math.floor(this.gameTime % 60);
+            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+
+    /**
+     * Update boss spawn countdown
+     */
+    updateBossCountdown() {
+        if (!this.enemySpawner) {
+            return;
+        }
+
+        const bossCountdownElement = document.getElementById('boss-countdown');
+
+        if (bossCountdownElement) {
+            const timeUntilBoss = this.enemySpawner.bossInterval - this.enemySpawner.bossTimer;
+
+            // Debug once per second
+            const currentSecond = Math.floor(this.gameTime);
+            if (currentSecond !== this._lastBossDebugSecond) {
+                this._lastBossDebugSecond = currentSecond;
+                console.log(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${this.enemySpawner.bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
+            }
+
+            // Show different messages based on time until boss
+            if (timeUntilBoss > 0) {
+                bossCountdownElement.classList.remove('hidden');
+
+                if (timeUntilBoss <= 10) {
+                    // Urgent countdown - red pulsing
+                    bossCountdownElement.style.color = '#e74c3c';
+                    bossCountdownElement.style.animation = 'pulse 1s infinite';
+                    bossCountdownElement.textContent = `Boss in: ${Math.ceil(timeUntilBoss)}s`;
+                } else if (timeUntilBoss <= 30) {
+                    // Warning - orange, no animation
+                    bossCountdownElement.style.color = '#f39c12';
+                    bossCountdownElement.style.animation = 'none';
+                    bossCountdownElement.textContent = `Boss approaching: ${Math.ceil(timeUntilBoss)}s`;
+                } else {
+                    // Info - white, no animation
+                    bossCountdownElement.style.color = '#ecf0f1';
+                    bossCountdownElement.style.animation = 'none';
+                    const minutes = Math.floor(timeUntilBoss / 60);
+                    const seconds = Math.floor(timeUntilBoss % 60);
+                    if (minutes > 0) {
+                        bossCountdownElement.textContent = `Next boss: ${minutes}m ${seconds}s`;
+                    } else {
+                        bossCountdownElement.textContent = `Next boss: ${seconds}s`;
+                    }
+                }
+            } else {
+                bossCountdownElement.classList.add('hidden');
+            }
+        } else {
+            console.log('[GameManagerBridge] Boss countdown element not found');
+        }
+    }
+
     /**
      * Star token management
      */
