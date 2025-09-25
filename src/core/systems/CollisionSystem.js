@@ -72,12 +72,13 @@
                 totalEntitiesInCells / this.stats.cellsProcessed : 0;
         }
         
-        // ✅ CALCULATE OPTIMAL GRID SIZE based on entity density
+        // ✅ CALCULATE OPTIMAL GRID SIZE based on entity density - improved stability
         calculateOptimalGridSize(entityCount) {
-            if (entityCount < 50) return 150;      // Larger cells for few entities
-            if (entityCount < 100) return 120;     // Medium cells for moderate count
-            if (entityCount < 200) return 100;     // Standard cells for many entities
-            return 80;                             // Smaller cells for high density
+            // Use larger grid cells to reduce boundary crossing jitter
+            if (entityCount < 50) return 160;      // Larger cells for few entities
+            if (entityCount < 100) return 140;     // Medium cells for moderate count
+            if (entityCount < 200) return 120;     // Standard cells for many entities
+            return 100;                            // Reduced minimum cell size for stability
         }
 
         checkCollisions() {

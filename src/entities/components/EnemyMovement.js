@@ -8,12 +8,16 @@ class EnemyMovement {
     constructor(enemy) {
         this.enemy = enemy;
         
-        // Movement properties
+        // Movement properties - optimized for smooth movement
         this.speed = 100;
         this.velocity = { x: 0, y: 0 };
         this.currentDirection = { x: 0, y: 0 }; // Current movement direction (calculated from AI input)
-        this.acceleration = 300; // Reduced from 500 to reduce jitter
-        this.friction = 0.9; // Increased friction for smoother movement
+        this.acceleration = 250; // Further reduced for stability
+        this.friction = 0.92; // Balanced friction for smooth movement
+
+        // Anti-jitter properties
+        this.velocitySmoothing = { x: 0, y: 0 }; // Smoothed velocity for ultra-stable movement
+        this.smoothingFactor = 0.85; // How much to smooth velocity changes
         
         // Movement patterns
         this.movementPattern = 'direct'; // direct, circular, zigzag, random
@@ -171,57 +175,73 @@ class EnemyMovement {
     }
     
     /**
-     * Apply circular movement pattern
+     * Apply circular movement pattern - enhanced smoothing
      */
     applyCircularPattern(baseDirection, deltaTime) {
         // Initialize pattern data if needed
         if (!this.patternData.circularAngle) {
             this.patternData.circularAngle = Math.random() * Math.PI * 2;
-            this.patternData.circularRadius = 50 + Math.random() * 50;
-            this.patternData.circularSpeed = 1 + Math.random() * 2;
+            this.patternData.circularRadius = 30 + Math.random() * 30; // Reduced for stability
+            this.patternData.circularSpeed = 0.8 + Math.random() * 1.2; // Slower for smoother movement
+            this.patternData.lastCircularX = 0;
+            this.patternData.lastCircularY = 0;
         }
-        
-        // Update circular angle
+
+        // Update circular angle with smoother progression
         this.patternData.circularAngle += this.patternData.circularSpeed * deltaTime;
-        
-        // Calculate circular offset
-        const offsetX = Math.cos(this.patternData.circularAngle) * this.patternData.circularRadius * 0.3;
-        const offsetY = Math.sin(this.patternData.circularAngle) * this.patternData.circularRadius * 0.3;
-        
-        // Combine with base direction
+
+        // Calculate circular offset with reduced magnitude
+        const targetOffsetX = Math.cos(this.patternData.circularAngle) * this.patternData.circularRadius * 0.2;
+        const targetOffsetY = Math.sin(this.patternData.circularAngle) * this.patternData.circularRadius * 0.2;
+
+        // Apply smoothing to circular offsets to reduce sudden direction changes
+        const circularSmoothing = 0.8;
+        this.patternData.lastCircularX = this.patternData.lastCircularX * circularSmoothing + targetOffsetX * (1 - circularSmoothing);
+        this.patternData.lastCircularY = this.patternData.lastCircularY * circularSmoothing + targetOffsetY * (1 - circularSmoothing);
+
+        // Combine with base direction using smoother integration
         return {
-            x: baseDirection.x + offsetX * deltaTime,
-            y: baseDirection.y + offsetY * deltaTime
+            x: baseDirection.x + this.patternData.lastCircularX * deltaTime * 2,
+            y: baseDirection.y + this.patternData.lastCircularY * deltaTime * 2
         };
     }
     
     /**
-     * Apply zigzag movement pattern
+     * Apply zigzag movement pattern - enhanced smoothing
      */
     applyZigzagPattern(baseDirection, deltaTime) {
         // Initialize pattern data if needed
         if (!this.patternData.zigzagPhase) {
             this.patternData.zigzagPhase = Math.random() * Math.PI * 2; // Random start phase
-            this.patternData.zigzagFrequency = 1.5 + Math.random() * 2; // Reduced from 2-5 to 1.5-3.5
-            this.patternData.zigzagAmplitude = 0.3 + Math.random() * 0.3; // Reduced amplitude
+            this.patternData.zigzagFrequency = 1.2 + Math.random() * 1.5; // Further reduced for stability
+            this.patternData.zigzagAmplitude = 0.2 + Math.random() * 0.2; // Reduced amplitude for less jitter
             this.patternData.lastZigzagValue = 0; // Track last value for smoothing
+            this.patternData.velocitySmoothing = 0; // Additional velocity smoothing
         }
 
-        // Update zigzag phase
+        // Update zigzag phase with frame rate compensation
         this.patternData.zigzagPhase += this.patternData.zigzagFrequency * deltaTime;
 
         // Calculate perpendicular direction for zigzag
         const perpX = -baseDirection.y;
         const perpY = baseDirection.x;
 
-        // Apply zigzag offset with smoothing to reduce jitter
+        // Apply zigzag offset with enhanced smoothing to reduce jitter
         const targetZigzagOffset = Math.sin(this.patternData.zigzagPhase) * this.patternData.zigzagAmplitude;
-        const smoothingFactor = 0.7; // Smooth zigzag transitions
+
+        // Multiple stages of smoothing for ultra-smooth movement
+        const smoothingFactor = 0.8; // Stronger smoothing
         this.patternData.lastZigzagValue = this.patternData.lastZigzagValue * smoothingFactor + targetZigzagOffset * (1 - smoothingFactor);
 
+        // Additional velocity-based smoothing
+        const velocityChange = targetZigzagOffset - this.patternData.velocitySmoothing;
+        this.patternData.velocitySmoothing += velocityChange * 0.3; // Smooth velocity changes
+
+        const finalOffset = this.patternData.velocitySmoothing;
+
         return {
-            x: baseDirection.x + perpX * this.patternData.lastZigzagValue,
-            y: baseDirection.y + perpY * this.patternData.lastZigzagValue
+            x: baseDirection.x + perpX * finalOffset,
+            y: baseDirection.y + perpY * finalOffset
         };
     }
     
@@ -288,133 +308,218 @@ class EnemyMovement {
     }
     
     /**
-     * Update physics simulation
+     * Update physics simulation - enhanced smoothing
      */
     updatePhysics(deltaTime) {
         // Calculate desired velocity
         const currentDir = this.currentDirection || { x: 0, y: 0 };
-        
+
         // Add deadzone to prevent micro-movements that cause jitter
-        const dirMagnitude = Math.sqrt(currentDir.x * currentDir.x + currentDir.y * currentDir.y);
-        if (dirMagnitude < 0.1) {
+        const dirMagnitudeSquared = currentDir.x * currentDir.x + currentDir.y * currentDir.y;
+        if (dirMagnitudeSquared < 0.01) { // Use squared magnitude to avoid sqrt
             currentDir.x = 0;
             currentDir.y = 0;
         }
-        
+
         const desiredVelocity = {
             x: currentDir.x * this.speed,
             y: currentDir.y * this.speed
         };
-        
-        // Apply acceleration towards desired velocity with smoothing
-        const accelX = (desiredVelocity.x - this.velocity.x) * this.acceleration * deltaTime;
-        const accelY = (desiredVelocity.y - this.velocity.y) * this.acceleration * deltaTime;
-        
+
+        // Enhanced acceleration with adaptive damping based on collision state
+        const baseAcceleration = this.acceleration * deltaTime;
+        const adaptiveAcceleration = this.collidedThisFrame ? baseAcceleration * 0.7 : baseAcceleration;
+
+        const accelX = (desiredVelocity.x - this.velocity.x) * adaptiveAcceleration;
+        const accelY = (desiredVelocity.y - this.velocity.y) * adaptiveAcceleration;
+
         this.velocity.x += accelX;
         this.velocity.y += accelY;
-        
-        // Apply friction when no target direction
+
+        // Enhanced damping system
+        let dampingFactor = this.friction;
+
         if (currentDir.x === 0 && currentDir.y === 0) {
-            this.velocity.x *= Math.pow(this.friction, deltaTime);
-            this.velocity.y *= Math.pow(this.friction, deltaTime);
+            // Stronger friction when not moving
+            dampingFactor = Math.max(this.friction, 0.8);
+        } else if (this.collidedThisFrame) {
+            // Extra damping when colliding to prevent jitter
+            dampingFactor = 0.85;
         } else {
-            // Apply stronger damping even when moving to reduce jitter accumulation
-            const dampingFactor = 0.95; // More aggressive damping
-            this.velocity.x *= Math.pow(dampingFactor, deltaTime);
-            this.velocity.y *= Math.pow(dampingFactor, deltaTime);
+            // Normal damping with slight reduction for smoother movement
+            dampingFactor = 0.92;
         }
 
-        // Velocity clamping to prevent runaway values that could cause jitter
-        const maxVelocity = this.speed * 1.5; // Allow 50% overshoot for responsiveness
-        const currentSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
-        if (currentSpeed > maxVelocity && currentSpeed > 0.001) {
-            const scale = maxVelocity / currentSpeed;
-            this.velocity.x *= scale;
-            this.velocity.y *= scale;
+        this.velocity.x *= Math.pow(dampingFactor, deltaTime);
+        this.velocity.y *= Math.pow(dampingFactor, deltaTime);
+
+        // Apply velocity smoothing for ultra-stable movement
+        this.velocitySmoothing.x = this.velocitySmoothing.x * this.smoothingFactor + this.velocity.x * (1 - this.smoothingFactor);
+        this.velocitySmoothing.y = this.velocitySmoothing.y * this.smoothingFactor + this.velocity.y * (1 - this.smoothingFactor);
+
+        // Use smoothed velocity for final calculations
+        const smoothedVelocity = {
+            x: this.velocitySmoothing.x,
+            y: this.velocitySmoothing.y
+        };
+
+        // Velocity clamping with improved calculation using smoothed values
+        const maxVelocity = this.speed * 1.3; // Reduced overshoot for stability
+        const currentSpeedSquared = smoothedVelocity.x * smoothedVelocity.x + smoothedVelocity.y * smoothedVelocity.y;
+        const maxVelocitySquared = maxVelocity * maxVelocity;
+
+        if (currentSpeedSquared > maxVelocitySquared) {
+            const scale = maxVelocity / Math.sqrt(currentSpeedSquared);
+            smoothedVelocity.x *= scale;
+            smoothedVelocity.y *= scale;
+            // Update both smoothed and actual velocity
+            this.velocitySmoothing.x = smoothedVelocity.x;
+            this.velocitySmoothing.y = smoothedVelocity.y;
+            this.velocity.x = smoothedVelocity.x;
+            this.velocity.y = smoothedVelocity.y;
+        } else {
+            // Apply smoothed velocity back to actual velocity
+            this.velocity.x = smoothedVelocity.x;
+            this.velocity.y = smoothedVelocity.y;
         }
 
-        // Deadzone to eliminate tiny movements that cause visual jitter
-        if (Math.abs(this.velocity.x) < 0.5) this.velocity.x = 0;
-        if (Math.abs(this.velocity.y) < 0.5) this.velocity.y = 0;
+        // Enhanced deadzone with hysteresis to prevent flickering
+        const deadzone = this.collidedThisFrame ? 1.2 : 0.8;
+        if (Math.abs(this.velocity.x) < deadzone) {
+            this.velocity.x = 0;
+            this.velocitySmoothing.x = 0;
+        }
+        if (Math.abs(this.velocity.y) < deadzone) {
+            this.velocity.y = 0;
+            this.velocitySmoothing.y = 0;
+        }
     }
     
     /**
-     * Update position based on velocity
+     * Update position based on velocity - improved integration
      */
     updatePosition(deltaTime) {
-        // Apply velocity to position
-        this.enemy.x += this.velocity.x * deltaTime;
-        this.enemy.y += this.velocity.y * deltaTime;
-        
-        // Apply knockback if active
+        // Store position before movement for movement detection
+        const prevX = this.enemy.x;
+        const prevY = this.enemy.y;
+
+        // Apply velocity to position with clamping to prevent extreme movements
+        const maxMovement = 500 * deltaTime; // Limit to reasonable movement per frame
+        const deltaX = Math.max(-maxMovement, Math.min(maxMovement, this.velocity.x * deltaTime));
+        const deltaY = Math.max(-maxMovement, Math.min(maxMovement, this.velocity.y * deltaTime));
+
+        this.enemy.x += deltaX;
+        this.enemy.y += deltaY;
+
+        // Apply knockback if active (separate from normal movement)
         if (this.isKnockback) {
-            this.enemy.x += this.knockbackVelocity.x * deltaTime;
-            this.enemy.y += this.knockbackVelocity.y * deltaTime;
-            
-            // Reduce knockback over time
-            this.knockbackVelocity.x *= Math.pow(0.1, deltaTime);
-            this.knockbackVelocity.y *= Math.pow(0.1, deltaTime);
+            const knockbackDeltaX = this.knockbackVelocity.x * deltaTime;
+            const knockbackDeltaY = this.knockbackVelocity.y * deltaTime;
+
+            this.enemy.x += knockbackDeltaX;
+            this.enemy.y += knockbackDeltaY;
+
+            // Reduce knockback over time with smoother decay
+            const decay = Math.pow(0.05, deltaTime);
+            this.knockbackVelocity.x *= decay;
+            this.knockbackVelocity.y *= decay;
+
+            // Stop knockback when velocity is very small
+            if (Math.abs(this.knockbackVelocity.x) < 1 && Math.abs(this.knockbackVelocity.y) < 1) {
+                this.knockbackVelocity.x = 0;
+                this.knockbackVelocity.y = 0;
+                this.isKnockback = false;
+            }
         }
-        
-        // Update movement state
-        const dx = this.enemy.x - this.lastPosition.x;
-        const dy = this.enemy.y - this.lastPosition.y;
-        const distanceMoved = Math.sqrt(dx * dx + dy * dy);
-        
-        this.isMoving = distanceMoved > 1; // Moving if moved more than 1 pixel
+
+        // Update movement state using squared distance
+        const dx = this.enemy.x - prevX;
+        const dy = this.enemy.y - prevY;
+        const distanceMovedSquared = dx * dx + dy * dy;
+
+        this.isMoving = distanceMovedSquared > 1; // Moving if moved more than 1 pixel
     }
     
     /**
-     * Handle collision detection with other entities
+     * Handle collision detection with other entities - improved stability
      */
     handleCollisions(deltaTime, game) {
-        if (this.collisionCooldown > 0) return;
-        
+        // Gradual cooldown reduction for smoother behavior
+        if (this.collisionCooldown > 0) {
+            this.collisionCooldown -= deltaTime;
+            // Still reset collision flag even during cooldown
+            this.collidedThisFrame = false;
+            return;
+        }
+
         // Reset collision flag
         this.collidedThisFrame = false;
-        
-        // Check collisions with other enemies
-        if (game.enemies && this.enemy.canAvoidOthers !== false) {
+
+        // Only check collisions if we have a reasonable number of enemies to avoid performance issues
+        if (game.enemies && game.enemies.length < 200 && this.enemy.canAvoidOthers !== false) {
             this.handleEnemyCollisions(game.enemies);
         }
-        
+
         // Check collisions with obstacles (if any)
-        if (game.obstacles) {
+        if (game.obstacles && game.obstacles.length > 0) {
             this.handleObstacleCollisions(game.obstacles);
         }
     }
     
     /**
-     * Handle collisions with other enemies
+     * Handle collisions with other enemies - improved anti-jitter system
      */
     handleEnemyCollisions(enemies) {
+        // Accumulate separation forces from all nearby enemies for smoother resolution
+        let totalSeparationX = 0;
+        let totalSeparationY = 0;
+        let collisionCount = 0;
+
         for (const other of enemies) {
             if (other === this.enemy || other.isDead) continue;
-            
+
             const dx = other.x - this.enemy.x;
             const dy = other.y - this.enemy.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distanceSquared = dx * dx + dy * dy;
             const minDistance = this.collisionRadius + (other.radius || 15);
-            
-            if (distance < minDistance && distance > 0) {
-                // Calculate separation force
-                const separationForce = (minDistance - distance) / minDistance;
-                const separationX = -(dx / distance) * separationForce * 100;
-                const separationY = -(dy / distance) * separationForce * 100;
-                
-                // Apply separation
-                this.velocity.x += separationX * 0.5;
-                this.velocity.y += separationY * 0.5;
-                
-                // Mark collision
-                this.collidedThisFrame = true;
-                this.collisionCooldown = 0.1; // Small cooldown to prevent jitter
-                this.lastCollisionTime = Date.now();
-                
-                // Do not apply collision damage between enemies; separation only to reduce chaos
-                
-                break; // Only handle one collision per frame
+            const minDistanceSquared = minDistance * minDistance;
+
+            if (distanceSquared < minDistanceSquared && distanceSquared > 0.01) {
+                const distance = Math.sqrt(distanceSquared);
+                const overlap = minDistance - distance;
+
+                // Use gentler position-based correction instead of velocity-based
+                const correctionStrength = Math.min(overlap / minDistance, 1.0) * 0.5;
+                const separationX = -(dx / distance) * correctionStrength;
+                const separationY = -(dy / distance) * correctionStrength;
+
+                totalSeparationX += separationX;
+                totalSeparationY += separationY;
+                collisionCount++;
             }
+        }
+
+        if (collisionCount > 0) {
+            // Apply averaged separation with damping to prevent oscillation
+            const avgSeparationX = (totalSeparationX / collisionCount) * 30; // Reduced strength
+            const avgSeparationY = (totalSeparationY / collisionCount) * 30;
+
+            // Apply separation to position directly for immediate correction
+            this.enemy.x += avgSeparationX * 0.3;
+            this.enemy.y += avgSeparationY * 0.3;
+
+            // Apply gentler velocity adjustment with stronger damping
+            this.velocity.x += avgSeparationX * 0.2;
+            this.velocity.y += avgSeparationY * 0.2;
+
+            // Apply extra damping when colliding to prevent jitter
+            this.velocity.x *= 0.85;
+            this.velocity.y *= 0.85;
+
+            // Mark collision with longer cooldown
+            this.collidedThisFrame = true;
+            this.collisionCooldown = 0.15; // Slightly longer to reduce jitter
+            this.lastCollisionTime = performance.now();
         }
     }
     
@@ -486,17 +591,18 @@ class EnemyMovement {
     }
     
     /**
-     * Check if enemy is stuck and apply unstuck logic
+     * Check if enemy is stuck and apply unstuck logic - optimized
      */
     checkStuckState(deltaTime) {
         const dx = this.enemy.x - this.lastPosition.x;
         const dy = this.enemy.y - this.lastPosition.y;
-        const distanceMoved = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distanceMoved < 1 && this.isMoving) {
+        const distanceMovedSquared = dx * dx + dy * dy;
+
+        // Use squared distance to avoid sqrt call
+        if (distanceMovedSquared < 1 && this.isMoving) {
             // Enemy is trying to move but not making progress
             this.stuckTimer += deltaTime;
-            
+
             if (this.stuckTimer >= this.stuckThreshold) {
                 // Apply unstuck logic
                 this.handleStuckState();
