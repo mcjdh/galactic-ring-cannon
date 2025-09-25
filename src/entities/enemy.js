@@ -173,7 +173,7 @@ class Enemy {
         
         // Update death animation
         if (this.isDead && this.deathTimer > 0) {
-            this.deathTimer -= deltaTime;
+            this.deathTimer -= deltaTime * 1000; // Convert deltaTime from seconds to milliseconds
             this.opacity = Math.max(0, this.deathTimer / 500); // 500ms fade out
         }
     }

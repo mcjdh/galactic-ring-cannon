@@ -9,7 +9,7 @@ class PlayerCombat {
         this.attackDamage = PLAYER_CONSTANTS.BASE_ATTACK_DAMAGE || 25;
         this.attackRange = PLAYER_CONSTANTS.BASE_ATTACK_RANGE || 300;
         this.attackTimer = 0;
-        this.attackCooldown = 1 / this.attackSpeed;
+        this.attackCooldown = this.attackSpeed > 0 ? 1 / this.attackSpeed : 1;
 
         // Attack type flags
         this.hasBasicAttack = true;
@@ -51,12 +51,17 @@ class PlayerCombat {
     }
 
     updateAttackCooldown() {
-        const newCooldown = 1 / this.attackSpeed;
-        if (this.attackCooldown !== newCooldown) {
+        // Prevent division by zero and ensure minimum cooldown
+        const safeAttackSpeed = Math.max(this.attackSpeed, 0.1);
+        const newCooldown = 1 / safeAttackSpeed;
+        if (this.attackCooldown !== newCooldown && this.attackCooldown > 0) {
             // Scale current timer proportionally to maintain timing consistency
             const timerProgress = this.attackTimer / this.attackCooldown;
             this.attackCooldown = newCooldown;
             this.attackTimer = timerProgress * this.attackCooldown;
+        } else if (this.attackCooldown <= 0) {
+            // Initialize with safe default
+            this.attackCooldown = newCooldown;
         }
     }
 

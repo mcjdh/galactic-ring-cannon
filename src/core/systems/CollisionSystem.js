@@ -57,9 +57,8 @@
                 
                 let cell = engine.spatialGrid.get(key);
                 if (!cell) {
-                    // Try to reuse pooled cell array
-                    cell = this.cellPool.get(key) || [];
-                    cell.length = 0; // Clear without deallocating
+                    // Create new cell array (pooling optimization disabled for now due to correctness issues)
+                    cell = [];
                     engine.spatialGrid.set(key, cell);
                     this.stats.cellsProcessed++;
                 }
@@ -100,17 +99,24 @@
                     // ✅ BROAD-PHASE: Skip cells with only one entity
                     if (entities.length === 1) {
                         // Still check adjacent cells for cross-cell collisions
-                        const [gridX, gridY] = key.split(',').map(Number);
-                        if (Number.isFinite(gridX) && Number.isFinite(gridY)) {
-                            this.checkAdjacentCellCollisions(gridX, gridY, entities);
+                        const coords = key.split(',');
+                        if (coords.length === 2) {
+                            const gridX = parseInt(coords[0], 10);
+                            const gridY = parseInt(coords[1], 10);
+                            if (Number.isFinite(gridX) && Number.isFinite(gridY)) {
+                                this.checkAdjacentCellCollisions(gridX, gridY, entities);
+                            }
                         }
                         continue;
                     }
                     
                     this.checkCollisionsInCell(entities);
-                    const [gridX, gridY] = key.split(',').map(Number);
-                    
+                    const coords = key.split(',');
+
                     // Validate grid coordinates
+                    if (coords.length !== 2) continue;
+                    const gridX = parseInt(coords[0], 10);
+                    const gridY = parseInt(coords[1], 10);
                     if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) continue;
                     
                     this.checkAdjacentCellCollisions(gridX, gridY, entities);
@@ -221,7 +227,9 @@
         handleCollision(entity1, entity2) {
             const engine = this.engine;
             if (!entity1 || !entity2) return;
-            if (entity1 === entity2 || (entity1.id && entity1.id === entity2.id)) return;
+            if (entity1 === entity2) return;
+            // Only compare IDs if both entities have them
+            if (entity1.id && entity2.id && entity1.id === entity2.id) return;
             if (entity1.isDead || entity2.isDead) return;
 
             try {

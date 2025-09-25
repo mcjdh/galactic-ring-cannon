@@ -16,7 +16,7 @@ class EnemySpawner {
         const DIFF = GC.DIFFICULTY || {};
         this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 1.2;
         this.spawnTimer = 0;
-        this.spawnCooldown = 1 / this.spawnRate;
+        this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
         this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 60;
         this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 800;
 
@@ -181,7 +181,7 @@ class EnemySpawner {
             // Performance-aware difficulty scaling
             if (!this.performanceMonitor.isLagging) {
                 this.spawnRate = Math.min(4, this.spawnRate * 1.15); // Slower scaling
-                this.spawnCooldown = 1 / this.spawnRate;
+                this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
                 this.maxEnemies = Math.min(150, this.maxEnemies + 8); // Lower cap
             }
             

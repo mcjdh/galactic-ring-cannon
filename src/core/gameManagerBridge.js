@@ -132,9 +132,9 @@ class GameManagerBridge {
                 const y = Math.round(centerY + dy);
 
                 if (enemy.isBoss) {
-                    const dist = Math.hypot(dxWorld, dyWorld);
-                    if (dist < closestBossDist) {
-                        closestBossDist = dist;
+                    const distSq = dxWorld * dxWorld + dyWorld * dyWorld;
+                    if (distSq < closestBossDist) {
+                        closestBossDist = distSq;
                         closestBoss = { x, y, dxWorld, dyWorld };
                     }
                 }

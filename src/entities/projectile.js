@@ -11,10 +11,11 @@ class Projectile {
         this.radius = 5;
         this.type = 'projectile';
         this.isDead = false;
+        // Calculate initial speed first, before lifetime
+        this.initialSpeed = Math.sqrt(vx * vx + vy * vy);
         // Calculate dynamic lifetime based on projectile speed and expected travel distance
         this.calculateLifetime();
         this.age = 0;
-        this.initialSpeed = Math.sqrt(vx * vx + vy * vy);
         this.hitEnemies = new Set();
 
         // Simple trail - just store last few positions
@@ -41,7 +42,9 @@ class Projectile {
         const maxTravelDistance = screenDiagonal + maxSpawnDistance + 200;
 
         // Calculate base lifetime: distance / speed + safety margin
-        const baseLifetime = (maxTravelDistance / this.initialSpeed) + 1.0;
+        // Prevent division by zero with minimum speed check
+        const speed = Math.max(this.initialSpeed, 10); // Minimum speed of 10
+        const baseLifetime = (maxTravelDistance / speed) + 1.0;
 
         // Apply special type modifiers
         let lifetimeModifier = 1.0;
@@ -290,8 +293,8 @@ class Projectile {
     }
 
     ricochet(game) {
-        // Check if projectile has ricochet ability (multiple ways it can be set)
-        const hasRicochetAbility = this.specialType === 'ricochet' || this.hasRicochet;
+        // Check if projectile has ricochet ability
+        const hasRicochetAbility = this.specialType === 'ricochet';
         if (!hasRicochetAbility) {
             return false;
         }

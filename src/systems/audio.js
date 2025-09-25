@@ -33,10 +33,17 @@ class AudioSystem {
             this.isMuted = !this.isMuted;
             return this.isMuted;
         };
+        this.setEnabled = (enabled) => {
+            this.isMuted = !enabled;
+        };
+        this.playBossBeat = () => {};
+        this.playBossTheme = () => {};
+        this.stopBossTheme = () => {};
+        this.handleUserInteraction = () => {};
         this.initializeAudioContext = () => {};
         this.resumeAudioContext = () => {};
-        this.masterGain = null;
-        this.masterGainNode = null;
+        this.masterGain = { gain: { value: 0.5 } };
+        this.masterGainNode = { gain: { value: 0.5 } };
     }
     
     // Initialize audio context with error handling
@@ -65,11 +72,11 @@ class AudioSystem {
     
     // Resume audio context with error handling
     resumeAudioContext() {
-        if (!this.audioContext) return;
-        
+        if (!this.audioContext || !this.isWebAudioSupported) return;
+
         try {
             if (this.audioContext.state === 'suspended') {
-                this.audioContext.resume();
+                return this.audioContext.resume();
             }
         } catch (error) {
             console.error('Error resuming audio context:', error);
@@ -587,11 +594,19 @@ try {
     }
 } catch (error) {
     console.error('Error creating audio system:', error);
-    // Create a dummy audio system that does nothing
+    // Create a dummy audio system that does nothing but includes all expected methods
     audioSystem = {
         play: () => {},
+        playBossBeat: () => {},
+        playBossTheme: () => {},
+        stopBossTheme: () => {},
         toggleMute: () => false,
-        handleUserInteraction: () => {}
+        setEnabled: () => {},
+        handleUserInteraction: () => {},
+        resumeAudioContext: () => {},
+        initializeAudioContext: () => {},
+        isMuted: false,
+        masterGain: { gain: { value: 0.5 } }
     };
     if (typeof window !== 'undefined') {
         window.audioSystem = audioSystem;
@@ -611,21 +626,32 @@ AudioSystem.prototype.stopBossTheme = function() {
 
 // Play a single boss beat note (invoke on each player shot)
 AudioSystem.prototype.playBossBeat = function() {
-    if (!this.isBossThemePlaying || !this._bossBeat || !this.audioContext) return;
-    const now = this.audioContext.currentTime;
-    const beat = this._bossBeat;
-    const freq = beat.notes[beat.idx];
-    beat.idx = (beat.idx + 1) % beat.notes.length;
-    const osc = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(freq, now);
-    gainNode.gain.setValueAtTime(beat.volume, now);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-    osc.connect(gainNode);
-    gainNode.connect(this.masterGain);
-    osc.start(now);
-    osc.stop(now + 0.4);
+    if (!this.isBossThemePlaying || !this._bossBeat || !this.audioContext || !this.masterGain || this.isMuted) return;
+
+    try {
+        const now = this.audioContext.currentTime;
+        const beat = this._bossBeat;
+        const freq = beat.notes[beat.idx];
+        beat.idx = (beat.idx + 1) % beat.notes.length;
+        const osc = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+        gainNode.gain.setValueAtTime(beat.volume || 0.4, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.connect(gainNode);
+        gainNode.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.4);
+
+        // Cleanup: Remove references to prevent memory leaks
+        setTimeout(() => {
+            osc.disconnect();
+            gainNode.disconnect();
+        }, 450); // Slightly longer than sound duration
+    } catch (error) {
+        console.error('Error playing boss beat:', error);
+    }
 };
 
 // Make globally available

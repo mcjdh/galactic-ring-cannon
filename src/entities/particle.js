@@ -34,9 +34,10 @@ class Particle {
         this.y += this.vy * deltaTime;
         
         // Kill particles that are too far from camera viewport to prevent memory bloat
-        if (game?.player && game?.canvas) {
+        const gameRef = window.game || window.gameEngine;
+        if (gameRef?.player && gameRef?.canvas) {
             const maxDistance = 2000; // pixels from camera center
-            const player = game.player;
+            const player = gameRef.player;
             const distanceFromCamera = Math.abs(this.x - player.x) + Math.abs(this.y - player.y);
 
             if (distanceFromCamera > maxDistance) {
@@ -115,11 +116,13 @@ class ShockwaveParticle {
 
     render(ctx) {
         if (this.isDead) return;
-        
+
         const alpha = 1 - (this.age / this.lifetime);
-        
+
         ctx.save();
-        ctx.strokeStyle = this.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+        // Use globalAlpha for proper alpha blending instead of string concatenation
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = this.color;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.currentRadius, 0, Math.PI * 2);

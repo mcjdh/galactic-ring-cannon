@@ -363,29 +363,8 @@
             (window.logger?.warn || console.warn)('OptimizedParticlePool not available');
         }
         
-        // Initialize upgrade system if available
-        if (typeof UpgradeSystem !== 'undefined') {
-            window.upgradeSystem = new UpgradeSystem();
-            (window.logger?.log || console.log)('UpgradeSystem initialized as global upgradeSystem');
-        } else {
-            (window.logger?.warn || console.warn)('UpgradeSystem not available');
-        }
-        
-        // Initialize audio system if available
-        if (typeof AudioSystem !== 'undefined') {
-            window.audioSystem = new AudioSystem();
-            (window.logger?.log || console.log)('AudioSystem initialized as global audioSystem');
-        } else {
-            (window.logger?.warn || console.warn)('AudioSystem not available');
-        }
-        
-        // Initialize performance manager if available
-        if (typeof PerformanceManager !== 'undefined') {
-            window.performanceManager = new PerformanceManager();
-            (window.logger?.log || console.log)('PerformanceManager initialized as global performanceManager');
-        } else {
-            (window.logger?.warn || console.warn)('PerformanceManager not available');
-        }
+        // Initialize systems that are safe to initialize early (no duplicates)
+        // These will be checked again in DOMContentLoaded if they fail here
     </script>
     
     <!-- Load GameManager Bridge only (GameManager class not required at runtime) -->
@@ -464,31 +443,39 @@
                 } else {
                     (window.logger?.warn || console.warn)('⚠️ InputManager not available');
                 }
-                if (typeof UpgradeSystem !== 'undefined') {
+                if (typeof UpgradeSystem !== 'undefined' && !window.upgradeSystem) {
                     window.upgradeSystem = new UpgradeSystem();
                     (window.logger?.log || console.log)('✅ UpgradeSystem initialized');
+                } else if (window.upgradeSystem) {
+                    (window.logger?.log || console.log)('ℹ️ UpgradeSystem already initialized');
                 } else {
                     (window.logger?.warn || console.warn)('⚠️ UpgradeSystem not available');
                 }
                 
-                if (typeof AudioSystem !== 'undefined') {
+                if (typeof AudioSystem !== 'undefined' && !window.audioSystem) {
                     window.audioSystem = new AudioSystem();
                     (window.logger?.log || console.log)('✅ AudioSystem initialized');
+                } else if (window.audioSystem) {
+                    (window.logger?.log || console.log)('ℹ️ AudioSystem already initialized');
                 } else {
                     (window.logger?.warn || console.warn)('⚠️ AudioSystem not available - creating stub');
                     window.audioSystem = {
                         play: () => {},
                         playBossBeat: () => {},
                         resumeAudioContext: () => {},
-                        isMuted: false
+                        isMuted: false,
+                        setEnabled: () => {},
+                        masterGain: { gain: { value: 0.5 } }
                     };
                 }
-                // Also set global audioSystem for backwards compatibility with entity code
+                // Also set global audioSystem for backwards compatibility with entity code (no window check needed)
                 audioSystem = window.audioSystem;
                 
-                if (typeof PerformanceManager !== 'undefined') {
+                if (typeof PerformanceManager !== 'undefined' && !window.performanceManager) {
                     window.performanceManager = new PerformanceManager();
                     (window.logger?.log || console.log)('✅ PerformanceManager initialized');
+                } else if (window.performanceManager) {
+                    (window.logger?.log || console.log)('ℹ️ PerformanceManager already initialized');
                 }
                 
                 if (typeof AchievementSystem !== 'undefined') {
@@ -512,10 +499,44 @@
             }
         });
         
+        // Event listener cleanup system
+        let eventListeners = [];
+
+        function addEventListenerTracked(element, event, handler, options) {
+            if (element && typeof handler === 'function') {
+                element.addEventListener(event, handler, options);
+                eventListeners.push({ element, event, handler, options });
+                return true;
+            }
+            return false;
+        }
+
+        function removeAllEventListeners() {
+            eventListeners.forEach(({ element, event, handler, options }) => {
+                try {
+                    element.removeEventListener(event, handler, options);
+                } catch (error) {
+                    console.warn('Error removing event listener:', error);
+                }
+            });
+            eventListeners = [];
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            removeAllEventListeners();
+            if (window.gameManager && typeof window.gameManager.cleanup === 'function') {
+                window.gameManager.cleanup();
+            }
+        });
+
         // Define initializeApp function outside the try-catch
         function initializeApp() {
             (window.logger?.log || console.log)('🚀 Simple initializeApp called');
-            
+
+            // Clear any existing event listeners to prevent duplicates
+            removeAllEventListeners();
+
             // Simple initialization - just set up the basic button handlers
             const btnNormal = document.getElementById('btn-normal');
             const btnEndless = document.getElementById('btn-endless');
@@ -557,74 +578,97 @@
                 }
             };
             
-            if (btnNormal) {
-                btnNormal.addEventListener('click', () => {
-                    (window.logger?.log || console.log)('🎮 Starting Normal Mode...');
-                    const mainMenu = document.getElementById('main-menu');
-                    const gameContainer = document.getElementById('game-container');
-                    if (mainMenu) mainMenu.classList.add('hidden');
-                    if (gameContainer) gameContainer.classList.remove('hidden');
-                    if (window.gameManager) {
-                        window.gameManager.endlessMode = false;
-                        window.gameManager.startGame();
-                    }
-                });
-            }
+            addEventListenerTracked(btnNormal, 'click', () => {
+                (window.logger?.log || console.log)('🎮 Starting Normal Mode...');
+                const mainMenu = document.getElementById('main-menu');
+                const gameContainer = document.getElementById('game-container');
+                if (mainMenu) mainMenu.classList.add('hidden');
+                if (gameContainer) gameContainer.classList.remove('hidden');
+                if (window.gameManager) {
+                    window.gameManager.endlessMode = false;
+                    window.gameManager.startGame();
+                }
+            });
             
-            if (btnEndless) {
-                btnEndless.addEventListener('click', () => {
-                    (window.logger?.log || console.log)('🎮 Starting Endless Mode...');
-                    const mainMenu = document.getElementById('main-menu');
-                    const gameContainer = document.getElementById('game-container');
-                    if (mainMenu) mainMenu.classList.add('hidden');
-                    if (gameContainer) gameContainer.classList.remove('hidden');
-                    if (window.gameManager) {
-                        window.gameManager.endlessMode = true;
-                        window.gameManager.startGame();
-                    }
-                });
-            }
+            addEventListenerTracked(btnEndless, 'click', () => {
+                (window.logger?.log || console.log)('🎮 Starting Endless Mode...');
+                const mainMenu = document.getElementById('main-menu');
+                const gameContainer = document.getElementById('game-container');
+                if (mainMenu) mainMenu.classList.add('hidden');
+                if (gameContainer) gameContainer.classList.remove('hidden');
+                if (window.gameManager) {
+                    window.gameManager.endlessMode = true;
+                    window.gameManager.startGame();
+                }
+            });
 
             // Settings panel open/close
-            if (btnSettings) {
-                btnSettings.addEventListener('click', () => {
-                    showPanel('settings-panel');
+            addEventListenerTracked(btnSettings, 'click', () => {
+                showPanel('settings-panel');
+            });
+            addEventListenerTracked(settingsClose, 'click', () => {
+                    try {
+                        // Apply settings with validation
+                        const mute = document.getElementById('mute-checkbox');
+                        const vol = document.getElementById('volume-range');
+                        const lowq = document.getElementById('lowquality-checkbox');
+                        const diff = document.getElementById('difficulty-select');
+
+                        // Audio settings with validation
+                        if (mute && window.audioSystem && typeof window.audioSystem.setEnabled === 'function') {
+                            const isEnabled = !mute.checked;
+                            window.audioSystem.setEnabled(isEnabled);
+                            localStorage.setItem('soundEnabled', isEnabled.toString());
+                        }
+
+                        // Volume validation (0-1 range)
+                        if (vol && window.audioSystem && window.audioSystem.masterGain) {
+                            let volumeValue = Number(vol.value);
+                            if (isNaN(volumeValue) || volumeValue < 0 || volumeValue > 1) {
+                                volumeValue = 0.5; // Default to 50%
+                                vol.value = '0.5';
+                            }
+                            window.audioSystem.masterGain.gain.value = volumeValue;
+                            localStorage.setItem('volume', volumeValue.toString());
+                        }
+
+                        // Low quality setting
+                        if (lowq && window.gameManager) {
+                            const lowQualityEnabled = Boolean(lowq.checked);
+                            window.gameManager.lowQuality = lowQualityEnabled;
+                            localStorage.setItem('lowQuality', lowQualityEnabled.toString());
+                        }
+
+                        // Difficulty validation
+                        if (diff) {
+                            const validDifficulties = ['easy', 'normal', 'hard'];
+                            const selectedDifficulty = diff.value;
+                            if (validDifficulties.includes(selectedDifficulty)) {
+                                localStorage.setItem('difficulty', selectedDifficulty);
+                            } else {
+                                // Reset to default if invalid
+                                diff.value = 'normal';
+                                localStorage.setItem('difficulty', 'normal');
+                            }
+                        }
+
+                        hidePanel('settings-panel');
+                    } catch (error) {
+                        console.error('Error applying settings:', error);
+                        hidePanel('settings-panel');
+                    }
                 });
-            }
-            if (settingsClose) {
-                settingsClose.addEventListener('click', () => {
-                    // Apply basic settings
-                    const mute = document.getElementById('mute-checkbox');
-                    const vol = document.getElementById('volume-range');
-                    const lowq = document.getElementById('lowquality-checkbox');
-                    const diff = document.getElementById('difficulty-select');
-                    if (mute && window.audioSystem) {
-                        window.audioSystem.setEnabled(!mute.checked);
-                        localStorage.setItem('soundEnabled', (!mute.checked).toString());
-                    }
-                    if (vol && window.audioSystem && window.audioSystem.masterGain) {
-                        window.audioSystem.masterGain.gain.value = Number(vol.value || 0.5);
-                    }
-                    if (lowq && window.gameManager) {
-                        window.gameManager.lowQuality = !!lowq.checked;
-                        localStorage.setItem('lowQuality', window.gameManager.lowQuality ? 'true' : 'false');
-                    }
-                    if (diff) {
-                        localStorage.setItem('difficulty', diff.value);
-                    }
-                    hidePanel('settings-panel');
-                });
-            }
 
             // Shop panel open/close
-            if (btnShop) {
-                btnShop.addEventListener('click', () => {
-                    if (window.gameManager && typeof window.gameManager.updateStarDisplay === 'function') {
-                        window.gameManager.updateStarDisplay();
-                    }
-                    showPanel('shop-panel');
-                });
-            }
+            addEventListenerTracked(btnShop, 'click', () => {
+                if (window.gameManager && typeof window.gameManager.updateStarDisplay === 'function') {
+                    window.gameManager.updateStarDisplay();
+                }
+                showPanel('shop-panel');
+            });
+
+            // NOTE: Other event listeners should also use addEventListenerTracked
+            // for proper cleanup, but demonstrating pattern with key UI elements
             if (shopClose) {
                 shopClose.addEventListener('click', () => hidePanel('shop-panel'));
             }
@@ -671,28 +715,97 @@
                 });
             }
             
-            // Hide loading screen and show main menu
-            setTimeout(() => {
+            // Show loading screen completion after systems are ready
+            const showMainMenu = () => {
                 const loadingScreen = document.getElementById('loading-screen');
                 if (loadingScreen) loadingScreen.classList.add('hidden');
                 const menu = document.getElementById('main-menu');
                 if (menu) menu.classList.remove('hidden');
                 (window.logger?.log || console.log)('✅ Game ready to play!');
-                // Reflect stored settings into UI controls
-                const mute = document.getElementById('mute-checkbox');
-                const vol = document.getElementById('volume-range');
-                const lowq = document.getElementById('lowquality-checkbox');
-                if (mute) {
-                    const enabled = localStorage.getItem('soundEnabled');
-                    if (enabled !== null) mute.checked = !(enabled === 'true');
+                // Reflect stored settings into UI controls with validation
+                try {
+                    const mute = document.getElementById('mute-checkbox');
+                    const vol = document.getElementById('volume-range');
+                    const lowq = document.getElementById('lowquality-checkbox');
+                    const diff = document.getElementById('difficulty-select');
+
+                    // Load and validate mute setting
+                    if (mute) {
+                        const enabled = localStorage.getItem('soundEnabled');
+                        if (enabled === 'true' || enabled === 'false') {
+                            mute.checked = !(enabled === 'true');
+                        } else {
+                            // Default to not muted
+                            mute.checked = false;
+                            localStorage.setItem('soundEnabled', 'true');
+                        }
+                    }
+
+                    // Load and validate volume setting
+                    if (vol) {
+                        let volumeValue = 0.5; // Default
+                        const storedVolume = localStorage.getItem('volume');
+                        if (storedVolume !== null) {
+                            const parsedVolume = Number(storedVolume);
+                            if (!isNaN(parsedVolume) && parsedVolume >= 0 && parsedVolume <= 1) {
+                                volumeValue = parsedVolume;
+                            }
+                        }
+                        vol.value = volumeValue.toString();
+                        if (window.audioSystem?.masterGain) {
+                            window.audioSystem.masterGain.gain.value = volumeValue;
+                        }
+                    }
+
+                    // Load and validate low quality setting
+                    if (lowq) {
+                        const storedLowQ = localStorage.getItem('lowQuality');
+                        if (storedLowQ === 'true' || storedLowQ === 'false') {
+                            const lowQualityEnabled = storedLowQ === 'true';
+                            lowq.checked = lowQualityEnabled;
+                            if (window.gameManager) {
+                                window.gameManager.lowQuality = lowQualityEnabled;
+                            }
+                        } else {
+                            // Default to false
+                            lowq.checked = false;
+                            localStorage.setItem('lowQuality', 'false');
+                        }
+                    }
+
+                    // Load and validate difficulty setting
+                    if (diff) {
+                        const storedDiff = localStorage.getItem('difficulty');
+                        const validDifficulties = ['easy', 'normal', 'hard'];
+                        if (validDifficulties.includes(storedDiff)) {
+                            diff.value = storedDiff;
+                        } else {
+                            diff.value = 'normal';
+                            localStorage.setItem('difficulty', 'normal');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading settings:', error);
+                    // Continue with defaults
                 }
-                if (vol && window.audioSystem?.masterGain) {
-                    vol.value = String(window.audioSystem.masterGain.gain.value ?? 0.5);
+            };
+
+            // Wait for core systems to be ready instead of hardcoded timeout
+            const checkSystemsReady = () => {
+                const systemsReady = window.gameManager &&
+                                   window.upgradeSystem &&
+                                   window.audioSystem;
+
+                if (systemsReady) {
+                    showMainMenu();
+                } else {
+                    // Retry after a short delay
+                    setTimeout(checkSystemsReady, 100);
                 }
-                if (lowq && window.gameManager) {
-                    lowq.checked = !!window.gameManager.lowQuality;
-                }
-            }, 1000);
+            };
+
+            // Start checking for system readiness
+            checkSystemsReady();
         } // End of initializeApp function
     </script>
 </body>

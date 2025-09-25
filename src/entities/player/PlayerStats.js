@@ -109,9 +109,12 @@ class PlayerStats {
             gm.showFloatingText(`+${amount} XP`, this.player.x, this.player.y - 20, '#f1c40f', 14);
         }
 
-        // Check for level up
-        while (this.xp >= this.xpToNextLevel && typeof this.xpToNextLevel === 'number' && this.xpToNextLevel > 0) {
+        // Check for level up with safety limit to prevent infinite loops
+        let levelUpCount = 0;
+        const maxLevelUps = 10; // Prevent more than 10 level ups in one frame
+        while (this.xp >= this.xpToNextLevel && typeof this.xpToNextLevel === 'number' && this.xpToNextLevel > 0 && levelUpCount < maxLevelUps) {
             this.levelUp();
+            levelUpCount++;
         }
 
         // Update XP bar

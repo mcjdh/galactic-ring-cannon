@@ -140,9 +140,9 @@ class EnemyMovement {
         
         // Apply special movement modifiers
         if (this.enemy.abilities && this.enemy.abilities.isDashing) {
-            // Use dash direction and speed
-            baseDirection = this.enemy.abilities.dashDirection;
-            this.speed = this.enemy.abilities.dashSpeed;
+            // Use dash direction and speed (with fallback)
+            baseDirection = this.enemy.abilities.dashDirection || baseDirection;
+            this.speed = this.enemy.abilities.dashSpeed || this.speed;
         } else {
             // Reset to normal speed
             this.speed = this.enemy.baseSpeed || 100;
@@ -277,7 +277,7 @@ class EnemyMovement {
         const dy = targetY - this.enemy.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        if (distance > 0) {
+        if (distance > 0.001) {  // Add small epsilon to prevent division by very small numbers
             return {
                 x: dx / distance,
                 y: dy / distance
@@ -327,7 +327,7 @@ class EnemyMovement {
         // Velocity clamping to prevent runaway values that could cause jitter
         const maxVelocity = this.speed * 1.5; // Allow 50% overshoot for responsiveness
         const currentSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
-        if (currentSpeed > maxVelocity) {
+        if (currentSpeed > maxVelocity && currentSpeed > 0.001) {
             const scale = maxVelocity / currentSpeed;
             this.velocity.x *= scale;
             this.velocity.y *= scale;
