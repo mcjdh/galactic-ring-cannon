@@ -258,6 +258,19 @@ class Enemy {
             if (this.isBoss) {
                 window.gameManager.onBossKilled();
             }
+
+            // Keep enemy spawner statistics accurate
+            if (window.gameManager.enemySpawner?.onEnemyKilled) {
+                try {
+                    window.gameManager.enemySpawner.onEnemyKilled(this);
+                } catch (_) { /* no-op */ }
+            }
+        }
+
+        if (window.gameManagerBridge?.enemySpawner?.onEnemyKilled) {
+            try {
+                window.gameManagerBridge.enemySpawner.onEnemyKilled(this);
+            } catch (_) { /* no-op */ }
         }
         
         // Play death sound

@@ -749,13 +749,6 @@ class GameEngine {
             // Use frustum culling to only render visible entities
             const visibleEntities = this.getVisibleEntities();
             
-            // Render particles first (below entities)
-            if (window.optimizedParticles && typeof window.optimizedParticles.render === 'function') {
-                window.optimizedParticles.render(this.ctx);
-            } else if (window.gameManager && !window.gameManager.lowQuality && typeof window.gameManager.renderParticles === 'function') {
-                window.gameManager.renderParticles(this.ctx);
-            }
-
             // Batch render by entity type for better performance
             this.renderEntities(visibleEntities);
             // Ensure player is drawn last on top as a safety net
@@ -773,7 +766,7 @@ class GameEngine {
                 window.floatingTextSystem.render(this.ctx);
             }
             
-            // Render particles again on top if needed (e.g., trails)
+            // Render particles on top of entities (trail effects, explosions, etc.)
             if (window.optimizedParticles && typeof window.optimizedParticles.render === 'function') {
                 window.optimizedParticles.render(this.ctx);
             } else if (window.gameManager && typeof window.gameManager.renderParticles === 'function') {
