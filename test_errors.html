@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('Error:', msg, 'at', url.split('/').pop(), 'line', line);
+            document.getElementById('errors').innerHTML += '<div>' + msg + ' at ' + url.split('/').pop() + ':' + line + '</div>';
+            return false;
+        };
+    </script>
+</head>
+<body>
+    <iframe src="http://localhost:8000" width="100%" height="600"></iframe>
+    <div id="errors" style="background: #fdd; padding: 10px; margin-top: 10px;">
+        <h3>Errors:</h3>
+    </div>
+</body>
+</html>

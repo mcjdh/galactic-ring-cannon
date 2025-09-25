@@ -4,6 +4,7 @@
  */
 class EnemyProjectile {
     constructor(x, y, vx, vy, damage = 20) {
+        this.id = Math.random().toString(36).substr(2, 9); // Unique ID for collision tracking
         this.x = x;
         this.y = y;
         this.vx = vx;

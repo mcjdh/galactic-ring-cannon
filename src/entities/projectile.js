@@ -1,5 +1,6 @@
 class Projectile {
     constructor(x, y, vx, vy, damage, piercing = 0, isCrit = false, specialType = null) {
+        this.id = Math.random().toString(36).substr(2, 9); // Unique ID for collision tracking
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -97,11 +98,10 @@ class Projectile {
         
         // Update position with guard against NaN velocities
         if (!Number.isFinite(this.vx) || !Number.isFinite(this.vy)) {
-            // Reset to a small forward motion to avoid spiraling glitches
-            const speed = 300;
-            const angle = Math.atan2(this.vy || 0, this.vx || 1);
-            this.vx = Math.cos(angle) * speed;
-            this.vy = Math.sin(angle) * speed;
+            // If velocities are invalid, mark projectile as dead instead of trying to fix them
+            console.warn('Projectile with invalid velocity detected, removing:', this.vx, this.vy);
+            this.isDead = true;
+            return;
         }
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;

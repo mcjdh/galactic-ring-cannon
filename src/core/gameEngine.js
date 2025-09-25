@@ -82,9 +82,7 @@ class GameEngine {
 		// Initialize unified systems if available
 		try {
 			this.collisionSystem = null;
-			if (typeof window !== 'undefined' && window.UnifiedCollisionSystem) {
-				this.collisionSystem = new window.UnifiedCollisionSystem(this);
-			} else if (typeof window !== 'undefined' && window.CollisionSystem) {
+			if (typeof window !== 'undefined' && window.CollisionSystem) {
 				this.collisionSystem = new window.CollisionSystem(this);
 			}
         } catch (e) {
@@ -287,8 +285,8 @@ class GameEngine {
         }
 
         // Late-bind unified systems if modules loaded after engine
-        if (!this.collisionSystem && typeof window !== 'undefined' && window.UnifiedCollisionSystem) {
-            try { this.collisionSystem = new window.UnifiedCollisionSystem(this); } catch (_) {}
+        if (!this.collisionSystem && typeof window !== 'undefined' && window.CollisionSystem) {
+            try { this.collisionSystem = new window.CollisionSystem(this); } catch (_) {}
         }
         if (!this.entityManager && typeof window !== 'undefined' && window.EntityManager) {
             try { this.entityManager = new window.EntityManager(); } catch (_) {}
@@ -915,6 +913,7 @@ class GameEngine {
         } else {
             // Reset pooled projectile safely with validation
             try {
+                proj.id = Math.random().toString(36).substr(2, 9); // New ID for pooled projectile
                 proj.x = x; proj.y = y; proj.vx = vx; proj.vy = vy;
                 proj.damage = damage; proj.piercing = piercing || 0; proj.isCrit = !!isCrit;
                 proj.radius = 5; proj.type = 'projectile';
@@ -995,6 +994,7 @@ class GameEngine {
         } else {
             // Reset pooled enemy projectile safely
             try {
+                ep.id = Math.random().toString(36).substr(2, 9); // New ID for pooled enemy projectile
                 ep.x = x; ep.y = y; ep.vx = vx; ep.vy = vy;
                 ep.damage = damage;
                 ep.isDead = false;
@@ -1148,11 +1148,12 @@ class GameEngine {
         
         // Use spatial grid for faster culling
     const visibleEntities = [];
+    const seenEntities = new Set(); // Track entities already added
         const startX = Math.floor((this.player.x - viewportWidth/2 - margin) / this.gridSize);
         const startY = Math.floor((this.player.y - viewportHeight/2 - margin) / this.gridSize);
         const endX = Math.ceil((this.player.x + viewportWidth/2 + margin) / this.gridSize);
         const endY = Math.ceil((this.player.y + viewportHeight/2 + margin) / this.gridSize);
-        
+
     // Check only relevant grid cells
     let anyCellFound = false;
         for (let x = startX; x <= endX; x++) {
@@ -1162,12 +1163,16 @@ class GameEngine {
                 if (cellEntities) {
             anyCellFound = true;
                     for (const entity of cellEntities) {
+                        // Skip if already processed
+                        if (seenEntities.has(entity)) continue;
+
                         const dx = Math.abs(entity.x - this.player.x);
                         const dy = Math.abs(entity.y - this.player.y);
-                        
+
                         // Only include entities within viewport + margin
                         if (dx < viewportWidth/2 + margin && dy < viewportHeight/2 + margin) {
                             visibleEntities.push(entity);
+                            seenEntities.add(entity);
                         }
                     }
                 }
