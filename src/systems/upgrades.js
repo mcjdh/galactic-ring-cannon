@@ -72,6 +72,7 @@ class UpgradeSystem {
                 name: 'Piercing Shot',
                 description: 'Projectiles penetrate through enemies',
                 type: 'piercing',
+                value: 1, // Number of enemies projectile can pierce through
                 icon: '🔪',
                 rarity: 'rare',
                 buildPath: 'core',
