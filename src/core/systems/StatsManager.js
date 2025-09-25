@@ -509,15 +509,33 @@ class StatsManager {
             const savedStats = localStorage.getItem('gameStats');
             if (savedStats) {
                 const parsed = JSON.parse(savedStats);
-                // Load persistent stats but keep session stats separate
-                this.totalDamageDealt = parsed.totalDamageDealt || 0;
-                this.totalDamageTaken = parsed.totalDamageTaken || 0;
-                this.projectilesFired = parsed.projectilesFired || 0;
-                this.distanceTraveled = parsed.distanceTraveled || 0;
+
+                // Validate loaded data to prevent corruption issues
+                if (parsed && typeof parsed === 'object') {
+                    // Validate and sanitize numeric fields
+                    this.totalDamageDealt = this.validateNumericStat(parsed.totalDamageDealt, 0);
+                    this.totalDamageTaken = this.validateNumericStat(parsed.totalDamageTaken, 0);
+                    this.projectilesFired = this.validateNumericStat(parsed.projectilesFired, 0);
+                    this.distanceTraveled = this.validateNumericStat(parsed.distanceTraveled, 0);
+                } else {
+                    console.warn('Invalid save data structure, using defaults');
+                }
             }
         } catch (error) {
             console.warn('Failed to load persistent stats:', error);
+            // Clear corrupted data
+            localStorage.removeItem('gameStats');
         }
+    }
+
+    /**
+     * Validate and sanitize numeric statistics
+     */
+    validateNumericStat(value, defaultValue = 0, min = 0, max = Number.MAX_SAFE_INTEGER) {
+        if (typeof value !== 'number' || !isFinite(value) || value < min || value > max) {
+            return defaultValue;
+        }
+        return Math.floor(value); // Ensure integer values
     }
     
     /**

@@ -472,18 +472,24 @@
         
         // ✅ CELL POOL MANAGEMENT - prevent memory leaks
         cleanupCellPool() {
+            // Initialize cellPool if it doesn't exist
+            if (!this.cellPool) {
+                this.cellPool = new Map();
+                return;
+            }
+
             // Keep pool size reasonable - remove unused cells periodically
             if (this.cellPool.size > 1000) {
                 const engine = this.engine;
                 const activeCells = new Set(engine.spatialGrid?.keys() || []);
-                
+
                 // Remove cells that haven't been used recently
                 for (const [key, cell] of this.cellPool.entries()) {
                     if (!activeCells.has(key)) {
                         this.cellPool.delete(key);
                     }
                 }
-                
+
                 if (window.debugManager?.enabled) {
                     window.logger?.debug(`Cell pool cleaned: ${this.cellPool.size} cells remaining`);
                 }
@@ -494,8 +500,8 @@
         getPerformanceStats() {
             return {
                 ...this.stats,
-                cellPoolSize: this.cellPool.size,
-                efficiency: this.stats.collisionsChecked > 0 ? 
+                cellPoolSize: this.cellPool?.size || 0,
+                efficiency: this.stats.collisionsChecked > 0 ?
                     (this.stats.collisionsDetected / this.stats.collisionsChecked * 100).toFixed(1) + '%' : '0%'
             };
         }

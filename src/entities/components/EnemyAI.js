@@ -381,26 +381,29 @@ class EnemyAI {
      * Calculate collision avoidance with other enemies
      */
     calculateAvoidance(game) {
-        if (!game.enemies) return;
-        
         this.avoidanceVector = { x: 0, y: 0 };
         let neighborCount = 0;
-        
-        for (const other of game.enemies) {
+        const nearbyEnemies = this.getNearbyEnemies(game);
+
+        for (const other of nearbyEnemies) {
             if (other === this.enemy || other.isDead) continue;
-            
+
             const dx = this.enemy.x - other.x;
             const dy = this.enemy.y - other.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            
+
             if (distance < this.separationRadius && distance > 0) {
                 // Add separation force
                 const force = (this.separationRadius - distance) / this.separationRadius;
                 this.avoidanceVector.x += (dx / distance) * force;
                 this.avoidanceVector.y += (dy / distance) * force;
                 neighborCount++;
+
+                // Limit checks to prevent performance issues
+                if (neighborCount >= 8) break; // Only consider closest 8 neighbors
             }
         }
+
         
         if (neighborCount > 0) {
             // Average and normalize avoidance vector
@@ -542,6 +545,41 @@ class EnemyAI {
         };
     }
     
+    /**
+     * Get nearby enemies using spatial grid for efficient neighbor detection
+     */
+    getNearbyEnemies(game) {
+        // Fallback to full list if no spatial grid available
+        if (!game.spatialGrid || !game.gridSize) {
+            return game.enemies || [];
+        }
+
+        const gridSize = game.gridSize;
+        const gridX = Math.floor(this.enemy.x / gridSize);
+        const gridY = Math.floor(this.enemy.y / gridSize);
+        const searchRadius = Math.ceil(this.separationRadius / gridSize) + 1; // Grid cells to search
+
+        const nearbyEnemies = [];
+
+        // Search neighboring grid cells
+        for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+            for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+                const key = `${gridX + dx},${gridY + dy}`;
+                const cell = game.spatialGrid.get(key);
+
+                if (cell) {
+                    for (const entity of cell) {
+                        if (entity && entity.type === 'enemy' && !entity.isDead) {
+                            nearbyEnemies.push(entity);
+                        }
+                    }
+                }
+            }
+        }
+
+        return nearbyEnemies;
+    }
+
     /**
      * Configure AI for specific enemy type
      */

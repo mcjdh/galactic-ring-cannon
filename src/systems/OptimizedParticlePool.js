@@ -198,32 +198,37 @@ class OptimizedParticlePool {
     }
     
     renderBasicBatch(ctx, particles) {
-        ctx.beginPath();
         for (const particle of particles) {
+            ctx.save();
             ctx.globalAlpha = particle.alpha;
-            ctx.moveTo(particle.x + particle.size, particle.y);
+            ctx.beginPath();
             ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
-        ctx.fill();
     }
     
     renderSparkBatch(ctx, particles) {
         ctx.lineWidth = 1;
         for (const particle of particles) {
+            ctx.save();
             ctx.globalAlpha = particle.alpha;
             ctx.beginPath();
             ctx.moveTo(particle.x, particle.y);
             ctx.lineTo(particle.x - particle.vx * 0.05, particle.y - particle.vy * 0.05);
             ctx.stroke();
+            ctx.restore();
         }
     }
     
     renderSmokeBatch(ctx, particles) {
         for (const particle of particles) {
+            ctx.save();
             ctx.globalAlpha = particle.alpha * 0.3;
             ctx.beginPath();
             ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
         }
     }
     
