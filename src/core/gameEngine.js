@@ -598,16 +598,23 @@ class GameEngine {
 
         if (typeof enemy.takeDamage === 'function' && typeof projectile.damage === 'number') {
             const wasCritical = !!(projectile.isCrit);
-            const wasKilled = enemy.health <= projectile.damage;
+            const preHealth = typeof enemy.health === 'number' ? enemy.health : null;
+
             enemy.takeDamage(projectile.damage);
+
+            const currentHealth = typeof enemy.health === 'number' ? enemy.health : preHealth;
+            const wasKilled = enemy.isDead || (typeof currentHealth === 'number' && currentHealth <= 0);
+            const actualDamage = preHealth !== null && currentHealth !== null
+                ? Math.max(0, preHealth - currentHealth)
+                : projectile.damage;
             if (window.resonanceSystem) {
-                const intensity = Math.min(projectile.damage / 100, 1.0);
+                const intensity = Math.min((actualDamage || projectile.damage) / 100, 1.0);
                 const position = { x: enemy.x, y: enemy.y };
                 if (wasKilled) window.resonanceSystem.triggerImpactResonance(intensity * 1.5, 'kill', position);
                 else if (wasCritical) window.resonanceSystem.triggerImpactResonance(intensity * 1.2, 'critical', position);
                 else window.resonanceSystem.triggerImpactResonance(intensity, 'hit', position);
             }
-            if (window.gameManager) window.gameManager.createHitEffect(enemy.x, enemy.y, projectile.damage);
+            if (window.gameManager) window.gameManager.createHitEffect(enemy.x, enemy.y, actualDamage ?? projectile.damage);
             if (window.audioSystem?.play) window.audioSystem.play('hit', 0.2);
         }
 

@@ -159,6 +159,25 @@ class EnemySpawner {
             const distSq = dx * dx + dy * dy;
 
             if (distSq > cullDistanceSq) {
+                // Flag as dead so other systems (AI, collision, rendering) ignore it immediately
+                enemy.isDead = true;
+                enemy.wasCulledBySpawner = true;
+
+                // Remove from master entity list so it doesn't linger until the next cleanup pass
+                if (Array.isArray(this.game.entities)) {
+                    const entityIndex = this.game.entities.indexOf(enemy);
+                    if (entityIndex !== -1) {
+                        this.game.entities.splice(entityIndex, 1);
+                    }
+                }
+
+                // Keep EntityManager in sync when present
+                if (this.game.entityManager && enemy.id) {
+                    try {
+                        this.game.entityManager.removeEntity(enemy.id);
+                    } catch (_) { /* no-op */ }
+                }
+
                 enemies.splice(i, 1);
                 culledCount++;
 

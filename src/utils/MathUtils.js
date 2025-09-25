@@ -96,20 +96,6 @@ const MathUtils = {
     },
 
     /**
-     * Calculate distance between two points
-     * @param {number} x1 - First point X
-     * @param {number} y1 - First point Y
-     * @param {number} x2 - Second point X
-     * @param {number} y2 - Second point Y
-     * @returns {number} Distance
-     */
-    distance(x1, y1, x2, y2) {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        return Math.sqrt(dx * dx + dy * dy);
-    },
-
-    /**
      * Calculate squared distance (faster than distance)
      * @param {number} x1 - First point X
      * @param {number} y1 - First point Y
