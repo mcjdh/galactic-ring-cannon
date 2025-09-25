@@ -404,9 +404,19 @@ class Projectile {
     }
 
     createLightningEffect(x1, y1, x2, y2) {
-        // Use the better ParticleHelpers lightning effect if available
+        // Use EffectsManager's createChainLightning for proper visual effect
+        if (window.gameManager?.effectsManager?.createChainLightning) {
+            window.gameManager.effectsManager.createChainLightning(x1, y1, x2, y2);
+            return;
+        }
+
+        // Fallback: Use ParticleHelpers lightning effect if available
         if (window.ParticleHelpers?.createLightningEffect) {
             window.ParticleHelpers.createLightningEffect(x1, y1, x2, y2);
+            // Try to add the lightning arc visual if effectsManager is available
+            if (window.gameManager?.effectsManager?.flashLightningArc) {
+                window.gameManager.effectsManager.flashLightningArc(x1, y1, x2, y2);
+            }
             return;
         }
 
@@ -452,6 +462,11 @@ class Projectile {
                     type: 'glow'
                 });
             });
+        }
+
+        const effectsManager = window.gameManager?.effectsManager || window.gameManagerBridge?.effects;
+        if (effectsManager?.flashLightningArc) {
+            effectsManager.flashLightningArc(x1, y1, x2, y2, { duration: 0.35 });
         }
     }
 

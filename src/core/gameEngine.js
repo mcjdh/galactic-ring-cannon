@@ -873,6 +873,12 @@ class GameEngine {
             } else if (window.gameManager && typeof window.gameManager.renderParticles === 'function') {
                 window.gameManager.renderParticles(this.ctx);
             }
+
+            // Render effects manager (includes lightning arcs and other visual effects)
+            if (window.gameManager?.effectsManager && typeof window.gameManager.effectsManager.render === 'function') {
+                window.gameManager.effectsManager.render(this.ctx);
+            }
+
             // Render debug information if enabled
             if (this.debugMode) {
                 this.renderDebugInfo();

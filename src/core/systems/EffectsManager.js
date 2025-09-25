@@ -42,6 +42,9 @@ class EffectsManager {
         // Performance settings
         this.lowQuality = false;
         this.effectsEnabled = true;
+
+        // Temp lightning arcs for quick visual flashes
+        this.activeLightningArcs = [];
         
         // Initialize particle system
         this.initializeParticleSystem();
@@ -89,6 +92,17 @@ class EffectsManager {
         
         // Update performance settings
         this.updatePerformanceSettings();
+
+        // Fade temporary lightning arcs
+        if (this.activeLightningArcs.length > 0) {
+            for (let i = this.activeLightningArcs.length - 1; i >= 0; i--) {
+                const arc = this.activeLightningArcs[i];
+                arc.timeRemaining -= deltaTime;
+                if (arc.timeRemaining <= 0) {
+                    this.activeLightningArcs.splice(i, 1);
+                }
+            }
+        }
     }
     
     /**
@@ -356,25 +370,36 @@ class EffectsManager {
      */
     createChainLightning(fromX, fromY, toX, toY) {
         if (!this.effectsEnabled) return;
-        
+
         // Use ParticleHelpers if available
         if (window.ParticleHelpers && window.ParticleHelpers.createLightningEffect) {
             window.ParticleHelpers.createLightningEffect(fromX, fromY, toX, toY);
+            this.flashLightningArc(fromX, fromY, toX, toY, {
+                duration: 0.6,  // Longer duration for better visibility
+                thickness: 8,   // Thicker line
+                jitter: 35,     // More dramatic jitter
+                colorStops: [
+                    { stop: 0, color: 'rgba(255, 255, 255, 1)' },      // Bright white start
+                    { stop: 0.3, color: 'rgba(150, 220, 255, 1)' },   // Light blue
+                    { stop: 0.7, color: 'rgba(100, 180, 255, 1)' },   // Medium blue
+                    { stop: 1, color: 'rgba(60, 140, 255, 1)' }       // Deeper blue end
+                ]
+            });
             return;
         }
-        
+
         // Create lightning path
         if (this.particleManager && this.particleManager.spawnParticle) {
             const dx = toX - fromX;
             const dy = toY - fromY;
             const distance = Math.sqrt(dx * dx + dy * dy);
             const segments = Math.max(3, Math.floor(distance / 20));
-            
+
             for (let i = 0; i <= segments; i++) {
                 const ratio = i / segments;
                 const x = fromX + dx * ratio + (Math.random() - 0.5) * 20;
                 const y = fromY + dy * ratio + (Math.random() - 0.5) * 20;
-                
+
                 this.particleManager.spawnParticle({
                     x: x,
                     y: y,
@@ -387,6 +412,52 @@ class EffectsManager {
                 });
             }
         }
+
+        this.flashLightningArc(fromX, fromY, toX, toY, {
+            duration: 0.6,  // Longer duration for better visibility
+            thickness: 8,   // Thicker line
+            jitter: 35,     // More dramatic jitter
+            colorStops: [
+                { stop: 0, color: 'rgba(255, 255, 255, 1)' },      // Bright white start
+                { stop: 0.3, color: 'rgba(150, 220, 255, 1)' },   // Light blue
+                { stop: 0.7, color: 'rgba(100, 180, 255, 1)' },   // Medium blue
+                { stop: 1, color: 'rgba(60, 140, 255, 1)' }       // Deeper blue end
+            ]
+        });
+    }
+
+    flashLightningArc(fromX, fromY, toX, toY, options = {}) {
+        if (!this.effectsEnabled) return;
+
+        const duration = options.duration ?? 0.35;
+        const jitter = options.jitter ?? 26;
+        const maxSegments = options.segments ?? Math.max(4, Math.floor(Math.hypot(toX - fromX, toY - fromY) / 45));
+
+        const points = [];
+        for (let i = 0; i <= maxSegments; i++) {
+            const ratio = i / maxSegments;
+            const baseX = fromX + (toX - fromX) * ratio;
+            const baseY = fromY + (toY - fromY) * ratio;
+
+            if (i === 0 || i === maxSegments) {
+                points.push({ x: baseX, y: baseY });
+            } else {
+                const offsetX = (Math.random() - 0.5) * jitter;
+                const offsetY = (Math.random() - 0.5) * jitter;
+                points.push({ x: baseX + offsetX, y: baseY + offsetY });
+            }
+        }
+
+        this.activeLightningArcs.push({
+            points,
+            timeRemaining: duration,
+            duration,
+            thickness: options.thickness ?? 4,
+            colorStops: options.colorStops || [
+                { stop: 0, color: 'rgba(164, 227, 255, 0.9)' },
+                { stop: 1, color: 'rgba(80, 174, 255, 0.9)' }
+            ]
+        });
     }
     
     /**
@@ -508,11 +579,69 @@ class EffectsManager {
      * Render all effects (called by game engine)
      */
     render(ctx) {
-        // Render floating text
+        ctx.save();
+
+        // Render temporary lightning arcs first (beneath text)
+        if (this.activeLightningArcs.length > 0) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            this.activeLightningArcs.forEach(arc => {
+                if (!arc.points || arc.points.length < 2) return;
+
+                const t = Math.max(0, Math.min(1, arc.timeRemaining / arc.duration));
+                const width = (arc.thickness || 4) * (0.6 + 0.4 * t);
+
+                const start = arc.points[0];
+                const end = arc.points[arc.points.length - 1];
+                const gradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+                (arc.colorStops || []).forEach(stop => {
+                    const alphaColor = stop.color.replace(/rgba?\(([^)]+)\)/, (match, inner) => {
+                        const parts = inner.split(',').map(p => p.trim());
+                        if (parts.length === 4) {
+                            const newAlpha = parseFloat(parts[3]) * (0.4 + 0.6 * t);
+                            return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${newAlpha.toFixed(3)})`;
+                        }
+                        return `rgba(${parts.join(',')}, ${0.4 + 0.6 * t})`;
+                    });
+                    gradient.addColorStop(stop.stop, alphaColor);
+                });
+
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = width;
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                for (let i = 1; i < arc.points.length; i++) {
+                    ctx.lineTo(arc.points[i].x, arc.points[i].y);
+                }
+                ctx.stroke();
+
+                // Multiple glow layers for better visibility
+                // Inner bright glow
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 * t})`;
+                ctx.lineWidth = width * 0.5;
+                ctx.stroke();
+
+                // Outer glow for visibility
+                ctx.strokeStyle = `rgba(164, 227, 255, ${0.3 * t})`;
+                ctx.lineWidth = width * 2.5;
+                ctx.stroke();
+
+                // Extra outer glow
+                ctx.strokeStyle = `rgba(100, 180, 255, ${0.15 * t})`;
+                ctx.lineWidth = width * 4;
+                ctx.stroke();
+            });
+        }
+
+        ctx.restore();
+
+        // Render floating text after lightning so text sits on top
         if (this.floatingText && typeof this.floatingText.render === 'function') {
             this.floatingText.render(ctx);
         }
-        
+
         // Render fallback particles
         if (this.particles && this.particles.length > 0) {
             this.particles.forEach(particle => {

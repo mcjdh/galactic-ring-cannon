@@ -33,10 +33,8 @@ class GameManagerBridge {
         this.particlePool = [];
         this.particleReductionFactor = 1.0;
 
-        // Unified effects manager (if available)
-        this.effects = (typeof window !== 'undefined' && window.EffectsManager)
-            ? new window.EffectsManager(this)
-            : null;
+        // Reference to gameManager's effects manager (don't create duplicate!)
+        this.effects = null; // Will be set to gameManager.effectsManager if available
         // UI manager (DOM HUD)
         this.uiManager = null;
         
@@ -866,8 +864,10 @@ class GameManagerBridge {
      */
     createHitEffect(x, y, damage = 50) {
         if (this.lowQuality) return;
-        if (this.effects && typeof this.effects.createHitEffect === 'function') {
-            this.effects.createHitEffect(x, y, damage);
+        // Use gameManager's effectsManager for proper rendering
+        const effectsManager = window.gameManager?.effectsManager || this.effects;
+        if (effectsManager && typeof effectsManager.createHitEffect === 'function') {
+            effectsManager.createHitEffect(x, y, damage);
             return;
         }
         if (window.ParticleHelpers && window.ParticleHelpers.createHitEffect) {
@@ -904,8 +904,10 @@ class GameManagerBridge {
     
     createExplosion(x, y, radius, color) {
         if (this.lowQuality) return;
-        if (this.effects && typeof this.effects.createExplosion === 'function') {
-            this.effects.createExplosion(x, y, radius, color);
+        // Use gameManager's effectsManager for proper rendering
+        const effectsManager = window.gameManager?.effectsManager || this.effects;
+        if (effectsManager && typeof effectsManager.createExplosion === 'function') {
+            effectsManager.createExplosion(x, y, radius, color);
             return;
         }
         if (window.ParticleHelpers && window.ParticleHelpers.createExplosion) {
@@ -944,8 +946,10 @@ class GameManagerBridge {
     
     createLevelUpEffect(x, y) {
         if (this.lowQuality) return;
-        if (this.effects && typeof this.effects.createLevelUpEffect === 'function') {
-            this.effects.createLevelUpEffect(x, y);
+        // Use gameManager's effectsManager for proper rendering
+        const effectsManager = window.gameManager?.effectsManager || this.effects;
+        if (effectsManager && typeof effectsManager.createLevelUpEffect === 'function') {
+            effectsManager.createLevelUpEffect(x, y);
             return;
         }
         if (window.ParticleHelpers && window.ParticleHelpers.createLevelUpEffect) {
