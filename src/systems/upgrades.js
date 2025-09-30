@@ -570,10 +570,12 @@ class UpgradeSystem {
         const player = window.gameManager.game.player;
         if (!player) return;
 
+        const effectsManager = window.gameManager?.effectsManager || window.gameManager?.game?.effectsManager;
+
         switch (upgrade.specialEffect) {
             case 'chain_visual':
                 // Create lightning effect at player position
-                window.gameManager.createSpecialEffect('lightning', player.x, player.y, upgrade.chainRange || 175, '#74b9ff');
+                effectsManager?.createSpecialEffect?.('lightning', player.x, player.y, upgrade.chainRange || 175, '#74b9ff');
                 break;
             case 'orbit_visual':
                 // Create orbit effect
@@ -581,16 +583,16 @@ class UpgradeSystem {
                     const angle = (i / 8) * Math.PI * 2;
                     const x = player.x + Math.cos(angle) * (upgrade.orbitRadius || 100);
                     const y = player.y + Math.sin(angle) * (upgrade.orbitRadius || 100);
-                    window.gameManager.createSpecialEffect('circle', x, y, 20, '#9b59b6');
+                    effectsManager?.createSpecialEffect?.('circle', x, y, 20, '#9b59b6');
                 }
                 break;
             case 'ricochet_visual':
                 // Create ricochet effect
-                window.gameManager.createSpecialEffect('ricochet', player.x, player.y, upgrade.bounceRange || 180, '#f39c12');
+                effectsManager?.createSpecialEffect?.('ricochet', player.x, player.y, upgrade.bounceRange || 180, '#f39c12');
                 break;
             case 'explosion_visual':
                 // Create explosion effect
-                window.gameManager.createSpecialEffect('bossPhase', player.x, player.y, upgrade.explosionRadius || 60, '#e74c3c');
+                effectsManager?.createSpecialEffect?.('bossPhase', player.x, player.y, upgrade.explosionRadius || 60, '#e74c3c');
                 break;
             case 'magnet_visual':
                 // Create magnet field effect
@@ -598,16 +600,16 @@ class UpgradeSystem {
                     const angle = (i / 12) * Math.PI * 2;
                     const x = player.x + Math.cos(angle) * (upgrade.value || 75);
                     const y = player.y + Math.sin(angle) * (upgrade.value || 75);
-                    window.gameManager.createSpecialEffect('circle', x, y, 15, '#3498db');
+                    effectsManager?.createSpecialEffect?.('circle', x, y, 15, '#3498db');
                 }
                 break;
             case 'heal_visual':
                 // Create healing effect
-                window.gameManager.createSpecialEffect('random', player.x, player.y, 40, '#2ecc71');
+                effectsManager?.createSpecialEffect?.('random', player.x, player.y, 40, '#2ecc71');
                 break;
             case 'armor_visual':
                 // Create armor effect
-                window.gameManager.createSpecialEffect('circle', player.x, player.y, 50, '#95a5a6');
+                effectsManager?.createSpecialEffect?.('circle', player.x, player.y, 50, '#95a5a6');
                 break;
         }
     }

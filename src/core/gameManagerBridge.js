@@ -619,8 +619,7 @@ class GameManagerBridge {
      */
     createHitEffect(x, y, damage = 50) {
         if (this.lowQuality) return;
-        // Use gameManager's effectsManager for proper rendering
-        const effectsManager = window.gameManager?.effectsManager || this.effects;
+        const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
         if (effectsManager && typeof effectsManager.createHitEffect === 'function') {
             effectsManager.createHitEffect(x, y, damage);
             return;
@@ -644,23 +643,23 @@ class GameManagerBridge {
                     type: 'spark'
                 });
             } else {
-                const particle = new Particle(
-                    x, y,
+                this._spawnParticleViaPoolOrFallback(
+                    x,
+                    y,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed,
                     2 + Math.random() * 3,
                     '#e74c3c',
-                    0.3 + Math.random() * 0.3
+                    0.3 + Math.random() * 0.3,
+                    'spark'
                 );
-                this.addParticleViaEffectsManager(particle);
             }
         }
     }
     
     createExplosion(x, y, radius, color) {
         if (this.lowQuality) return;
-        // Use gameManager's effectsManager for proper rendering
-        const effectsManager = window.gameManager?.effectsManager || this.effects;
+        const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
         if (effectsManager && typeof effectsManager.createExplosion === 'function') {
             effectsManager.createExplosion(x, y, radius, color);
             return;
@@ -685,15 +684,16 @@ class GameManagerBridge {
                     type: 'spark'
                 });
             } else {
-                const particle = new Particle(
-                    x, y,
+                this._spawnParticleViaPoolOrFallback(
+                    x,
+                    y,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed,
                     3 + Math.random() * 5,
                     color,
-                    0.5 + Math.random() * 0.5
+                    0.5 + Math.random() * 0.5,
+                    'spark'
                 );
-                this.addParticleViaEffectsManager(particle);
             }
         }
         this.addScreenShake(radius / 10, 0.5);
@@ -701,8 +701,7 @@ class GameManagerBridge {
     
     createLevelUpEffect(x, y) {
         if (this.lowQuality) return;
-        // Use gameManager's effectsManager for proper rendering
-        const effectsManager = window.gameManager?.effectsManager || this.effects;
+        const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
         if (effectsManager && typeof effectsManager.createLevelUpEffect === 'function') {
             effectsManager.createLevelUpEffect(x, y);
             return;
@@ -725,15 +724,16 @@ class GameManagerBridge {
                     type: 'spark'
                 });
             } else {
-                const particle = new Particle(
-                    x, y,
+                this._spawnParticleViaPoolOrFallback(
+                    x,
+                    y,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed,
                     3 + Math.random() * 3,
                     '#f1c40f',
-                    0.8 + Math.random() * 0.4
+                    0.8 + Math.random() * 0.4,
+                    'spark'
                 );
-                this.addParticleViaEffectsManager(particle);
             }
         }
     }
@@ -908,90 +908,26 @@ class GameManagerBridge {
     }
     
     createSpecialEffect(type, x, y, size, color) {
-        switch (type) {
-            case 'lightning':
-                this.createLightningEffect(x, y, size);
-                break;
-            case 'circle':
-                this.createCircleEffect(x, y, size, color);
-                break;
-            case 'bossPhase':
-                this.createExplosion(x, y, size, color);
-                break;
-            case 'random':
-                this.createRandomEffect(x, y, size, color);
-                break;
-            case 'ricochet':
-                this.createRicochetEffect(x, y, size, color);
-                break;
+        const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
+        if (effectsManager && typeof effectsManager.createSpecialEffect === 'function') {
+            effectsManager.createSpecialEffect(type, x, y, size, color);
+            return;
         }
-    }
-    
-    createLightningEffect(x, y, range) {
-        // Simple lightning effect
-        for (let i = 0; i < 5; i++) {
+
+        // Minimal fallback: spawn a small burst
+        const fallbackColor = color || '#ffffff';
+        for (let i = 0; i < 4; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * range;
-            this._spawnParticleViaPoolOrFallback(
-                x + Math.cos(angle) * distance,
-                y + Math.sin(angle) * distance,
-                0,
-                0,
-                3,
-                '#74b9ff',
-                0.3,
-                'spark'
-            );
-        }
-    }
-    
-    createCircleEffect(x, y, size, color) {
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            this._spawnParticleViaPoolOrFallback(
-                x + Math.cos(angle) * size,
-                y + Math.sin(angle) * size,
-                0,
-                0,
-                2,
-                color,
-                0.5,
-                'basic'
-            );
-        }
-    }
-    
-    createRandomEffect(x, y, size, color) {
-        for (let i = 0; i < 6; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 50 + Math.random() * 100;
+            const speed = 40 + Math.random() * 60;
             this._spawnParticleViaPoolOrFallback(
                 x,
                 y,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
-                2 + Math.random() * 3,
-                color,
-                0.4 + Math.random() * 0.4,
+                2 + Math.random() * 2,
+                fallbackColor,
+                0.4 + Math.random() * 0.3,
                 'spark'
-            );
-        }
-    }
-    
-    createRicochetEffect(x, y, range, color) {
-        // Create arc effect
-        for (let i = 0; i < 10; i++) {
-            const angle = (i / 10) * Math.PI * 0.5;
-            const distance = range * 0.5;
-            this._spawnParticleViaPoolOrFallback(
-                x + Math.cos(angle) * distance,
-                y + Math.sin(angle) * distance,
-                0,
-                0,
-                2,
-                color,
-                0.4,
-                'basic'
             );
         }
     }

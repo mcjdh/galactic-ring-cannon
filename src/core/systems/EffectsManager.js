@@ -49,6 +49,40 @@ class EffectsManager {
         // Initialize particle system
         this.initializeParticleSystem();
     }
+
+    _spawnSimpleParticle({ x, y, vx = 0, vy = 0, size = 2, color = '#ffffff', life = 0.4, type = 'basic' }) {
+        if (!this.effectsEnabled) {
+            return false;
+        }
+
+        if (this.particleManager && typeof this.particleManager.spawnParticle === 'function') {
+            this.particleManager.spawnParticle({ x, y, vx, vy, size, color, life, type });
+            return true;
+        }
+
+        // Fallback particle object update handled during updateFallbackParticles
+        this.particles.push({
+            x,
+            y,
+            vx,
+            vy,
+            size,
+            color,
+            life,
+            lifetime: life,
+            age: 0,
+            type,
+            update(deltaTime) {
+                this.x += this.vx * deltaTime;
+                this.y += this.vy * deltaTime;
+                this.age += deltaTime;
+                if (this.age >= this.lifetime) {
+                    this.isDead = true;
+                }
+            }
+        });
+        return true;
+    }
     
     /**
      * Initialize floating text system
@@ -366,6 +400,100 @@ class EffectsManager {
         
         // Fallback effect
         this.createFallbackLevelUpEffect(x, y);
+    }
+
+    createLightningBurst(x, y, range = 140, color = '#74b9ff') {
+        if (!this.effectsEnabled) return;
+
+        for (let i = 0; i < 6; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * range;
+            this._spawnSimpleParticle({
+                x: x + Math.cos(angle) * distance,
+                y: y + Math.sin(angle) * distance,
+                size: 3 + Math.random() * 2,
+                color,
+                life: 0.35 + Math.random() * 0.2,
+                type: 'spark'
+            });
+        }
+    }
+
+    createCircleEffect(x, y, size = 40, color = '#ffffff') {
+        if (!this.effectsEnabled) return;
+
+        const segments = 10;
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            this._spawnSimpleParticle({
+                x: x + Math.cos(angle) * size,
+                y: y + Math.sin(angle) * size,
+                size: 2 + Math.random() * 2,
+                color,
+                life: 0.45 + Math.random() * 0.25,
+                type: 'spark'
+            });
+        }
+    }
+
+    createRandomBurst(x, y, size = 50, color = '#ffffff') {
+        if (!this.effectsEnabled) return;
+
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 60 + Math.random() * 120;
+            this._spawnSimpleParticle({
+                x,
+                y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 2 + Math.random() * 3,
+                color,
+                life: 0.5 + Math.random() * 0.3,
+                type: 'spark'
+            });
+        }
+    }
+
+    createRicochetEffect(x, y, range = 90, color = '#f39c12') {
+        if (!this.effectsEnabled) return;
+
+        const points = 12;
+        for (let i = 0; i < points; i++) {
+            const angle = (i / points) * Math.PI * 0.5;
+            const distance = range * 0.6;
+            this._spawnSimpleParticle({
+                x: x + Math.cos(angle) * distance,
+                y: y + Math.sin(angle) * distance,
+                size: 2,
+                color,
+                life: 0.4 + Math.random() * 0.2,
+                type: 'spark'
+            });
+        }
+    }
+
+    createSpecialEffect(type, x, y, size = 60, color = '#ffffff') {
+        if (!this.effectsEnabled) return;
+
+        switch (type) {
+            case 'lightning':
+                this.createLightningBurst(x, y, size, color);
+                break;
+            case 'circle':
+                this.createCircleEffect(x, y, size, color);
+                break;
+            case 'bossPhase':
+                this.createExplosion(x, y, size, color);
+                break;
+            case 'ricochet':
+                this.createRicochetEffect(x, y, size, color);
+                break;
+            case 'random':
+            default:
+                this.createRandomBurst(x, y, size, color);
+                break;
+        }
     }
     
     /**
