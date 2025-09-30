@@ -308,12 +308,26 @@
     <script src="src/entities/EnemyProjectile.js"></script>
     <script src="src/entities/XPOrb.js"></script>
     <script src="src/entities/PlayerUpgrades.js"></script>
-    <!-- Enemy components - if present (graceful: these files exist) -->
+    <!-- Enemy components - shared behavior systems -->
     <script src="src/entities/components/EnemyAI.js"></script>
     <script src="src/entities/components/EnemyAbilities.js"></script>
     <script src="src/entities/components/EnemyMovement.js"></script>
-    <!-- Enemy class -->
-    <script src="src/entities/enemy.js"></script>
+    <!-- Enemy system - modular type-based architecture -->
+    <script src="src/entities/enemy/types/EnemyTypeBase.js"></script>
+    <script src="src/entities/enemy/types/BasicEnemy.js"></script>
+    <script src="src/entities/enemy/types/FastEnemy.js"></script>
+    <script src="src/entities/enemy/types/TankEnemy.js"></script>
+    <script src="src/entities/enemy/types/RangedEnemy.js"></script>
+    <script src="src/entities/enemy/types/DasherEnemy.js"></script>
+    <script src="src/entities/enemy/types/ExploderEnemy.js"></script>
+    <script src="src/entities/enemy/types/TeleporterEnemy.js"></script>
+    <script src="src/entities/enemy/types/PhantomEnemy.js"></script>
+    <script src="src/entities/enemy/types/ShielderEnemy.js"></script>
+    <script src="src/entities/enemy/types/BossEnemy.js"></script>
+    <script src="src/entities/enemy/EnemyTypeRegistry.js"></script>
+    <script src="src/entities/enemy/EnemyStats.js"></script>
+    <script src="src/entities/enemy/EnemyRenderer.js"></script>
+    <script src="src/entities/enemy/Enemy.js"></script>
     <!-- Player modular components -->
     <script src="src/entities/player/PlayerStats.js"></script>
     <script src="src/entities/player/PlayerMovement.js"></script>
