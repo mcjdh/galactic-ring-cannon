@@ -55,15 +55,8 @@ class GameManagerBridge {
         // Screen shake
         this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
 
-        // Minimap
-        this.minimap = {
-            ctx: null,
-            width: 150,
-            height: 150,
-            scale: 0.12,
-            lastUpdate: 0,
-            intervalMs: 100
-        };
+        // Minimap system
+        this.minimapSystem = null;
         
         (window.logger?.log || console.log)('🌊 GameManager Bridge ready');
     }
@@ -72,143 +65,17 @@ class GameManagerBridge {
      * Minimap: initialize canvas refs and context
      */
     initializeMinimap() {
-        try {
-            const container = document.getElementById('minimap-container');
-            const canvas = document.getElementById('minimap');
-            if (!container || !canvas) return;
-            canvas.width = this.minimap.width;
-            canvas.height = this.minimap.height;
-            this.minimap.ctx = canvas.getContext('2d');
-            if (this.minimap.ctx) {
-                // Ensure crisp markers and avoid smoothing-induced blur/flicker
-                this.minimap.ctx.imageSmoothingEnabled = false;
-                this.minimap.ctx.msImageSmoothingEnabled = false;
-                this.minimap.ctx.webkitImageSmoothingEnabled = false;
-            }
-        } catch (_) {}
+        this.setupMinimap();
     }
 
     /**
      * Minimap: render periodically
      */
     renderMinimap() {
-        const ctx = this.minimap.ctx;
-        if (!ctx || !this.game || !this.game.player) return;
-        const now = Date.now();
-        if (now - this.minimap.lastUpdate < this.minimap.intervalMs) return;
-        this.minimap.lastUpdate = now;
-
-        const { width, height, scale } = this.minimap;
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const player = this.game.player;
-
-        // Clear background
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(0, 0, width, height);
-        ctx.strokeStyle = '#444';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(0, 0, width, height);
-
-        // Draw player
-        ctx.fillStyle = '#3498db';
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Draw enemies and compute closest boss
-        let closestBoss = null;
-        let closestBossDist = Infinity;
-        const enemies = this.game?.getEnemies ? this.game.getEnemies() : this.game.enemies;
-        if (Array.isArray(enemies)) {
-            for (const enemy of enemies) {
-                if (!enemy || enemy.isDead) continue;
-                const dxWorld = enemy.x - player.x;
-                const dyWorld = enemy.y - player.y;
-                const dx = dxWorld * scale;
-                const dy = dyWorld * scale;
-                const x = Math.round(centerX + dx);
-                const y = Math.round(centerY + dy);
-
-                if (enemy.isBoss) {
-                    const distSq = dxWorld * dxWorld + dyWorld * dyWorld;
-                    if (distSq < closestBossDist) {
-                        closestBossDist = distSq;
-                        closestBoss = { x, y, dxWorld, dyWorld };
-                    }
-                }
-
-                if (x < 0 || x > width || y < 0 || y > height) continue;
-                ctx.fillStyle = enemy.isBoss ? '#f1c40f' : (enemy.isElite ? '#e67e22' : '#e74c3c');
-                if (enemy.isBoss) {
-                    ctx.beginPath();
-                    ctx.arc(x, y, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(x - 1, y - 1, 2, 2);
-                }
-            }
+        if (!this.minimapSystem) {
+            this.setupMinimap();
         }
-
-        // Compass indicator for closest boss (arrow at edge if off-screen, ring if on-screen)
-        if (closestBoss) {
-            const inBounds = closestBoss.x >= 0 && closestBoss.x <= width && closestBoss.y >= 0 && closestBoss.y <= height;
-            const angle = Math.atan2(closestBoss.dyWorld, closestBoss.dxWorld);
-            ctx.save();
-            ctx.fillStyle = '#f1c40f';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 1;
-            if (inBounds) {
-                ctx.beginPath();
-                ctx.arc(Math.max(0, Math.min(width, closestBoss.x)), Math.max(0, Math.min(height, closestBoss.y)), 6, 0, Math.PI * 2);
-                ctx.stroke();
-            } else {
-                const margin = 8;
-                const vx = Math.cos(angle);
-                const vy = Math.sin(angle);
-                const tx = vx !== 0 ? ((vx > 0 ? (width/2 - margin) : (-width/2 + margin)) / vx) : Infinity;
-                const ty = vy !== 0 ? ((vy > 0 ? (height/2 - margin) : (-height/2 + margin)) / vy) : Infinity;
-                const t = Math.min(Math.abs(tx), Math.abs(ty));
-                const ax = centerX + vx * t;
-                const ay = centerY + vy * t;
-                ctx.translate(ax, ay);
-                ctx.rotate(angle);
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(-8, 4);
-                ctx.lineTo(-8, -4);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-                // Distance label
-                const meters = Math.round(closestBossDist / 10);
-                ctx.rotate(-angle);
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#ffffff';
-                ctx.strokeStyle = '#000000';
-                ctx.lineWidth = 2;
-                ctx.strokeText(`${meters}m`, 0, -8);
-                ctx.fillText(`${meters}m`, 0, -8);
-            }
-            ctx.restore();
-        }
-
-        // Draw XP orbs
-        const xpOrbs = this.game?.getXPOrbs ? this.game.getXPOrbs() : this.game.xpOrbs;
-        if (Array.isArray(xpOrbs)) {
-            ctx.fillStyle = '#2ecc71';
-            for (const orb of xpOrbs) {
-                if (!orb || orb.isDead) continue;
-                const dx = (orb.x - player.x) * scale;
-                const dy = (orb.y - player.y) * scale;
-                const x = Math.round(centerX + dx);
-                const y = Math.round(centerY + dy);
-                if (x < 0 || x > width || y < 0 || y > height) continue;
-                ctx.fillRect(x, y, 1, 1);
-            }
-        }
+        this.minimapSystem?.update();
     }
 
     // Prefer pooled particles with graceful fallback
@@ -237,7 +104,7 @@ class GameManagerBridge {
         try {
             // Create game engine
             this.game = new GameEngine();
-            
+        
             // Create enemy spawner
             if (typeof EnemySpawner !== 'undefined') {
                 this.enemySpawner = new EnemySpawner(this.game);
@@ -245,7 +112,7 @@ class GameManagerBridge {
             } else {
                 (window.logger?.warn || console.warn)('⚠️ EnemySpawner not available');
             }
-            
+        
             // Create player
             if (typeof Player !== 'undefined') {
                 this.game.player = new Player(400, 300);
@@ -255,9 +122,9 @@ class GameManagerBridge {
                 (window.logger?.error || console.error)('❌ Player class not available');
                 return false;
             }
-            
+        
             // Initialize minimap after core systems
-            this.initializeMinimap();
+            this.setupMinimap();
 
             // Initialize UI Manager for HUD (timer, bars, boss UI)
             if (typeof window.UIManager !== 'undefined') {
@@ -346,6 +213,8 @@ class GameManagerBridge {
         this.combatTexts = [];
         this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
 
+        this.minimapSystem?.reset?.();
+
         if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
             window.resultScreen.hide();
         }
@@ -355,6 +224,27 @@ class GameManagerBridge {
         }
 
         (window.logger?.log || console.log)('🔄 Game state reset');
+    }
+
+    setupMinimap() {
+        if (!this.game || typeof MinimapSystem === 'undefined') {
+            return;
+        }
+
+        if (!this.minimapSystem) {
+            this.minimapSystem = new MinimapSystem(this.game, {
+                width: 150,
+                height: 150,
+                scale: 0.12,
+                updateInterval: 100,
+                containerId: 'minimap-container',
+                canvasId: 'minimap'
+            });
+            this.minimapSystem.initialize();
+        } else {
+            this.minimapSystem.setGame(this.game);
+            this.minimapSystem.initialize();
+        }
     }
     
     /**
