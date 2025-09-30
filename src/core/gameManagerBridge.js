@@ -127,6 +127,18 @@ class GameManagerBridge {
                 (window.logger?.warn || console.warn)('⚠️ EffectsManager not available');
             }
 
+            if (typeof window.StatsManager !== 'undefined') {
+                this.statsManager = new window.StatsManager(this);
+                if (!window.statsManager) {
+                    window.statsManager = this.statsManager;
+                }
+                this.metaStars = this.statsManager.starTokens;
+                (window.logger?.log || console.log)('✅ StatsManager initialized');
+                this.updateStarDisplay();
+            } else {
+                (window.logger?.warn || console.warn)('⚠️ StatsManager not available');
+            }
+
             (window.logger?.log || console.log)('✅ Game engine initialized successfully');
             return true;
             
@@ -194,7 +206,9 @@ class GameManagerBridge {
         this.highestCombo = 0;
         this.currentCombo = 0;
         this.comboTimer = 0;
-        
+
+        this.statsManager?.resetSession?.();
+
         // Clear effects
 
         this.minimapSystem?.reset?.();
@@ -235,29 +249,38 @@ class GameManagerBridge {
      * Increment kill count when enemy dies
      */
     incrementKills() {
+        const stats = this.statsManager;
+        if (stats?.incrementKills) {
+            this.killCount = stats.incrementKills();
+            this.currentCombo = stats.comboCount;
+            this.highestCombo = stats.highestCombo;
+            this.comboTimer = stats.comboTimer;
+            (window.logger?.log || console.log)(`💀 Kill count: ${this.killCount}`);
+
+            if (this.currentCombo >= 5) {
+                const textTargetY = this.game?.player?.y ? this.game.player.y - 50 : 0;
+                if (this.game?.unifiedUI?.addComboText) {
+                    this.game.unifiedUI.addComboText(this.currentCombo, this.game.player.x, textTargetY);
+                } else {
+                    this.showCombatText(`${this.currentCombo}x COMBO!`, this.game.player?.x ?? 0, textTargetY, 'combo', 18);
+                }
+            }
+
+            return this.killCount;
+        }
+
+        // Fallback legacy behaviour if StatsManager not available
         this.killCount++;
-        (window.logger?.log || console.log)(`💀 Kill count: ${this.killCount}`);
-        
-        // Update combo system
-    this.currentCombo++;
-    // Use seconds consistently; reset timer on each kill
-    this.comboTimer = 0;
-        
+        this.currentCombo++;
+        this.comboTimer = 0;
         if (this.currentCombo > this.highestCombo) {
             this.highestCombo = this.currentCombo;
         }
-        
-        // Show combo text at higher combos using UnifiedUIManager
-        if (this.currentCombo >= 5) {
-            if (this.game.unifiedUI) {
-                this.game.unifiedUI.addComboText(this.currentCombo, 
-                    this.game.player.x, this.game.player.y - 50);
-            } else {
-                // Fallback to old system
-                this.showCombatText(`${this.currentCombo}x COMBO!`, 
-                    this.game.player.x, this.game.player.y - 50, 'combo', 18);
-            }
+        if (this.currentCombo >= 5 && this.game?.player) {
+            this.showCombatText(`${this.currentCombo}x COMBO!`, this.game.player.x, this.game.player.y - 50, 'combo', 18);
         }
+
+        return this.killCount;
     }
     
     /**
@@ -265,10 +288,12 @@ class GameManagerBridge {
      */
     onBossKilled() {
         (window.logger?.log || console.log)('👑 Boss killed!');
-        
+
+        this.statsManager?.onBossKilled?.();
+
         // Add screen shake for dramatic effect (duration in seconds for bridge)
         this.addScreenShake(20, 1.0);
-        
+
         // Show boss kill text
         if (this.game && this.game.player) {
             this.showCombatText('BOSS DEFEATED!', 
@@ -296,6 +321,14 @@ class GameManagerBridge {
     update(deltaTime) {
         if (!this.running || this.gameOver || this.isPaused) {
             return;
+        }
+
+        this.statsManager?.update?.(deltaTime);
+
+        if (this.statsManager) {
+            this.killCount = this.statsManager.killCount;
+            this.metaStars = this.statsManager.starTokens;
+            this.xpCollected = this.statsManager.xpCollected;
         }
 
         // Update game time
@@ -552,31 +585,24 @@ class GameManagerBridge {
      * Combo System
      */
     updateComboSystem(deltaTime) {
-        if (this.currentCombo > 0) {
-        this.comboTimer += deltaTime;
-        
-        if (this.comboTimer >= this.comboTimeout) {
-            this.currentCombo = 0;
-            this.comboTimer = 0;
+        const stats = this.statsManager;
+        if (stats) {
+            this.currentCombo = stats.comboCount;
+            this.highestCombo = stats.highestCombo;
+            this.comboTimer = stats.comboTimer;
+            this.comboMultiplier = stats.comboMultiplier;
+        } else if (this.currentCombo > 0) {
+            this.comboTimer += deltaTime;
+            if (this.comboTimer >= this.comboTimeout) {
+                this.currentCombo = 0;
+                this.comboTimer = 0;
+            }
         }
-    }
-    }
-    
-    incrementCombo() {
-        this.currentCombo++;
-        this.comboTimer = 0;
-        
-        if (this.currentCombo > this.highestCombo) {
-            this.highestCombo = this.currentCombo;
-        }
-        
-        // Update combo display
+
         const comboText = document.getElementById('combo-text');
         if (comboText) {
             comboText.textContent = this.currentCombo;
         }
-        
-        return this.currentCombo;
     }
     
     /**
@@ -839,11 +865,17 @@ class GameManagerBridge {
      * Star token management
      */
     earnStarTokens(amount) {
+        if (this.statsManager?.earnStarTokens) {
+            this.statsManager.earnStarTokens(amount);
+            this.metaStars = this.statsManager.starTokens;
+            return;
+        }
+
         this.metaStars += amount;
         this.saveStarTokens();
         this.updateStarDisplay();
     }
-    
+
     saveStarTokens() {
         localStorage.setItem('starTokens', this.metaStars.toString());
     }
@@ -882,23 +914,30 @@ class GameManagerBridge {
     }
     
     addXpCollected(amount) {
+        if (this.statsManager?.collectXP) {
+            return this.statsManager.collectXP(amount);
+        }
+
         this.xpCollected += amount;
+        return this.xpCollected;
     }
-    
+
     onDodge(wasPerfect) {
         if (wasPerfect) {
+            this.statsManager?.trackSpecialEvent?.('perfect_dodge');
             this.showFloatingText('PERFECT DODGE!', this.game.player.x, this.game.player.y - 30, '#3498db', 18);
         }
     }
-    
+
     onChainLightningHit(chainCount) {
         if (chainCount >= 3) {
             this.showFloatingText(`${chainCount} CHAIN!`, this.game.player.x, this.game.player.y - 40, '#74b9ff', 16);
         }
     }
-    
+
     onRicochetHit(bounceCount) {
         if (bounceCount >= 2) {
+            this.statsManager?.trackSpecialEvent?.('ricochet_kill');
             this.showFloatingText(`${bounceCount} BOUNCES!`, this.game.player.x, this.game.player.y - 40, '#f39c12', 16);
         }
     }
