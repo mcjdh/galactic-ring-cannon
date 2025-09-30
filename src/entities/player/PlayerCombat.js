@@ -95,7 +95,7 @@ class PlayerCombat {
                 maxRadius: this.attackRange,
                 includeDead: false
             }
-        ) ?? this.findNearestEnemy();
+        );
 
         if (!nearestEnemy) return;
 
@@ -175,44 +175,17 @@ class PlayerCombat {
         }
     }
 
-    findNearestEnemy(enemies) {
+    findNearestEnemy() {
         const game = window.gameEngine || window.gameManager?.game;
-        if (game?.findClosestEnemy) {
-            const closest = game.findClosestEnemy(this.player.x, this.player.y, {
+        return game?.findClosestEnemy?.(
+            this.player.x,
+            this.player.y,
+            {
                 includeDead: false,
                 maxRadius: this.attackRange,
                 useSpatialGrid: true
-            });
-            if (closest) {
-                return closest;
             }
-        }
-
-        const list = Array.isArray(enemies) && enemies.length > 0
-            ? enemies
-            : (game?.getEnemies?.() ?? []);
-
-        if (list.length === 0) {
-            return null;
-        }
-
-        let nearestEnemy = null;
-        let shortestDistanceSquared = Infinity;
-
-        for (const enemy of list) {
-            if (!enemy || enemy.isDead) continue;
-
-            const dx = enemy.x - this.player.x;
-            const dy = enemy.y - this.player.y;
-            const distanceSquared = dx * dx + dy * dy;
-
-            if (distanceSquared < shortestDistanceSquared) {
-                shortestDistanceSquared = distanceSquared;
-                nearestEnemy = enemy;
-            }
-        }
-
-        return nearestEnemy;
+        ) ?? null;
     }
 
     fireProjectile(game, angle) {

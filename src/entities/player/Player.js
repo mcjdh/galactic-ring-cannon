@@ -104,7 +104,7 @@ class Player {
     fireProjectile(game, angle) { return this.combat.fireProjectile(game, angle); }
     executeAOEAttack(game) { return this.combat.executeAOEAttack(game); }
     createAOEEffect() { return this.combat.createAOEEffect(); }
-    findNearestEnemy(enemies) { return this.combat.findNearestEnemy(enemies); }
+    findNearestEnemy() { return this.combat.findNearestEnemy(); }
 
     // === ABILITY DELEGATION METHODS ===
     updateOrbitalAttacks(deltaTime, game) { return this.abilities.updateOrbitalAttacks(deltaTime, game); }
