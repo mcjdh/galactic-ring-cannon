@@ -271,7 +271,8 @@ class PlayerCombat {
                 }
                 this._configureProjectileFromUpgrades(projectile, volleySpecialTypes, damage, isCrit);
 
-                // POTENTIAL BUG: This might be overriding the piercing value!
+                // NOTE: Piercing handled by new BehaviorManager system via setters
+                // Old piercing normalization code kept for backwards compatibility
                 const basePiercing = Number.isFinite(this.piercing) ? Math.max(0, this.piercing) : 0;
                 if (projectile.piercing !== basePiercing) {
                     if (window.debugProjectiles) {
