@@ -87,14 +87,8 @@ class GameEngine {
 			this.collisionSystem = null;
 		}
 
-		try {
-			this.entityManager = (typeof window !== 'undefined' && window.EntityManager)
-				? new window.EntityManager()
-				: null;
-        } catch (e) {
-            (window.logger?.warn || console.warn)('EntityManager initialization failed, continuing with legacy arrays.', e);
-			this.entityManager = null;
-		}
+		this.entityManager = null;
+		this._initializeEntityManager();
 
 		// Initialize Unified UI Manager for proper health bars and floating text
 		try {
@@ -145,6 +139,105 @@ class GameEngine {
         this._loopInitialized = false;
     }
 
+    removeEntity(target) {
+        if (!target) {
+            return false;
+        }
+
+        let entity = typeof target === 'object' ? target : null;
+
+        if (!entity && typeof target === 'string') {
+            entity = this.entityManager?.getEntity?.(target) ?? null;
+            if (!entity) {
+                entity = this.entities.find(e => e && e.id === target);
+            }
+        }
+
+        if (!entity) {
+            return false;
+        }
+
+        const handleSideEffects = (removedEntity) => {
+            if (!removedEntity) return;
+            if (removedEntity.type === 'enemyProjectile') {
+                this._releaseEnemyProjectile(removedEntity);
+            }
+            if (removedEntity.type === 'player' && this.player === removedEntity) {
+                this.player = null;
+            }
+        };
+
+        if (this.entityManager) {
+            const removed = this.entityManager.removeEntity(entity);
+            if (removed) {
+                handleSideEffects(entity);
+            }
+            return removed;
+        }
+
+        const removeFromArray = (array) => {
+            if (!Array.isArray(array)) return false;
+            const index = array.indexOf(entity);
+            if (index !== -1) {
+                array.splice(index, 1);
+                return true;
+            }
+            return false;
+        };
+
+        let removed = removeFromArray(this.entities);
+
+        if (entity.type === 'enemy') {
+            removed = removeFromArray(this.enemies) || removed;
+        } else if (entity.type === 'xpOrb') {
+            removed = removeFromArray(this.xpOrbs) || removed;
+        } else if (entity.type === 'projectile') {
+            removed = removeFromArray(this.projectiles) || removed;
+        } else if (entity.type === 'enemyProjectile') {
+            removed = removeFromArray(this.enemyProjectiles) || removed;
+        }
+
+        if (entity.type === 'player' && this.player === entity) {
+            this.player = null;
+            removed = true;
+        }
+
+        if (entity.type === 'enemyProjectile') {
+            this._releaseEnemyProjectile(entity);
+        }
+
+        return removed;
+    }
+
+    _initializeEntityManager() {
+        if (this.entityManager) {
+            return;
+        }
+
+        const ManagerClass = typeof EntityManager !== 'undefined'
+            ? EntityManager
+            : (typeof window !== 'undefined' ? window.EntityManager : undefined);
+
+        if (!ManagerClass) {
+            return;
+        }
+
+        try {
+            this.entityManager = new ManagerClass({
+                all: this.entities,
+                typeCollections: {
+                    enemy: this.enemies,
+                    xpOrb: this.xpOrbs,
+                    projectile: this.projectiles,
+                    enemyProjectile: this.enemyProjectiles
+                }
+            });
+        } catch (error) {
+            (window.logger?.warn || console.warn)('EntityManager initialization failed, continuing with legacy arrays.', error);
+            this.entityManager = null;
+        }
+    }
+
     prepareNewRun() {
         // Abort if canvas or player constructor are missing
         if (!this.canvas) {
@@ -152,6 +245,8 @@ class GameEngine {
         }
 
         (window.logger?.log || console.log)('🔄 Preparing game engine for new run');
+
+        this._initializeEntityManager();
 
         // Reset core timing/performance metrics
         this.gameTime = 0;
@@ -174,14 +269,19 @@ class GameEngine {
         const pauseMenu = document.getElementById('pause-menu');
         if (pauseMenu) pauseMenu.classList.add('hidden');
 
-        // Clear entity collections
-        this.entities.length = 0;
-        this.enemies.length = 0;
-        this.xpOrbs.length = 0;
-        this.projectiles.length = 0;
-        if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
-            this.enemyProjectiles.length = 0;
+        // Clear entity collections via EntityManager when available
+        if (this.entityManager) {
+            this.entityManager.clear();
+        } else {
+            this.entities.length = 0;
+            this.enemies.length = 0;
+            this.xpOrbs.length = 0;
+            this.projectiles.length = 0;
+            if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
+                this.enemyProjectiles.length = 0;
+            }
         }
+        this.player = null;
 
         // Reset pooled resources
         if (Array.isArray(this.enemyProjectilePool)) {
@@ -200,7 +300,6 @@ class GameEngine {
         }
 
         // Reset auxiliary managers
-        this.entityManager?.clear?.();
         this.unifiedUI?.clearAllFloatingText?.();
         if (window.optimizedParticles?.clear) {
             window.optimizedParticles.clear();
@@ -398,8 +497,8 @@ class GameEngine {
         if (!this.collisionSystem && typeof window !== 'undefined' && window.CollisionSystem) {
             try { this.collisionSystem = new window.CollisionSystem(this); } catch (_) {}
         }
-        if (!this.entityManager && typeof window !== 'undefined' && window.EntityManager) {
-            try { this.entityManager = new window.EntityManager(); } catch (_) {}
+        if (!this.entityManager) {
+            this._initializeEntityManager();
         }
         
     // Update all entities with proper error handling
@@ -971,7 +1070,52 @@ class GameEngine {
         
         return (dx * dx + dy * dy) < (r * r);
     }
-      cleanupEntities() {
+
+    cleanupEntities() {
+        if (this.entityManager) {
+            this._cleanupEntitiesWithManager();
+        } else {
+            this._legacyCleanupEntities();
+        }
+    }
+
+    _cleanupEntitiesWithManager() {
+        const handleRemoval = (entity) => {
+            if (!entity) return;
+
+            if (entity.type === 'enemyProjectile') {
+                this._releaseEnemyProjectile(entity);
+            }
+
+            if (entity.type === 'player' && this.player === entity) {
+                this.player = null;
+            }
+        };
+
+        this.entityManager.prune(
+            (entity) => !entity || entity.isDead || typeof entity !== 'object',
+            handleRemoval
+        );
+
+        const maxEntities = 2000;
+        if (this.entities.length > maxEntities) {
+            const nonPlayerEntities = this.entities.filter(e => e && e.type !== 'player');
+            const toRemove = this.entities.length - maxEntities;
+            for (let i = 0; i < toRemove && i < nonPlayerEntities.length; i++) {
+                const entity = nonPlayerEntities[i];
+                if (entity) {
+                    entity.isDead = true;
+                }
+            }
+
+            this.entityManager.prune(
+                (entity) => !entity || entity.isDead || typeof entity !== 'object',
+                handleRemoval
+            );
+        }
+    }
+
+    _legacyCleanupEntities() {
         // Batch cleanup with reduced array operations
         let entityIndex = 0;
         let enemyIndex = 0;
@@ -1057,7 +1201,7 @@ class GameEngine {
                 }
             }
             // Re-run cleanup after marking entities as dead
-            this.cleanupEntities();
+            this._legacyCleanupEntities();
         }
     }
 
@@ -1193,46 +1337,50 @@ class GameEngine {
             console.error('Attempted to add null/undefined entity!');
             return null;
         }
-        
+
         // Validate entity has required properties
         if (typeof entity.x !== 'number' || typeof entity.y !== 'number') {
             console.error('Entity missing required position properties:', entity);
             return null;
         }
-        
+
         if (!entity.type || typeof entity.type !== 'string') {
             console.error('Entity missing or invalid type property:', entity);
             return null;
         }
-        
+
+        // Assign unique ID before inserting so managers and fallbacks stay in sync
+        if (!entity.id) {
+            entity.id = `${entity.type}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+        }
+
         try {
-            // Add to main entities array
-            this.entities.push(entity);
-            
-            // Add to specific type arrays with validation
+            if (this.entityManager) {
+                this.entityManager.addEntity(entity);
+            } else {
+                this.entities.push(entity);
+
+                if (entity.type === 'enemy') {
+                    this.enemies.push(entity);
+                } else if (entity.type === 'xpOrb') {
+                    this.xpOrbs.push(entity);
+                } else if (entity.type === 'projectile') {
+                    this.projectiles.push(entity);
+                } else if (entity.type === 'enemyProjectile') {
+                    if (!this.enemyProjectiles) {
+                        this.enemyProjectiles = [];
+                    }
+                    this.enemyProjectiles.push(entity);
+                }
+            }
+
             if (entity.type === 'player') {
-                if (this.player) {
+                if (this.player && this.player !== entity) {
                     console.warn('Player already exists, replacing...');
                 }
                 this.player = entity;
-            } else if (entity.type === 'enemy') {
-                this.enemies.push(entity);
-            } else if (entity.type === 'xpOrb') {
-                this.xpOrbs.push(entity);
-            } else if (entity.type === 'projectile') {
-                this.projectiles.push(entity);
-            } else if (entity.type === 'enemyProjectile') {
-                if (!this.enemyProjectiles) {
-                    this.enemyProjectiles = [];
-                }
-                this.enemyProjectiles.push(entity);
             }
-            
-            // Assign unique ID if not present
-            if (!entity.id) {
-                entity.id = `${entity.type}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-            }
-            
+
             return entity;
         } catch (error) {
             console.error('Error adding entity:', error, entity);
