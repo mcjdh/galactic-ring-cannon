@@ -416,11 +416,10 @@ class StatsManager {
         }
         
         // Update enemy count tracking
-        if (this.gameManager.game.enemies) {
-            const currentEnemyCount = this.gameManager.game.enemies.length;
-            if (currentEnemyCount > this.gameStats.highestEnemyCount) {
-                this.gameStats.highestEnemyCount = currentEnemyCount;
-            }
+        const enemies = this.gameManager?.game?.getEnemies?.() ?? this.gameManager?.game?.enemies ?? [];
+        const currentEnemyCount = Array.isArray(enemies) ? enemies.length : 0;
+        if (currentEnemyCount > this.gameStats.highestEnemyCount) {
+            this.gameStats.highestEnemyCount = currentEnemyCount;
         }
 
         // Sync total enemies spawned from EnemySpawner if available

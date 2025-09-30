@@ -86,11 +86,12 @@ class PlayerCombat {
     }
 
     attack(game) {
-        // Find nearest enemy
-        if (!game || !Array.isArray(game.enemies) || game.enemies.length === 0) return;
+        if (!game) return;
+        const enemies = game.getEnemies?.() ?? game.enemies ?? [];
+        if (!Array.isArray(enemies) || enemies.length === 0) return;
 
         // Find closest enemy for reference
-        const nearestEnemy = this.findNearestEnemy(game.enemies);
+        const nearestEnemy = this.findNearestEnemy(enemies);
         if (!nearestEnemy) return;
 
         // Calculate direction to enemy
@@ -103,13 +104,15 @@ class PlayerCombat {
     }
 
     executeAOEAttack(game) {
-        if (!game || !Array.isArray(game.enemies) || game.enemies.length === 0) return;
+        if (!game) return;
+        const enemies = game.getEnemies?.() ?? game.enemies ?? [];
+        if (!Array.isArray(enemies) || enemies.length === 0) return;
 
         // Create visual effect for AOE attack
         this.createAOEEffect();
 
         // Create AOE damage around player
-        game.enemies.forEach(enemy => {
+        enemies.forEach(enemy => {
             const dx = enemy.x - this.player.x;
             const dy = enemy.y - this.player.y;
             const distance = Math.sqrt(dx * dx + dy * dy);

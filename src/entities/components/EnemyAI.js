@@ -551,7 +551,7 @@ class EnemyAI {
     getNearbyEnemies(game) {
         // Fallback to full list if no spatial grid available
         if (!game.spatialGrid || !game.gridSize) {
-            return game.enemies || [];
+            return game?.getEnemies?.() ?? game?.enemies ?? [];
         }
 
         const gridSize = game.gridSize;

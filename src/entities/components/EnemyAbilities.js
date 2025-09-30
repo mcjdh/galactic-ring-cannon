@@ -471,7 +471,8 @@ class EnemyAbilities {
      * Create death explosion
      */
     createDeathExplosion(game) {
-        if (!game.enemies) return;
+        const enemies = game?.getEnemies?.() ?? game?.enemies ?? [];
+        if (!enemies.length) return;
         
         // Damage nearby enemies and player
         const nearbyEntities = [];
@@ -488,7 +489,7 @@ class EnemyAbilities {
         }
         
         // Check other enemies
-        game.enemies.forEach(enemy => {
+        enemies.forEach(enemy => {
             if (enemy === this.enemy || enemy.isDead) return;
             
             const dx = enemy.x - this.enemy.x;

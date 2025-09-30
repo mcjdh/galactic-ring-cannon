@@ -120,8 +120,9 @@ class GameManagerBridge {
         // Draw enemies and compute closest boss
         let closestBoss = null;
         let closestBossDist = Infinity;
-        if (Array.isArray(this.game.enemies)) {
-            for (const enemy of this.game.enemies) {
+        const enemies = this.game?.getEnemies ? this.game.getEnemies() : this.game.enemies;
+        if (Array.isArray(enemies)) {
+            for (const enemy of enemies) {
                 if (!enemy || enemy.isDead) continue;
                 const dxWorld = enemy.x - player.x;
                 const dyWorld = enemy.y - player.y;
@@ -195,9 +196,10 @@ class GameManagerBridge {
         }
 
         // Draw XP orbs
-        if (Array.isArray(this.game.xpOrbs)) {
+        const xpOrbs = this.game?.getXPOrbs ? this.game.getXPOrbs() : this.game.xpOrbs;
+        if (Array.isArray(xpOrbs)) {
             ctx.fillStyle = '#2ecc71';
-            for (const orb of this.game.xpOrbs) {
+            for (const orb of xpOrbs) {
                 if (!orb || orb.isDead) continue;
                 const dx = (orb.x - player.x) * scale;
                 const dy = (orb.y - player.y) * scale;

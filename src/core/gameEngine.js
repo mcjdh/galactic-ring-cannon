@@ -238,6 +238,54 @@ class GameEngine {
         }
     }
 
+    getEntitiesByType(type) {
+        if (this.entityManager) {
+            const collection = this.entityManager.getEntitiesByType(type);
+            return Array.isArray(collection) ? collection : [];
+        }
+
+        switch (type) {
+            case 'enemy':
+                return this.enemies;
+            case 'xpOrb':
+                return this.xpOrbs;
+            case 'projectile':
+                return this.projectiles;
+            case 'enemyProjectile':
+                if (!this.enemyProjectiles) {
+                    this.enemyProjectiles = [];
+                }
+                return this.enemyProjectiles;
+            case 'player':
+                return this.player ? [this.player] : [];
+            default:
+                return this.entities.filter(entity => entity?.type === type);
+        }
+    }
+
+    getEnemies() {
+        return this.getEntitiesByType('enemy');
+    }
+
+    getXPOrbs() {
+        return this.getEntitiesByType('xpOrb');
+    }
+
+    getProjectiles() {
+        return this.getEntitiesByType('projectile');
+    }
+
+    getEnemyProjectiles() {
+        return this.getEntitiesByType('enemyProjectile');
+    }
+
+    getAllEntities() {
+        if (this.entityManager) {
+            return this.entityManager.getAllEntities();
+        }
+        return this.entities;
+    }
+
     prepareNewRun() {
         // Abort if canvas or player constructor are missing
         if (!this.canvas) {

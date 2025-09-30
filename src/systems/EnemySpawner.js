@@ -148,14 +148,14 @@ class EnemySpawner {
      * Remove enemies that are far from player to improve performance
      */
     cullDistantEnemies() {
-        if (!this.game.player || !this.game.enemies) return;
+        const enemies = this.game?.getEnemies?.() ?? this.game?.enemies ?? [];
+        if (!this.game.player || enemies.length === 0) return;
 
         const player = this.game.player;
         const cullDistance = this.spawnRadius * 2.5; // Cull beyond spawn range
         const cullDistanceSq = cullDistance * cullDistance;
 
         let culledCount = 0;
-        const enemies = this.game.enemies;
 
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
@@ -307,7 +307,8 @@ class EnemySpawner {
         this.spawnTimer += deltaTime;
 
         const effectiveMaxEnemies = this.performanceMonitor.adaptiveMaxEnemies;
-        if (this.spawnTimer >= this.spawnCooldown && this.game.enemies.length < effectiveMaxEnemies) {
+        const enemies = this.game?.getEnemies?.() ?? this.game?.enemies ?? [];
+        if (this.spawnTimer >= this.spawnCooldown && enemies.length < effectiveMaxEnemies) {
             this.spawnTimer = 0;
             this.spawnEnemy();
         }

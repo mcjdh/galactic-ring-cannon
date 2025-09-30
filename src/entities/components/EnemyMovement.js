@@ -456,8 +456,9 @@ class EnemyMovement {
         this.collidedThisFrame = false;
 
         // Only check collisions if we have a reasonable number of enemies to avoid performance issues
-        if (game.enemies && game.enemies.length < 200 && this.enemy.canAvoidOthers !== false) {
-            this.handleEnemyCollisions(game.enemies);
+        const enemies = game?.getEnemies?.() ?? game?.enemies ?? [];
+        if (enemies.length < 200 && this.enemy.canAvoidOthers !== false) {
+            this.handleEnemyCollisions(enemies);
         }
 
         // Check collisions with obstacles (if any)

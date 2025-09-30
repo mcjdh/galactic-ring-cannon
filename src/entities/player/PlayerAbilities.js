@@ -95,9 +95,10 @@ class PlayerAbilities {
             }
 
             // Check for enemy collisions
-            if (!game?.enemies || !Array.isArray(game.enemies)) continue;
+            const enemies = game?.getEnemies?.() ?? game?.enemies ?? [];
+            if (!Array.isArray(enemies) || enemies.length === 0) continue;
 
-            for (const enemy of game.enemies) {
+            for (const enemy of enemies) {
                 if (!enemy || enemy.isDead || orb.hitEnemies.has(enemy.id) || orb.cooldown > 0) continue;
 
                 const dx = enemy.x - orb.x;

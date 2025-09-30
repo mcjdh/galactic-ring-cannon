@@ -171,7 +171,8 @@ class PlayerMovement {
         // Check for perfect dodge (dodging just before being hit)
         let wasPerfectDodge = false;
         if (window.gameManager && window.gameManager.game) {
-            for (const enemy of window.gameManager.game.enemies) {
+            const enemies = window.gameManager?.game?.getEnemies?.() ?? window.gameManager?.game?.enemies ?? [];
+            for (const enemy of enemies) {
                 if (enemy.isAttacking && this.player.distanceTo(enemy) < 50) {
                     wasPerfectDodge = true;
                     break;
