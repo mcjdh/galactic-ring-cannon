@@ -270,6 +270,13 @@
 
                 // Projectile <-> enemy
                 if (entity1.type === 'projectile' && entity2.type === 'enemy' && !entity2.isDead) {
+                    // NEW SYSTEM: Use BehaviorManager for all projectile logic
+                    if (entity1.behaviorManager && typeof entity1.handleCollision === 'function') {
+                        entity1.handleCollision(entity2, engine);
+                        return; // All behavior logic handled by new system
+                    }
+
+                    // OLD SYSTEM FALLBACK (should not be reached with new projectiles)
                     if (entity1.hitEnemies && entity1.hitEnemies.has(entity2.id)) return;
                     let hitSuccessful = true;
                     if (typeof entity1.hit === 'function') hitSuccessful = entity1.hit(entity2);
@@ -360,6 +367,13 @@
                         if (projectileShouldDie) entity1.isDead = true;
                     }
                 } else if (entity2.type === 'projectile' && entity1.type === 'enemy' && !entity1.isDead) {
+                    // NEW SYSTEM: Use BehaviorManager for all projectile logic
+                    if (entity2.behaviorManager && typeof entity2.handleCollision === 'function') {
+                        entity2.handleCollision(entity1, engine);
+                        return; // All behavior logic handled by new system
+                    }
+
+                    // OLD SYSTEM FALLBACK (should not be reached with new projectiles)
                     if (entity2.hitEnemies && entity2.hitEnemies.has(entity1.id)) return;
                     let hitSuccessful = true;
                     if (typeof entity2.hit === 'function') hitSuccessful = entity2.hit(entity1);

@@ -303,7 +303,17 @@
     <!-- Core entities - load synchronously to ensure proper initialization order -->
     <script src="src/entities/particle.js"></script>
     <script src="src/entities/ShockwaveParticle.js"></script>
-    <script src="src/entities/projectile.js"></script>
+    <!-- Projectile system - modular behavior-based architecture -->
+    <script src="src/entities/projectile/behaviors/BehaviorBase.js"></script>
+    <script src="src/entities/projectile/behaviors/BehaviorManager.js"></script>
+    <script src="src/entities/projectile/behaviors/PiercingBehavior.js"></script>
+    <script src="src/entities/projectile/behaviors/RicochetBehavior.js"></script>
+    <script src="src/entities/projectile/behaviors/ExplosiveBehavior.js"></script>
+    <script src="src/entities/projectile/behaviors/ChainBehavior.js"></script>
+    <script src="src/entities/projectile/behaviors/HomingBehavior.js"></script>
+    <script src="src/entities/projectile/ProjectileRenderer.js"></script>
+    <script src="src/entities/projectile/Projectile.js"></script>
+    <script src="src/entities/projectile/ProjectileFactory.js"></script>
     <script src="src/entities/damageZone.js"></script>
     <script src="src/entities/EnemyProjectile.js"></script>
     <script src="src/entities/XPOrb.js"></script>
