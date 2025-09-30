@@ -87,11 +87,16 @@ class PlayerCombat {
 
     attack(game) {
         if (!game) return;
-        const enemies = game.getEnemies?.() ?? game.enemies ?? [];
-        if (!Array.isArray(enemies) || enemies.length === 0) return;
 
-        // Find closest enemy for reference
-        const nearestEnemy = this.findNearestEnemy(enemies);
+        const nearestEnemy = game.findClosestEnemy?.(
+            this.player.x,
+            this.player.y,
+            {
+                maxRadius: this.attackRange,
+                includeDead: false
+            }
+        ) ?? this.findNearestEnemy();
+
         if (!nearestEnemy) return;
 
         // Calculate direction to enemy
@@ -105,32 +110,32 @@ class PlayerCombat {
 
     executeAOEAttack(game) {
         if (!game) return;
-        const enemies = game.getEnemies?.() ?? game.enemies ?? [];
-        if (!Array.isArray(enemies) || enemies.length === 0) return;
+        const enemies = game.getEnemiesWithinRadius?.(
+            this.player.x,
+            this.player.y,
+            this.aoeAttackRange,
+            {
+                includeDead: false
+            }
+        ) ?? [];
+
+        if (enemies.length === 0) return;
 
         // Create visual effect for AOE attack
         this.createAOEEffect();
 
         // Create AOE damage around player
         enemies.forEach(enemy => {
-            const dx = enemy.x - this.player.x;
-            const dy = enemy.y - this.player.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const isCrit = Math.random() < this.critChance;
+            const baseDamage = this.attackDamage * this.aoeDamageMultiplier;
+            const damage = isCrit ? baseDamage * this.critMultiplier : baseDamage;
 
-            if (distance <= this.aoeAttackRange) {
-                const isCrit = Math.random() < this.critChance;
-                const baseDamage = this.attackDamage * this.aoeDamageMultiplier;
-                const damage = isCrit ?
-                    baseDamage * this.critMultiplier :
-                    baseDamage;
+            enemy.takeDamage(damage);
 
-                enemy.takeDamage(damage);
-
-                if (isCrit) {
-                    const gm = window.gameManager || window.gameManagerBridge;
-                    if (gm?.showFloatingText) {
-                        gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
-                    }
+            if (isCrit) {
+                const gm = window.gameManager || window.gameManagerBridge;
+                if (gm?.showFloatingText) {
+                    gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
                 }
             }
         });
@@ -171,53 +176,39 @@ class PlayerCombat {
     }
 
     findNearestEnemy(enemies) {
-        if (!enemies?.length) return null;
+        const game = window.gameEngine || window.gameManager?.game;
+        if (game?.findClosestEnemy) {
+            const closest = game.findClosestEnemy(this.player.x, this.player.y, {
+                includeDead: false,
+                maxRadius: this.attackRange,
+                useSpatialGrid: true
+            });
+            if (closest) {
+                return closest;
+            }
+        }
+
+        const list = Array.isArray(enemies) && enemies.length > 0
+            ? enemies
+            : (game?.getEnemies?.() ?? []);
+
+        if (list.length === 0) {
+            return null;
+        }
 
         let nearestEnemy = null;
         let shortestDistanceSquared = Infinity;
 
-        // Try spatial grid first for better performance with many enemies
-        const game = window.gameEngine || window.gameManager?.game;
-        if (game?.spatialGrid && game.gridSize > 0) {
-            const gridSize = game.gridSize;
-            const gx = Math.floor(this.player.x / gridSize);
-            const gy = Math.floor(this.player.y / gridSize);
+        for (const enemy of list) {
+            if (!enemy || enemy.isDead) continue;
 
-            // Check a 3x3 area around the player
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const cell = game.spatialGrid.get(`${gx + dx},${gy + dy}`);
-                    if (!cell) continue;
+            const dx = enemy.x - this.player.x;
+            const dy = enemy.y - this.player.y;
+            const distanceSquared = dx * dx + dy * dy;
 
-                    for (const enemy of cell) {
-                        if (enemy?.isDead || enemy?.type !== 'enemy') continue;
-
-                        const ddx = enemy.x - this.player.x;
-                        const ddy = enemy.y - this.player.y;
-                        const distanceSquared = ddx * ddx + ddy * ddy;
-
-                        if (distanceSquared < shortestDistanceSquared) {
-                            shortestDistanceSquared = distanceSquared;
-                            nearestEnemy = enemy;
-                        }
-                    }
-                }
-            }
-        }
-
-        // If spatial grid didn't find anything, do linear search
-        if (!nearestEnemy) {
-            for (const enemy of enemies) {
-                if (enemy?.isDead) continue;
-
-                const dx = enemy.x - this.player.x;
-                const dy = enemy.y - this.player.y;
-                const distanceSquared = dx * dx + dy * dy;
-
-                if (distanceSquared < shortestDistanceSquared) {
-                    shortestDistanceSquared = distanceSquared;
-                    nearestEnemy = enemy;
-                }
+            if (distanceSquared < shortestDistanceSquared) {
+                shortestDistanceSquared = distanceSquared;
+                nearestEnemy = enemy;
             }
         }
 

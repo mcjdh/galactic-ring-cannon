@@ -286,6 +286,113 @@ class GameEngine {
         return this.entities;
     }
 
+    getEntitiesWithinRadius(type, centerX, centerY, radius, options = {}) {
+        const { includeDead = false, predicate } = options;
+
+        if (!Number.isFinite(radius) || radius <= 0) {
+            return [];
+        }
+
+        const x = Number.isFinite(centerX) ? centerX : (this.player?.x ?? 0);
+        const y = Number.isFinite(centerY) ? centerY : (this.player?.y ?? 0);
+        const radiusSq = radius * radius;
+
+        const matches = [];
+        const entities = this.getEntitiesByType(type);
+
+        for (const entity of entities) {
+            if (!entity) continue;
+            if (!includeDead && entity.isDead) continue;
+            if (predicate && !predicate(entity)) continue;
+
+            const dx = entity.x - x;
+            const dy = entity.y - y;
+            if ((dx * dx + dy * dy) <= radiusSq) {
+                matches.push(entity);
+            }
+        }
+
+        return matches;
+    }
+
+    findClosestEntity(type, originX, originY, options = {}) {
+        const {
+            maxRadius = Infinity,
+            includeDead = false,
+            predicate,
+            useSpatialGrid = true
+        } = options;
+
+        const x = Number.isFinite(originX) ? originX : (this.player?.x ?? 0);
+        const y = Number.isFinite(originY) ? originY : (this.player?.y ?? 0);
+        const maxRadiusSq = Number.isFinite(maxRadius) ? Math.max(0, maxRadius) ** 2 : Infinity;
+
+        let closest = null;
+        let closestDistSq = maxRadiusSq;
+
+        const shouldInclude = (entity) => {
+            if (!entity) return false;
+            if (!includeDead && entity.isDead) return false;
+            if (predicate && !predicate(entity)) return false;
+            return true;
+        };
+
+        if (useSpatialGrid && this.spatialGrid && this.gridSize > 0 && this.spatialGrid.size > 0) {
+            const gridX = Math.floor(x / this.gridSize);
+            const gridY = Math.floor(y / this.gridSize);
+
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const cell = this.spatialGrid.get(`${gridX + dx},${gridY + dy}`);
+                    if (!cell || cell.length === 0) continue;
+
+                    for (const entity of cell) {
+                        if (!shouldInclude(entity) || entity.type !== type) continue;
+
+                        const distSq = this._distanceSquared(entity.x, entity.y, x, y);
+                        if (distSq < closestDistSq) {
+                            closest = entity;
+                            closestDistSq = distSq;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!closest) {
+            const entities = this.getEntitiesByType(type);
+            for (const entity of entities) {
+                if (!shouldInclude(entity)) continue;
+
+                const distSq = this._distanceSquared(entity.x, entity.y, x, y);
+                if (distSq < closestDistSq) {
+                    closest = entity;
+                    closestDistSq = distSq;
+                }
+            }
+        }
+
+        if (closest && maxRadiusSq !== Infinity && closestDistSq > maxRadiusSq) {
+            return null;
+        }
+
+        return closest;
+    }
+
+    findClosestEnemy(originX, originY, options = {}) {
+        return this.findClosestEntity('enemy', originX, originY, options);
+    }
+
+    getEnemiesWithinRadius(centerX, centerY, radius, options = {}) {
+        return this.getEntitiesWithinRadius('enemy', centerX, centerY, radius, options);
+    }
+
+    _distanceSquared(x1, y1, x2, y2) {
+        const dx = x1 - x2;
+        const dy = y1 - y2;
+        return dx * dx + dy * dy;
+    }
+
     prepareNewRun() {
         // Abort if canvas or player constructor are missing
         if (!this.canvas) {

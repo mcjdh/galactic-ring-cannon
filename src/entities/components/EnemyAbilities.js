@@ -471,12 +471,12 @@ class EnemyAbilities {
      * Create death explosion
      */
     createDeathExplosion(game) {
-        const enemies = game?.getEnemies?.() ?? game?.enemies ?? [];
-        if (!enemies.length) return;
-        
+        const allEnemies = game?.getEnemies?.() ?? [];
+        if (!allEnemies.length) return;
+
         // Damage nearby enemies and player
         const nearbyEntities = [];
-        
+
         // Check player
         if (game.player) {
             const dx = game.player.x - this.enemy.x;
@@ -487,18 +487,24 @@ class EnemyAbilities {
                 nearbyEntities.push({ entity: game.player, distance });
             }
         }
-        
+
         // Check other enemies
+        const enemies = game?.getEnemiesWithinRadius?.(
+            this.enemy.x,
+            this.enemy.y,
+            this.explosionRadius,
+            {
+                includeDead: false,
+                predicate: (enemy) => enemy !== this.enemy
+            }
+        ) ?? [];
+
         enemies.forEach(enemy => {
-            if (enemy === this.enemy || enemy.isDead) return;
-            
             const dx = enemy.x - this.enemy.x;
             const dy = enemy.y - this.enemy.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance <= this.explosionRadius) {
-                nearbyEntities.push({ entity: enemy, distance });
-            }
+
+            nearbyEntities.push({ entity: enemy, distance });
         });
         
         // Apply damage
