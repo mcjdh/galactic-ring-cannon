@@ -138,15 +138,18 @@ class EffectsManager {
     updateParticles(deltaTime) {
         // Update primary particle system
         if (this.particleManager && typeof this.particleManager.update === 'function') {
-            this.particleManager.setPerformanceSettings({
-                lowQuality: this.lowQuality,
-                maxParticles: this.maxParticles,
-                particleReductionFactor: this.particleReductionFactor
-            });
+            // Only set performance settings if the method exists
+            if (typeof this.particleManager.setPerformanceSettings === 'function') {
+                this.particleManager.setPerformanceSettings({
+                    lowQuality: this.lowQuality,
+                    maxParticles: this.maxParticles,
+                    particleReductionFactor: this.particleReductionFactor
+                });
+            }
             this.particleManager.update(deltaTime);
             return;
         }
-        
+
         // Fallback particle management
         this.updateFallbackParticles(deltaTime);
     }

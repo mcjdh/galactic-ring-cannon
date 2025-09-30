@@ -379,11 +379,6 @@ class GameEngine {
                               this.deltaTimeHistory[2] * 0.6);
         deltaTime = Math.max(1/120, Math.min(1/30, smoothedDelta)); // Clamp between 30-120fps
         
-        // Apply resonance time scaling for enhanced game feel
-        if (window.resonanceSystem) {
-            deltaTime = window.resonanceSystem.update(deltaTime);
-        }
-        
         // Update gamepad state if available
         if (window.inputManager && typeof window.inputManager.updateGamepad === 'function') {
             window.inputManager.updateGamepad();
@@ -714,13 +709,6 @@ class GameEngine {
             const actualDamage = preHealth !== null && currentHealth !== null
                 ? Math.max(0, preHealth - currentHealth)
                 : projectile.damage;
-            if (window.resonanceSystem) {
-                const intensity = Math.min((actualDamage || projectile.damage) / 100, 1.0);
-                const position = { x: enemy.x, y: enemy.y };
-                if (wasKilled) window.resonanceSystem.triggerImpactResonance(intensity * 1.5, 'kill', position);
-                else if (wasCritical) window.resonanceSystem.triggerImpactResonance(intensity * 1.2, 'critical', position);
-                else window.resonanceSystem.triggerImpactResonance(intensity, 'hit', position);
-            }
             if (window.gameManager) window.gameManager.createHitEffect(enemy.x, enemy.y, actualDamage ?? projectile.damage);
             if (window.audioSystem?.play) window.audioSystem.play('hit', 0.2);
         }
@@ -849,7 +837,16 @@ class GameEngine {
             if (this.player) {
                 const cameraX = -this.player.x + this.canvas.width / 2;
                 const cameraY = -this.player.y + this.canvas.height / 2;
-                this.ctx.translate(cameraX, cameraY);
+
+                // Apply screen shake from effectsManager if available
+                let shakeX = 0, shakeY = 0;
+                if (window.gameManager?.effectsManager) {
+                    const shakeOffset = window.gameManager.effectsManager.getScreenShakeOffset();
+                    shakeX = shakeOffset.x;
+                    shakeY = shakeOffset.y;
+                }
+
+                this.ctx.translate(cameraX + shakeX, cameraY + shakeY);
             }
             
             // Use frustum culling to only render visible entities

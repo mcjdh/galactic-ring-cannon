@@ -263,6 +263,14 @@ class GameManagerBridge {
                 (window.logger?.log || console.log)('✅ UIManager initialized');
             }
 
+            // Initialize Effects Manager for particles, screen shake, etc.
+            if (typeof window.EffectsManager !== 'undefined') {
+                this.effectsManager = new window.EffectsManager(this);
+                (window.logger?.log || console.log)('✅ EffectsManager initialized');
+            } else {
+                (window.logger?.warn || console.warn)('⚠️ EffectsManager not available');
+            }
+
             (window.logger?.log || console.log)('✅ Game engine initialized successfully');
             return true;
             
@@ -410,7 +418,9 @@ class GameManagerBridge {
      * Main update loop - called by GameEngine
      */
     update(deltaTime) {
-        if (!this.running || this.gameOver || this.isPaused) return;
+        if (!this.running || this.gameOver || this.isPaused) {
+            return;
+        }
 
         // Update game time
         this.gameTime += deltaTime;
@@ -425,24 +435,31 @@ class GameManagerBridge {
         if (this.uiManager && typeof this.uiManager.update === 'function') {
             this.uiManager.update(deltaTime);
         }
-        
+
+        // Update effects manager (particles, screen shake, floating text)
+        if (this.effectsManager && typeof this.effectsManager.update === 'function') {
+            try {
+                this.effectsManager.update(deltaTime);
+            } catch (error) {
+                (window.logger?.error || console.error)('ERROR in effectsManager.update():', error);
+                // Disable effectsManager to prevent continuous errors
+                this.effectsManager = null;
+            }
+        } else {
+            // Fallback to local systems if effectsManager not available
+            this.updateCombatTexts(deltaTime);
+            this.updateParticles(deltaTime);
+            this.updateScreenShake(deltaTime);
+        }
+
         // Update enemy spawner
         if (this.enemySpawner) {
             this.enemySpawner.update(deltaTime);
         }
-        
-        // Update combat text system
-        this.updateCombatTexts(deltaTime);
-        
-        // Update particle system
-        this.updateParticles(deltaTime);
-        
-        // Update screen shake
-        this.updateScreenShake(deltaTime);
-        
+
         // Update combo system
         this.updateComboSystem(deltaTime);
-        
+
         // Check win/lose conditions
         this.checkGameConditions();
     }
@@ -787,7 +804,15 @@ class GameManagerBridge {
     
     addScreenShake(intensity, duration) {
         if (this.lowQuality) return;
-        
+
+        // Delegate to effectsManager if available for unified screen shake
+        const effectsManager = window.gameManager?.effectsManager || this.effects;
+        if (effectsManager && typeof effectsManager.addScreenShake === 'function') {
+            effectsManager.addScreenShake(intensity, duration);
+            return;
+        }
+
+        // Fallback to local screen shake
         this.screenShake.intensity = intensity;
         this.screenShake.duration = duration;
         this.screenShake.maxDuration = duration;

@@ -316,7 +316,7 @@ class EnemySpawner {
      */
     updateRegularSpawning(deltaTime) {
         this.spawnTimer += deltaTime;
-        
+
         const effectiveMaxEnemies = this.performanceMonitor.adaptiveMaxEnemies;
         if (this.spawnTimer >= this.spawnCooldown && this.game.enemies.length < effectiveMaxEnemies) {
             this.spawnTimer = 0;
