@@ -79,9 +79,9 @@ class Player {
         // Clean particle spawning - use the best system available
         if (window.optimizedParticles?.spawnParticle) {
             window.optimizedParticles.spawnParticle({ x, y, vx, vy, size, color, life, type });
-        } else if (window.gameManager?.tryAddParticle && typeof Particle !== 'undefined') {
+        } else if (window.gameManager?.addParticleViaEffectsManager && typeof Particle !== 'undefined') {
             const particle = new Particle(x, y, vx, vy, size, color, life);
-            window.gameManager.tryAddParticle(particle);
+            window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
 

@@ -27,14 +27,8 @@ class GameManagerBridge {
         this.difficultyFactor = 1.0;
         this.metaStars = parseInt(localStorage.getItem('starTokens') || '0', 10);
         
-        // Performance settings
-        this.maxParticles = 150;
-        this.particles = [];
-        this.particlePool = [];
-        this.particleReductionFactor = 1.0;
-
-        // Reference to gameManager's effects manager (don't create duplicate!)
-        this.effects = null; // Will be set to gameManager.effectsManager if available
+        // Reference to effects manager (primary system handles particles)
+        this.effects = null;
         // UI manager (DOM HUD)
         this.uiManager = null;
         
@@ -48,9 +42,6 @@ class GameManagerBridge {
         this.comboTimer = 0;
         this.comboTimeout = 3.0;
         
-        // Screen shake
-        this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
-
         // Minimap system
         this.minimapSystem = null;
         
@@ -81,9 +72,9 @@ class GameManagerBridge {
                 window.optimizedParticles.spawnParticle({ x, y, vx, vy, size, color, life, type });
                 return true;
             }
-            if (typeof this.tryAddParticle === 'function') {
+            if (typeof this.addParticleViaEffectsManager === 'function' && typeof Particle !== 'undefined') {
                 const particle = new Particle(x, y, vx, vy, size, color, life);
-                return this.tryAddParticle(particle);
+                return this.addParticleViaEffectsManager(particle);
             }
         } catch (e) {
             (window.logger?.warn || console.warn)('Particle spawn failed in GameManagerBridge', e);
@@ -205,8 +196,6 @@ class GameManagerBridge {
         this.comboTimer = 0;
         
         // Clear effects
-        this.particles = [];
-        this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
 
         this.minimapSystem?.reset?.();
 
@@ -332,10 +321,6 @@ class GameManagerBridge {
                 // Disable effectsManager to prevent continuous errors
                 this.effectsManager = null;
             }
-        } else {
-            // Fallback to local systems if effectsManager not available
-            this.updateParticles(deltaTime);
-            this.updateScreenShake(deltaTime);
         }
 
         // Update enemy spawner
@@ -553,112 +538,28 @@ class GameManagerBridge {
     /**
      * Particle System
      */
-    updateParticles(deltaTime) {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const particle = this.particles[i];
-            
-            if (!particle) {
-                this.particles.splice(i, 1);
-                continue;
-            }
-            
-            // Update particle
-            if (typeof particle.update === 'function') {
-                particle.update(deltaTime);
-            } else {
-                // Basic particle update
-                particle.x += (particle.vx || 0) * deltaTime;
-                particle.y += (particle.vy || 0) * deltaTime;
-                particle.age = (particle.age || 0) + deltaTime;
-                
-                if (particle.lifetime && particle.age >= particle.lifetime) {
-                    particle.isDead = true;
-                }
-            }
-            
-            // Remove dead particles
-            if (particle.isDead || (particle.age && particle.lifetime && particle.age >= particle.lifetime)) {
-                this.particlePool.push(particle);
-                this.particles.splice(i, 1);
-            }
-        }
-        
-        // Enforce particle limit
-        if (this.particles.length > this.maxParticles) {
-            const excess = this.particles.length - this.maxParticles;
-            for (let i = 0; i < excess; i++) {
-                const particle = this.particles.shift();
-                if (particle) this.particlePool.push(particle);
-            }
-        }
-    }
-    
-    tryAddParticle(particle) {
-        if (!particle || this.lowQuality) return false;
-        
-        if (this.particles.length >= this.maxParticles) {
-            return false;
-        }
-        
-        this.particles.push(particle);
-        return true;
-    }
-    
-    renderParticles(ctx) {
-        for (const particle of this.particles) {
-            if (particle && typeof particle.render === 'function') {
-                particle.render(ctx);
-            }
-        }
-    }
-    
     /**
      * Screen Shake System
      */
-    updateScreenShake(deltaTime) {
-        if (this.screenShake.duration > 0) {
-            this.screenShake.duration -= deltaTime;
-            
-            if (this.screenShake.duration <= 0) {
-                this.screenShake.x = 0;
-                this.screenShake.y = 0;
-                this.screenShake.intensity = 0;
-            } else {
-                const intensity = this.screenShake.intensity * (this.screenShake.duration / this.screenShake.maxDuration);
-                this.screenShake.x = (Math.random() - 0.5) * intensity;
-                this.screenShake.y = (Math.random() - 0.5) * intensity;
-            }
-        }
-    }
-    
     addScreenShake(intensity, duration) {
         if (this.lowQuality) return;
 
-        // Delegate to effectsManager if available for unified screen shake
-        const effectsManager = window.gameManager?.effectsManager || this.effects;
-        if (effectsManager && typeof effectsManager.addScreenShake === 'function') {
-            effectsManager.addScreenShake(intensity, duration);
-            return;
-        }
-
-        // Fallback to local screen shake
-        this.screenShake.intensity = intensity;
-        this.screenShake.duration = duration;
-        this.screenShake.maxDuration = duration;
+        const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
+        effectsManager?.addScreenShake?.(intensity, duration);
     }
-    
+
     /**
      * Combo System
      */
     updateComboSystem(deltaTime) {
         if (this.currentCombo > 0) {
-            this.comboTimer += deltaTime;
-            
-            if (this.comboTimer >= this.comboTimeout) {
-                this.currentCombo = 0;
-                this.comboTimer = 0;
-            }
+        this.comboTimer += deltaTime;
+        
+        if (this.comboTimer >= this.comboTimeout) {
+            this.currentCombo = 0;
+            this.comboTimer = 0;
         }
+    }
     }
     
     incrementCombo() {
@@ -751,7 +652,7 @@ class GameManagerBridge {
                     '#e74c3c',
                     0.3 + Math.random() * 0.3
                 );
-                this.tryAddParticle(particle);
+                this.addParticleViaEffectsManager(particle);
             }
         }
     }
@@ -792,7 +693,7 @@ class GameManagerBridge {
                     color,
                     0.5 + Math.random() * 0.5
                 );
-                this.tryAddParticle(particle);
+                this.addParticleViaEffectsManager(particle);
             }
         }
         this.addScreenShake(radius / 10, 0.5);
@@ -832,9 +733,30 @@ class GameManagerBridge {
                     '#f1c40f',
                     0.8 + Math.random() * 0.4
                 );
-                this.tryAddParticle(particle);
+                this.addParticleViaEffectsManager(particle);
             }
         }
+    }
+
+    addParticleViaEffectsManager(particle) {
+        if (this.lowQuality || !particle) {
+            return false;
+        }
+
+        const effectsManager = this.game?.effectsManager || this.effects;
+        const particleManager = effectsManager?.particleManager;
+
+        if (particleManager?.spawnParticle) {
+            particleManager.spawnParticle(particle);
+            return true;
+        }
+
+        if (particleManager?.addParticle) {
+            particleManager.addParticle(particle);
+            return true;
+        }
+
+        return false;
     }
     
     /**

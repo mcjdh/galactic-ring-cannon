@@ -82,7 +82,7 @@ class DamageZone {
                 life: 0.5 + Math.random() * 0.5,
                 type: 'smoke'
             });
-        } else if (gameManager.tryAddParticle) {
+        } else if (gameManager.addParticleViaEffectsManager) {
             const particle = new Particle(
                 x, y,
                 (Math.random() - 0.5) * 10,
@@ -91,7 +91,7 @@ class DamageZone {
                 this.color,
                 0.5 + Math.random() * 0.5
             );
-            gameManager.tryAddParticle(particle);
+            gameManager.addParticleViaEffectsManager(particle);
         }
     }
     

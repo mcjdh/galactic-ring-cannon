@@ -146,7 +146,7 @@ class ParticleHelpers {
     // Fallback methods for compatibility (basic particle creation)
     static createBasicHitEffect(x, y, damage) {
         const gm = window.gameManager || window.gameManagerBridge;
-        if (!gm || !gm.tryAddParticle) return;
+        if (!gm || !gm.addParticleViaEffectsManager) return;
         
         const count = Math.min(8, Math.floor(damage / 5));
         for (let i = 0; i < count; i++) {
@@ -164,12 +164,12 @@ class ParticleHelpers {
                     life: 0.3 + Math.random() * 0.3,
                     type: 'blood'
                 });
-            } else if (gm?.tryAddParticle) {
+            } else if (gm?.addParticleViaEffectsManager) {
                 const particle = new Particle(
                     x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
                     1 + Math.random() * 3, '#e74c3c', 0.3 + Math.random() * 0.3
                 );
-                gm.tryAddParticle(particle);
+                gm.addParticleViaEffectsManager(particle);
             }
         }
     }
@@ -195,7 +195,7 @@ class ParticleHelpers {
         }
         
         // Fallback to old system
-        if (!window.gameManager?.tryAddParticle) return;
+        if (!window.gameManager?.addParticleViaEffectsManager) return;
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 50 + Math.random() * 100;
@@ -203,7 +203,7 @@ class ParticleHelpers {
                 x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
                 2 + Math.random() * 4, color, 0.5 + Math.random() * 0.5
             );
-            window.gameManager.tryAddParticle(particle);
+            window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
     
@@ -221,17 +221,17 @@ class ParticleHelpers {
         }
         
         // Fallback
-        if (!window.gameManager?.tryAddParticle) return;
+        if (!window.gameManager?.addParticleViaEffectsManager) return;
         const particle = new Particle(
             x + (Math.random() - 0.5) * 5, y + (Math.random() - 0.5) * 5,
             vx * 0.3, vy * 0.3, 1 + Math.random() * 2, color, 0.5
         );
         
-        window.gameManager.tryAddParticle(particle);
+        window.gameManager.addParticleViaEffectsManager(particle);
     }
     
     static createBasicLevelUp(x, y) {
-        if (!window.gameManager || !window.gameManager.tryAddParticle) return;
+        if (!window.gameManager || !window.gameManager.addParticleViaEffectsManager) return;
         
         for (let i = 0; i < 15; i++) {
             const angle = (i / 15) * Math.PI * 2;
@@ -246,12 +246,12 @@ class ParticleHelpers {
                 1 + Math.random() * 0.5
             );
             
-            window.gameManager.tryAddParticle(particle);
+            window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
     
     static createBasicLightning(fromX, fromY, toX, toY) {
-        if (!window.gameManager || !window.gameManager.tryAddParticle) return;
+        if (!window.gameManager || !window.gameManager.addParticleViaEffectsManager) return;
         
         const dx = toX - fromX;
         const dy = toY - fromY;
@@ -272,7 +272,7 @@ class ParticleHelpers {
                 0.2
             );
             
-            window.gameManager.tryAddParticle(particle);
+            window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
 }
