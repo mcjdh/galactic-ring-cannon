@@ -38,10 +38,6 @@ class GameManagerBridge {
         // UI manager (DOM HUD)
         this.uiManager = null;
         
-        // Combat text system
-        this.combatTexts = [];
-        this.combatTextPool = [];
-        
         // Statistics
         this.killCount = 0;
         this.xpCollected = 0;
@@ -210,7 +206,6 @@ class GameManagerBridge {
         
         // Clear effects
         this.particles = [];
-        this.combatTexts = [];
         this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
 
         this.minimapSystem?.reset?.();
@@ -339,7 +334,6 @@ class GameManagerBridge {
             }
         } else {
             // Fallback to local systems if effectsManager not available
-            this.updateCombatTexts(deltaTime);
             this.updateParticles(deltaTime);
             this.updateScreenShake(deltaTime);
         }
@@ -524,57 +518,17 @@ class GameManagerBridge {
         this.updateStarDisplay();
     }
     
-    /**
-     * Combat Text System
-     */
-    updateCombatTexts(deltaTime) {
-        for (let i = this.combatTexts.length - 1; i >= 0; i--) {
-            const text = this.combatTexts[i];
-            text.age += deltaTime;
-            text.y -= 30 * deltaTime; // Float upward
-            text.opacity = Math.max(0, 1 - (text.age / text.lifetime));
-            
-            if (text.age >= text.lifetime) {
-                this.combatTextPool.push(text);
-                this.combatTexts.splice(i, 1);
-            }
-        }
-    }
-    
     showFloatingText(text, x, y, color = '#ffffff', size = 16) {
-        // Prefer unified UI when available for consistent world-space text rendering
-        if (this.game && this.game.unifiedUI && typeof this.game.unifiedUI.addFloatingText === 'function') {
+        if (this.game?.unifiedUI?.addFloatingText) {
             this.game.unifiedUI.addFloatingText(text, x, y, { color, size });
             return;
         }
-        
-        // Fallback to internal combat text pool
-        let textObj = this.combatTextPool.pop();
-        if (!textObj) {
-            textObj = {
-                text: '',
-                x: 0,
-                y: 0,
-                color: '#ffffff',
-                size: 16,
-                age: 0,
-                lifetime: 2.0,
-                opacity: 1.0
-            };
+
+        if (this.game?.effectsManager?.showFloatingText) {
+            this.game.effectsManager.showFloatingText(text, x, y, color, size);
         }
-        
-        textObj.text = text;
-        textObj.x = x;
-        textObj.y = y;
-        textObj.color = color;
-        textObj.size = size;
-        textObj.age = 0;
-        textObj.opacity = 1.0;
-        textObj.lifetime = 2.0;
-        
-        this.combatTexts.push(textObj);
     }
-    
+
     showCombatText(text, x, y, type, size = 16) {
         const colors = {
             'damage': '#e74c3c',
@@ -583,34 +537,17 @@ class GameManagerBridge {
             'xp': '#9b59b6',
             'combo': '#3498db'
         };
-        
+        if (this.game?.effectsManager?.showCombatText) {
+            this.game.effectsManager.showCombatText(text, x, y, type, size);
+            return;
+        }
+
         this.showFloatingText(text, x, y, colors[type] || '#ffffff', size);
     }
-    
+
     // Alias for backward compatibility
     addCombatText(text, x, y, color, size) {
         this.showFloatingText(text, x, y, color, size);
-    }
-    
-    /**
-     * Render combat texts
-     */
-    _renderTexts(ctx) {
-        for (const text of this.combatTexts) {
-            ctx.save();
-            ctx.globalAlpha = text.opacity;
-            ctx.fillStyle = text.color;
-            ctx.font = `bold ${text.size}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2;
-            
-            // Outline for better visibility
-            ctx.strokeText(text.text, text.x, text.y);
-            ctx.fillText(text.text, text.x, text.y);
-            
-            ctx.restore();
-        }
     }
     
     /**

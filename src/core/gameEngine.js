@@ -1116,9 +1116,6 @@ class GameEngine {
             // Render UI elements using unified system (replaces buggy floating text)
             if (this.unifiedUI) {
                 this.unifiedUI.render();
-            } else if (window.gameManager && typeof window.gameManager._renderTexts === 'function') {
-                // Fallback to old system if unified UI not available
-                window.gameManager._renderTexts(this.ctx);
             } else if (window.floatingTextSystem && typeof window.floatingTextSystem.render === 'function') {
                 window.floatingTextSystem.render(this.ctx);
             }
