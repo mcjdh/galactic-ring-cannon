@@ -5,53 +5,15 @@
             this.systemReadyCheckId = null;
             this.mainMenuShown = false;
             this.controls = {};
-            this.metaUpgrades = [
-                {
-                    id: 'starting_damage',
-                    name: 'Enhanced Firepower',
-                    description: 'Start each run with +25% damage',
-                    cost: 5,
-                    maxLevel: 5,
-                    icon: '🔥',
-                    effect: 'Starting damage multiplier'
-                },
-                {
-                    id: 'starting_health',
-                    name: 'Reinforced Hull',
-                    description: 'Start each run with +20% health',
-                    cost: 4,
-                    maxLevel: 5,
-                    icon: '🛡️',
-                    effect: 'Starting health boost'
-                },
-                {
-                    id: 'starting_speed',
-                    name: 'Ion Thrusters',
-                    description: 'Start each run with +15% movement speed',
-                    cost: 3,
-                    maxLevel: 4,
-                    icon: '🚀',
-                    effect: 'Starting speed boost'
-                },
-                {
-                    id: 'star_chance',
-                    name: 'Stellar Fortune',
-                    description: 'Increase star token drop rate',
-                    cost: 8,
-                    maxLevel: 3,
-                    icon: '⭐',
-                    effect: 'Better star drops'
-                },
-                {
-                    id: 'chain_upgrade',
-                    name: 'Lightning Mastery',
-                    description: 'Chain lightning effects +1 additional chain',
-                    cost: 12,
-                    maxLevel: 2,
-                    icon: '⚡',
-                    effect: 'Improved chain lightning'
-                }
-            ];
+
+            // Load meta upgrade definitions from config
+            // Fallback to empty array if config not loaded yet
+            this.metaUpgrades = window.META_UPGRADE_DEFINITIONS || [];
+
+            // Warn if config not loaded
+            if (!window.META_UPGRADE_DEFINITIONS) {
+                console.warn('⚠️ META_UPGRADE_DEFINITIONS not loaded. Make sure metaUpgrades.config.js is loaded before bootstrap.');
+            }
 
             const ready = document.readyState === 'loading';
             if (ready) {

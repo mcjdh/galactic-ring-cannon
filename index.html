@@ -149,6 +149,11 @@
         </div>
     </div>
     
+    <!-- Configuration files - load FIRST before systems that depend on them -->
+    <script src="src/config/upgrades.config.js"></script>
+    <script src="src/config/achievements.config.js"></script>
+    <script src="src/config/metaUpgrades.config.js"></script>
+
     <!-- Configuration and utilities - load in proper order -->
     <script src="src/utils/Logger.js"></script>
     <script src="src/utils/URLParams.js"></script>
