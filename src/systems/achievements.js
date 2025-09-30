@@ -317,6 +317,9 @@ class AchievementSystem {
     // Track wave completion
     onWaveCompleted(waveNumber) {
         this.updateAchievement('wave_master', waveNumber);
+        if (window.gameManager?.endlessMode) {
+            this.updateAchievement('endless_champion', waveNumber);
+        }
     }
     
     // Track critical hits

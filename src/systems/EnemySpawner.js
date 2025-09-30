@@ -553,6 +553,7 @@ class EnemySpawner {
     spawnWave() {
         this.waveCount++;
         const playerLevel = window.gameManager?.game?.player?.level || 1;
+        window.gameManager?.statsManager?.trackSpecialEvent?.('wave_completed', { 'waveNumber': this.waveCount });
         // Wave size scales with wave index and player level for higher intensity
         const base = 5 + this.waveCount;
         const levelBonus = Math.floor(playerLevel * 1.2);

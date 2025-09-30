@@ -10,20 +10,35 @@
 class StatsManager {
     constructor(gameManager) {
         this.gameManager = gameManager;
-        
+
+        // 🌊 GAME STATE - Single Source of Truth
+        // Link to shared game state
+        this.state = gameManager?.game?.state || null;
+
         // Get GAME_CONSTANTS from global scope with safe fallbacks
         const GAME_CONSTANTS = window.GAME_CONSTANTS || {};
         const COMBO_CONFIG = (GAME_CONSTANTS && GAME_CONSTANTS.COMBO) || { TIMEOUT: 0.8, TARGET: 8, MAX_MULTIPLIER: 2.5 };
-        
-        // Core game statistics
-        this.killCount = 0;
-        this.xpCollected = 0;
+
+        // Persistent statistics (not in GameState - these are long-term tracking)
         this.totalDamageDealt = 0;
         this.totalDamageTaken = 0;
         this.projectilesFired = 0;
         this.distanceTraveled = 0;
         
-        // Session statistics
+        // Combo configuration
+        this.comboTimeout = (COMBO_CONFIG && COMBO_CONFIG.TIMEOUT != null) ? COMBO_CONFIG.TIMEOUT : 0.8;
+        this.comboTarget = (COMBO_CONFIG && COMBO_CONFIG.TARGET != null) ? COMBO_CONFIG.TARGET : 8;
+        this.maxComboMultiplier = (COMBO_CONFIG && COMBO_CONFIG.MAX_MULTIPLIER != null) ? COMBO_CONFIG.MAX_MULTIPLIER : 2.5;
+
+        // Update GameState combo config when available (after construction)
+        // Deferred to avoid initialization order issues
+        setTimeout(() => {
+            if (this.state) {
+                this.state.combo.timeout = this.comboTimeout;
+            }
+        }, 0);
+
+        // Session statistics (still local to StatsManager)
         this.sessionStats = {
             startTime: Date.now(),
             gameTime: 0,
@@ -32,19 +47,11 @@ class StatsManager {
             bossesKilled: 0,
             elitesKilled: 0,
             perfectDodges: 0,
+            dodges: 0,
             criticalHits: 0,
             ricochetKills: 0,
             explosionKills: 0
         };
-        
-        // Combo system
-        this.comboCount = 0;
-        this.comboTimer = 0;
-        this.comboTimeout = (COMBO_CONFIG && COMBO_CONFIG.TIMEOUT != null) ? COMBO_CONFIG.TIMEOUT : 0.8; // seconds
-        this.comboTarget = (COMBO_CONFIG && COMBO_CONFIG.TARGET != null) ? COMBO_CONFIG.TARGET : 8; // kills
-        this.highestCombo = 0;
-        this.comboMultiplier = 1.0;
-        this.maxComboMultiplier = (COMBO_CONFIG && COMBO_CONFIG.MAX_MULTIPLIER != null) ? COMBO_CONFIG.MAX_MULTIPLIER : 2.5;
         
         // Achievement tracking
         this.achievementProgress = new Map();
@@ -88,7 +95,33 @@ class StatsManager {
         // Load persistent stats
         this.loadPersistentStats();
     }
-    
+
+    // ===== GAMESTATE PROXY PROPERTIES =====
+    // These provide clean API access to GameState
+    // External systems use these, so they must remain
+    // Null checks required during initialization
+
+    get killCount() { return this.state?.progression.killCount ?? 0; }
+    set killCount(value) { if (this.state) this.state.progression.killCount = value; }
+
+    get xpCollected() { return this.state?.progression.xpCollected ?? 0; }
+    set xpCollected(value) { if (this.state) this.state.progression.xpCollected = value; }
+
+    get comboCount() { return this.state?.combo.count ?? 0; }
+    set comboCount(value) { if (this.state) this.state.combo.count = value; }
+
+    get comboTimer() { return this.state?.combo.timer ?? 0; }
+    set comboTimer(value) { if (this.state) this.state.combo.timer = value; }
+
+    get highestCombo() { return this.state?.combo.highest ?? 0; }
+    set highestCombo(value) { if (this.state) this.state.combo.highest = value; }
+
+    get comboMultiplier() { return this.state?.combo.multiplier ?? 1.0; }
+    set comboMultiplier(value) { if (this.state) this.state.combo.multiplier = value; }
+
+    get starTokens() { return this.state?.meta.starTokens ?? 0; }
+    set starTokens(value) { if (this.state) this.state.meta.starTokens = value; }
+
     /**
      * Main stats update loop
      */
@@ -141,22 +174,13 @@ class StatsManager {
      * Update combo system
      */
     updateComboSystem(deltaTime) {
-        // Calculate combo multiplier based on current combo
-        if (this.comboCount >= this.comboTarget) {
-            const bonusCombo = this.comboCount - this.comboTarget;
-            const bonusMultiplier = Math.min(
-                this.maxComboMultiplier - 1.0,
-                bonusCombo * 0.1 // 10% per kill above target
-            );
-            this.comboMultiplier = 1.0 + bonusMultiplier;
-        } else {
-            this.comboMultiplier = 1.0;
-        }
-        
-        // Update highest combo
-        if (this.comboCount > this.highestCombo) {
-            this.highestCombo = this.comboCount;
-            this.sessionStats.highestCombo = this.highestCombo;
+        // 🌊 DELEGATE TO GAME STATE
+        if (this.state) {
+            this.state.updateCombo(deltaTime);
+            // Sync session stats
+            if (this.state.combo) {
+                this.sessionStats.highestCombo = this.state.combo.highest;
+            }
         }
 
         this.achievementSystem?.updateAchievement?.('combo_master', this.highestCombo);
@@ -249,6 +273,7 @@ class StatsManager {
             case 'level':
                 message = `LEVEL ${value} REACHED!`;
                 color = 'xp';
+                this.achievementSystem?.updateAchievement?.('level_up', value);
                 break;
             case 'time':
                 const minutes = Math.floor(value / 60);
@@ -257,10 +282,14 @@ class StatsManager {
                     `${minutes}:${seconds.toString().padStart(2, '0')} SURVIVED!` :
                     `${minutes} MINUTE${minutes > 1 ? 'S' : ''} SURVIVED!`;
                 color = 'heal';
+                if (value >= 600) {
+                    this.achievementSystem?.updateAchievement?.('survivor', value);
+                }
                 break;
             case 'bosses':
                 message = `${value} BOSS${value > 1 ? 'ES' : ''} DEFEATED!`;
                 color = 'critical';
+                this.achievementSystem?.updateAchievement?.('boss_slayer', value);
                 break;
         }
         
@@ -322,11 +351,10 @@ class StatsManager {
     incrementKills() {
         this.bindAchievementSystem();
 
-        this.killCount++;
-
-        // Handle combo system
-        this.comboCount++;
-        this.comboTimer = this.comboTimeout;
+        // 🌊 USE GAME STATE
+        if (this.state && this.state.addKill) {
+            this.state.addKill();
+        }
 
         // Update session stats
         this.updateSessionStats('kill');
@@ -346,6 +374,13 @@ class StatsManager {
 
         if (enemy?.isElite) {
             this.trackSpecialEvent('elite_kill');
+        }
+
+        if (enemy?.isBoss) {
+            this.onBossKilled();
+            if (enemy.isMegaBoss) {
+                this.achievementSystem?.onMegaBossDefeated?.();
+            }
         }
 
         return killCount;
@@ -377,9 +412,10 @@ class StatsManager {
      * Reset combo system
      */
     resetCombo() {
-        this.comboCount = 0;
-        this.comboTimer = 0;
-        this.comboMultiplier = 1.0;
+        // 🌊 USE GAME STATE
+        if (this.state && this.state.resetCombo) {
+            this.state.resetCombo();
+        }
     }
     
     /**
@@ -407,17 +443,23 @@ class StatsManager {
      */
     collectXP(amount) {
         this.bindAchievementSystem();
-        this.xpCollected += amount;
+
+        // 🌊 USE GAME STATE
+        if (this.state && this.state.addXP) {
+            this.state.addXP(amount);
+        }
 
         this.achievementSystem?.updateAchievement?.('star_collector', this.xpCollected);
 
         // Apply combo multiplier
         const bonusXP = Math.floor(amount * (this.comboMultiplier - 1.0));
         if (bonusXP > 0) {
-            this.xpCollected += bonusXP;
+            if (this.state && this.state.addXP) {
+                this.state.addXP(bonusXP);
+            }
             return amount + bonusXP;
         }
-        
+
         return amount;
     }
     
@@ -456,6 +498,10 @@ class StatsManager {
                 this.sessionStats.perfectDodges++;
                 this.achievementSystem?.updateAchievement?.('dodge_master', this.sessionStats.perfectDodges);
                 this.achievementSystem?.updateAchievement?.('perfect_dodge', 1);
+                break;
+            case 'dodge':
+                this.sessionStats.dodges++;
+                this.achievementSystem?.updateAchievement?.('dodge_master', this.sessionStats.dodges);
                 break;
             case 'ricochet_kill':
                 this.sessionStats.ricochetKills++;
@@ -523,11 +569,10 @@ class StatsManager {
             }
         }
 
-        this.starTokens += finalAmount;
-        this.starTokensEarned += finalAmount;
-
-        // Save to localStorage
-        localStorage.setItem('starTokens', this.starTokens.toString());
+        // 🌊 USE GAME STATE
+        if (this.state && this.state.earnStarTokens) {
+            this.state.earnStarTokens(finalAmount);
+        }
 
         this.achievementSystem?.updateAchievement?.('meta_star_collector', this.starTokens);
 
@@ -690,12 +735,9 @@ class StatsManager {
      * Reset session statistics (for new game)
      */
     resetSession() {
-        this.killCount = 0;
-        this.xpCollected = 0;
-        this.comboCount = 0;
-        this.comboTimer = 0;
-        this.highestCombo = 0;
-        this.comboMultiplier = 1.0;
+        // 🌊 USE GAME STATE
+        // GameState resetSession is called by GameManagerBridge
+        // Just reset local tracking
         this.starTokensEarned = 0;
         
         this.sessionStats = {
@@ -706,6 +748,7 @@ class StatsManager {
             bossesKilled: 0,
             elitesKilled: 0,
             perfectDodges: 0,
+            dodges: 0,
             criticalHits: 0,
             ricochetKills: 0,
             explosionKills: 0

@@ -39,23 +39,22 @@ class GameEngine {
             (window.logger?.error || console.error)('Error initializing canvas:', error);
         }
         
-        // Game state with null checks
-    // 🤖 RESONANT NOTE FOR ALL CODING AGENTS:
-    // State management and entity arrays need modularization - this is the #1 architectural priority
-    // Consider EntityManager pattern: game.entities.add(entity) vs this.entities.push(entity)
-    // Coordinate with other agents to avoid duplicate state management systems
+        // 🌊 GAME STATE - Single Source of Truth
+        // Initialize centralized state management
+        this.state = new GameState();
+
+        // Entity arrays (still managed by GameEngine for performance)
         this.entities = [];
         this.player = null;
         this.enemies = [];
         this.xpOrbs = [];
         this.projectiles = [];
         this.enemyProjectiles = [];
+
 		// Enemy projectile pool is initialized below with other pools
         this.lastTime = 0;
-        this.gameTime = 0;
-        this.isPaused = false;
-        
-        // Basic performance tracking
+
+        // Performance tracking (local to GameEngine for frame timing)
         this.fps = 0;
         this.frameCount = 0;
         this.lastFpsUpdate = 0;
@@ -137,6 +136,23 @@ class GameEngine {
 
         // Track if the render loop has already been bootstrapped
         this._loopInitialized = false;
+    }
+
+    // ===== GAMESTATE PROXY PROPERTIES =====
+    // External systems access state through these properties
+    // These are the public API - do not remove
+    // Null checks required during initialization
+
+    get gameTime() { return this.state?.runtime.gameTime ?? 0; }
+    set gameTime(value) { if (this.state) this.state.runtime.gameTime = value; }
+
+    get isPaused() { return this.state?.runtime.isPaused ?? false; }
+    set isPaused(value) { if (this.state) { value ? this.state.pause() : this.state.resume(); } }
+
+    // Player management with GameState sync
+    setPlayer(player) {
+        this.player = player;
+        this.state.setPlayer(player);
     }
 
     removeEntity(target) {
@@ -543,6 +559,9 @@ class GameEngine {
     start() {
         (window.logger?.log || console.log)('🚀 GameEngine starting...');
 
+        // 🌊 START GAME STATE
+        this.state.start();
+
         this.prepareNewRun();
 
         const now = performance.now();
@@ -632,6 +651,24 @@ class GameEngine {
                               this.deltaTimeHistory[1] * 0.3 +
                               this.deltaTimeHistory[2] * 0.6);
         deltaTime = Math.max(1/120, Math.min(1/30, smoothedDelta)); // Clamp between 30-120fps
+
+        // 🌊 UPDATE GAME STATE
+        if (this.state && this.state.updateTime) {
+            this.state.updateTime(deltaTime);
+
+            // Sync player state if player exists
+            if (this.player) {
+                this.state.syncPlayerState(this.player);
+            }
+
+            // Update entity counts
+            this.state.updateEntityCounts(
+                this.enemies.length,
+                this.projectiles.length,
+                this.xpOrbs.length,
+                window.optimizedParticles?.particles?.length || 0
+            );
+        }
         
         // Update gamepad state if available
         if (window.inputManager && typeof window.inputManager.updateGamepad === 'function') {
@@ -726,6 +763,10 @@ class GameEngine {
         this.lastFpsUpdate += elapsed;
         if (this.lastFpsUpdate >= 1000) {
             this.fps = this.frameCount;
+            // 🌊 UPDATE GAME STATE FPS
+            if (this.state && this.state.updateFPS) {
+                this.state.updateFPS(this.fps);
+            }
             this.frameCount = 0;
             this.lastFpsUpdate = 0;
         }
@@ -1530,7 +1571,7 @@ class GameEngine {
                 if (this.player && this.player !== entity) {
                     console.warn('Player already exists, replacing...');
                 }
-                this.player = entity;
+                this.setPlayer(entity);
             }
 
             return entity;

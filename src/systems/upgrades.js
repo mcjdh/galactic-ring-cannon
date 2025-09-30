@@ -547,7 +547,9 @@ class UpgradeSystem {
         if (upgrade.comboEffects) {
             this.updateComboEffects(upgrade);
         }
-        
+
+        window.gameManager?.statsManager?.trackSpecialEvent?.('upgrade_chosen');
+
         // Show special notification
         this.showUpgradeNotification(upgrade);
         

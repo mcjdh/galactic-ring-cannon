@@ -7,47 +7,74 @@
 class GameManagerBridge {
     constructor() {
         (window.logger?.log || console.log)('🌊 GameManager Bridge initializing...');
-        
+
         // Core game systems
         this.game = null;
         this.enemySpawner = null;
-        
-        // Game state
-        this.gameTime = 0;
-        this.gameOver = false;
-        this.gameWon = false;
-        this.winScreenDisplayed = false;
-        this.endScreenShown = false;
-        this.isPaused = false;
-        this.running = false;
-        
-        // Game mode settings
+
+        // 🌊 GAME STATE - Single Source of Truth
+        // Will be set when game engine initializes
+        this.state = null;
+
+        // Game mode settings (local to bridge)
         this.endlessMode = false;
         this.lowQuality = false;
         this.difficultyFactor = 1.0;
-        this.metaStars = parseInt(localStorage.getItem('starTokens') || '0', 10);
-        
+
         // Reference to effects manager (primary system handles particles)
         this.effects = null;
         // UI manager (DOM HUD)
         this.uiManager = null;
-        
-        // Statistics
-        this.killCount = 0;
-        this.xpCollected = 0;
-        this.damageDealt = 0;
-        this.combos = 0;
-        this.highestCombo = 0;
-        this.currentCombo = 0;
-        this.comboTimer = 0;
-        this.comboTimeout = 3.0;
-        this.comboMultiplier = 1.0;
-        
+
         // Minimap system
         this.minimapSystem = null;
-        
+
         (window.logger?.log || console.log)('🌊 GameManager Bridge ready');
     }
+
+    // ===== GAMESTATE PROXY PROPERTIES =====
+    // External systems access state through these properties
+    // These are the public API - do not remove
+    // Null checks required during initialization
+
+    get gameTime() { return this.state?.runtime.gameTime ?? 0; }
+    set gameTime(value) { if (this.state) this.state.runtime.gameTime = value; }
+
+    get isPaused() { return this.state?.runtime.isPaused ?? false; }
+    set isPaused(value) { if (this.state) { value ? this.state.pause() : this.state.resume(); } }
+
+    get running() { return this.state?.runtime.isRunning ?? false; }
+    set running(value) { if (this.state) { value ? this.state.start() : this.state.stop(); } }
+
+    get gameOver() { return this.state?.flow.isGameOver ?? false; }
+    set gameOver(value) { if (this.state && value) this.state.gameOver(); }
+
+    get gameWon() { return this.state?.flow.isGameWon ?? false; }
+    set gameWon(value) { if (this.state && value) this.state.gameWon(); }
+
+    get endScreenShown() { return this.state?.flow.hasShownEndScreen ?? false; }
+    set endScreenShown(value) { if (this.state) this.state.flow.hasShownEndScreen = value; }
+
+    get killCount() { return this.state?.progression.killCount ?? 0; }
+    set killCount(value) { if (this.state) this.state.progression.killCount = value; }
+
+    get xpCollected() { return this.state?.progression.xpCollected ?? 0; }
+    set xpCollected(value) { if (this.state) this.state.progression.xpCollected = value; }
+
+    get currentCombo() { return this.state?.combo.count ?? 0; }
+    set currentCombo(value) { if (this.state) this.state.combo.count = value; }
+
+    get highestCombo() { return this.state?.combo.highest ?? 0; }
+    set highestCombo(value) { if (this.state) this.state.combo.highest = value; }
+
+    get comboTimer() { return this.state?.combo.timer ?? 0; }
+    set comboTimer(value) { if (this.state) this.state.combo.timer = value; }
+
+    get comboMultiplier() { return this.state?.combo.multiplier ?? 1.0; }
+    set comboMultiplier(value) { if (this.state) this.state.combo.multiplier = value; }
+
+    get metaStars() { return this.state?.meta.starTokens ?? 0; }
+    set metaStars(value) { if (this.state) this.state.meta.starTokens = value; }
 
     /**
      * Minimap: initialize canvas refs and context
@@ -88,10 +115,14 @@ class GameManagerBridge {
      */
     initGameEngine() {
         (window.logger?.log || console.log)('🎮 Initializing game engine...');
-        
+
         try {
             // Create game engine
             this.game = new GameEngine();
+
+            // 🌊 LINK GAME STATE - Single Source of Truth
+            this.state = this.game.state;
+            (window.logger?.log || console.log)('✅ GameState linked to GameManagerBridge');
         
             // Create enemy spawner
             if (typeof EnemySpawner !== 'undefined') {
@@ -103,8 +134,10 @@ class GameManagerBridge {
         
             // Create player
             if (typeof Player !== 'undefined') {
-                this.game.player = new Player(400, 300);
-                this.game.addEntity(this.game.player);
+                const player = new Player(400, 300);
+                // Use setPlayer to sync with GameState
+                this.game.setPlayer(player);
+                this.game.addEntity(player);
                 (window.logger?.log || console.log)('✅ Player created and added');
             } else {
                 (window.logger?.error || console.error)('❌ Player class not available');
@@ -192,31 +225,14 @@ class GameManagerBridge {
      * Reset game state for new game
      */
     resetGameState() {
-        this.gameTime = 0;
-        this.gameOver = false;
-        this.gameWon = false;
-        this.winScreenDisplayed = false;
-        this.endScreenShown = false;
-        this.isPaused = false;
-        
-        // Reset statistics
-        this.killCount = 0;
-        this.xpCollected = 0;
-        this.damageDealt = 0;
-        this.combos = 0;
-        this.highestCombo = 0;
-        this.currentCombo = 0;
-        this.comboTimer = 0;
-
-        this.statsManager?.resetSession?.();
-
-        if (this.statsManager) {
-            this.killCount = this.statsManager.killCount;
-            this.currentCombo = this.statsManager.comboCount;
-            this.highestCombo = this.statsManager.highestCombo;
-            this.xpCollected = this.statsManager.xpCollected;
-            this.metaStars = this.statsManager.starTokens;
+        // 🌊 RESET GAME STATE - Single Source of Truth
+        if (this.state) {
+            this.state.resetSession();
+            (window.logger?.log || console.log)('✅ GameState reset for new session');
         }
+
+        // Reset StatsManager (it will sync with GameState)
+        this.statsManager?.resetSession?.();
 
         // Clear effects
 
@@ -258,13 +274,11 @@ class GameManagerBridge {
      * Increment kill count when enemy dies
      */
     incrementKills() {
+        // Delegate to StatsManager which updates GameState
         const stats = this.statsManager;
         if (stats?.incrementKills) {
-            this.killCount = stats.incrementKills();
-            this.currentCombo = stats.comboCount;
-            this.highestCombo = stats.highestCombo;
-            this.comboTimer = stats.comboTimer;
-            (window.logger?.log || console.log)(`💀 Kill count: ${this.killCount}`);
+            const killCount = stats.incrementKills();
+            (window.logger?.log || console.log)(`💀 Kill count: ${killCount}`);
 
             if (this.currentCombo >= 5) {
                 const textTargetY = this.game?.player?.y ? this.game.player.y - 50 : 0;
@@ -275,21 +289,16 @@ class GameManagerBridge {
                 }
             }
 
-            return this.killCount;
+            return killCount;
         }
 
-        // Fallback legacy behaviour if StatsManager not available
-        this.killCount++;
-        this.currentCombo++;
-        this.comboTimer = 0;
-        if (this.currentCombo > this.highestCombo) {
-            this.highestCombo = this.currentCombo;
-        }
-        if (this.currentCombo >= 5 && this.game?.player) {
-            this.showCombatText(`${this.currentCombo}x COMBO!`, this.game.player.x, this.game.player.y - 50, 'combo', 18);
+        // Fallback: Use GameState directly if StatsManager not available
+        if (this.state) {
+            this.state.addKill();
+            return this.state.progression.killCount;
         }
 
-        return this.killCount;
+        return 0;
     }
     
     /**
@@ -297,8 +306,6 @@ class GameManagerBridge {
      */
     onBossKilled() {
         (window.logger?.log || console.log)('👑 Boss killed!');
-
-        this.statsManager?.onBossKilled?.();
 
         // Add screen shake for dramatic effect (duration in seconds for bridge)
         this.addScreenShake(20, 1.0);
@@ -332,16 +339,11 @@ class GameManagerBridge {
             return;
         }
 
+        // Update StatsManager (it syncs with GameState)
         this.statsManager?.update?.(deltaTime);
 
-        if (this.statsManager) {
-            this.killCount = this.statsManager.killCount;
-            this.metaStars = this.statsManager.starTokens;
-            this.xpCollected = this.statsManager.xpCollected;
-        }
-
-        // Update game time
-        this.gameTime += deltaTime;
+        // GameState is already updated by GameEngine
+        // No need to update gameTime here anymore
 
         // Update timer display
         this.updateTimerDisplay();
@@ -370,8 +372,12 @@ class GameManagerBridge {
             this.enemySpawner.update(deltaTime);
         }
 
-        // Update combo system
-        this.updateComboSystem(deltaTime);
+        // Combo system is updated by GameState
+        // Just sync UI
+        const comboText = document.getElementById('combo-text');
+        if (comboText) {
+            comboText.textContent = this.currentCombo;
+        }
 
         // Check win/lose conditions
         this.checkGameConditions();
@@ -592,26 +598,13 @@ class GameManagerBridge {
 
     /**
      * Combo System
+     * DEPRECATED: Combo is now managed by GameState
+     * This method kept for backward compatibility but does nothing
      */
     updateComboSystem(deltaTime) {
-        const stats = this.statsManager;
-        if (stats) {
-            this.currentCombo = stats.comboCount;
-            this.highestCombo = stats.highestCombo;
-            this.comboTimer = stats.comboTimer;
-            this.comboMultiplier = stats.comboMultiplier;
-        } else if (this.currentCombo > 0) {
-            this.comboTimer += deltaTime;
-            if (this.comboTimer >= this.comboTimeout) {
-                this.currentCombo = 0;
-                this.comboTimer = 0;
-            }
-        }
-
-        const comboText = document.getElementById('combo-text');
-        if (comboText) {
-            comboText.textContent = this.currentCombo;
-        }
+        // Combo system is now handled by GameState.updateCombo()
+        // Called automatically in StatsManager.update()
+        // No action needed here
     }
     
     /**
@@ -916,7 +909,7 @@ class GameManagerBridge {
      */
     onUpgradeMaxed(upgradeId) {
         (window.logger?.log || console.log)('Meta upgrade maxed:', upgradeId);
-        // Could trigger achievements or other effects here
+        this.statsManager?.achievementSystem?.onUpgradeMaxed?.();
     }
     
     /**
@@ -945,6 +938,8 @@ class GameManagerBridge {
     }
 
     onDodge(wasPerfect) {
+        this.statsManager?.trackSpecialEvent?.('dodge');
+
         if (wasPerfect) {
             this.statsManager?.trackSpecialEvent?.('perfect_dodge');
             this.showFloatingText('PERFECT DODGE!', this.game.player.x, this.game.player.y - 30, '#3498db', 18);

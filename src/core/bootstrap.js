@@ -532,6 +532,10 @@
             this.populateShop();
 
             this.log(`Purchased ${upgrade.name} level ${currentLevel + 1}`);
+
+            if (currentLevel + 1 >= upgrade.maxLevel) {
+                window.gameManager.onUpgradeMaxed?.(upgradeId);
+            }
         }
 
         getMetaUpgradeLevel(id) {
