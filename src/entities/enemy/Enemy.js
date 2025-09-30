@@ -178,8 +178,8 @@ class Enemy {
     /**
      * Take damage - delegates to EnemyStats
      */
-    takeDamage(amount) {
-        EnemyStats.takeDamage(this, amount);
+    takeDamage(amount, options = {}) {
+        EnemyStats.takeDamage(this, amount, options);
     }
 
     /**

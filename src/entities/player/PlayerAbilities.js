@@ -10,6 +10,7 @@ class PlayerAbilities {
         this.orbitSpeed = 0;
         this.orbitRadius = 0;
         this.orbitAngle = 0;
+        this.collisionRadius = player?.radius ?? 20;
 
         // Chain lightning properties
         this.hasChainLightning = false;
@@ -43,6 +44,10 @@ class PlayerAbilities {
     }
 
     update(deltaTime, game) {
+        // Keep collision radius in sync with player size
+        if (this.player && typeof this.player.radius === 'number') {
+            this.collisionRadius = this.player.radius;
+        }
         this.updateOrbitalAttacks(deltaTime, game);
     }
 
@@ -121,20 +126,13 @@ class PlayerAbilities {
                         damage *= this.player.combat.critMultiplier;
                     }
 
-                    // Apply damage to enemy
-                    enemy.takeDamage(damage);
-
-                    // Display damage number
                     const gm = window.gameManager || window.gameManagerBridge;
-                    if (gm && typeof gm.showFloatingText === 'function') {
-                        if (isCrit) {
-                            gm.showFloatingText(`CRIT! ${Math.round(damage)}`,
-                                enemy.x, enemy.y - 20, '#f1c40f', 16);
-                        } else {
-                            gm.showFloatingText(`${Math.round(damage)}`,
-                                enemy.x, enemy.y - 20, '#ffffff', 14);
-                        }
-                    }
+
+                    // Apply damage to enemy (metadata keeps damage numbers single-sourced)
+                    enemy.takeDamage(damage, {
+                        isCritical: isCrit,
+                        label: 'Orbit'
+                    });
 
                     // Apply lifesteal if player has it
                     if (this.player.stats.lifestealAmount > 0) {

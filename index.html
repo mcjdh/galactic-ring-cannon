@@ -150,250 +150,155 @@
     </div>
     
     <!-- Configuration files - load FIRST before systems that depend on them -->
-    <script src="src/config/upgrades.config.js"></script>
-    <script src="src/config/achievements.config.js"></script>
-    <script src="src/config/metaUpgrades.config.js"></script>
+    <script defer src="src/config/upgrades.config.js"></script>
+    <script defer src="src/config/achievements.config.js"></script>
+    <script defer src="src/config/metaUpgrades.config.js"></script>
 
     <!-- Configuration and utilities - load in proper order -->
-    <script src="src/utils/Logger.js"></script>
-    <script src="src/utils/URLParams.js"></script>
-    <script src="src/utils/MathUtils.js"></script>
-    <script src="src/utils/CollisionUtils.js"></script>
-    <script src="src/systems/OptimizedParticlePool.js"></script>
-    <script src="src/systems/InputManager.js"></script>
-    <script src="src/utils/ParticleHelpers.js"></script>
-    <script src="src/systems/audio.js"></script>
-    <script src="src/systems/performance.js"></script>
-    <script src="src/systems/EnemySpawner.js"></script>
-    <script src="src/utils/debug.js"></script>
-    <script src="debug-projectiles.js"></script>
+    <script defer src="src/utils/Logger.js"></script>
+    <script defer src="src/utils/URLParams.js"></script>
+    <script defer src="src/utils/MathUtils.js"></script>
+    <script defer src="src/utils/CollisionUtils.js"></script>
+    <script defer src="src/systems/OptimizedParticlePool.js"></script>
+    <script defer src="src/systems/InputManager.js"></script>
+    <script defer src="src/utils/ParticleHelpers.js"></script>
+    <script defer src="src/systems/audio.js"></script>
+    <script defer src="src/systems/performance.js"></script>
+    <script defer src="src/systems/EnemySpawner.js"></script>
+    <script defer src="src/utils/debug.js"></script>
+    <script defer src="src/ui/loadDebugProjectiles.js"></script>
     <!-- Dev utilities moved to conditional loader above -->
     
     <!-- Add error detection for script loading -->
-    <script>
-        window.scriptErrors = [];
-        window.addEventListener('error', function(e) {
-            if (e.filename && e.filename.includes && e.filename.includes('.js')) {
-                console.error('Script error:', e.filename, e.message, e.lineno);
-                window.scriptErrors.push({
-                    file: e.filename,
-                    message: e.message || 'Unknown error',
-                    line: e.lineno || 0
-                });
-            }
-        });
-    </script>
+    <script defer src="src/ui/scriptErrorHandler.js"></script>
 
-    <script>
-        (function() {
-            const screen = {
-                root: document.getElementById('result-screen'),
-                title: document.getElementById('result-title'),
-                subtitle: document.getElementById('result-subtitle'),
-                stats: document.getElementById('result-stats'),
-                buttonsContainer: document.getElementById('result-buttons')
-            };
-
-            function defaultRestart() {
-                if (window.gameManager?.startGame) {
-                    window.gameManager.startGame();
-                } else if (window.gameManagerBridge?.startGame) {
-                    window.gameManagerBridge.resetGameState?.();
-                    window.gameManagerBridge.startGame();
-                }
-            }
-
-            function defaultMenu() {
-                if (window.gameManager?.returnToMenu) {
-                    window.gameManager.returnToMenu();
-                } else if (window.gameManagerBridge?.returnToMenu) {
-                    window.gameManagerBridge.returnToMenu();
-                } else {
-                    const gameContainer = document.getElementById('game-container');
-                    const mainMenu = document.getElementById('main-menu');
-                    if (gameContainer) gameContainer.classList.add('hidden');
-                    if (mainMenu) mainMenu.classList.remove('hidden');
-                }
-            }
-
-            function hide() {
-                if (screen.root) {
-                    screen.root.classList.add('hidden');
-                    screen.root.removeAttribute('data-outcome');
-                }
-                if (screen.stats) {
-                    screen.stats.innerHTML = '';
-                }
-                if (screen.buttonsContainer) {
-                    screen.buttonsContainer.innerHTML = '';
-                }
-            }
-
-            function normalizeButtons(buttons) {
-                if (!Array.isArray(buttons) || buttons.length === 0) {
-                    return [
-                        { label: 'Restart', action: defaultRestart },
-                        { label: 'Main Menu', action: defaultMenu }
-                    ];
-                }
-                return buttons.map(button => ({
-                    label: button?.label ?? 'Action',
-                    action: typeof button?.action === 'function' ? button.action : () => {}
-                }));
-            }
-
-            function renderButtons(buttons) {
-                if (!screen.buttonsContainer) return;
-                screen.buttonsContainer.innerHTML = '';
-                normalizeButtons(buttons).forEach(button => {
-                    const btn = document.createElement('button');
-                    btn.className = 'menu-button';
-                    btn.textContent = button.label;
-                    btn.addEventListener('click', () => {
-                        hide();
-                        try {
-                            button.action();
-                        } catch (error) {
-                            console.error('Result button handler error:', error);
-                        }
-                    });
-                    screen.buttonsContainer.appendChild(btn);
-                });
-            }
-
-            function show(options = {}) {
-                if (!screen.root) return;
-                const {
-                    title = 'Run Complete',
-                    subtitle = '',
-                    stats = [],
-                    outcome = 'summary',
-                    buttons = []
-                } = options;
-
-                screen.root.setAttribute('data-outcome', outcome);
-
-                if (screen.title) screen.title.textContent = title;
-                if (screen.subtitle) {
-                    if (subtitle) {
-                        screen.subtitle.textContent = subtitle;
-                        screen.subtitle.style.display = '';
-                    } else {
-                        screen.subtitle.textContent = '';
-                        screen.subtitle.style.display = 'none';
-                    }
-                }
-
-                if (screen.stats) {
-                    screen.stats.innerHTML = '';
-                    if (Array.isArray(stats) && stats.length > 0) {
-                        const list = document.createElement('ul');
-                        list.className = 'result-stats-list';
-                        stats.forEach(({ label, value }) => {
-                            const item = document.createElement('li');
-                            item.textContent = `${label}: ${value}`;
-                            list.appendChild(item);
-                        });
-                        screen.stats.appendChild(list);
-                    }
-                }
-
-                renderButtons(buttons);
-                screen.root.classList.remove('hidden');
-            }
-
-            window.resultScreen = { show, hide };
-        })();
-    </script>
+    <script defer src="src/ui/resultScreen.js"></script>
     <!-- Core entities - load synchronously to ensure proper initialization order -->
-    <script src="src/entities/particle.js"></script>
-    <script src="src/entities/ShockwaveParticle.js"></script>
+    <script defer src="src/entities/particle.js"></script>
+    <script defer src="src/entities/ShockwaveParticle.js"></script>
     <!-- Projectile system - modular behavior-based architecture -->
-    <script src="src/entities/projectile/behaviors/BehaviorBase.js"></script>
-    <script src="src/entities/projectile/behaviors/BehaviorManager.js"></script>
-    <script src="src/entities/projectile/behaviors/PiercingBehavior.js"></script>
-    <script src="src/entities/projectile/behaviors/RicochetBehavior.js"></script>
-    <script src="src/entities/projectile/behaviors/ExplosiveBehavior.js"></script>
-    <script src="src/entities/projectile/behaviors/ChainBehavior.js"></script>
-    <script src="src/entities/projectile/behaviors/HomingBehavior.js"></script>
-    <script src="src/entities/projectile/ProjectileRenderer.js"></script>
-    <script src="src/entities/projectile/Projectile.js"></script>
-    <script src="src/entities/projectile/ProjectileFactory.js"></script>
-    <script src="src/entities/damageZone.js"></script>
-    <script src="src/entities/EnemyProjectile.js"></script>
-    <script src="src/entities/XPOrb.js"></script>
-    <script src="src/entities/PlayerUpgrades.js"></script>
+    <script defer src="src/entities/projectile/behaviors/BehaviorBase.js"></script>
+    <script defer src="src/entities/projectile/behaviors/BehaviorManager.js"></script>
+    <script defer src="src/entities/projectile/behaviors/PiercingBehavior.js"></script>
+    <script defer src="src/entities/projectile/behaviors/RicochetBehavior.js"></script>
+    <script defer src="src/entities/projectile/behaviors/ExplosiveBehavior.js"></script>
+    <script defer src="src/entities/projectile/behaviors/ChainBehavior.js"></script>
+    <script defer src="src/entities/projectile/behaviors/HomingBehavior.js"></script>
+    <script defer src="src/entities/projectile/ProjectileRenderer.js"></script>
+    <script defer src="src/entities/projectile/Projectile.js"></script>
+    <script defer src="src/entities/projectile/ProjectileFactory.js"></script>
+    <script defer src="src/entities/damageZone.js"></script>
+    <script defer src="src/entities/EnemyProjectile.js"></script>
+    <script defer src="src/entities/XPOrb.js"></script>
+    <script defer src="src/entities/PlayerUpgrades.js"></script>
     <!-- Enemy components - shared behavior systems -->
-    <script src="src/entities/components/EnemyAI.js"></script>
-    <script src="src/entities/components/EnemyAbilities.js"></script>
-    <script src="src/entities/components/EnemyMovement.js"></script>
+    <script defer src="src/entities/components/EnemyAI.js"></script>
+    <script defer src="src/entities/components/EnemyAbilities.js"></script>
+    <script defer src="src/entities/components/EnemyMovement.js"></script>
     <!-- Enemy system - modular type-based architecture -->
-    <script src="src/entities/enemy/types/EnemyTypeBase.js"></script>
-    <script src="src/entities/enemy/types/BasicEnemy.js"></script>
-    <script src="src/entities/enemy/types/FastEnemy.js"></script>
-    <script src="src/entities/enemy/types/TankEnemy.js"></script>
-    <script src="src/entities/enemy/types/RangedEnemy.js"></script>
-    <script src="src/entities/enemy/types/DasherEnemy.js"></script>
-    <script src="src/entities/enemy/types/ExploderEnemy.js"></script>
-    <script src="src/entities/enemy/types/TeleporterEnemy.js"></script>
-    <script src="src/entities/enemy/types/PhantomEnemy.js"></script>
-    <script src="src/entities/enemy/types/ShielderEnemy.js"></script>
-    <script src="src/entities/enemy/types/BossEnemy.js"></script>
-    <script src="src/entities/enemy/EnemyTypeRegistry.js"></script>
-    <script src="src/entities/enemy/EnemyStats.js"></script>
-    <script src="src/entities/enemy/EnemyRenderer.js"></script>
-    <script src="src/entities/enemy/Enemy.js"></script>
+    <script defer src="src/entities/enemy/types/EnemyTypeBase.js"></script>
+    <script defer src="src/entities/enemy/types/BasicEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/FastEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/TankEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/RangedEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/DasherEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/ExploderEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/TeleporterEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/PhantomEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/ShielderEnemy.js"></script>
+    <script defer src="src/entities/enemy/types/BossEnemy.js"></script>
+    <script defer src="src/entities/enemy/EnemyTypeRegistry.js"></script>
+    <script defer src="src/entities/enemy/EnemyStats.js"></script>
+    <script defer src="src/entities/enemy/EnemyRenderer.js"></script>
+    <script defer src="src/entities/enemy/Enemy.js"></script>
     <!-- Player modular components -->
-    <script src="src/entities/player/PlayerStats.js"></script>
-    <script src="src/entities/player/PlayerMovement.js"></script>
-    <script src="src/entities/player/PlayerCombat.js"></script>
-    <script src="src/entities/player/PlayerAbilities.js"></script>
-    <script src="src/entities/player/PlayerRenderer.js"></script>
+    <script defer src="src/entities/player/PlayerStats.js"></script>
+    <script defer src="src/entities/player/PlayerMovement.js"></script>
+    <script defer src="src/entities/player/PlayerCombat.js"></script>
+    <script defer src="src/entities/player/PlayerAbilities.js"></script>
+    <script defer src="src/entities/player/PlayerRenderer.js"></script>
     <!-- Player coordinator class -->
-    <script src="src/entities/player/Player.js"></script>
-    <script src="src/systems/upgrades.js"></script>
-    <script src="src/systems/achievements.js"></script>
+    <script defer src="src/entities/player/Player.js"></script>
+    <script defer src="src/systems/upgrades.js"></script>
+    <script defer src="src/systems/achievements.js"></script>
     <!-- 🌊 GAME STATE - Single Source of Truth (load first!) -->
-    <script src="src/core/GameState.js"></script>
-    <script src="src/core/GameState.test.js"></script>
-    <script src="src/core/systems/CollisionSystem.js"></script>
-    <script src="src/core/systems/EntityManager.js"></script>
-    <script src="src/core/systems/StatsManager.js"></script>
-    <script src="src/core/systems/DifficultyManager.js"></script>
-    <script src="src/core/systems/UnifiedUIManager.js"></script>
-    <script src="src/core/systems/MinimapSystem.js"></script>
-    <script src="src/core/gameEngine.js"></script>
-    <script src="src/core/systems/EffectsManager.js"></script>
-    <script src="src/core/systems/FloatingTextSystem.js"></script>
+    <script defer src="src/core/GameState.js"></script>
+    <script defer src="src/core/GameState.test.js"></script>
+    <script defer src="src/core/systems/CollisionSystem.js"></script>
+    <script defer src="src/core/systems/EntityManager.js"></script>
+    <script defer src="src/core/systems/StatsManager.js"></script>
+    <script defer src="src/core/systems/DifficultyManager.js"></script>
+    <script defer src="src/core/systems/UnifiedUIManager.js"></script>
+    <script defer src="src/core/systems/MinimapSystem.js"></script>
+    <script defer src="src/core/gameEngine.js"></script>
+    <script defer src="src/core/systems/EffectsManager.js"></script>
+    <script defer src="src/core/systems/FloatingTextSystem.js"></script>
     
     <!-- Script loading validation -->
     <script>
-        (window.logger?.log || console.log)('All scripts loaded. Checking class availability...');
-        (window.logger?.log || console.log)('Player class available:', typeof Player !== 'undefined');
-        (window.logger?.log || console.log)('GameEngine class available:', typeof GameEngine !== 'undefined');
-        (window.logger?.log || console.log)('Enemy class available:', typeof Enemy !== 'undefined');
-        (window.logger?.log || console.log)('Projectile class available:', typeof Projectile !== 'undefined');
-        
-        if (typeof Player !== 'undefined') {
-            try {
-                // Test if Player can be instantiated
-                let testPlayer = new Player(0, 0);
-                (window.logger?.log || console.log)('Player instantiation test: SUCCESS');
-                testPlayer = null; // cleanup
-            } catch (e) {
-                (window.logger?.error || console.error)('Player instantiation test: FAILED', e);
+        (function() {
+            let assigned = false;
+
+            const assignGlobals = () => {
+                if (assigned) {
+                    return true;
+                }
+
+                const coreReady = typeof Player !== 'undefined'
+                    && typeof GameEngine !== 'undefined'
+                    && typeof Particle !== 'undefined';
+
+                if (!coreReady) {
+                    return false;
+                }
+
+                (window.logger?.log || console.log)('All scripts loaded. Checking class availability...');
+                (window.logger?.log || console.log)('Player class available:', typeof Player !== 'undefined');
+                (window.logger?.log || console.log)('GameEngine class available:', typeof GameEngine !== 'undefined');
+                (window.logger?.log || console.log)('Enemy class available:', typeof Enemy !== 'undefined');
+                (window.logger?.log || console.log)('Projectile class available:', typeof Projectile !== 'undefined');
+
+                try {
+                    // Test if Player can be instantiated
+                    const testPlayer = new Player(0, 0);
+                    (window.logger?.log || console.log)('Player instantiation test: SUCCESS');
+                    if (typeof testPlayer.destroy === 'function') {
+                        testPlayer.destroy();
+                    }
+                } catch (e) {
+                    (window.logger?.error || console.error)('Player instantiation test: FAILED', e);
+                }
+
+                // Set window reference for global access
+                window.Player = Player;
+                window.GameEngine = GameEngine;
+                if (typeof Enemy !== 'undefined') window.Enemy = Enemy;
+                if (typeof Projectile !== 'undefined') window.Projectile = Projectile;
+                if (typeof XPOrb !== 'undefined') window.XPOrb = XPOrb;
+                window.Particle = typeof Particle !== 'undefined' ? Particle : window.Particle;
+
+                (window.logger?.log || console.log)('Class references set on window object');
+                assigned = true;
+                return true;
+            };
+
+            const attemptAssign = () => {
+                if (!assignGlobals()) {
+                    window.addEventListener('load', assignGlobals, { once: true });
+                }
+            };
+
+            if (document.readyState === 'complete') {
+                assignGlobals();
+            } else if (document.readyState === 'interactive') {
+                // Allow deferred scripts to finish executing before attempting assignment
+                setTimeout(attemptAssign, 0);
+            } else {
+                document.addEventListener('DOMContentLoaded', attemptAssign, { once: true });
             }
-        }
-        
-        // Set window reference for global access
-        if (typeof Player !== 'undefined') window.Player = Player;
-        if (typeof GameEngine !== 'undefined') window.GameEngine = GameEngine;
-        if (typeof Enemy !== 'undefined') window.Enemy = Enemy;
-        if (typeof Projectile !== 'undefined') window.Projectile = Projectile;
-        if (typeof XPOrb !== 'undefined') window.XPOrb = XPOrb;
-        if (typeof Particle !== 'undefined') window.Particle = Particle;
-        
-        (window.logger?.log || console.log)('Class references set on window object');
+
+            window.addEventListener('load', assignGlobals, { once: true });
+        })();
     </script>
     
     <!-- Load game constants first -->
@@ -519,21 +424,23 @@
     
     <!-- Initialize optimized particle pool -->
     <script>
-        // Initialize optimized particle pool
-        if (typeof OptimizedParticlePool !== 'undefined') {
-            window.optimizedParticles = new OptimizedParticlePool(150);
-            (window.logger?.log || console.log)('OptimizedParticlePool initialized');
-        } else {
-            (window.logger?.warn || console.warn)('OptimizedParticlePool not available');
-        }
-        
-        // Initialize systems that are safe to initialize early (no duplicates)
-        // These will be checked again in DOMContentLoaded if they fail here
+        window.addEventListener('DOMContentLoaded', () => {
+            // Initialize optimized particle pool
+            if (typeof OptimizedParticlePool !== 'undefined') {
+                window.optimizedParticles = new OptimizedParticlePool(150);
+                (window.logger?.log || console.log)('OptimizedParticlePool initialized');
+            } else {
+                (window.logger?.warn || console.warn)('OptimizedParticlePool not available');
+            }
+
+            // Initialize systems that are safe to initialize early (no duplicates)
+            // These will be checked again in DOMContentLoaded if they fail here
+        });
     </script>
     
     <!-- Load GameManager Bridge only (GameManager class not required at runtime) -->
-    <script src="src/core/gameManagerBridge.js"></script>
+    <script defer src="src/core/gameManagerBridge.js"></script>
     
-    <script src="src/core/bootstrap.js"></script>
+    <script defer src="src/core/bootstrap.js"></script>
 </body>
 </html>

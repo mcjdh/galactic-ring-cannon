@@ -6,8 +6,14 @@ class EnemyStats {
     /**
      * Handle taking damage with defensive calculations
      */
-    static takeDamage(enemy, amount) {
+    static takeDamage(enemy, amount, options = {}) {
         if (enemy.isDead) return;
+
+        const {
+            isCritical = false,
+            label = null,
+            showText = true
+        } = options || {};
 
         // Apply damage reduction
         if (enemy.damageReduction > 0) {
@@ -48,7 +54,9 @@ class EnemyStats {
         this.createHitEffect(enemy, actualDamage);
 
         // Show damage text
-        this.showDamageText(enemy, actualDamage);
+        if (showText !== false) {
+            this.showDamageText(enemy, actualDamage, { isCritical, label });
+        }
 
         // Check for death
         if (enemy.health <= 0) {
@@ -153,19 +161,31 @@ class EnemyStats {
     /**
      * Show floating damage text
      */
-    static showDamageText(enemy, damage, isCritical = false) {
+    static showDamageText(enemy, damage, metadata = {}) {
+        const {
+            isCritical = false,
+            label = null
+        } = metadata || {};
+
         // Use UnifiedUIManager for better damage number display
         if (window.gameEngine?.unifiedUI) {
             window.gameEngine.unifiedUI.addDamageNumber(damage, enemy.x, enemy.y, isCritical);
         } else if (window.gameManager) {
             // Fallback to old system
-            const color = damage > enemy.maxHealth * 0.2 ? '#e74c3c' : '#f39c12';
+            const displayDamage = Math.round(damage);
+            const color = isCritical ? '#f1c40f' : (damage > enemy.maxHealth * 0.2 ? '#e74c3c' : '#f39c12');
+            let text;
+            if (label) {
+                text = isCritical ? `${label} CRIT! ${displayDamage}` : `${label} ${displayDamage}`;
+            } else {
+                text = isCritical ? `CRIT! ${displayDamage}` : `-${displayDamage}`;
+            }
             window.gameManager.showFloatingText(
-                `-${damage}`,
+                text,
                 enemy.x,
                 enemy.y - 20,
                 color,
-                14
+                isCritical ? 16 : 14
             );
         }
     }

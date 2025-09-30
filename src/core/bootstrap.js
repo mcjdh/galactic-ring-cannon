@@ -29,6 +29,10 @@
             (window.logger?.log || console.log)(...args);
         }
 
+        info(...args) {
+            (window.logger?.info || console.info)(...args);
+        }
+
         warn(...args) {
             (window.logger?.warn || console.warn)(...args);
         }
@@ -54,7 +58,7 @@
                 if (missing.length > 0) {
                     this.warn('⚠️ Missing systems:', missing);
                 } else {
-                    this.log('✅ All core systems available!');
+                    this.info('✅ All core systems available!');
                 }
 
                 this.initGameManager();
@@ -86,24 +90,31 @@
         }
 
         inspectSystemAvailability() {
-            const availability = {
-                GameEngine: typeof window.GameEngine !== 'undefined',
-                EnemySpawner: typeof window.EnemySpawner !== 'undefined',
-                Player: typeof window.Player !== 'undefined',
-                Projectile: typeof window.Projectile !== 'undefined',
-                Enemy: typeof window.Enemy !== 'undefined',
-                Particle: typeof window.Particle !== 'undefined'
+            const ensure = (windowName, localValue) => {
+                if (typeof window[windowName] === 'undefined' && typeof localValue !== 'undefined') {
+                    window[windowName] = localValue;
+                }
+                return typeof window[windowName] !== 'undefined';
             };
 
-            this.log('🔍 System availability:', availability);
+            const availability = {
+                GameEngine: ensure('GameEngine', typeof GameEngine !== 'undefined' ? GameEngine : undefined),
+                EnemySpawner: ensure('EnemySpawner', typeof EnemySpawner !== 'undefined' ? EnemySpawner : undefined),
+                Player: ensure('Player', typeof Player !== 'undefined' ? Player : undefined),
+                Projectile: ensure('Projectile', typeof Projectile !== 'undefined' ? Projectile : undefined),
+                Enemy: ensure('Enemy', typeof Enemy !== 'undefined' ? Enemy : undefined),
+                Particle: ensure('Particle', typeof Particle !== 'undefined' ? Particle : undefined)
+            };
+
+            this.info('🔍 System availability:', availability);
             return availability;
         }
 
         initGameManager() {
-            this.log('🌊 Creating GameManager bridge...');
+            this.info('🌊 Creating GameManager bridge...');
             window.gameManager = new GameManagerBridge();
             window.gameManagerBridge = window.gameManager;
-            this.log('✅ GameManager bridge created successfully');
+            this.info('✅ GameManager bridge created successfully');
         }
 
         initSystems() {
