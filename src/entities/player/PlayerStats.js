@@ -94,19 +94,18 @@ class PlayerStats {
     addXP(amount) {
         if (this.isDead || typeof amount !== 'number' || amount <= 0) return;
 
-        this.xp += amount;
+        const adjustedXP = window.gameManager?.addXpCollected?.(amount) ?? amount;
 
-        // Track XP collected for achievements
-        window.gameManager?.addXpCollected?.(amount);
+        this.xp += adjustedXP;
 
         // Show XP gain using the best UI system available
         const ui = window.gameEngine?.unifiedUI;
         const gm = window.gameManager || window.gameManagerBridge;
 
         if (ui?.addXPGain) {
-            ui.addXPGain(amount, this.player.x, this.player.y);
+            ui.addXPGain(adjustedXP, this.player.x, this.player.y);
         } else if (gm?.showFloatingText) {
-            gm.showFloatingText(`+${amount} XP`, this.player.x, this.player.y - 20, '#f1c40f', 14);
+            gm.showFloatingText(`+${adjustedXP} XP`, this.player.x, this.player.y - 20, '#f1c40f', 14);
         }
 
         // Check for level up with safety limit to prevent infinite loops

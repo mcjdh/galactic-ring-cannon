@@ -41,6 +41,7 @@ class GameManagerBridge {
         this.currentCombo = 0;
         this.comboTimer = 0;
         this.comboTimeout = 3.0;
+        this.comboMultiplier = 1.0;
         
         // Minimap system
         this.minimapSystem = null;
@@ -208,6 +209,14 @@ class GameManagerBridge {
         this.comboTimer = 0;
 
         this.statsManager?.resetSession?.();
+
+        if (this.statsManager) {
+            this.killCount = this.statsManager.killCount;
+            this.currentCombo = this.statsManager.comboCount;
+            this.highestCombo = this.statsManager.highestCombo;
+            this.xpCollected = this.statsManager.xpCollected;
+            this.metaStars = this.statsManager.starTokens;
+        }
 
         // Clear effects
 
@@ -609,11 +618,19 @@ class GameManagerBridge {
      * Event handlers
      */
     onEnemyDied(enemy) {
-        this.incrementKills();
-        
+        if (this.statsManager?.registerEnemyKill) {
+            this.statsManager.registerEnemyKill(enemy);
+            this.killCount = this.statsManager.killCount;
+            this.currentCombo = this.statsManager.comboCount;
+            this.highestCombo = this.statsManager.highestCombo;
+            this.comboTimer = this.statsManager.comboTimer;
+        } else {
+            this.incrementKills();
+        }
+
         // Create death effect
         this.createHitEffect(enemy.x, enemy.y, enemy.maxHealth || 50);
-        
+
         // Show kill combo
         if (this.currentCombo > 1) {
             this.showCombatText(`${this.currentCombo}x COMBO!`, enemy.x, enemy.y - 40, 'combo', 18);
@@ -629,7 +646,9 @@ class GameManagerBridge {
     
     onPlayerLevelUp(level) {
         (window.logger?.log || console.log)('🆙 Player leveled up to', level);
-        
+
+        this.statsManager?.onPlayerLevelUp?.(level);
+
         if (this.game && this.game.player) {
             this.createLevelUpEffect(this.game.player.x, this.game.player.y);
             this.addScreenShake(3, 0.5);
@@ -911,15 +930,18 @@ class GameManagerBridge {
     onPlayerDamaged() {
         // Handle player taking damage (for achievements)
         (window.logger?.log || console.log)('Player took damage');
+        this.statsManager?.onPlayerDamaged?.();
     }
     
     addXpCollected(amount) {
         if (this.statsManager?.collectXP) {
-            return this.statsManager.collectXP(amount);
+            const total = this.statsManager.collectXP(amount);
+            this.xpCollected = this.statsManager.xpCollected;
+            return total;
         }
 
         this.xpCollected += amount;
-        return this.xpCollected;
+        return amount;
     }
 
     onDodge(wasPerfect) {
@@ -930,20 +952,21 @@ class GameManagerBridge {
     }
 
     onChainLightningHit(chainCount) {
+        this.statsManager?.recordChainLightningHit?.(chainCount);
         if (chainCount >= 3) {
             this.showFloatingText(`${chainCount} CHAIN!`, this.game.player.x, this.game.player.y - 40, '#74b9ff', 16);
         }
     }
 
     onRicochetHit(bounceCount) {
+        this.statsManager?.recordRicochetHit?.(bounceCount);
         if (bounceCount >= 2) {
-            this.statsManager?.trackSpecialEvent?.('ricochet_kill');
             this.showFloatingText(`${bounceCount} BOUNCES!`, this.game.player.x, this.game.player.y - 40, '#f39c12', 16);
         }
     }
     
     onOrbitalCountChanged(count) {
-        // Handle orbital projectile count changes
+        this.statsManager?.achievementSystem?.onOrbitalCountChanged?.(count);
     }
     
     createSpecialEffect(type, x, y, size, color) {

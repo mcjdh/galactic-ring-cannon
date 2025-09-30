@@ -82,27 +82,25 @@ class EnemyStats {
         // Notify game manager for kill tracking
         const gm = window.gameManager || window.gameManagerBridge;
         if (gm) {
-            // Increment kill count
-            if (typeof gm.incrementKills === 'function') {
+            const stats = gm.statsManager;
+            if (stats?.registerEnemyKill) {
+                stats.registerEnemyKill(enemy);
+                gm.killCount = stats.killCount;
+                gm.currentCombo = stats.comboCount;
+                gm.highestCombo = stats.highestCombo;
+                gm.comboTimer = stats.comboTimer;
+            } else if (typeof gm.incrementKills === 'function') {
                 gm.incrementKills();
             }
 
-            // Track boss kills
             if (enemy.isBoss) {
-                if (typeof gm.onBossKilled === 'function') {
-                    gm.onBossKilled();
-                }
-                if (typeof gm.onBossDefeated === 'function') {
-                    gm.onBossDefeated(enemy);
-                }
+                gm.onBossKilled?.();
+                gm.onBossDefeated?.(enemy);
             }
 
-            // Keep enemy spawner statistics accurate
-            if (gm.enemySpawner?.onEnemyKilled) {
-                try {
-                    gm.enemySpawner.onEnemyKilled(enemy);
-                } catch (_) { /* no-op */ }
-            }
+            try {
+                gm.enemySpawner?.onEnemyKilled?.(enemy);
+            } catch (_) {}
         }
     }
 

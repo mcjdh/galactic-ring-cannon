@@ -73,7 +73,7 @@ class StatsManager {
             efficiencyScore: 0,
             difficultyRating: 0
         };
-        
+
         // Milestone tracking
         this.milestones = {
             kills: [10, 25, 50, 100, 250, 500, 1000],
@@ -82,7 +82,9 @@ class StatsManager {
             bosses: [1, 3, 5, 10, 15]
         };
         this.achievedMilestones = new Set();
-        
+
+        this.achievementSystem = (typeof window !== 'undefined') ? (window.achievementSystem || null) : null;
+
         // Load persistent stats
         this.loadPersistentStats();
     }
@@ -91,20 +93,35 @@ class StatsManager {
      * Main stats update loop
      */
     update(deltaTime) {
+        this.bindAchievementSystem();
+
         // Update timers
         this.updateTimers(deltaTime);
-        
+
         // Update combo system
         this.updateComboSystem(deltaTime);
-        
+
         // Update performance metrics
         this.updatePerformanceMetrics();
-        
+
         // Check for milestones
         this.checkMilestones();
-        
+
         // Update session time
         this.sessionStats.gameTime = this.gameManager.gameTime;
+
+        this.achievementSystem?.updateUntouchable?.(deltaTime);
+    }
+
+    bindAchievementSystem() {
+        if (!this.achievementSystem && typeof window !== 'undefined' && window.achievementSystem) {
+            this.achievementSystem = window.achievementSystem;
+            this.achievementSystem.updateAchievement?.('first_kill', this.killCount);
+            this.achievementSystem.updateAchievement?.('combo_master', this.highestCombo);
+            this.achievementSystem.updateAchievement?.('star_collector', this.xpCollected);
+            this.achievementSystem.updateAchievement?.('meta_star_collector', this.starTokens);
+            this.achievementSystem.updateAchievement?.('boss_slayer', this.sessionStats.bossesKilled);
+        }
     }
     
     /**
@@ -141,6 +158,8 @@ class StatsManager {
             this.highestCombo = this.comboCount;
             this.sessionStats.highestCombo = this.highestCombo;
         }
+
+        this.achievementSystem?.updateAchievement?.('combo_master', this.highestCombo);
     }
     
     /**
@@ -301,16 +320,57 @@ class StatsManager {
      * Increment kill count and handle combo
      */
     incrementKills() {
+        this.bindAchievementSystem();
+
         this.killCount++;
-        
+
         // Handle combo system
         this.comboCount++;
         this.comboTimer = this.comboTimeout;
-        
+
         // Update session stats
         this.updateSessionStats('kill');
-        
+
+        if (this.achievementSystem) {
+            this.achievementSystem.updateAchievement?.('first_kill', this.killCount);
+            this.achievementSystem.onEnemyKilled?.(Date.now());
+        }
+
         return this.killCount;
+    }
+
+    registerEnemyKill(enemy) {
+        this.bindAchievementSystem();
+
+        const killCount = this.incrementKills();
+
+        if (enemy?.isElite) {
+            this.trackSpecialEvent('elite_kill');
+        }
+
+        return killCount;
+    }
+
+    recordChainLightningHit(hitCount) {
+        this.bindAchievementSystem();
+        this.achievementSystem?.onChainLightningHit?.(hitCount);
+    }
+
+    recordRicochetHit(hitCount) {
+        this.bindAchievementSystem();
+        this.sessionStats.ricochetKills = Math.max(this.sessionStats.ricochetKills, hitCount);
+        this.achievementSystem?.onRicochetHit?.(hitCount);
+    }
+
+    onPlayerLevelUp(level) {
+        this.bindAchievementSystem();
+        this.sessionStats.highestLevel = Math.max(this.sessionStats.highestLevel, level);
+        this.achievementSystem?.updateAchievement?.('level_up', level);
+    }
+
+    onPlayerDamaged() {
+        this.bindAchievementSystem();
+        this.achievementSystem?.onPlayerDamaged?.();
     }
     
     /**
@@ -326,25 +386,31 @@ class StatsManager {
      * Track boss kill
      */
     onBossKilled() {
+        this.bindAchievementSystem();
         this.sessionStats.bossesKilled++;
         this.gameStats.bossesSpawned++;
-        
+
         // Award star tokens for boss kills
         this.earnStarTokens(1);
-        
+
         // Check for Jupiter star drop upgrade
         const extraStars = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
         if (extraStars > 0) {
             this.earnStarTokens(extraStars);
         }
+
+        this.achievementSystem?.updateAchievement?.('boss_slayer', this.sessionStats.bossesKilled);
     }
     
     /**
      * Track XP collection
      */
     collectXP(amount) {
+        this.bindAchievementSystem();
         this.xpCollected += amount;
-        
+
+        this.achievementSystem?.updateAchievement?.('star_collector', this.xpCollected);
+
         // Apply combo multiplier
         const bonusXP = Math.floor(amount * (this.comboMultiplier - 1.0));
         if (bonusXP > 0) {
@@ -380,27 +446,37 @@ class StatsManager {
      * Track special events
      */
     trackSpecialEvent(eventType, data = {}) {
+        this.bindAchievementSystem();
         switch (eventType) {
             case 'critical_hit':
                 this.sessionStats.criticalHits++;
+                this.achievementSystem?.onCriticalHit?.();
                 break;
             case 'perfect_dodge':
                 this.sessionStats.perfectDodges++;
+                this.achievementSystem?.updateAchievement?.('dodge_master', this.sessionStats.perfectDodges);
+                this.achievementSystem?.updateAchievement?.('perfect_dodge', 1);
                 break;
             case 'ricochet_kill':
                 this.sessionStats.ricochetKills++;
+                if (typeof data.count === 'number') {
+                    this.achievementSystem?.onRicochetHit?.(data.count);
+                }
                 break;
             case 'explosion_kill':
                 this.sessionStats.explosionKills++;
                 break;
             case 'elite_kill':
                 this.sessionStats.elitesKilled++;
+                this.achievementSystem?.onEliteKilled?.();
                 break;
             case 'upgrade_chosen':
                 this.gameStats.upgradesChosen++;
                 break;
             case 'wave_completed':
                 this.gameStats.wavesCompleted++;
+                const wave = typeof data.waveNumber === 'number' ? data.waveNumber : this.gameStats.wavesCompleted;
+                this.achievementSystem?.onWaveCompleted?.(wave);
                 break;
         }
     }
@@ -432,6 +508,7 @@ class StatsManager {
      * Earn star tokens
      */
     earnStarTokens(amount) {
+        this.bindAchievementSystem();
         // Apply Stellar Fortune bonus from Star Vendor
         const stellarFortuneLevel = parseInt(localStorage.getItem('meta_star_chance') || '0', 10);
         let finalAmount = amount;
@@ -448,9 +525,11 @@ class StatsManager {
 
         this.starTokens += finalAmount;
         this.starTokensEarned += finalAmount;
-        
+
         // Save to localStorage
         localStorage.setItem('starTokens', this.starTokens.toString());
+
+        this.achievementSystem?.updateAchievement?.('meta_star_collector', this.starTokens);
 
         // Sync with GameManager metaStars and update UI
         if (this.gameManager) {

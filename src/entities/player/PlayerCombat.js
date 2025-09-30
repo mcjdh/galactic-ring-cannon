@@ -133,6 +133,7 @@ class PlayerCombat {
             enemy.takeDamage(damage);
 
             if (isCrit) {
+                window.gameManager?.statsManager?.trackSpecialEvent?.('critical_hit');
                 const gm = window.gameManager || window.gameManagerBridge;
                 if (gm?.showFloatingText) {
                     gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
@@ -233,6 +234,9 @@ class PlayerCombat {
             );
 
             if (projectile) {
+                if (isCrit) {
+                    window.gameManager?.statsManager?.trackSpecialEvent?.('critical_hit');
+                }
                 if (window.debugProjectiles) {
                     console.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
                 }
