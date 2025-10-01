@@ -151,16 +151,20 @@ class GameManagerBridge {
             (window.logger?.log || console.log)('✅ GameState linked to GameManagerBridge');
         
             // Create enemy spawner
-            if (typeof EnemySpawner !== 'undefined') {
-                this.enemySpawner = new EnemySpawner(this.game);
+            const EnemySpawnerClass = typeof EnemySpawner !== 'undefined'
+                ? EnemySpawner
+                : (window.Game?.EnemySpawner || window.EnemySpawner);
+            if (typeof EnemySpawnerClass === 'function') {
+                this.enemySpawner = new EnemySpawnerClass(this.game);
                 (window.logger?.log || console.log)('✅ Enemy spawner created');
             } else {
                 (window.logger?.warn || console.warn)('⚠️ EnemySpawner not available');
             }
-        
+
             // Create player
-            if (typeof Player !== 'undefined') {
-                const player = new Player(400, 300);
+            const PlayerClass = typeof Player !== 'undefined' ? Player : (window.Game?.Player || window.Player);
+            if (typeof PlayerClass === 'function') {
+                const player = new PlayerClass(400, 300);
                 // Use setPlayer to sync with GameState
                 this.game.setPlayer(player);
                 this.game.addEntity(player);
@@ -174,21 +178,24 @@ class GameManagerBridge {
             this.setupMinimap();
 
             // Initialize UI Manager for HUD (timer, bars, boss UI)
-            if (typeof window.UIManager !== 'undefined') {
-                this.uiManager = new window.UIManager(this);
+            const UIManagerClass = window.Game?.UnifiedUIManager || window.UIManager;
+            if (typeof UIManagerClass === 'function') {
+                this.uiManager = new UIManagerClass(this);
                 (window.logger?.log || console.log)('✅ UIManager initialized');
             }
 
             // Initialize Effects Manager for particles, screen shake, etc.
-            if (typeof window.EffectsManager !== 'undefined') {
-                this.effectsManager = new window.EffectsManager(this);
+            const EffectsManagerClass = window.Game?.EffectsManager || window.EffectsManager;
+            if (typeof EffectsManagerClass === 'function') {
+                this.effectsManager = new EffectsManagerClass(this);
                 (window.logger?.log || console.log)('✅ EffectsManager initialized');
             } else {
                 (window.logger?.warn || console.warn)('⚠️ EffectsManager not available');
             }
 
-            if (typeof window.StatsManager !== 'undefined') {
-                this.statsManager = new window.StatsManager(this);
+            const StatsManagerClass = window.Game?.StatsManager || window.StatsManager;
+            if (typeof StatsManagerClass === 'function') {
+                this.statsManager = new StatsManagerClass(this);
                 if (!window.statsManager) {
                     window.statsManager = this.statsManager;
                 }
@@ -276,12 +283,16 @@ class GameManagerBridge {
     }
 
     setupMinimap() {
-        if (!this.game || typeof MinimapSystem === 'undefined') {
+        const MinimapSystemClass = (typeof window !== 'undefined')
+            ? (window.Game?.MinimapSystem || window.MinimapSystem)
+            : (typeof MinimapSystem !== 'undefined' ? MinimapSystem : undefined);
+
+        if (!this.game || typeof MinimapSystemClass !== 'function') {
             return;
         }
 
         if (!this.minimapSystem) {
-            this.minimapSystem = new MinimapSystem(this.game, {
+            this.minimapSystem = new MinimapSystemClass(this.game, {
                 width: 150,
                 height: 150,
                 scale: 0.12,
@@ -401,8 +412,26 @@ class GameManagerBridge {
         // Combo system is updated by GameState
         // Just sync UI
         const comboText = document.getElementById('combo-text');
+        const comboFill = document.getElementById('combo-fill');
+        const comboContainer = document.getElementById('combo-container');
+        const comboCount = this.currentCombo;
+
         if (comboText) {
-            comboText.textContent = this.currentCombo;
+            comboText.textContent = comboCount > 0 ? `${comboCount}` : '';
+            comboText.style.opacity = comboCount > 0 ? '1' : '0.5';
+        }
+
+        if (comboFill) {
+            const timeout = this.state?.combo?.timeout ?? 1;
+            const timer = Math.max(0, Math.min(this.comboTimer ?? 0, timeout));
+            const ratio = timeout > 0 ? timer / timeout : 0;
+            comboFill.style.width = `${Math.round(ratio * 100)}%`;
+            comboFill.style.opacity = comboCount > 0 ? '1' : '0';
+        }
+
+        if (comboContainer) {
+            comboContainer.style.opacity = comboCount > 0 ? '1' : '0.3';
+            comboContainer.style.visibility = 'visible';
         }
 
         // Check win/lose conditions
@@ -688,8 +717,9 @@ class GameManagerBridge {
             effectsManager.createHitEffect(x, y, damage);
             return;
         }
-        if (window.ParticleHelpers && window.ParticleHelpers.createHitEffect) {
-            window.ParticleHelpers.createHitEffect(x, y, damage);
+        const helpers = window.Game?.ParticleHelpers || window.ParticleHelpers;
+        if (helpers && typeof helpers.createHitEffect === 'function') {
+            helpers.createHitEffect(x, y, damage);
             return;
         }
         const particleCount = Math.min(8, Math.floor(damage / 10));
@@ -728,8 +758,9 @@ class GameManagerBridge {
             effectsManager.createExplosion(x, y, radius, color);
             return;
         }
-        if (window.ParticleHelpers && window.ParticleHelpers.createExplosion) {
-            window.ParticleHelpers.createExplosion(x, y, radius, color);
+        const helpers = window.Game?.ParticleHelpers || window.ParticleHelpers;
+        if (helpers && typeof helpers.createExplosion === 'function') {
+            helpers.createExplosion(x, y, radius, color);
             this.addScreenShake(radius / 10, 0.5);
             return;
         }
@@ -770,8 +801,9 @@ class GameManagerBridge {
             effectsManager.createLevelUpEffect(x, y);
             return;
         }
-        if (window.ParticleHelpers && window.ParticleHelpers.createLevelUpEffect) {
-            window.ParticleHelpers.createLevelUpEffect(x, y);
+        const helpers = window.Game?.ParticleHelpers || window.ParticleHelpers;
+        if (helpers && typeof helpers.createLevelUpEffect === 'function') {
+            helpers.createLevelUpEffect(x, y);
             return;
         }
         for (let i = 0; i < 16; i++) {

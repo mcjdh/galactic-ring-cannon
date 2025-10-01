@@ -83,11 +83,14 @@ body {
     border-radius: 6px;
     overflow: hidden;
     position: relative;
+    transition: opacity 0.2s linear;
 }
 #combo-text {
     font-size: 14px;
     color: #f1c40f;
     margin-top: 4px;
+    min-height: 20px;
+    transition: opacity 0.2s linear;
 }
 #combo-fill {
     width: 0%;

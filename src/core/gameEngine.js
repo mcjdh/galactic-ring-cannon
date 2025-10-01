@@ -76,11 +76,14 @@ class GameEngine {
 		this.spatialGrid = new Map();
         
 		// Initialize unified systems if available
-		try {
-			this.collisionSystem = null;
-			if (typeof window !== 'undefined' && window.CollisionSystem) {
-				this.collisionSystem = new window.CollisionSystem(this);
-			}
+			try {
+				this.collisionSystem = null;
+				if (typeof window !== 'undefined') {
+					const CollisionSystem = window.Game?.CollisionSystem || window.CollisionSystem;
+					if (typeof CollisionSystem === 'function') {
+						this.collisionSystem = new CollisionSystem(this);
+					}
+				}
         } catch (e) {
             (window.logger?.warn || console.warn)('Collision system initialization failed, using internal collision logic.', e);
 			this.collisionSystem = null;
@@ -91,8 +94,11 @@ class GameEngine {
 
 		// Initialize Unified UI Manager for proper health bars and floating text
 		try {
-			this.unifiedUI = (typeof window !== 'undefined' && window.UnifiedUIManager)
-				? new window.UnifiedUIManager(this)
+			const UnifiedUIManager = (typeof window !== 'undefined')
+				? (window.Game?.UnifiedUIManager || window.UnifiedUIManager)
+				: undefined;
+			this.unifiedUI = typeof UnifiedUIManager === 'function'
+				? new UnifiedUIManager(this)
 				: null;
 				
 			// Make game engine globally accessible for UI systems
@@ -232,7 +238,7 @@ class GameEngine {
 
         const ManagerClass = typeof EntityManager !== 'undefined'
             ? EntityManager
-            : (typeof window !== 'undefined' ? window.EntityManager : undefined);
+            : (typeof window !== 'undefined' ? (window.Game?.EntityManager || window.EntityManager) : undefined);
 
         if (!ManagerClass) {
             return;
@@ -686,8 +692,11 @@ class GameEngine {
         }
 
         // Late-bind unified systems if modules loaded after engine
-        if (!this.collisionSystem && typeof window !== 'undefined' && window.CollisionSystem) {
-            try { this.collisionSystem = new window.CollisionSystem(this); } catch (_) {}
+        if (!this.collisionSystem && typeof window !== 'undefined') {
+            const CollisionSystem = window.Game?.CollisionSystem || window.CollisionSystem;
+            if (typeof CollisionSystem === 'function') {
+                try { this.collisionSystem = new CollisionSystem(this); } catch (_) {}
+            }
         }
         if (!this.entityManager) {
             this._initializeEntityManager();
@@ -726,8 +735,8 @@ class GameEngine {
         if (window.gameManager && typeof window.gameManager.update === 'function') {
             try {
                 window.gameManager.update(deltaTime);
-                // Update minimap via bridge only when UIManager is not active
-                if (typeof window.gameManager.renderMinimap === 'function' && !window.gameManager.uiManager) {
+                // Always allow minimap rendering via bridge; it will no-op if not ready
+                if (typeof window.gameManager.renderMinimap === 'function') {
                     window.gameManager.renderMinimap();
                 }
             } catch (error) {
