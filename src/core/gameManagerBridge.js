@@ -12,6 +12,15 @@ class GameManagerBridge {
         this.game = null;
         this.enemySpawner = null;
 
+        // Cached star token count (used before GameState initialization)
+        let storedStars = 0;
+        try {
+            storedStars = parseInt(localStorage.getItem('starTokens') || '0', 10);
+        } catch (_) {
+            storedStars = 0;
+        }
+        this.cachedStarTokens = Number.isFinite(storedStars) ? storedStars : 0;
+
         // 🌊 GAME STATE - Single Source of Truth
         // Will be set when game engine initializes
         this.state = null;
@@ -73,8 +82,25 @@ class GameManagerBridge {
     get comboMultiplier() { return this.state?.combo.multiplier ?? 1.0; }
     set comboMultiplier(value) { if (this.state) this.state.combo.multiplier = value; }
 
-    get metaStars() { return this.state?.meta.starTokens ?? 0; }
-    set metaStars(value) { if (this.state) this.state.meta.starTokens = value; }
+    get metaStars() {
+        if (this.state?.meta) {
+            const current = this.state.meta.starTokens ?? 0;
+            this.cachedStarTokens = current;
+            return current;
+        }
+        return this.cachedStarTokens ?? 0;
+    }
+
+    set metaStars(value) {
+        if (this.state?.meta) {
+            this.state.meta.starTokens = value;
+        }
+        this.cachedStarTokens = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+    }
+
+    getStarTokenBalance() {
+        return this.metaStars; // getter handles caching fallback
+    }
 
     /**
      * Minimap: initialize canvas refs and context
@@ -889,18 +915,24 @@ class GameManagerBridge {
     }
 
     saveStarTokens() {
-        localStorage.setItem('starTokens', this.metaStars.toString());
+        const stars = this.getStarTokenBalance();
+        try {
+            localStorage.setItem('starTokens', stars.toString());
+        } catch (_) {
+            // Ignore storage errors in restricted environments
+        }
     }
-    
+
     updateStarDisplay() {
+        const stars = this.getStarTokenBalance();
         const starDisplay = document.getElementById('star-menu-display');
         if (starDisplay) {
-            starDisplay.textContent = '⭐ ' + this.metaStars;
+            starDisplay.textContent = '⭐ ' + stars;
         }
-        
+
         const vendorDisplay = document.getElementById('vendor-star-display');
         if (vendorDisplay) {
-            vendorDisplay.textContent = '⭐ ' + this.metaStars;
+            vendorDisplay.textContent = '⭐ ' + stars;
         }
     }
     
