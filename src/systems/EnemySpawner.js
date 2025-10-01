@@ -747,5 +747,7 @@ class EnemySpawner {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.EnemySpawner = EnemySpawner;
     window.EnemySpawner = EnemySpawner;
 }

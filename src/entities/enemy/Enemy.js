@@ -272,5 +272,7 @@ class Enemy {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.Enemy = Enemy;
     window.Enemy = Enemy;
 }

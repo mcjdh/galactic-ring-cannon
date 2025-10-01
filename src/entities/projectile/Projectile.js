@@ -308,5 +308,7 @@ class Projectile {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.Projectile = Projectile;
     window.Projectile = Projectile;
 }

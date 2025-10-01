@@ -622,5 +622,7 @@ class EnemyAI {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.EnemyAI = EnemyAI;
     window.EnemyAI = EnemyAI;
 }

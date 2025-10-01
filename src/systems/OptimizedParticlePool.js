@@ -389,5 +389,7 @@ if (!window.ParticleManager) {
         render(ctx) { this.pool.render(ctx); }
         clear() { this.pool.clear(); }
     }
+    window.Game = window.Game || {};
+    window.Game.ParticleManager = ParticleManagerAdapter;
     window.ParticleManager = ParticleManagerAdapter;
 }

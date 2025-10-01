@@ -38,6 +38,15 @@
             error('Player instantiation test: FAILED', e);
         }
 
+        const ns = window.Game || (window.Game = {});
+
+        ns.Player = Player;
+        ns.GameEngine = GameEngine;
+        if (typeof Enemy !== 'undefined') ns.Enemy = Enemy;
+        if (typeof Projectile !== 'undefined') ns.Projectile = Projectile;
+        if (typeof XPOrb !== 'undefined') ns.XPOrb = XPOrb;
+        if (typeof Particle !== 'undefined') ns.Particle = Particle;
+
         window.Player = Player;
         window.GameEngine = GameEngine;
         if (typeof Enemy !== 'undefined') window.Enemy = Enemy;

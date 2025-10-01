@@ -32,6 +32,8 @@ if (typeof ShockwaveParticle === 'undefined') {
 
     // Make globally available
     if (typeof window !== 'undefined') {
+        window.Game = window.Game || {};
+        window.Game.ShockwaveParticle = ShockwaveParticle;
         window.ShockwaveParticle = ShockwaveParticle;
     }
 }

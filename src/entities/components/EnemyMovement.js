@@ -709,5 +709,7 @@ class EnemyMovement {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.EnemyMovement = EnemyMovement;
     window.EnemyMovement = EnemyMovement;
 }
