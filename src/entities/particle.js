@@ -88,12 +88,8 @@ class Particle {
     }
 }
 
-// Export to window.Game namespace (preferred) and window (legacy fallback)
+// Export to window.Game namespace
 if (typeof window !== 'undefined') {
-    // Namespace export (preferred)
     if (!window.Game) window.Game = {};
     window.Game.Particle = Particle;
-
-    // Legacy export (will be deprecated)
-    window.Particle = Particle;
 }

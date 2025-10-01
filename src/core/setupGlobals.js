@@ -41,7 +41,7 @@
         // Initialize namespace if not already set
         const ns = window.Game || (window.Game = {});
 
-        // Namespace exports (preferred)
+        // Namespace exports
         ns.Player = Player;
         ns.GameEngine = GameEngine;
         if (typeof Enemy !== 'undefined') ns.Enemy = Enemy;
@@ -49,15 +49,7 @@
         if (typeof XPOrb !== 'undefined') ns.XPOrb = XPOrb;
         if (typeof Particle !== 'undefined') ns.Particle = Particle;
 
-        // Legacy exports (will be deprecated - keep for backward compatibility)
-        window.Player = Player;
-        window.GameEngine = GameEngine;
-        if (typeof Enemy !== 'undefined') window.Enemy = Enemy;
-        if (typeof Projectile !== 'undefined') window.Projectile = Projectile;
-        if (typeof XPOrb !== 'undefined') window.XPOrb = XPOrb;
-        window.Particle = typeof Particle !== 'undefined' ? Particle : window.Particle;
-
-        log('Class references set on window.Game namespace and window (legacy)');
+        log('Class references set on window.Game namespace');
         assigned = true;
         return true;
     }

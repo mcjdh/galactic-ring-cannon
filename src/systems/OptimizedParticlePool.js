@@ -324,82 +324,80 @@ class OptimizedParticlePool {
     }
 }
 
-// Export to window.Game namespace (preferred) and window (legacy fallback)
+// Export to window.Game namespace
 if (typeof window !== 'undefined') {
-    // Namespace export (preferred)
     if (!window.Game) window.Game = {};
     window.Game.OptimizedParticlePool = OptimizedParticlePool;
-
-    // Legacy export (will be deprecated)
-    window.OptimizedParticlePool = OptimizedParticlePool;
 }
 
 // Create global optimized particle system
 window.optimizedParticles = new OptimizedParticlePool();
 
 // Provide a ParticleManager-compatible adapter so legacy calls work
-if (!window.ParticleManager) {
-    class ParticleManagerAdapter {
-        constructor() {
-            this.pool = window.optimizedParticles;
-        }
-        setPerformanceSettings(opts) {
-            if (!opts) return;
-            if (typeof opts.maxParticles === 'number') {
-                this.pool.maxParticles = opts.maxParticles;
-            }
-        }
-        tryAddParticle(particle) {
-            this.pool.spawnParticle({
-                x: particle.x,
-                y: particle.y,
-                vx: particle.vx || 0,
-                vy: particle.vy || 0,
-                size: particle.size || 2,
-                color: particle.color || '#ffffff',
-                life: particle.lifetime || particle.life || 0.5,
-                type: particle.type || 'basic'
-            });
-            return true;
-        }
-        createExplosion(x, y, radius, color) {
-            const count = Math.min(20, Math.floor((radius || 60) / 3));
-            for (let i = 0; i < count; i++) {
-                const angle = (i / count) * Math.PI * 2;
-                const speed = 50 + Math.random() * 100;
-                this.pool.spawnParticle({
-                    x: x + (Math.random() - 0.5) * 10,
-                    y: y + (Math.random() - 0.5) * 10,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    size: 2 + Math.random() * 4,
-                    color: color || '#ff6b35',
-                    life: 0.5 + Math.random() * 0.5,
-                    type: 'spark'
-                });
-            }
-        }
-        createHitEffect(x, y, intensity = 1) { this.pool.spawnHitEffect(x, y, intensity); }
-        createLevelUpEffect(x, y) {
-            for (let i = 0; i < 20; i++) {
-                const angle = (i / 20) * Math.PI * 2;
-                const speed = 60 + Math.random() * 80;
-                this.pool.spawnParticle({
-                    x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    size: 3 + Math.random() * 3,
-                    color: '#f39c12',
-                    life: 1 + Math.random() * 0.5,
-                    type: 'spark'
-                });
-            }
-        }
-        update(dt) { this.pool.update(dt); }
-        render(ctx) { this.pool.render(ctx); }
-        clear() { this.pool.clear(); }
-    }
+if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
-    window.Game.ParticleManager = ParticleManagerAdapter;
-    window.ParticleManager = ParticleManagerAdapter;
+    if (!window.Game.ParticleManager) {
+        class ParticleManagerAdapter {
+            constructor() {
+                this.pool = window.optimizedParticles;
+            }
+            setPerformanceSettings(opts) {
+                if (!opts) return;
+                if (typeof opts.maxParticles === 'number') {
+                    this.pool.maxParticles = opts.maxParticles;
+                }
+            }
+            tryAddParticle(particle) {
+                this.pool.spawnParticle({
+                    x: particle.x,
+                    y: particle.y,
+                    vx: particle.vx || 0,
+                    vy: particle.vy || 0,
+                    size: particle.size || 2,
+                    color: particle.color || '#ffffff',
+                    life: particle.lifetime || particle.life || 0.5,
+                    type: particle.type || 'basic'
+                });
+                return true;
+            }
+            createExplosion(x, y, radius, color) {
+                const count = Math.min(20, Math.floor((radius || 60) / 3));
+                for (let i = 0; i < count; i++) {
+                    const angle = (i / count) * Math.PI * 2;
+                    const speed = 50 + Math.random() * 100;
+                    this.pool.spawnParticle({
+                        x: x + (Math.random() - 0.5) * 10,
+                        y: y + (Math.random() - 0.5) * 10,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: 2 + Math.random() * 4,
+                        color: color || '#ff6b35',
+                        life: 0.5 + Math.random() * 0.5,
+                        type: 'spark'
+                    });
+                }
+            }
+            createHitEffect(x, y, intensity = 1) { this.pool.spawnHitEffect(x, y, intensity); }
+            createLevelUpEffect(x, y) {
+                for (let i = 0; i < 20; i++) {
+                    const angle = (i / 20) * Math.PI * 2;
+                    const speed = 60 + Math.random() * 80;
+                    this.pool.spawnParticle({
+                        x, y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: 3 + Math.random() * 3,
+                        color: '#f39c12',
+                        life: 1 + Math.random() * 0.5,
+                        type: 'spark'
+                    });
+                }
+            }
+            update(dt) { this.pool.update(dt); }
+            render(ctx) { this.pool.render(ctx); }
+            clear() { this.pool.clear(); }
+        }
+
+        window.Game.ParticleManager = ParticleManagerAdapter;
+    }
 }

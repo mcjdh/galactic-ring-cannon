@@ -132,5 +132,4 @@ class ProjectileFactory {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.ProjectileFactory = ProjectileFactory;
-    window.ProjectileFactory = ProjectileFactory;
 }

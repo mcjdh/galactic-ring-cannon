@@ -1,5 +1,4 @@
 // FloatingTextSystem: pooled floating/combat text renderer
-// Exposes window.FloatingTextSystem for use from legacy scripts
 (function () {
     class FloatingTextSystem {
         constructor(options = {}) {
@@ -52,8 +51,7 @@
         }
     }
 
-    // Attach to window for legacy usage
+    // Attach to window namespace
     window.Game = window.Game || {};
     window.Game.FloatingTextSystem = FloatingTextSystem;
-    window.FloatingTextSystem = FloatingTextSystem;
 })();

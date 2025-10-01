@@ -34,6 +34,5 @@ if (typeof ShockwaveParticle === 'undefined') {
     if (typeof window !== 'undefined') {
         window.Game = window.Game || {};
         window.Game.ShockwaveParticle = ShockwaveParticle;
-        window.ShockwaveParticle = ShockwaveParticle;
     }
 }

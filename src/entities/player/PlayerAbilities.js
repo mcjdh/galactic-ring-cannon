@@ -429,7 +429,7 @@ class PlayerAbilities {
 
         const factor = gm ? (gm.particleReductionFactor || 1.0) : 1.0;
         const baseParticles = Math.floor(distance / 10);
-        const MathUtils = window.Game?.MathUtils || window.MathUtils;
+        const MathUtils = window.Game?.MathUtils;
         const particleCount = MathUtils ?
             Math.max(0, Math.floor(MathUtils.clamp(baseParticles, 0, 15) * factor)) :
             Math.max(0, Math.floor(Math.min(Math.max(baseParticles, 0), 15) * factor));

@@ -406,5 +406,4 @@ class DifficultyManager {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.DifficultyManager = DifficultyManager;
-    window.DifficultyManager = DifficultyManager;
 }

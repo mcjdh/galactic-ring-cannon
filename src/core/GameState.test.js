@@ -235,6 +235,5 @@ function testGameState() {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.testGameState = testGameState;
-    window.testGameState = testGameState;
     console.log('🧪 GameState tests loaded. Run testGameState() in console to verify integration.');
 }

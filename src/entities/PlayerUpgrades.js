@@ -17,5 +17,4 @@ class PlayerUpgrades {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.PlayerUpgrades = PlayerUpgrades;
-    window.PlayerUpgrades = PlayerUpgrades;
 }

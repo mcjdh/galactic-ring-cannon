@@ -695,5 +695,4 @@ class GameState {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.GameState = GameState;
-    window.GameState = GameState;
 }

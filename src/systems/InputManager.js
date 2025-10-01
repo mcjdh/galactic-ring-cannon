@@ -382,12 +382,8 @@ class InputManager {
     }
 }
 
-// Export to window.Game namespace (preferred) and window (legacy fallback)
+// Export to window.Game namespace
 if (typeof window !== 'undefined') {
-    // Namespace export (preferred)
     if (!window.Game) window.Game = {};
     window.Game.InputManager = InputManager;
-
-    // Legacy export (will be deprecated)
-    window.InputManager = InputManager;
 }

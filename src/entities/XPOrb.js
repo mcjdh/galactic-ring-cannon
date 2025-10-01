@@ -223,9 +223,8 @@ class XPOrb {
                     type: 'spark'
                 });
             }
-        } else if (window.ParticleHelpers?.createHitEffect) {
-            // Fallback to ParticleHelpers
-            window.ParticleHelpers.createHitEffect(this.x, this.y, 25);
+        } else if (window.Game?.ParticleHelpers?.createHitEffect) {
+            window.Game.ParticleHelpers.createHitEffect(this.x, this.y, 25);
         }
     }
     
@@ -410,12 +409,8 @@ class XPOrb {
     }
 }
 
-// Export to window.Game namespace (preferred) and window (legacy fallback)
+// Export to window.Game namespace
 if (typeof window !== 'undefined') {
-    // Namespace export (preferred)
     if (!window.Game) window.Game = {};
     window.Game.XPOrb = XPOrb;
-
-    // Legacy export (will be deprecated)
-    window.XPOrb = XPOrb;
 }

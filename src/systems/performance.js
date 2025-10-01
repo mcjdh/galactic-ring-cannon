@@ -223,7 +223,6 @@ class PerformanceManager {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.PerformanceManager = PerformanceManager;
-    window.PerformanceManager = PerformanceManager;
 }
 
 // Initialize performance manager

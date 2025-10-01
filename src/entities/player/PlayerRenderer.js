@@ -47,7 +47,7 @@ class PlayerRenderer {
         if (!window.gameManager?.particles || window.gameManager.lowQuality) return;
 
         // Use simplified budget calculation
-        const MathUtils = window.Game?.MathUtils || window.MathUtils;
+        const MathUtils = window.Game?.MathUtils;
         const count = MathUtils ?
             MathUtils.budget(16, window.gameManager.particleReductionFactor, window.gameManager.maxParticles, window.gameManager.particles.length) :
             Math.floor(16 * Math.min(window.gameManager.particleReductionFactor || 1, 1));

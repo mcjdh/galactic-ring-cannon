@@ -88,7 +88,7 @@ class EffectsManager {
      * Initialize floating text system
      */
     initializeFloatingText() {
-        const FloatingTextSystem = window.Game?.FloatingTextSystem || window.FloatingTextSystem;
+        const FloatingTextSystem = window.Game?.FloatingTextSystem;
         if (typeof FloatingTextSystem === 'function') {
             this.floatingText = new FloatingTextSystem();
         }
@@ -102,7 +102,7 @@ class EffectsManager {
         if (window.optimizedParticles) {
             this.particleManager = window.optimizedParticles;
         } else {
-            const ParticleManager = window.Game?.ParticleManager || window.ParticleManager;
+            const ParticleManager = window.Game?.ParticleManager;
             if (ParticleManager) {
             // Use global adapter instead of creating a new instance if available
                 this.particleManager = (typeof ParticleManager === 'function' && ParticleManager.prototype && ParticleManager.prototype.update)
@@ -317,8 +317,9 @@ class EffectsManager {
         if (!this.effectsEnabled) return;
         
         // Use ParticleHelpers if available
-        if (window.ParticleHelpers && window.ParticleHelpers.createHitEffect) {
-            window.ParticleHelpers.createHitEffect(x, y, damage);
+        const helpers = window.Game?.ParticleHelpers;
+        if (helpers && typeof helpers.createHitEffect === 'function') {
+            helpers.createHitEffect(x, y, damage);
             return;
         }
         
@@ -340,8 +341,9 @@ class EffectsManager {
         if (!this.effectsEnabled) return;
         
         // Use ParticleHelpers if available
-        if (window.ParticleHelpers && window.ParticleHelpers.createExplosion) {
-            window.ParticleHelpers.createExplosion(x, y, radius, color);
+        const helpers = window.Game?.ParticleHelpers;
+        if (helpers && typeof helpers.createExplosion === 'function') {
+            helpers.createExplosion(x, y, radius, color);
             return;
         }
         
@@ -377,8 +379,9 @@ class EffectsManager {
         if (!this.effectsEnabled) return;
         
         // Use ParticleHelpers if available
-        if (window.ParticleHelpers && window.ParticleHelpers.createLevelUpEffect) {
-            window.ParticleHelpers.createLevelUpEffect(x, y);
+        const helpers = window.Game?.ParticleHelpers;
+        if (helpers && typeof helpers.createLevelUpEffect === 'function') {
+            helpers.createLevelUpEffect(x, y);
             return;
         }
         
@@ -507,8 +510,9 @@ class EffectsManager {
         if (!this.effectsEnabled) return;
 
         // Use ParticleHelpers if available
-        if (window.ParticleHelpers && window.ParticleHelpers.createLightningEffect) {
-            window.ParticleHelpers.createLightningEffect(fromX, fromY, toX, toY);
+        const helpers = window.Game?.ParticleHelpers;
+        if (helpers && typeof helpers.createLightningEffect === 'function') {
+            helpers.createLightningEffect(fromX, fromY, toX, toY);
             this.flashLightningArc(fromX, fromY, toX, toY, {
                 duration: 0.6,  // Longer duration for better visibility
                 thickness: 8,   // Thicker line
@@ -846,5 +850,4 @@ class EffectsManager {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.EffectsManager = EffectsManager;
-    window.EffectsManager = EffectsManager;
 }

@@ -153,7 +153,7 @@ class GameManagerBridge {
             // Create enemy spawner
             const EnemySpawnerClass = typeof EnemySpawner !== 'undefined'
                 ? EnemySpawner
-                : (window.Game?.EnemySpawner || window.EnemySpawner);
+                : window.Game?.EnemySpawner;
             if (typeof EnemySpawnerClass === 'function') {
                 this.enemySpawner = new EnemySpawnerClass(this.game);
                 (window.logger?.log || console.log)('✅ Enemy spawner created');
@@ -162,7 +162,7 @@ class GameManagerBridge {
             }
 
             // Create player
-            const PlayerClass = typeof Player !== 'undefined' ? Player : (window.Game?.Player || window.Player);
+            const PlayerClass = typeof Player !== 'undefined' ? Player : window.Game?.Player;
             if (typeof PlayerClass === 'function') {
                 const player = new PlayerClass(400, 300);
                 // Use setPlayer to sync with GameState
@@ -178,14 +178,14 @@ class GameManagerBridge {
             this.setupMinimap();
 
             // Initialize UI Manager for HUD (timer, bars, boss UI)
-            const UIManagerClass = window.Game?.UnifiedUIManager || window.UIManager;
+            const UIManagerClass = window.Game?.UnifiedUIManager;
             if (typeof UIManagerClass === 'function') {
                 this.uiManager = new UIManagerClass(this);
                 (window.logger?.log || console.log)('✅ UIManager initialized');
             }
 
             // Initialize Effects Manager for particles, screen shake, etc.
-            const EffectsManagerClass = window.Game?.EffectsManager || window.EffectsManager;
+            const EffectsManagerClass = window.Game?.EffectsManager;
             if (typeof EffectsManagerClass === 'function') {
                 this.effectsManager = new EffectsManagerClass(this);
                 (window.logger?.log || console.log)('✅ EffectsManager initialized');
@@ -193,7 +193,7 @@ class GameManagerBridge {
                 (window.logger?.warn || console.warn)('⚠️ EffectsManager not available');
             }
 
-            const StatsManagerClass = window.Game?.StatsManager || window.StatsManager;
+            const StatsManagerClass = window.Game?.StatsManager;
             if (typeof StatsManagerClass === 'function') {
                 this.statsManager = new StatsManagerClass(this);
                 if (!window.statsManager) {
@@ -284,7 +284,7 @@ class GameManagerBridge {
 
     setupMinimap() {
         const MinimapSystemClass = (typeof window !== 'undefined')
-            ? (window.Game?.MinimapSystem || window.MinimapSystem)
+            ? window.Game?.MinimapSystem
             : (typeof MinimapSystem !== 'undefined' ? MinimapSystem : undefined);
 
         if (!this.game || typeof MinimapSystemClass !== 'function') {
@@ -717,7 +717,7 @@ class GameManagerBridge {
             effectsManager.createHitEffect(x, y, damage);
             return;
         }
-        const helpers = window.Game?.ParticleHelpers || window.ParticleHelpers;
+        const helpers = window.Game?.ParticleHelpers;
         if (helpers && typeof helpers.createHitEffect === 'function') {
             helpers.createHitEffect(x, y, damage);
             return;
@@ -758,7 +758,7 @@ class GameManagerBridge {
             effectsManager.createExplosion(x, y, radius, color);
             return;
         }
-        const helpers = window.Game?.ParticleHelpers || window.ParticleHelpers;
+        const helpers = window.Game?.ParticleHelpers;
         if (helpers && typeof helpers.createExplosion === 'function') {
             helpers.createExplosion(x, y, radius, color);
             this.addScreenShake(radius / 10, 0.5);
@@ -801,7 +801,7 @@ class GameManagerBridge {
             effectsManager.createLevelUpEffect(x, y);
             return;
         }
-        const helpers = window.Game?.ParticleHelpers || window.ParticleHelpers;
+        const helpers = window.Game?.ParticleHelpers;
         if (helpers && typeof helpers.createLevelUpEffect === 'function') {
             helpers.createLevelUpEffect(x, y);
             return;
@@ -1058,5 +1058,4 @@ class GameManagerBridge {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.GameManagerBridge = GameManagerBridge;
-    window.GameManagerBridge = GameManagerBridge;
 }

@@ -523,5 +523,4 @@
 
     window.Game = window.Game || {};
     window.Game.CollisionSystem = CollisionSystem;
-    window.CollisionSystem = CollisionSystem;
 })();

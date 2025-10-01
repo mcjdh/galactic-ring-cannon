@@ -658,5 +658,4 @@ AudioSystem.prototype.playBossBeat = function() {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.AudioSystem = AudioSystem;
-    window.AudioSystem = AudioSystem;
 }

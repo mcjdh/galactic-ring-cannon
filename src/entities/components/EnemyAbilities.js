@@ -434,7 +434,7 @@ class EnemyAbilities {
 
         // Create damage zone at player location
         if (game.player && !game.player.isDead) {
-            const DamageZone = window.Game?.DamageZone || window.DamageZone;
+            const DamageZone = window.Game?.DamageZone;
             if (typeof DamageZone !== 'function') return;
 
             const damageZone = new DamageZone(
@@ -521,8 +521,9 @@ class EnemyAbilities {
         });
         
         // Create explosion effect
-        if (window.ParticleHelpers) {
-            window.ParticleHelpers.createExplosion(
+        const helpers = window.Game?.ParticleHelpers;
+        if (helpers && typeof helpers.createExplosion === 'function') {
+            helpers.createExplosion(
                 this.enemy.x,
                 this.enemy.y,
                 this.explosionRadius,
@@ -813,5 +814,4 @@ class EnemyAbilities {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.EnemyAbilities = EnemyAbilities;
-    window.EnemyAbilities = EnemyAbilities;
 }

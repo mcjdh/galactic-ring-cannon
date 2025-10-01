@@ -193,5 +193,4 @@ class MinimapSystem {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.MinimapSystem = MinimapSystem;
-    window.MinimapSystem = MinimapSystem;
 }

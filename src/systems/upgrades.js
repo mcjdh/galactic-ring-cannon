@@ -255,7 +255,7 @@ class UpgradeSystem {
         this.selectedUpgrades.push(upgrade);
         
         // Apply upgrade to player using clean delegation (no monkey patching)
-        const playerUpgrades = window.Game?.PlayerUpgrades || window.PlayerUpgrades;
+        const playerUpgrades = window.Game?.PlayerUpgrades;
         if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
             playerUpgrades.apply(window.gameManager.game.player, upgrade);
         } else {
@@ -386,7 +386,6 @@ class UpgradeSystem {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.UpgradeSystem = UpgradeSystem;
-    window.UpgradeSystem = UpgradeSystem;
 }
 
 // 🤖 RESONANT NOTE: XP bonus logic should be moved to XP orb collection logic

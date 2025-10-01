@@ -79,7 +79,7 @@ class GameEngine {
 			try {
 				this.collisionSystem = null;
 				if (typeof window !== 'undefined') {
-					const CollisionSystem = window.Game?.CollisionSystem || window.CollisionSystem;
+					const CollisionSystem = window.Game?.CollisionSystem;
 					if (typeof CollisionSystem === 'function') {
 						this.collisionSystem = new CollisionSystem(this);
 					}
@@ -95,7 +95,7 @@ class GameEngine {
 		// Initialize Unified UI Manager for proper health bars and floating text
 		try {
 			const UnifiedUIManager = (typeof window !== 'undefined')
-				? (window.Game?.UnifiedUIManager || window.UnifiedUIManager)
+				? window.Game?.UnifiedUIManager
 				: undefined;
 			this.unifiedUI = typeof UnifiedUIManager === 'function'
 				? new UnifiedUIManager(this)
@@ -238,7 +238,7 @@ class GameEngine {
 
         const ManagerClass = typeof EntityManager !== 'undefined'
             ? EntityManager
-            : (typeof window !== 'undefined' ? (window.Game?.EntityManager || window.EntityManager) : undefined);
+            : (typeof window !== 'undefined' ? window.Game?.EntityManager : undefined);
 
         if (!ManagerClass) {
             return;
@@ -693,7 +693,7 @@ class GameEngine {
 
         // Late-bind unified systems if modules loaded after engine
         if (!this.collisionSystem && typeof window !== 'undefined') {
-            const CollisionSystem = window.Game?.CollisionSystem || window.CollisionSystem;
+            const CollisionSystem = window.Game?.CollisionSystem;
             if (typeof CollisionSystem === 'function') {
                 try { this.collisionSystem = new CollisionSystem(this); } catch (_) {}
             }
@@ -1472,7 +1472,7 @@ class GameEngine {
         
         if (!ep) {
             // Check if EnemyProjectile class is available
-            const EnemyProjectile = window.Game?.EnemyProjectile || window.EnemyProjectile;
+            const EnemyProjectile = window.Game?.EnemyProjectile;
             if (typeof EnemyProjectile !== 'function') {
                 console.error('EnemyProjectile class not available');
                 return null;

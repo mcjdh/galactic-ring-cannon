@@ -112,7 +112,7 @@
 
         initGameManager() {
             this.info('🌊 Creating GameManager bridge...');
-            const GameManagerBridge = window.Game?.GameManagerBridge || window.GameManagerBridge;
+            const GameManagerBridge = window.Game?.GameManagerBridge;
             if (typeof GameManagerBridge === 'function') {
                 window.gameManager = new GameManagerBridge();
                 window.gameManagerBridge = window.gameManager;
@@ -131,7 +131,7 @@
         }
 
         initInputManager() {
-            const InputManager = window.Game?.InputManager || window.InputManager;
+            const InputManager = window.Game?.InputManager;
             if (typeof InputManager !== 'function') {
                 this.warn('⚠️ InputManager not available');
                 return;
@@ -146,7 +146,7 @@
         }
 
         initUpgradeSystem() {
-            const UpgradeSystem = window.Game?.UpgradeSystem || window.UpgradeSystem;
+            const UpgradeSystem = window.Game?.UpgradeSystem;
             if (typeof UpgradeSystem !== 'function') {
                 this.warn('⚠️ UpgradeSystem not available');
                 return;
@@ -161,7 +161,7 @@
         }
 
         initAudioSystem() {
-            const AudioSystem = window.Game?.AudioSystem || window.AudioSystem;
+            const AudioSystem = window.Game?.AudioSystem;
             if (typeof AudioSystem !== 'function') {
                 this.warn('⚠️ AudioSystem not available - creating stub');
                 window.audioSystem = {
@@ -184,7 +184,7 @@
         }
 
         initPerformanceManager() {
-            const PerformanceManager = window.Game?.PerformanceManager || window.PerformanceManager;
+            const PerformanceManager = window.Game?.PerformanceManager;
             if (typeof PerformanceManager !== 'function') {
                 return;
             }
@@ -198,7 +198,7 @@
         }
 
         initAchievementSystem() {
-            const AchievementSystem = window.Game?.AchievementSystem || window.AchievementSystem;
+            const AchievementSystem = window.Game?.AchievementSystem;
             if (typeof AchievementSystem !== 'function') {
                 this.warn('⚠️ AchievementSystem not available - creating stub');
                 window.achievementSystem = {
