@@ -62,6 +62,10 @@ class GameEngine {
         this.lastFrameTime = 0;
         this.performanceMode = false;
         this.debugMode = false;
+
+        // Track pause origins so auto-resume doesn't override manual pauses
+        this.manualPause = false;
+        this.autoPaused = false;
         
     // Object pools - partially implemented for projectiles and particles
     // 🤖 RESONANT NOTE FOR ALL CODING AGENTS:
@@ -436,6 +440,8 @@ class GameEngine {
 
         // Reset pause/visibility state
         this.isPaused = false;
+        this.manualPause = false;
+        this.autoPaused = false;
         this.contextLost = false;
         this.performanceMode = false;
         this.lowPerformanceMode = false;
@@ -659,11 +665,16 @@ class GameEngine {
             }
 
             // Update entity counts
+            const particleStats = window.Game?.ParticleHelpers?.getParticleStats?.();
+            const particleCount = particleStats
+                ? particleStats.currentParticles
+                : window.optimizedParticles?.activeParticles?.length || 0;
+
             this.state.updateEntityCounts(
                 this.enemies.length,
                 this.projectiles.length,
                 this.xpOrbs.length,
-                window.optimizedParticles?.particles?.length || 0
+                particleCount
             );
         }
         
@@ -1591,33 +1602,62 @@ class GameEngine {
             }
             
             if (this.isPaused) {
-                this.resumeGame();
+                this.resumeGame({ reason: 'manual' });
             } else {
-                this.pauseGame();
+                this.pauseGame({ reason: 'manual' });
             }
         } catch (error) {
             console.error('Error toggling pause:', error);
         }
     }
     
-    pauseGame() {
-        this.isPaused = true;
+    pauseGame(options = {}) {
+        const { reason = 'manual' } = options;
+
+        if (reason === 'manual') {
+            this.manualPause = true;
+        } else if (reason === 'auto') {
+            this.autoPaused = true;
+        }
+
+        if (!this.isPaused) {
+            this.isPaused = true;
+        }
         
         const resultScreen = document.getElementById('result-screen');
         const resultVisible = resultScreen && !resultScreen.classList.contains('hidden');
 
+        const shouldShowPauseMenu = reason === 'manual';
+
         // Only show pause menu if we're not in level-up mode or result screen
-        if (!resultVisible && (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive())) {
+        if (shouldShowPauseMenu && !resultVisible && (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive())) {
             const pauseMenu = document.getElementById('pause-menu');
             if (pauseMenu) pauseMenu.classList.remove('hidden');
         }
+
         // Suspend audio during pause
         if (window.audioSystem && window.audioSystem.audioContext && window.audioSystem.audioContext.state === 'running') {
             window.audioSystem.audioContext.suspend();
         }
     }
     
-    resumeGame() {
+    resumeGame(options = {}) {
+        const { reason = 'manual' } = options;
+
+        if (reason === 'auto') {
+            if (this.manualPause) {
+                return;
+            }
+            this.autoPaused = false;
+        } else if (reason === 'manual') {
+            this.manualPause = false;
+            this.autoPaused = false;
+        }
+
+        if (!this.isPaused) {
+            return;
+        }
+
         // Don't resume if level-up menu is active
         if (window.upgradeSystem && window.upgradeSystem.isLevelUpActive()) {
             return;
@@ -1628,9 +1668,11 @@ class GameEngine {
         
         this.isPaused = false;
         
-        // Hide pause menu
-        const pauseMenu = document.getElementById('pause-menu');
-        if (pauseMenu) pauseMenu.classList.add('hidden');
+        if (reason === 'manual') {
+            // Hide pause menu
+            const pauseMenu = document.getElementById('pause-menu');
+            if (pauseMenu) pauseMenu.classList.add('hidden');
+        }
         // Resume audio on unpause
         if (window.audioSystem) {
             window.audioSystem.resumeAudioContext();
@@ -1741,18 +1783,18 @@ class GameEngine {
         this.lastVisibilityChange = now;
         
         if (!this.isVisible) {
-            this.pauseGame();
+            this.pauseGame({ reason: 'auto' });
             this.reduceResourceUsage();
         } else {
             this.restoreResourceUsage();
-            this.resumeGame();
+            this.resumeGame({ reason: 'auto' });
         }
     }
     
     handleFocusChange() {
         this.isMinimized = false;
         this.restoreResourceUsage();
-        this.resumeGame();
+        this.resumeGame({ reason: 'auto' });
     }
     
     handleBlurChange() {

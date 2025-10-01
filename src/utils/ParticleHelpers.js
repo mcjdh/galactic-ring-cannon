@@ -13,6 +13,71 @@ class ParticleHelpers {
         }
         return true;
     }
+
+    /**
+     * Retrieve current particle system statistics (counts, limits, quality flags)
+     */
+    static getParticleStats() {
+        const gm = window.gameManager || window.gameManagerBridge || null;
+
+        const particleManager = window.optimizedParticles
+            || gm?.game?.effectsManager?.particleManager
+            || gm?.game?.effectsManager
+            || null;
+
+        let currentParticles = 0;
+        if (particleManager) {
+            if (typeof particleManager.getActiveCount === 'function') {
+                currentParticles = particleManager.getActiveCount();
+            } else if (Array.isArray(particleManager.activeParticles)) {
+                currentParticles = particleManager.activeParticles.length;
+            } else if (Array.isArray(particleManager.particles)) {
+                currentParticles = particleManager.particles.length;
+            }
+        }
+
+        const maxParticles = gm?.maxParticles
+            ?? particleManager?.maxParticles
+            ?? window.optimizedParticles?.maxParticles
+            ?? 150;
+
+        const reduction = gm?.particleReductionFactor ?? 1;
+
+        return {
+            manager: particleManager,
+            currentParticles,
+            maxParticles,
+            reduction,
+            lowQuality: gm?.lowQuality ?? false
+        };
+    }
+
+    /**
+     * Calculate how many particles can spawn for a burst without exceeding limits
+     */
+    static calculateSpawnCount(baseCount) {
+        if (!Number.isFinite(baseCount) || baseCount <= 0) {
+            return 0;
+        }
+
+        const stats = this.getParticleStats();
+        if (stats.lowQuality) {
+            return 0;
+        }
+
+        const MathUtils = window.Game?.MathUtils;
+        if (MathUtils?.budget) {
+            return Math.floor(MathUtils.budget(
+                baseCount,
+                stats.reduction,
+                stats.maxParticles,
+                stats.currentParticles
+            ));
+        }
+
+        const reduction = Math.min(1, Math.max(0, stats.reduction));
+        return Math.floor(baseCount * reduction);
+    }
     
     /**
      * Create hit effect particles

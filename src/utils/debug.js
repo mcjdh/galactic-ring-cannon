@@ -165,7 +165,10 @@ class DebugManager {
         this.stats.entities = (game?.enemies?.length || 0) + 
                               (game?.projectiles?.length || 0) + 
                               (game?.xpOrbs?.length || 0);
-        this.stats.particles = gameManager?.particles?.length || 0;
+        const particleStats = window.Game?.ParticleHelpers?.getParticleStats?.();
+        this.stats.particles = particleStats
+            ? particleStats.currentParticles
+            : window.optimizedParticles?.activeParticles?.length || 0;
         this.stats.fps = window.performanceManager?.fps || 0;
         this.stats.memory = window.performanceManager?.memoryUsage || 0;
         

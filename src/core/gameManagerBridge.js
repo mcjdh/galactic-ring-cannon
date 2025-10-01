@@ -56,10 +56,30 @@ class GameManagerBridge {
     set running(value) { if (this.state) { value ? this.state.start() : this.state.stop(); } }
 
     get gameOver() { return this.state?.flow.isGameOver ?? false; }
-    set gameOver(value) { if (this.state && value) this.state.gameOver(); }
+    set gameOver(value) {
+        if (!this.state) return;
+
+        if (value) {
+            this.state.gameOver();
+        } else {
+            // Reset defeat flag so new sessions can start cleanly
+            this.state.flow.isGameOver = false;
+            this.state.player.isAlive = true;
+        }
+    }
 
     get gameWon() { return this.state?.flow.isGameWon ?? false; }
-    set gameWon(value) { if (this.state && value) this.state.gameWon(); }
+    set gameWon(value) {
+        if (!this.state) return;
+
+        if (value) {
+            this.state.gameWon();
+        } else {
+            // Allow subsequent bosses to trigger victory flow again
+            this.state.flow.isGameWon = false;
+            this.state.runtime.isRunning = false;
+        }
+    }
 
     get endScreenShown() { return this.state?.flow.hasShownEndScreen ?? false; }
     set endScreenShown(value) { if (this.state) this.state.flow.hasShownEndScreen = value; }

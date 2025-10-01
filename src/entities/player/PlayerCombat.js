@@ -149,14 +149,13 @@ class PlayerCombat {
 
     createAOEEffect() {
         // Visual effect for AOE attack
-        const gm = window.gameManager;
-        if (!gm || gm.lowQuality) return;
-        const factor = (gm.particleReductionFactor || 1.0);
-        const baseCount = 24;
-        const MathUtils = window.Game?.MathUtils;
-        const particleCount = MathUtils ?
-            MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
-            Math.floor(baseCount * Math.min(factor || 1, 1));
+        const helpers = window.Game?.ParticleHelpers;
+        const stats = helpers?.getParticleStats?.();
+        if (stats?.lowQuality) return;
+
+        const particleCount = helpers?.calculateSpawnCount?.(24)
+            ?? Math.floor(24 * Math.min(window.gameManager?.particleReductionFactor || 1, 1));
+
         if (particleCount <= 0) return;
         const radius = this.aoeAttackRange;
 

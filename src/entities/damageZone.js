@@ -30,9 +30,11 @@ class DamageZone {
         }
         
         // Apply damage to player at intervals
+        const gm = window.gameManager;
+
         if (game.player && this.tickTimer >= this.tickInterval) {
             this.tickTimer = 0;
-            
+
             // Check if player is in the zone
             const dx = game.player.x - this.x;
             const dy = game.player.y - this.y;
@@ -45,8 +47,8 @@ class DamageZone {
                 game.player.takeDamage(tickDamage);
                 
                 // Create visual effect
-                if (gameManager && gameManager.createHitEffect) {
-                    gameManager.createHitEffect(
+                if (gm?.createHitEffect) {
+                    gm.createHitEffect(
                         game.player.x, 
                         game.player.y, 
                         tickDamage
@@ -63,18 +65,32 @@ class DamageZone {
     
     createParticle() {
         // Only create particle if gameManager exists and visuals are allowed
-        if (!gameManager || !gameManager.particles || gameManager.lowQuality) return;
-        
+        const gm = window.gameManager;
+        if (!gm || gm.lowQuality) return;
+
         // Random position within the zone
         const angle = Math.random() * Math.PI * 2;
         const distance = Math.random() * this.radius * 0.8;
         const x = this.x + Math.cos(angle) * distance;
         const y = this.y + Math.sin(angle) * distance;
-        
-        // Create rising particle (pool-first)
-        if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
+
+        if (gm._spawnParticleViaPoolOrFallback?.(
+            x,
+            y,
+            (Math.random() - 0.5) * 10,
+            -30 - Math.random() * 20,
+            2 + Math.random() * 3,
+            this.color,
+            0.5 + Math.random() * 0.5,
+            'smoke'
+        )) {
+            return;
+        }
+
+        if (window.optimizedParticles?.spawnParticle) {
             window.optimizedParticles.spawnParticle({
-                x, y,
+                x,
+                y,
                 vx: (Math.random() - 0.5) * 10,
                 vy: -30 - Math.random() * 20,
                 size: 2 + Math.random() * 3,
@@ -82,16 +98,17 @@ class DamageZone {
                 life: 0.5 + Math.random() * 0.5,
                 type: 'smoke'
             });
-        } else if (gameManager.addParticleViaEffectsManager) {
+        } else if (gm.addParticleViaEffectsManager && typeof Particle !== 'undefined') {
             const particle = new Particle(
-                x, y,
+                x,
+                y,
                 (Math.random() - 0.5) * 10,
                 -30 - Math.random() * 20,
                 2 + Math.random() * 3,
                 this.color,
                 0.5 + Math.random() * 0.5
             );
-            gameManager.addParticleViaEffectsManager(particle);
+            gm.addParticleViaEffectsManager(particle);
         }
     }
     

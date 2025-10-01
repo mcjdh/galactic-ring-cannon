@@ -44,13 +44,16 @@ class PlayerRenderer {
 
     // Create upgrade stack effect
     createUpgradeStackEffect() {
-        if (!window.gameManager?.particles || window.gameManager.lowQuality) return;
+        const gm = window.gameManager;
+        const helpers = window.Game?.ParticleHelpers;
+        const stats = helpers?.getParticleStats?.();
 
-        // Use simplified budget calculation
-        const MathUtils = window.Game?.MathUtils;
-        const count = MathUtils ?
-            MathUtils.budget(16, window.gameManager.particleReductionFactor, window.gameManager.maxParticles, window.gameManager.particles.length) :
-            Math.floor(16 * Math.min(window.gameManager.particleReductionFactor || 1, 1));
+        if (stats?.lowQuality) {
+            return;
+        }
+
+        const count = helpers?.calculateSpawnCount?.(16)
+            ?? Math.floor(16 * Math.min(window.gameManager?.particleReductionFactor || 1, 1));
 
         if (count <= 0) return;
 

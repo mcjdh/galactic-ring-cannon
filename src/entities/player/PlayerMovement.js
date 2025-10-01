@@ -204,25 +204,25 @@ class PlayerMovement {
         }
 
         // Create dodge effect
-        if (gm && !gm.lowQuality) {
-            const factor = (gm.particleReductionFactor || 1.0);
-            const baseCount = 10;
-        const MathUtils = window.Game?.MathUtils;
-            const count = MathUtils && typeof MathUtils.budget === 'function' ?
-                MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
-                Math.floor(baseCount * Math.min(factor || 1, 1));
-            for (let i = 0; i < count; i++) {
-                this.player.spawnParticle(
-                    this.player.x,
-                    this.player.y,
-                    (Math.random() - 0.5) * 50,
-                    (Math.random() - 0.5) * 50,
-                    this.player.radius / 2,
-                    this.player.color,
-                    0.3,
-                    'spark'
-                );
-            }
+        const helpers = window.Game?.ParticleHelpers;
+        const stats = helpers?.getParticleStats?.();
+        const fallbackLowQuality = gm?.lowQuality ?? false;
+        const particleCount = stats?.lowQuality || fallbackLowQuality
+            ? 0
+            : helpers?.calculateSpawnCount?.(10)
+                ?? Math.floor(10 * Math.min(gm?.particleReductionFactor || 1, 1));
+
+        for (let i = 0; i < particleCount; i++) {
+            this.player.spawnParticle(
+                this.player.x,
+                this.player.y,
+                (Math.random() - 0.5) * 50,
+                (Math.random() - 0.5) * 50,
+                this.player.radius / 2,
+                this.player.color,
+                0.3,
+                'spark'
+            );
         }
 
         // Play dodge sound
