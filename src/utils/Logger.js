@@ -41,6 +41,8 @@ const logger = new Logger(window.location.search.includes('debug=true'));
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.logger = logger;
     window.logger = logger;
 }
 

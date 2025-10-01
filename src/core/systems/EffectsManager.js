@@ -88,8 +88,9 @@ class EffectsManager {
      * Initialize floating text system
      */
     initializeFloatingText() {
-        if (window.FloatingTextSystem) {
-            this.floatingText = new window.FloatingTextSystem();
+        const FloatingTextSystem = window.Game?.FloatingTextSystem || window.FloatingTextSystem;
+        if (typeof FloatingTextSystem === 'function') {
+            this.floatingText = new FloatingTextSystem();
         }
     }
     
@@ -100,14 +101,17 @@ class EffectsManager {
         // Use OptimizedParticlePool as primary system
         if (window.optimizedParticles) {
             this.particleManager = window.optimizedParticles;
-        } else if (window.ParticleManager) {
-            // Use global adapter instead of creating a new instance if available
-            this.particleManager = (typeof window.ParticleManager === 'function' && window.ParticleManager.prototype && window.ParticleManager.prototype.update)
-                ? new window.ParticleManager()
-                : window.ParticleManager;
         } else {
+            const ParticleManager = window.Game?.ParticleManager || window.ParticleManager;
+            if (ParticleManager) {
+            // Use global adapter instead of creating a new instance if available
+                this.particleManager = (typeof ParticleManager === 'function' && ParticleManager.prototype && ParticleManager.prototype.update)
+                    ? new ParticleManager()
+                    : ParticleManager;
+            } else {
             this.particleManager = null;
             (window.logger && window.logger.warn ? window.logger.warn('No particle system available, using fallback') : console.warn('No particle system available, using fallback'));
+            }
         }
     }
     
@@ -840,5 +844,7 @@ class EffectsManager {
 // Export for ES6 module system
 // Also make globally available for backward compatibility
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.EffectsManager = EffectsManager;
     window.EffectsManager = EffectsManager;
 }

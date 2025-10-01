@@ -53,5 +53,7 @@
     }
 
     // Attach to window for legacy usage
+    window.Game = window.Game || {};
+    window.Game.FloatingTextSystem = FloatingTextSystem;
     window.FloatingTextSystem = FloatingTextSystem;
 })();

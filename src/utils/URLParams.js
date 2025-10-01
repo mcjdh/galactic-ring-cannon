@@ -25,6 +25,8 @@ const urlParams = new URLParams();
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.urlParams = urlParams;
     window.urlParams = urlParams;
 }
 

@@ -656,5 +656,7 @@ AudioSystem.prototype.playBossBeat = function() {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.AudioSystem = AudioSystem;
     window.AudioSystem = AudioSystem;
 }

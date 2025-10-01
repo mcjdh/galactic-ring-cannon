@@ -279,6 +279,8 @@ class ParticleHelpers {
 
 // Initialize on load
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.ParticleHelpers = ParticleHelpers;
     window.ParticleHelpers = ParticleHelpers;
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {

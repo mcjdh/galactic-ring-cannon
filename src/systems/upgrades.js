@@ -255,8 +255,9 @@ class UpgradeSystem {
         this.selectedUpgrades.push(upgrade);
         
         // Apply upgrade to player using clean delegation (no monkey patching)
-        if (window.PlayerUpgrades && window.PlayerUpgrades.apply) {
-            window.PlayerUpgrades.apply(window.gameManager.game.player, upgrade);
+        const playerUpgrades = window.Game?.PlayerUpgrades || window.PlayerUpgrades;
+        if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
+            playerUpgrades.apply(window.gameManager.game.player, upgrade);
         } else {
             // Fallback to player method if PlayerUpgrades not available
             window.gameManager.game.player.applyUpgrade(upgrade);

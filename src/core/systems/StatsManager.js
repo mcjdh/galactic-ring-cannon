@@ -787,5 +787,7 @@ class StatsManager {
 
 // Also make globally available for backward compatibility
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.StatsManager = StatsManager;
     window.StatsManager = StatsManager;
 }

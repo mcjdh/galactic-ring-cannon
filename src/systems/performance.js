@@ -221,6 +221,8 @@ class PerformanceManager {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.PerformanceManager = PerformanceManager;
     window.PerformanceManager = PerformanceManager;
 }
 

@@ -204,5 +204,7 @@ class EntityManager {
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.EntityManager = EntityManager;
     window.EntityManager = EntityManager;
 }
