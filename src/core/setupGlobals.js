@@ -38,8 +38,10 @@
             error('Player instantiation test: FAILED', e);
         }
 
+        // Initialize namespace if not already set
         const ns = window.Game || (window.Game = {});
 
+        // Namespace exports (preferred)
         ns.Player = Player;
         ns.GameEngine = GameEngine;
         if (typeof Enemy !== 'undefined') ns.Enemy = Enemy;
@@ -47,6 +49,7 @@
         if (typeof XPOrb !== 'undefined') ns.XPOrb = XPOrb;
         if (typeof Particle !== 'undefined') ns.Particle = Particle;
 
+        // Legacy exports (will be deprecated - keep for backward compatibility)
         window.Player = Player;
         window.GameEngine = GameEngine;
         if (typeof Enemy !== 'undefined') window.Enemy = Enemy;
@@ -54,7 +57,7 @@
         if (typeof XPOrb !== 'undefined') window.XPOrb = XPOrb;
         window.Particle = typeof Particle !== 'undefined' ? Particle : window.Particle;
 
-        log('Class references set on window object');
+        log('Class references set on window.Game namespace and window (legacy)');
         assigned = true;
         return true;
     }

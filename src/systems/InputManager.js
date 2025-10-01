@@ -377,7 +377,17 @@ class InputManager {
         document.removeEventListener('mouseup', this.handleMouseUp);
         window.removeEventListener('gamepadconnected', this.handleGamepadConnected);
         window.removeEventListener('gamepaddisconnected', this.handleGamepadDisconnected);
-        
+
         // Input manager cleanup completed
     }
+}
+
+// Export to window.Game namespace (preferred) and window (legacy fallback)
+if (typeof window !== 'undefined') {
+    // Namespace export (preferred)
+    if (!window.Game) window.Game = {};
+    window.Game.InputManager = InputManager;
+
+    // Legacy export (will be deprecated)
+    window.InputManager = InputManager;
 }

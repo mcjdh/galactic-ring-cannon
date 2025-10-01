@@ -409,3 +409,13 @@ class XPOrb {
         return new XPOrb(x, y, bonusValue);
     }
 }
+
+// Export to window.Game namespace (preferred) and window (legacy fallback)
+if (typeof window !== 'undefined') {
+    // Namespace export (preferred)
+    if (!window.Game) window.Game = {};
+    window.Game.XPOrb = XPOrb;
+
+    // Legacy export (will be deprecated)
+    window.XPOrb = XPOrb;
+}

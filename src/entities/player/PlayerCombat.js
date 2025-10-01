@@ -153,8 +153,9 @@ class PlayerCombat {
         if (!gm || gm.lowQuality) return;
         const factor = (gm.particleReductionFactor || 1.0);
         const baseCount = 24;
-        const particleCount = window.MathUtils ?
-            window.MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
+        const MathUtils = window.Game?.MathUtils || window.MathUtils;
+        const particleCount = MathUtils ?
+            MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
             Math.floor(baseCount * Math.min(factor || 1, 1));
         if (particleCount <= 0) return;
         const radius = this.aoeAttackRange;

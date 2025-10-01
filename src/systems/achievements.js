@@ -233,8 +233,18 @@ class AchievementSystem {
     getUnlockedCount() {
         return Object.values(this.achievements).filter(a => a.unlocked).length;
     }
-    
+
     getTotalCount() {
         return Object.keys(this.achievements).length;
     }
+}
+
+// Export to window.Game namespace (preferred) and window (legacy fallback)
+if (typeof window !== 'undefined') {
+    // Namespace export (preferred)
+    if (!window.Game) window.Game = {};
+    window.Game.AchievementSystem = AchievementSystem;
+
+    // Legacy export (will be deprecated)
+    window.AchievementSystem = AchievementSystem;
 } 

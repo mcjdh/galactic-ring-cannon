@@ -1,6 +1,7 @@
 (function() {
     function initOptimizedParticles() {
-        if (typeof OptimizedParticlePool !== 'undefined') {
+        const OptimizedParticlePool = window.Game?.OptimizedParticlePool || window.OptimizedParticlePool;
+        if (typeof OptimizedParticlePool === 'function') {
             window.optimizedParticles = new OptimizedParticlePool(150);
             (window.logger?.log || console.log)('OptimizedParticlePool initialized');
         } else {

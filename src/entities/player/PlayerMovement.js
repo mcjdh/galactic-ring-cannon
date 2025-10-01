@@ -207,8 +207,9 @@ class PlayerMovement {
         if (gm && !gm.lowQuality) {
             const factor = (gm.particleReductionFactor || 1.0);
             const baseCount = 10;
-            const count = window.MathUtils && typeof window.MathUtils.budget === 'function' ?
-                window.MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
+            const MathUtils = window.Game?.MathUtils || window.MathUtils;
+            const count = MathUtils && typeof MathUtils.budget === 'function' ?
+                MathUtils.budget(baseCount, factor, gm.maxParticles || 150, gm.particles?.length || 0) :
                 Math.floor(baseCount * Math.min(factor || 1, 1));
             for (let i = 0; i < count; i++) {
                 this.player.spawnParticle(

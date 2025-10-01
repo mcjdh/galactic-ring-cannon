@@ -431,9 +431,12 @@ class EnemyAbilities {
      */
     createDamageZone(game) {
         if (!this.canCreateDamageZones || !game.addEntity) return;
-        
+
         // Create damage zone at player location
         if (game.player && !game.player.isDead) {
+            const DamageZone = window.Game?.DamageZone || window.DamageZone;
+            if (typeof DamageZone !== 'function') return;
+
             const damageZone = new DamageZone(
                 game.player.x,
                 game.player.y,

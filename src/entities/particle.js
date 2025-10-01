@@ -78,12 +78,22 @@ class Particle {
         // Full circle rendering for larger particles
         const previousAlpha = ctx.globalAlpha;
         ctx.globalAlpha = this.alpha;
-        
+
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
         ctx.fill();
-        
+
         ctx.globalAlpha = previousAlpha;
     }
+}
+
+// Export to window.Game namespace (preferred) and window (legacy fallback)
+if (typeof window !== 'undefined') {
+    // Namespace export (preferred)
+    if (!window.Game) window.Game = {};
+    window.Game.Particle = Particle;
+
+    // Legacy export (will be deprecated)
+    window.Particle = Particle;
 }

@@ -112,9 +112,14 @@
 
         initGameManager() {
             this.info('🌊 Creating GameManager bridge...');
-            window.gameManager = new GameManagerBridge();
-            window.gameManagerBridge = window.gameManager;
-            this.info('✅ GameManager bridge created successfully');
+            const GameManagerBridge = window.Game?.GameManagerBridge || window.GameManagerBridge;
+            if (typeof GameManagerBridge === 'function') {
+                window.gameManager = new GameManagerBridge();
+                window.gameManagerBridge = window.gameManager;
+                this.info('✅ GameManager bridge created successfully');
+            } else {
+                this.error('❌ GameManagerBridge class not available');
+            }
         }
 
         initSystems() {
@@ -126,7 +131,8 @@
         }
 
         initInputManager() {
-            if (typeof InputManager === 'undefined') {
+            const InputManager = window.Game?.InputManager || window.InputManager;
+            if (typeof InputManager !== 'function') {
                 this.warn('⚠️ InputManager not available');
                 return;
             }
@@ -140,7 +146,8 @@
         }
 
         initUpgradeSystem() {
-            if (typeof UpgradeSystem === 'undefined') {
+            const UpgradeSystem = window.Game?.UpgradeSystem || window.UpgradeSystem;
+            if (typeof UpgradeSystem !== 'function') {
                 this.warn('⚠️ UpgradeSystem not available');
                 return;
             }
@@ -154,7 +161,8 @@
         }
 
         initAudioSystem() {
-            if (typeof AudioSystem === 'undefined') {
+            const AudioSystem = window.Game?.AudioSystem || window.AudioSystem;
+            if (typeof AudioSystem !== 'function') {
                 this.warn('⚠️ AudioSystem not available - creating stub');
                 window.audioSystem = {
                     play: () => {},
@@ -176,7 +184,8 @@
         }
 
         initPerformanceManager() {
-            if (typeof PerformanceManager === 'undefined') {
+            const PerformanceManager = window.Game?.PerformanceManager || window.PerformanceManager;
+            if (typeof PerformanceManager !== 'function') {
                 return;
             }
 
@@ -189,7 +198,8 @@
         }
 
         initAchievementSystem() {
-            if (typeof AchievementSystem === 'undefined') {
+            const AchievementSystem = window.Game?.AchievementSystem || window.AchievementSystem;
+            if (typeof AchievementSystem !== 'function') {
                 this.warn('⚠️ AchievementSystem not available - creating stub');
                 window.achievementSystem = {
                     achievements: {},

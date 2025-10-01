@@ -247,3 +247,13 @@ const MathUtils = {
         };
     }
 };
+
+// Export to window.Game namespace (preferred) and window (legacy fallback)
+if (typeof window !== 'undefined') {
+    // Namespace export (preferred)
+    if (!window.Game) window.Game = {};
+    window.Game.MathUtils = MathUtils;
+
+    // Legacy export (will be deprecated)
+    window.MathUtils = MathUtils;
+}

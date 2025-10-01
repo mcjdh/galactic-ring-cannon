@@ -1472,7 +1472,8 @@ class GameEngine {
         
         if (!ep) {
             // Check if EnemyProjectile class is available
-            if (typeof EnemyProjectile === 'undefined') {
+            const EnemyProjectile = window.Game?.EnemyProjectile || window.EnemyProjectile;
+            if (typeof EnemyProjectile !== 'function') {
                 console.error('EnemyProjectile class not available');
                 return null;
             }

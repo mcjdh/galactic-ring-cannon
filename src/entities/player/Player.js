@@ -337,3 +337,13 @@ class Player {
         };
     }
 }
+
+// Export to window.Game namespace (preferred) and window (legacy fallback)
+if (typeof window !== 'undefined') {
+    // Namespace export (preferred)
+    if (!window.Game) window.Game = {};
+    window.Game.Player = Player;
+
+    // Legacy export (will be deprecated)
+    window.Player = Player;
+}

@@ -324,6 +324,16 @@ class OptimizedParticlePool {
     }
 }
 
+// Export to window.Game namespace (preferred) and window (legacy fallback)
+if (typeof window !== 'undefined') {
+    // Namespace export (preferred)
+    if (!window.Game) window.Game = {};
+    window.Game.OptimizedParticlePool = OptimizedParticlePool;
+
+    // Legacy export (will be deprecated)
+    window.OptimizedParticlePool = OptimizedParticlePool;
+}
+
 // Create global optimized particle system
 window.optimizedParticles = new OptimizedParticlePool();
 
