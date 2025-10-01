@@ -523,6 +523,11 @@ class GameState {
      * Load meta state from localStorage
      */
     _loadMetaState() {
+        // Skip localStorage in Node.js environment (for testing)
+        if (typeof localStorage === 'undefined') {
+            return;
+        }
+
         try {
             const starTokens = parseInt(localStorage.getItem('starTokens') || '0', 10);
             this.meta.starTokens = isNaN(starTokens) ? 0 : starTokens;
@@ -582,6 +587,11 @@ class GameState {
      * Save meta state to localStorage
      */
     _saveMetaState() {
+        // Skip localStorage in Node.js environment (for testing)
+        if (typeof localStorage === 'undefined') {
+            return;
+        }
+
         try {
             localStorage.setItem('starTokens', this.meta.starTokens.toString());
             localStorage.setItem('gamesPlayed', this.meta.gamesPlayed.toString());
@@ -695,4 +705,9 @@ class GameState {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.GameState = GameState;
+}
+
+// Export for Node.js (testing)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { GameState };
 }

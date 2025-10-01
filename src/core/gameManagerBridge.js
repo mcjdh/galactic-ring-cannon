@@ -161,18 +161,13 @@ class GameManagerBridge {
                 (window.logger?.warn || console.warn)('⚠️ EnemySpawner not available');
             }
 
-            // Create player
-            const PlayerClass = typeof Player !== 'undefined' ? Player : window.Game?.Player;
-            if (typeof PlayerClass === 'function') {
-                const player = new PlayerClass(400, 300);
-                // Use setPlayer to sync with GameState
-                this.game.setPlayer(player);
-                this.game.addEntity(player);
-                (window.logger?.log || console.log)('✅ Player created and added');
-            } else {
-                (window.logger?.error || console.error)('❌ Player class not available');
-                return false;
-            }
+            // Initialize HUD event handlers now that the engine/state exist
+            this._ensureHUDEventHandlers();
+
+            // Player will be created by GameEngine.prepareNewRun() when game starts
+            // This prevents double-initialization where player is created here then recreated in prepareNewRun()
+            // See: ARCHITECTURE_FIXES.md - Issue 3
+            (window.logger?.log || console.log)('✅ Player will be created on game start');
         
             // Initialize minimap after core systems
             this.setupMinimap();
@@ -548,6 +543,28 @@ class GameManagerBridge {
 
         if (this.game) {
             this.game.isPaused = true;
+        }
+    }
+
+    _ensureHUDEventHandlers() {
+        try {
+            const HandlerClass = window.Game?.HUDEventHandlers;
+            if (!HandlerClass) {
+                (window.logger?.warn || console.warn)('⚠️ HUDEventHandlers class not found');
+                return;
+            }
+
+            if (!this.game?.state) {
+                (window.logger?.warn || console.warn)('⚠️ Game state not available for HUD handlers');
+                return;
+            }
+
+            if (!window.hudEventHandlers) {
+                window.hudEventHandlers = new HandlerClass(this.game.state);
+                (window.logger?.log || console.log)('✅ HUD event handlers initialized');
+            }
+        } catch (error) {
+            (window.logger?.error || console.error)('❌ Failed to initialize HUD event handlers:', error);
         }
     }
 

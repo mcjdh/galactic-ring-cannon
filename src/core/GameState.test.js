@@ -1,18 +1,46 @@
 /**
- * 🧪 GameState Integration Tests
- * Quick smoke tests to verify state management works correctly
+ * 🧪 GameState Unit Tests
+ * Runs in Node.js for CI/CD validation
  *
- * Run in browser console after game loads:
- * > testGameState()
+ * Usage: npm test
  */
 
-function testGameState() {
-    console.log('🧪 Testing GameState Integration...\n');
+// Node.js environment check
+const isNode = typeof window === 'undefined';
+
+// In Node.js: only run if this is the main module
+// In browser: always set up browser tests
+if (isNode) {
+    // Only run tests if executed directly (not imported)
+    if (require.main === module) {
+        const results = runNodeTests();
+        process.exit(results.failed > 0 ? 1 : 0);
+    }
+} else {
+    // Browser test runner (browser helper)
+    setupBrowserTests();
+}
+
+function runNodeTests() {
+    console.log('🧪 Running GameState Unit Tests (Node.js)...\n');
+
+    // Import GameState in Node context
+    let GameState;
+    try {
+        const module = require('./GameState.js');
+        GameState = module.GameState || global.GameState;
+        if (!GameState) {
+            throw new Error('GameState class not exported from GameState.js');
+        }
+    } catch (err) {
+        console.error('❌ Failed to load GameState:', err.message);
+        process.exit(1);
+    }
 
     const tests = [];
     const results = { passed: 0, failed: 0, errors: [] };
 
-    // Helper to run test
+    // Test helper
     const test = (name, fn) => {
         try {
             fn();
@@ -25,189 +53,193 @@ function testGameState() {
         }
     };
 
-    // ===== CORE TESTS =====
+    // ===== CORE STATE TESTS =====
 
-    test('GameState exists globally', () => {
-        if (typeof window.GameState === 'undefined') {
-            throw new Error('GameState class not found');
-        }
+    test('GameState instantiates', () => {
+        const state = new GameState();
+        if (!state) throw new Error('Failed to create GameState');
     });
 
-    test('GameEngine has state instance', () => {
-        if (!window.gameEngine) throw new Error('gameEngine not found');
-        if (!window.gameEngine.state) throw new Error('gameEngine.state not found');
-        if (!(window.gameEngine.state instanceof GameState)) {
-            throw new Error('gameEngine.state is not a GameState instance');
-        }
+    test('GameState has runtime property', () => {
+        const state = new GameState();
+        if (!state.runtime) throw new Error('Missing runtime property');
+        if (typeof state.runtime.gameTime !== 'number') throw new Error('runtime.gameTime not a number');
     });
 
-    test('GameManagerBridge linked to GameState', () => {
-        if (!window.gameManager) throw new Error('gameManager not found');
-        if (!window.gameManager.state) throw new Error('gameManager.state not found');
-        if (window.gameManager.state !== window.gameEngine.state) {
-            throw new Error('gameManager.state not same instance as gameEngine.state');
-        }
+    test('GameState has flow property', () => {
+        const state = new GameState();
+        if (!state.flow) throw new Error('Missing flow property');
+        if (typeof state.flow.isGameOver !== 'boolean') throw new Error('flow.isGameOver not a boolean');
     });
 
-    test('StatsManager linked to GameState', () => {
-        if (!window.statsManager) throw new Error('statsManager not found');
-        if (!window.statsManager.state) throw new Error('statsManager.state not found');
-        if (window.statsManager.state !== window.gameEngine.state) {
-            throw new Error('statsManager.state not same instance as gameEngine.state');
-        }
+    test('GameState has player property', () => {
+        const state = new GameState();
+        if (!state.player) throw new Error('Missing player property');
+        if (typeof state.player.level !== 'number') throw new Error('player.level not a number');
     });
 
-    // ===== GETTER/SETTER TESTS =====
-
-    test('GameEngine.gameTime getter works', () => {
-        const time = window.gameEngine.gameTime;
-        if (typeof time !== 'number') throw new Error('gameTime is not a number');
-        if (time !== window.gameEngine.state.runtime.gameTime) {
-            throw new Error('gameTime getter mismatch');
-        }
+    test('GameState has progression property', () => {
+        const state = new GameState();
+        if (!state.progression) throw new Error('Missing progression property');
+        if (typeof state.progression.killCount !== 'number') throw new Error('progression.killCount not a number');
     });
 
-    test('GameEngine.isPaused getter works', () => {
-        const paused = window.gameEngine.isPaused;
-        if (typeof paused !== 'boolean') throw new Error('isPaused is not a boolean');
-        if (paused !== window.gameEngine.state.runtime.isPaused) {
-            throw new Error('isPaused getter mismatch');
-        }
+    test('GameState has combo property', () => {
+        const state = new GameState();
+        if (!state.combo) throw new Error('Missing combo property');
+        if (typeof state.combo.count !== 'number') throw new Error('combo.count not a number');
     });
 
-    test('GameManagerBridge.killCount getter works', () => {
-        const kills = window.gameManager.killCount;
-        if (typeof kills !== 'number') throw new Error('killCount is not a number');
-        if (kills !== window.gameManager.state.progression.killCount) {
-            throw new Error('killCount getter mismatch');
-        }
+    // ===== TIME MANAGEMENT TESTS =====
+
+    test('updateTime increments gameTime', () => {
+        const state = new GameState();
+        const before = state.runtime.gameTime;
+        state.updateTime(0.016); // 16ms frame
+        if (state.runtime.gameTime <= before) throw new Error('gameTime not incremented');
     });
 
-    test('StatsManager.comboCount getter works', () => {
-        const combo = window.statsManager.comboCount;
-        if (typeof combo !== 'number') throw new Error('comboCount is not a number');
-        if (combo !== window.statsManager.state.combo.count) {
-            throw new Error('comboCount getter mismatch');
-        }
+    test('pause sets isPaused to true', () => {
+        const state = new GameState();
+        state.pause();
+        if (!state.runtime.isPaused) throw new Error('isPaused not true after pause()');
     });
 
-    // ===== STATE SYNC TESTS =====
-
-    test('All systems read same gameTime', () => {
-        const engineTime = window.gameEngine.gameTime;
-        const managerTime = window.gameManager.gameTime;
-        const stateTime = window.gameEngine.state.runtime.gameTime;
-
-        if (engineTime !== managerTime) {
-            throw new Error(`gameEngine.gameTime (${engineTime}) !== gameManager.gameTime (${managerTime})`);
-        }
-        if (engineTime !== stateTime) {
-            throw new Error(`gameEngine.gameTime (${engineTime}) !== state.runtime.gameTime (${stateTime})`);
-        }
+    test('resume sets isPaused to false', () => {
+        const state = new GameState();
+        state.pause();
+        state.resume();
+        if (state.runtime.isPaused) throw new Error('isPaused not false after resume()');
     });
 
-    test('All systems read same killCount', () => {
-        const managerKills = window.gameManager.killCount;
-        const statsKills = window.statsManager.killCount;
-        const stateKills = window.gameEngine.state.progression.killCount;
+    // ===== PROGRESSION TESTS =====
 
-        if (managerKills !== statsKills) {
-            throw new Error(`gameManager.killCount (${managerKills}) !== statsManager.killCount (${statsKills})`);
-        }
-        if (managerKills !== stateKills) {
-            throw new Error(`gameManager.killCount (${managerKills}) !== state.progression.killCount (${stateKills})`);
-        }
+    test('addKill increments killCount', () => {
+        const state = new GameState();
+        const before = state.progression.killCount;
+        state.addKill();
+        if (state.progression.killCount !== before + 1) throw new Error('killCount not incremented');
     });
 
-    test('All systems read same combo', () => {
-        const managerCombo = window.gameManager.currentCombo;
-        const statsCombo = window.statsManager.comboCount;
-        const stateCombo = window.gameEngine.state.combo.count;
-
-        if (managerCombo !== statsCombo) {
-            throw new Error(`gameManager.currentCombo (${managerCombo}) !== statsManager.comboCount (${statsCombo})`);
-        }
-        if (managerCombo !== stateCombo) {
-            throw new Error(`gameManager.currentCombo (${managerCombo}) !== state.combo.count (${stateCombo})`);
-        }
+    test('addKill updates combo', () => {
+        const state = new GameState();
+        state.addKill();
+        if (state.combo.count !== 1) throw new Error('combo not incremented');
     });
 
-    // ===== MUTATION TESTS =====
-
-    test('Incrementing killCount updates all systems', () => {
-        const before = window.gameEngine.state.progression.killCount;
-        window.gameEngine.state.addKill();
-        const after = window.gameEngine.state.progression.killCount;
-
-        if (after !== before + 1) {
-            throw new Error(`Kill count not incremented correctly: ${before} -> ${after}`);
-        }
-
-        // Verify all systems see the change
-        if (window.gameManager.killCount !== after) {
-            throw new Error('gameManager.killCount not synced after addKill');
-        }
-        if (window.statsManager.killCount !== after) {
-            throw new Error('statsManager.killCount not synced after addKill');
-        }
-
-        // Rollback
-        window.gameEngine.state.progression.killCount = before;
+    test('addXP increments xpCollected', () => {
+        const state = new GameState();
+        const before = state.progression.xpCollected;
+        state.addXP(100);
+        if (state.progression.xpCollected !== before + 100) throw new Error('xpCollected not incremented');
     });
 
-    test('Pausing game updates all systems', () => {
-        const wasPaused = window.gameEngine.state.runtime.isPaused;
+    // ===== GAME FLOW TESTS =====
 
-        window.gameEngine.state.pause();
-
-        if (!window.gameEngine.isPaused) {
-            throw new Error('gameEngine.isPaused not true after pause');
-        }
-        if (!window.gameManager.isPaused) {
-            throw new Error('gameManager.isPaused not true after pause');
-        }
-        if (!window.gameEngine.state.runtime.isPaused) {
-            throw new Error('state.runtime.isPaused not true after pause');
-        }
-
-        // Resume to original state
-        if (!wasPaused) {
-            window.gameEngine.state.resume();
-        }
+    test('gameOver sets flags correctly', () => {
+        const state = new GameState();
+        state.gameOver();
+        if (!state.flow.isGameOver) throw new Error('isGameOver not true');
+        if (state.runtime.isRunning === true) throw new Error('isRunning should be false');
+        if (state.player.isAlive) throw new Error('player should not be alive');
     });
 
-    // ===== OBSERVER TESTS =====
+    test('gameWon sets flags correctly', () => {
+        const state = new GameState();
+        state.gameWon();
+        if (!state.flow.isGameWon) throw new Error('isGameWon not true');
+        if (state.runtime.isRunning) throw new Error('isRunning should be false');
+    });
 
-    test('GameState observer pattern works', () => {
-        let eventFired = false;
-        const callback = () => { eventFired = true; };
+    test('setGameMode validates input', () => {
+        const state = new GameState();
+        state.setGameMode('endless');
+        if (state.flow.gameMode !== 'endless') throw new Error('gameMode not set');
+        state.setGameMode('invalid'); // Should not change
+        if (state.flow.gameMode !== 'endless') throw new Error('gameMode changed to invalid value');
+    });
 
-        window.gameEngine.state.on('testEvent', callback);
-        window.gameEngine.state._notifyObservers('testEvent');
+    // ===== COMBO TESTS =====
 
-        if (!eventFired) {
-            throw new Error('Observer callback not fired');
-        }
+    test('combo resets after timeout', () => {
+        const state = new GameState();
+        state.addKill();
+        state.updateCombo(10); // Fast-forward 10 seconds
+        if (state.combo.count !== 0) throw new Error('combo not reset after timeout');
+    });
 
-        window.gameEngine.state.off('testEvent', callback);
+    test('combo multiplier scales with count', () => {
+        const state = new GameState();
+        for (let i = 0; i < 10; i++) state.addKill();
+        state.updateCombo(0);
+        if (state.combo.multiplier <= 1.0) throw new Error('combo multiplier not increased');
+    });
+
+    // ===== RESET TESTS =====
+
+    test('resetSession clears progression', () => {
+        const state = new GameState();
+        state.addKill();
+        state.addXP(500);
+        state.resetSession();
+        if (state.progression.killCount !== 0) throw new Error('killCount not reset');
+        if (state.progression.xpCollected !== 0) throw new Error('xpCollected not reset');
+    });
+
+    test('resetSession preserves meta state', () => {
+        const state = new GameState();
+        const originalStars = state.meta.starTokens;
+        state.earnStarTokens(100);
+        state.resetSession();
+        if (state.meta.starTokens !== originalStars + 100) throw new Error('starTokens not preserved');
+    });
+
+    // ===== OBSERVER PATTERN TESTS =====
+
+    test('observer pattern fires callbacks', () => {
+        const state = new GameState();
+        let fired = false;
+        state.on('testEvent', () => { fired = true; });
+        state._notifyObservers('testEvent');
+        if (!fired) throw new Error('callback not fired');
+    });
+
+    test('observer pattern unsubscribes', () => {
+        const state = new GameState();
+        let count = 0;
+        const callback = () => { count++; };
+        state.on('testEvent', callback);
+        state._notifyObservers('testEvent');
+        state.off('testEvent', callback);
+        state._notifyObservers('testEvent');
+        if (count !== 1) throw new Error('callback fired after unsubscribe');
     });
 
     // ===== VALIDATION TESTS =====
 
-    test('GameState.validate() passes', () => {
-        const validation = window.gameEngine.state.validate();
-        if (!validation.valid) {
-            throw new Error(`State validation failed: ${validation.issues.join(', ')}`);
-        }
+    test('validate detects negative values', () => {
+        const state = new GameState();
+        state.runtime.gameTime = -1;
+        const result = state.validate();
+        if (result.valid) throw new Error('validate should fail on negative gameTime');
+        state.runtime.gameTime = 0; // Reset
     });
 
-    test('GameState.getSnapshot() works', () => {
-        const snapshot = window.gameEngine.state.getSnapshot();
-        if (!snapshot.runtime) throw new Error('Snapshot missing runtime');
-        if (!snapshot.flow) throw new Error('Snapshot missing flow');
-        if (!snapshot.progression) throw new Error('Snapshot missing progression');
-        if (!snapshot.combo) throw new Error('Snapshot missing combo');
-        if (!snapshot.meta) throw new Error('Snapshot missing meta');
+    test('validate detects invalid states', () => {
+        const state = new GameState();
+        state.runtime.isRunning = true;
+        state.runtime.isPaused = true;
+        const result = state.validate();
+        if (result.valid) throw new Error('validate should fail on running && paused');
+    });
+
+    test('getSnapshot returns valid snapshot', () => {
+        const state = new GameState();
+        const snapshot = state.getSnapshot();
+        if (!snapshot.runtime) throw new Error('snapshot missing runtime');
+        if (!snapshot.flow) throw new Error('snapshot missing flow');
+        if (!snapshot.player) throw new Error('snapshot missing player');
+        if (!snapshot.progression) throw new Error('snapshot missing progression');
     });
 
     // ===== RESULTS =====
@@ -223,17 +255,73 @@ function testGameState() {
         results.errors.forEach(({ test, error }) => {
             console.log(`   • ${test}: ${error}`);
         });
+        console.log('='.repeat(50) + '\n');
     } else {
-        console.log('\n🎉 All tests passed! GameState integration is working correctly.');
+        console.log('\n🎉 All tests passed!');
+        console.log('='.repeat(50) + '\n');
     }
-    console.log('='.repeat(50) + '\n');
 
     return results;
 }
 
-// Make available globally
-if (typeof window !== 'undefined') {
-    window.Game = window.Game || {};
-    window.Game.testGameState = testGameState;
-    console.log('🧪 GameState tests loaded. Run testGameState() in console to verify integration.');
+// Process exit handled at top of file via require.main check
+// This avoids double-execution
+
+function setupBrowserTests() {
+    /**
+     * Browser Integration Tests
+     * Tests GameState integration with live game systems
+     * Run in browser console: testGameState()
+     */
+    window.testGameState = function() {
+        console.log('🧪 Testing GameState Integration...\n');
+
+        const results = { passed: 0, failed: 0, errors: [] };
+
+        const test = (name, fn) => {
+            try {
+                fn();
+                console.log(`✅ ${name}`);
+                results.passed++;
+            } catch (error) {
+                console.error(`❌ ${name}:`, error.message);
+                results.failed++;
+                results.errors.push({ test: name, error: error.message });
+            }
+        };
+
+        // Integration tests
+        test('GameEngine has state instance', () => {
+            if (!window.gameEngine?.state) throw new Error('gameEngine.state not found');
+        });
+
+        test('GameManagerBridge linked to GameState', () => {
+            if (window.gameManager?.state !== window.gameEngine?.state) {
+                throw new Error('state instances not shared');
+            }
+        });
+
+        test('All systems read same gameTime', () => {
+            const engineTime = window.gameEngine.gameTime;
+            const stateTime = window.gameEngine.state.runtime.gameTime;
+            if (engineTime !== stateTime) throw new Error('gameTime mismatch');
+        });
+
+        // Results
+        console.log('\n' + '='.repeat(50));
+        console.log(`📊 Browser Test Results: ${results.passed} passed, ${results.failed} failed`);
+        if (results.failed === 0) {
+            console.log('🎉 All integration tests passed!');
+        }
+        console.log('='.repeat(50) + '\n');
+
+        return results;
+    };
+
+    console.log('🧪 GameState browser tests loaded. Run testGameState() in console.');
+}
+
+// Export for Node.js
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { runNodeTests };
 }

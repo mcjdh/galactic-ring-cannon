@@ -442,9 +442,8 @@ class GameEngine {
         this.isVisible = true;
         this.isMinimized = false;
 
-        // Hide pause overlay if it was left open
-        const pauseMenu = document.getElementById('pause-menu');
-        if (pauseMenu) pauseMenu.classList.add('hidden');
+        // Notify UI layer of game reset (loose coupling via events)
+        this.state._notifyObservers('gameReset');
 
         // Clear entity collections via EntityManager when available
         if (this.entityManager) {
@@ -502,21 +501,13 @@ class GameEngine {
             const player = new Player(spawnX, spawnY);
             this.addEntity(player);
 
-            // Refresh HUD elements to reflect the new baseline stats
+            // Notify UI layer that player was created (loose coupling via events)
             try {
                 player?.stats?.updateXPBar?.();
+                this.state._notifyObservers('playerCreated', { player });
             } catch (error) {
-                (window.logger?.warn || console.warn)('Failed to update XP bar on new run:', error);
+                (window.logger?.warn || console.warn)('Failed to notify player creation:', error);
             }
-
-            const levelDisplay = document.getElementById('level-display');
-            if (levelDisplay) levelDisplay.textContent = 'Level: 1';
-
-            const xpBar = document.getElementById('xp-bar');
-            if (xpBar) xpBar.style.setProperty('--xp-width', '0%');
-
-            const healthBar = document.getElementById('health-bar');
-            if (healthBar) healthBar.style.setProperty('--health-width', '100%');
         }
     }
 
@@ -1908,21 +1899,22 @@ class GameEngine {
         (window.logger?.log || console.log)('Shutting down game engine...');
         this.isShuttingDown = true;
         this.isPaused = true;
-        
+
         // Clean up all resources
         this.cleanupResources();
-        
+
         // Clear all entities
         this.entities = [];
         this.enemies = [];
         this.projectiles = [];
         this.enemyProjectiles = [];
         this.xpOrbs = [];
-        
+
         // Clear pools
         this.enemyProjectilePool = [];
         this.particlePool = [];
-        
+
         (window.logger?.log || console.log)('Game engine shutdown complete');
     }
+
 }

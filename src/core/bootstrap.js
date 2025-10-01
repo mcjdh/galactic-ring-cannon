@@ -128,6 +128,7 @@
             this.initAudioSystem();
             this.initPerformanceManager();
             this.initAchievementSystem();
+            this.initHUDEventHandlers();
         }
 
         initInputManager() {
@@ -194,6 +195,19 @@
                 this.log('✅ PerformanceManager initialized');
             } else {
                 this.log('ℹ️ PerformanceManager already initialized');
+            }
+        }
+
+        initHUDEventHandlers() {
+            const HUDEventHandlers = window.Game?.HUDEventHandlers;
+            if (typeof HUDEventHandlers !== 'function') {
+                this.warn('⚠️ HUDEventHandlers not available');
+                return;
+            }
+
+            if (window.gameEngine?.state && !window.hudEventHandlers) {
+                window.hudEventHandlers = new HUDEventHandlers(window.gameEngine.state);
+                this.log('✅ HUD event handlers initialized');
             }
         }
 

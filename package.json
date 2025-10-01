@@ -7,7 +7,8 @@
     "start": "echo 'Open index.html in your browser or use VS Code Live Server'",
     "dev": "echo 'Use VS Code Live Server extension for development'",
     "serve": "python -m http.server 8000 || npx http-server",
-    "docs": "echo 'Documentation available in docs/ folder'"
+    "docs": "echo 'Documentation available in docs/ folder'",
+    "test": "node src/core/GameState.test.js"
   },
   "repository": {
     "type": "git",

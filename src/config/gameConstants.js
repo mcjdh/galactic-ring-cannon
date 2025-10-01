@@ -11,12 +11,23 @@
             BASE_CRIT_CHANCE: 0.10,
             BASE_CRIT_MULTIPLIER: 2.2,
             BASE_MAGNET_RANGE: 120,
+            RADIUS: 20,
+
+            // Combat Scaling & Limits
+            AOE_ATTACK_RANGE: 150,
+            AOE_DAMAGE_MULTIPLIER: 0.6,
+            MAX_PROJECTILE_SPEED: 1200,
+            MIN_ATTACK_SPEED: 0.1,
+            CRIT_SOFT_CAP: 0.8, // 80% maximum
 
             // Dodge System
             DODGE_COOLDOWN: 2.0,
             DODGE_DURATION: 0.3,
             DODGE_SPEED: 600,
             INVULNERABILITY_TIME: 0.5,
+
+            // Kill Streak
+            KILL_STREAK_TIMEOUT: 5.0,
 
             // XP System (early-game friendlier)
             INITIAL_XP_TO_LEVEL: 140,
@@ -64,6 +75,50 @@
         // Game Modes
         GAME: {
             WIN_TIME: 180 // 3 minutes
+        },
+
+        // Visual Effects
+        EFFECTS: {
+            SCREEN_SHAKE_LEVELUP: 2,
+            SCREEN_SHAKE_DURATION: 0.2,
+            AUDIO_VOLUME_LEVELUP: 0.3,
+            AUDIO_VOLUME_SHOOT: 0.3,
+            AUDIO_VOLUME_HIT: 0.2,
+            AUDIO_VOLUME_AOE: 0.4
+        },
+
+        // Special Abilities
+        ABILITIES: {
+            CHAIN_LIGHTNING_CHANCE: 0.4,
+            CHAIN_LIGHTNING_RANGE: 240,
+            CHAIN_LIGHTNING_DAMAGE_MULTIPLIER: 0.8,
+
+            EXPLOSIVE_CHANCE: 0.3,
+            EXPLOSIVE_DAMAGE_MULTIPLIER: 0.85,
+
+            RICOCHET_CHANCE: 0.25,
+            RICOCHET_RANGE: 260,
+
+            HOMING_CHANCE: 0.2
+        },
+
+        // Performance
+        PERFORMANCE: {
+            MAX_ENTITIES: 2000,
+            MAX_PARTICLES: 150,
+            SPATIAL_GRID_SIZE: 100,
+            TARGET_FPS: 60,
+            LOW_FPS_THRESHOLD: 30
+        },
+
+        // Colors (for consistency)
+        COLORS: {
+            PLAYER: '#3498db',
+            PLAYER_GLOW: 'rgba(52, 152, 219, 0.5)',
+            HEAL: '#2ecc71',
+            DAMAGE: '#e74c3c',
+            LEVEL_UP: '#f39c12',
+            XP_ORB: '#f39c12'
         }
     };
 
