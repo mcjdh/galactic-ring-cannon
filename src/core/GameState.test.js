@@ -151,14 +151,6 @@ function runNodeTests() {
         if (state.runtime.isRunning) throw new Error('isRunning should be false');
     });
 
-    test('setGameMode validates input', () => {
-        const state = new GameState();
-        state.setGameMode('endless');
-        if (state.flow.gameMode !== 'endless') throw new Error('gameMode not set');
-        state.setGameMode('invalid'); // Should not change
-        if (state.flow.gameMode !== 'endless') throw new Error('gameMode changed to invalid value');
-    });
-
     // ===== COMBO TESTS =====
 
     test('combo resets after timeout', () => {

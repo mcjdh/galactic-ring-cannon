@@ -51,9 +51,6 @@ class DifficultyManager {
         this.difficultyNotificationCooldown = 5.0; // seconds
         this.lastNotification = 0;
         
-        // Endless mode adjustments
-        this.endlessMode = false;
-        this.endlessModeMultiplier = 1.2;
     }
     
     /**
@@ -95,11 +92,6 @@ class DifficultyManager {
         const actualIncrease = baseIncrease * timeMultiplier;
         
         this.difficultyFactor = Math.min(this.maxDifficultyFactor, this.difficultyFactor + actualIncrease);
-        
-        // Apply endless mode multiplier
-        if (this.endlessMode) {
-            this.difficultyFactor *= this.endlessModeMultiplier;
-        }
         
         // Show difficulty notification
         this.showDifficultyNotification(oldFactor);
@@ -358,21 +350,6 @@ class DifficultyManager {
     }
     
     /**
-     * Set endless mode
-     */
-    setEndlessMode(enabled) {
-        this.endlessMode = enabled;
-        
-        if (enabled) {
-            // Adjust parameters for endless mode
-            this.difficultyInterval *= 0.8; // Faster scaling
-            this.maxDifficultyFactor = 10.0; // Higher cap
-            this.scalingCurves.health.cap = 5.0;
-            this.scalingCurves.damage.cap = 4.0;
-        }
-    }
-    
-    /**
      * Reset difficulty (for new game)
      */
     reset() {
@@ -396,7 +373,6 @@ class DifficultyManager {
             ...this.getDifficultyMetrics(),
             nextIncreaseIn: this.difficultyInterval - this.difficultyTimer,
             performanceHistoryLength: this.performanceHistory.length,
-            endlessMode: this.endlessMode,
             timeSinceLastIncrease: this.gameManager.gameTime - this.lastDifficultyIncrease
         };
     }

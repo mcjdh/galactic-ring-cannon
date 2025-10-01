@@ -45,7 +45,7 @@ These changes establish a foundation for better code quality:
 ## [1.0.0] - 2024
 
 ### Game Features
-- Two game modes (Normal & Endless)
+- Loopable boss-run mode with escalating difficulty
 - Boss encounters with multi-phase mechanics
 - Meta progression system (Star Vendor)
 - Achievement system

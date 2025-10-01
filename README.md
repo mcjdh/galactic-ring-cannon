@@ -23,7 +23,7 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 
 ## 🌟 Features
 
-- **Two Game Modes**: Normal (3-minute challenge) and Endless survival
+- **Loopable Runs**: Face escalating waves across successive boss encounters
 - **Dynamic Upgrades**: Choose from 12+ unique upgrade types each level
 - **Boss Battles**: Multi-phase boss encounters with special mechanics
 - **Meta Progression**: Permanent upgrades via the Star Vendor system
@@ -40,9 +40,8 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 - **M**: Toggle sound
 - **1-3**: Select upgrades when leveling up
 
-### Game Modes
-- **Normal Mode**: Defeat 3 bosses in 3 minutes to win
-- **Endless Mode**: Survive as long as possible for high scores
+### Run Structure
+- **Normal Mode**: Defeat three bosses to finish a run, then jump straight into the next loop with your upgrades.
 
 ## 📁 Project Structure
 

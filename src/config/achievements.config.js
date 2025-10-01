@@ -141,14 +141,6 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 600, // 10 minutes in seconds
         unlocked: false
     },
-    'endless_champion': {
-        name: 'Endless Champion',
-        description: 'Reach wave 20 in endless mode',
-        icon: '♾️',
-        progress: 0,
-        target: 20,
-        unlocked: false
-    },
     'elite_hunter': {
         name: 'Elite Hunter',
         description: 'Defeat 10 elite enemies',

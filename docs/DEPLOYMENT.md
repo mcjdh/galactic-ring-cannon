@@ -127,7 +127,7 @@ Press F3 in-game to enable debug information:
 
 #### Version Management
 1. Update version in `index.html` title/meta
-2. Test all game modes (Normal/Endless)
+2. Play through a full normal-mode run (including post-boss loop)
 3. Verify save data compatibility
 4. Deploy to staging environment
 5. Test on multiple devices/browsers

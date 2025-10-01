@@ -33,9 +33,8 @@ class GameState {
         // Win/lose conditions and game state
         this.flow = {
             isGameOver: false,        // Player died
-            isGameWon: false,         // Player won (Normal mode)
-            hasShownEndScreen: false, // Prevent duplicate end screens
-            gameMode: 'normal',       // 'normal' | 'endless'
+            isGameWon: false,         // Player won
+            hasShownEndScreen: false,
             difficulty: 'normal'      // 'easy' | 'normal' | 'hard'
         };
 
@@ -207,16 +206,6 @@ class GameState {
             this.runtime.isRunning = false;
             this._recordStateChange('gameWon');
             this._notifyObservers('gameWon');
-        }
-    }
-
-    /**
-     * Set game mode
-     */
-    setGameMode(mode) {
-        if (['normal', 'endless'].includes(mode)) {
-            this.flow.gameMode = mode;
-            this._notifyObservers('gameModeChanged', { mode });
         }
     }
 

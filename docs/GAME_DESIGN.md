@@ -12,19 +12,13 @@
 4. **Progression**: Collect XP orbs to level up and choose upgrades
 5. **Special Abilities**: Dodge roll with cooldown
 
-### Game Modes
+### Run Structure
 
-#### Normal Mode (3-minute challenge)
-- Fixed 3-minute duration
-- 3 boss encounters at specific intervals
-- Win condition: Defeat the final Mega Boss
-- Escalating difficulty curve
-
-#### Endless Mode
-- Infinite survival gameplay
-- Continuous spawning with scaling difficulty
-- High score tracking
-- Meta progression through star collection
+#### Normal Mode (Looping Boss Rush)
+- Three boss encounters per run with escalating pacing
+- Victory unlocks the option to immediately start a fresh loop
+- Encourages experimenting with different upgrade paths across runs
+- Difficulty scaling continues through successive loops
 
 ## 👾 Enemy Design
 
@@ -157,7 +151,7 @@
 - Unlock permanent upgrades via Star Vendor
 - Complete achievement collections
 - Master different build strategies
-- Achieve high scores in Endless mode
+- Push deeper loops for higher kill counts and score milestones
 
 ## 🔮 Future Enhancements
 

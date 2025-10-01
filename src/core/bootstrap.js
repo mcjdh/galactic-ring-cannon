@@ -241,7 +241,6 @@
             this.controls = controls;
 
             const btnNormal = document.getElementById('btn-normal');
-            const btnEndless = document.getElementById('btn-endless');
             const btnSettings = document.getElementById('btn-settings');
             const btnShop = document.getElementById('btn-shop');
             const btnAchievements = document.getElementById('btn-achievements');
@@ -254,12 +253,7 @@
 
             this.addListener(btnNormal, 'click', () => {
                 this.log('🎮 Starting Normal Mode...');
-                this.startGame(false);
-            });
-
-            this.addListener(btnEndless, 'click', () => {
-                this.log('🎮 Starting Endless Mode...');
-                this.startGame(true);
+                this.startGame();
             });
 
             this.addListener(btnSettings, 'click', () => {
@@ -310,7 +304,7 @@
             });
         }
 
-        startGame(isEndless) {
+        startGame() {
             const mainMenu = document.getElementById('main-menu');
             const gameContainer = document.getElementById('game-container');
 
@@ -319,7 +313,6 @@
 
             if (!window.gameManager) return;
 
-            window.gameManager.endlessMode = Boolean(isEndless);
             window.gameManager.startGame();
         }
 

@@ -25,8 +25,7 @@ class GameManagerBridge {
         // Will be set when game engine initializes
         this.state = null;
 
-        // Game mode settings (local to bridge)
-        this.endlessMode = false;
+        // Game settings (local to bridge)
         this.lowQuality = false;
         this.difficultyFactor = 1.0;
 
@@ -378,7 +377,7 @@ class GameManagerBridge {
             try { this.uiManager.removeBoss(this._lastBossId || null); } catch (_) {}
         }
 
-        if (!this.endlessMode && !this.gameWon) {
+        if (!this.gameWon) {
             this.onGameWon();
         }
     }
