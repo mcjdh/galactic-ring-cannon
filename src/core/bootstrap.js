@@ -1,10 +1,8 @@
 (function() {
     class GameBootstrap {
         constructor() {
-            this.eventListeners = [];
             this.systemReadyCheckId = null;
-            this.mainMenuShown = false;
-            this.controls = {};
+            this.mainMenu = null;
 
             // Load meta upgrade definitions from config
             // Fallback to empty array if config not loaded yet
@@ -228,342 +226,49 @@
         }
 
         setupUI() {
-            this.removeAllEventListeners();
-
-            const controls = {
-                muteCheckbox: document.getElementById('mute-checkbox'),
-                volumeRange: document.getElementById('volume-range'),
-                lowQualityCheckbox: document.getElementById('lowquality-checkbox'),
-                difficultySelect: document.getElementById('difficulty-select'),
-                achievementsCount: document.getElementById('achievements-count'),
-                achievementsList: document.getElementById('achievements-list')
-            };
-            this.controls = controls;
-
-            const btnNormal = document.getElementById('btn-normal');
-            const btnSettings = document.getElementById('btn-settings');
-            const btnShop = document.getElementById('btn-shop');
-            const btnAchievements = document.getElementById('btn-achievements');
-            const resumeButton = document.getElementById('resume-button');
-            const restartButton = document.getElementById('restart-button-pause');
-            const returnButton = document.getElementById('return-button-pause');
-            const settingsClose = document.getElementById('settings-close');
-            const shopClose = document.getElementById('shop-close');
-            const achievementsClose = document.getElementById('achievements-close');
-
-            this.addListener(btnNormal, 'click', () => {
-                this.log('🎮 Starting Normal Mode...');
-                this.startGame();
-            });
-
-            this.addListener(btnSettings, 'click', () => {
-                this.showPanel('settings-panel');
-            });
-
-            this.addListener(settingsClose, 'click', () => {
-                this.applySettingsFromControls();
-                this.hidePanel('settings-panel');
-            });
-
-            this.addListener(btnShop, 'click', () => {
-                this.updateStarDisplay();
-                this.populateShop();
-                this.showPanel('shop-panel');
-            });
-
-            this.addListener(shopClose, 'click', () => {
-                this.hidePanel('shop-panel');
-            });
-
-            this.addListener(btnAchievements, 'click', () => {
-                this.updateAchievementsUI();
-                this.showPanel('achievements-panel');
-            });
-
-            this.addListener(achievementsClose, 'click', () => {
-                this.hidePanel('achievements-panel');
-            });
-
-            this.addListener(resumeButton, 'click', () => {
-                window.gameManager?.game?.resumeGame?.();
-            });
-
-            this.addListener(restartButton, 'click', () => {
-                window.gameManager?.startGame?.();
-            });
-
-            this.addListener(returnButton, 'click', () => {
-                if (window.gameManager?.returnToMenu) {
-                    window.gameManager.returnToMenu();
-                } else if (window.gameManagerBridge?.returnToMenu) {
-                    window.gameManagerBridge.returnToMenu();
-                } else {
-                    this.hidePanel('pause-menu');
-                    this.showMainMenu();
-                }
-            });
-        }
-
-        startGame() {
-            const mainMenu = document.getElementById('main-menu');
-            const gameContainer = document.getElementById('game-container');
-
-            if (mainMenu) mainMenu.classList.add('hidden');
-            if (gameContainer) gameContainer.classList.remove('hidden');
-
-            if (!window.gameManager) return;
-
-            window.gameManager.startGame();
-        }
-
-        applySettingsFromControls() {
-            const {
-                muteCheckbox,
-                volumeRange,
-                lowQualityCheckbox,
-                difficultySelect
-            } = this.controls || {};
-
-            try {
-                if (muteCheckbox && window.audioSystem && typeof window.audioSystem.setEnabled === 'function') {
-                    const enabled = !muteCheckbox.checked;
-                    window.audioSystem.setEnabled(enabled);
-                    localStorage.setItem('soundEnabled', enabled.toString());
-                }
-
-                if (volumeRange && window.audioSystem?.masterGain) {
-                    let volumeValue = Number(volumeRange.value);
-                    if (!Number.isFinite(volumeValue) || volumeValue < 0 || volumeValue > 1) {
-                        volumeValue = 0.5;
-                        volumeRange.value = '0.5';
-                    }
-                    window.audioSystem.masterGain.gain.value = volumeValue;
-                    localStorage.setItem('volume', volumeValue.toString());
-                }
-
-                if (lowQualityCheckbox && window.gameManager) {
-                    const lowQualityEnabled = Boolean(lowQualityCheckbox.checked);
-                    window.gameManager.lowQuality = lowQualityEnabled;
-                    localStorage.setItem('lowQuality', lowQualityEnabled.toString());
-                }
-
-                if (difficultySelect) {
-                    const valid = ['easy', 'normal', 'hard'];
-                    const selected = difficultySelect.value;
-                    if (valid.includes(selected)) {
-                        localStorage.setItem('difficulty', selected);
-                    } else {
-                        difficultySelect.value = 'normal';
-                        localStorage.setItem('difficulty', 'normal');
-                    }
-                }
-            } catch (err) {
-                this.error('Error applying settings:', err);
-            }
-        }
-
-        loadStoredSettingsIntoUI() {
-            const {
-                muteCheckbox,
-                volumeRange,
-                lowQualityCheckbox,
-                difficultySelect
-            } = this.controls || {};
-
-            try {
-                if (muteCheckbox) {
-                    const stored = localStorage.getItem('soundEnabled');
-                    if (stored === 'true' || stored === 'false') {
-                        muteCheckbox.checked = stored !== 'true';
-                    } else {
-                        muteCheckbox.checked = false;
-                        localStorage.setItem('soundEnabled', 'true');
-                    }
-                }
-
-                if (volumeRange) {
-                    let volumeValue = 0.5;
-                    const storedVolume = localStorage.getItem('volume');
-                    if (storedVolume !== null) {
-                        const parsed = Number(storedVolume);
-                        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
-                            volumeValue = parsed;
-                        }
-                    }
-                    volumeRange.value = volumeValue.toString();
-                    if (window.audioSystem?.masterGain) {
-                        window.audioSystem.masterGain.gain.value = volumeValue;
-                    }
-                }
-
-                if (lowQualityCheckbox) {
-                    const storedLowQ = localStorage.getItem('lowQuality');
-                    if (storedLowQ === 'true' || storedLowQ === 'false') {
-                        const enabled = storedLowQ === 'true';
-                        lowQualityCheckbox.checked = enabled;
-                        if (window.gameManager) {
-                            window.gameManager.lowQuality = enabled;
-                        }
-                    } else {
-                        lowQualityCheckbox.checked = false;
-                        localStorage.setItem('lowQuality', 'false');
-                    }
-                }
-
-                if (difficultySelect) {
-                    const storedDifficulty = localStorage.getItem('difficulty');
-                    const valid = ['easy', 'normal', 'hard'];
-                    if (valid.includes(storedDifficulty)) {
-                        difficultySelect.value = storedDifficulty;
-                    } else {
-                        difficultySelect.value = 'normal';
-                        localStorage.setItem('difficulty', 'normal');
-                    }
-                }
-            } catch (err) {
-                this.error('Error loading settings:', err);
-            }
-        }
-
-        updateAchievementsUI() {
-            const { achievementsCount, achievementsList } = this.controls || {};
-            const system = window.achievementSystem;
-            if (!system) return;
-
-            if (achievementsCount) {
-                const unlocked = system.getUnlockedCount?.() ?? 0;
-                const total = system.getTotalCount?.() ?? 0;
-                achievementsCount.textContent = `${unlocked}/${total}`;
-            }
-
-            if (achievementsList) {
-                achievementsList.innerHTML = '';
-                const items = system.achievements || {};
-                Object.values(items).forEach(achievement => {
-                    const entry = document.createElement('div');
-                    entry.className = 'achievement-item';
-                    entry.textContent = `${achievement.icon || ''} ${achievement.name}${achievement.unlocked ? ' ✅' : ''}`;
-                    achievementsList.appendChild(entry);
-                });
-            }
-        }
-
-        populateShop() {
-            const container = document.getElementById('shop-items');
-            if (!container) return;
-
-            container.innerHTML = '';
-
-            this.metaUpgrades.forEach(upgrade => {
-                const currentLevel = this.getMetaUpgradeLevel(upgrade.id);
-                const isMaxed = currentLevel >= upgrade.maxLevel;
-                const cost = upgrade.cost + (currentLevel * Math.floor(upgrade.cost * 0.5));
-                const currentStars = window.gameManager?.metaStars ?? 0;
-                const canAfford = currentStars >= cost;
-
-                const item = document.createElement('div');
-                item.className = 'shop-item';
-                item.innerHTML = `
-                    <div class="shop-item-header">
-                        <span class="shop-item-icon">${upgrade.icon}</span>
-                        <span class="shop-item-name">${upgrade.name}</span>
-                        <span class="shop-item-level">${currentLevel}/${upgrade.maxLevel}</span>
-                    </div>
-                    <div class="shop-item-description">${upgrade.description}</div>
-                `;
-
-                const footer = document.createElement('div');
-                footer.className = 'shop-item-footer';
-
-                if (isMaxed) {
-                    const maxed = document.createElement('span');
-                    maxed.className = 'shop-item-maxed';
-                    maxed.textContent = 'MAXED';
-                    footer.appendChild(maxed);
-                } else {
-                    const button = document.createElement('button');
-                    button.className = `shop-buy-btn${canAfford ? '' : ' disabled'}`;
-                    button.disabled = !canAfford;
-                    button.textContent = canAfford ? `Buy for ${cost} ⭐` : `Need ${cost} ⭐`;
-
-                    if (canAfford) {
-                        this.addListener(button, 'click', () => this.purchaseUpgrade(upgrade.id));
-                    }
-
-                    footer.appendChild(button);
-                }
-
-                item.appendChild(footer);
-                container.appendChild(item);
-            });
-        }
-
-        purchaseUpgrade(upgradeId) {
-            const upgrade = this.metaUpgrades.find(u => u.id === upgradeId);
-            if (!upgrade || !window.gameManager) {
+            const Controller = window.Game?.MainMenuController;
+            if (typeof Controller !== 'function') {
+                this.warn('MainMenuController not available');
                 return;
             }
 
-            const currentLevel = this.getMetaUpgradeLevel(upgradeId);
-            if (currentLevel >= upgrade.maxLevel) {
-                return;
+            if (this.mainMenu) {
+                this.mainMenu.cleanup();
             }
 
-            const cost = upgrade.cost + (currentLevel * Math.floor(upgrade.cost * 0.5));
-            if ((window.gameManager.metaStars ?? 0) < cost) {
-                return;
-            }
+            this.mainMenu = new Controller({
+                metaUpgrades: this.metaUpgrades,
+                logger: {
+                    log: (...args) => this.log(...args),
+                    warn: (...args) => this.warn(...args),
+                    error: (...args) => this.error(...args)
+                }
+            });
 
-            window.gameManager.metaStars -= cost;
-            this.setMetaUpgradeLevel(upgradeId, currentLevel + 1);
-
-            this.updateStarDisplay();
-            window.gameManager.saveStarTokens?.();
-            this.populateShop();
-
-            this.log(`Purchased ${upgrade.name} level ${currentLevel + 1}`);
-
-            if (currentLevel + 1 >= upgrade.maxLevel) {
-                window.gameManager.onUpgradeMaxed?.(upgradeId);
-            }
-        }
-
-        getMetaUpgradeLevel(id) {
-            return parseInt(localStorage.getItem(`meta_${id}`) || '0', 10);
-        }
-
-        setMetaUpgradeLevel(id, level) {
-            localStorage.setItem(`meta_${id}`, level.toString());
-        }
-
-        showPanel(id) {
-            const element = document.getElementById(id);
-            if (element) {
-                element.classList.remove('hidden');
-            }
-        }
-
-        hidePanel(id) {
-            const element = document.getElementById(id);
-            if (element) {
-                element.classList.add('hidden');
-            }
-        }
-
-        updateStarDisplay() {
-            if (window.gameManager?.updateStarDisplay) {
-                window.gameManager.updateStarDisplay();
+            if (typeof window !== 'undefined') {
+                window.mainMenuController = this.mainMenu;
             }
         }
 
         checkSystemsReady() {
-            if (this.mainMenuShown) {
+            if (!this.mainMenu) {
+                return;
+            }
+
+            if (this.mainMenu.isVisible()) {
                 return;
             }
 
             const ready = Boolean(window.gameManager && window.upgradeSystem && window.audioSystem);
             if (ready) {
-                this.showMainMenu();
+                this.mainMenu.show();
+
+                if (this.systemReadyCheckId) {
+                    clearTimeout(this.systemReadyCheckId);
+                    this.systemReadyCheckId = null;
+                }
+
+                this.log('Game ready to play');
                 return;
             }
 
@@ -574,56 +279,17 @@
             this.systemReadyCheckId = window.setTimeout(() => this.checkSystemsReady(), 100);
         }
 
-        showMainMenu() {
-            if (this.mainMenuShown) {
-                return;
-            }
-
-            const loadingScreen = document.getElementById('loading-screen');
-            const mainMenu = document.getElementById('main-menu');
-
-            if (loadingScreen) loadingScreen.classList.add('hidden');
-            if (mainMenu) mainMenu.classList.remove('hidden');
-
-            this.updateStarDisplay();
-            this.loadStoredSettingsIntoUI();
-
-            this.mainMenuShown = true;
-            if (this.systemReadyCheckId) {
-                clearTimeout(this.systemReadyCheckId);
-                this.systemReadyCheckId = null;
-            }
-
-            this.log('✅ Game ready to play!');
-        }
-
-        addListener(element, event, handler, options) {
-            if (!element || typeof handler !== 'function') {
-                return false;
-            }
-
-            element.addEventListener(event, handler, options);
-            this.eventListeners.push({ element, event, handler, options });
-            return true;
-        }
-
-        removeAllEventListeners() {
-            this.eventListeners.forEach(({ element, event, handler, options }) => {
-                try {
-                    element.removeEventListener(event, handler, options);
-                } catch (err) {
-                    this.warn('Error removing event listener:', err);
-                }
-            });
-            this.eventListeners = [];
-        }
-
         cleanup() {
-            this.removeAllEventListeners();
+            if (this.mainMenu) {
+                this.mainMenu.cleanup();
+                this.mainMenu = null;
+            }
+
             if (this.systemReadyCheckId) {
                 clearTimeout(this.systemReadyCheckId);
                 this.systemReadyCheckId = null;
             }
+
             window.gameManager?.cleanup?.();
         }
     }
