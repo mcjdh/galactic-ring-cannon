@@ -489,7 +489,7 @@ class GameState {
                 try {
                     callback(data);
                 } catch (error) {
-                    console.error(`Error in observer callback for ${event}:`, error);
+                    ((typeof window !== "undefined" && window.logger?.error) || console.error)(`Error in observer callback for ${event}:`, error);
                 }
             });
         }
@@ -500,7 +500,7 @@ class GameState {
                 try {
                     callback({ event, ...data });
                 } catch (error) {
-                    console.error(`Error in wildcard observer callback:`, error);
+                    ((typeof window !== "undefined" && window.logger?.error) || console.error)(`Error in wildcard observer callback:`, error);
                 }
             });
         }

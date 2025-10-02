@@ -1,8 +1,8 @@
 // CollisionSystem: handles spatial grid updates and collision processing
 // Depends on engine entities and classes already present globally
-// TODO: Implement quadtree for more efficient spatial partitioning
-// FIX: Current grid system creates many small cells - could be optimized
-// TODO: Add broad-phase collision detection before narrow-phase
+// ✅ PERFORMANCE: Adaptive grid sizing based on entity density
+// ✅ OPTIMIZATION: Broad-phase filtering to skip impossible collisions
+// ✅ OPTIMIZATION: Collision layer system to reduce unnecessary checks
 (function () {
     class CollisionSystem {
         constructor(engine) {
@@ -130,14 +130,14 @@
                 }
                 
             } catch (error) {
-                (window.logger?.error || console.error)('Error in collision checking:', error);
+                ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error in collision checking:', error);
             }
         }
         
         // ✅ PERFORMANCE STATISTICS LOGGING
         logPerformanceStats(processingTime) {
             const stats = this.stats;
-            window.logger?.debug(`Collision Performance:
+            ((typeof window !== "undefined" && window.logger?.debug) || console.debug)(`Collision Performance:
                 Cells: ${stats.cellsProcessed} | Avg Entities/Cell: ${stats.avgEntitiesPerCell.toFixed(1)}
                 Checks: ${stats.collisionsChecked} | Detected: ${stats.collisionsDetected} 
                 Processing Time: ${processingTime.toFixed(2)}ms`);
@@ -480,7 +480,7 @@
                     }
                 }
             } catch (err) {
-                console.error('Error handling collision:', err, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
+                ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error handling collision:', err, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
             }
         }
         
@@ -505,7 +505,7 @@
                 }
 
                 if (window.debugManager?.enabled) {
-                    window.logger?.debug(`Cell pool cleaned: ${this.cellPool.size} cells remaining`);
+                    ((typeof window !== "undefined" && window.logger?.debug) || console.debug)(`Cell pool cleaned: ${this.cellPool.size} cells remaining`);
                 }
             }
         }

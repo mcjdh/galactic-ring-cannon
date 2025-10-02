@@ -374,13 +374,10 @@ class UpgradeSystem {
     }
 }
 
-// 🤖 RESONANT NOTE: Prototype modification creates tight coupling
-// TODO: Move this logic to PlayerUpgrades.apply() for better encapsulation
-// This pattern should be avoided in favor of composition over modification
-
-// 🤖 RESONANT NOTE: Removed deprecated prototype monkey patching - now uses direct delegation
-// Clean architecture: UpgradeSystem -> PlayerUpgrades.apply() -> Player methods
+// ✅ ARCHITECTURE: Clean delegation pattern implemented
+// UpgradeSystem -> PlayerUpgrades.apply() -> Player methods
 // This eliminates global state dependencies and improves testability
+// Previous prototype monkey patching removed in favor of composition
 
 // Make globally available
 if (typeof window !== 'undefined') {

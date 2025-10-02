@@ -153,7 +153,7 @@ class EntityManager {
                     try {
                         onRemove(entity);
                     } catch (error) {
-                        console.error('EntityManager prune callback failed:', error);
+                        ((typeof window !== "undefined" && window.logger?.error) || console.error)('EntityManager prune callback failed:', error);
                     }
                 });
             }
