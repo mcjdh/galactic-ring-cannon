@@ -59,6 +59,8 @@ class CosmicBackground {
 
         // Cached RGBA strings (optimization - avoid repeated string concat)
         this._cachedRgbaStrings = new Map();
+        this._nebulaSpriteCache = new Map();
+        this._nebulaCacheLimit = 32;
 
         // Initialize
         this.initialize();
@@ -224,26 +226,64 @@ class CosmicBackground {
             const pulse = Math.sin(this.time * cloud.pulseSpeed + cloud.pulseOffset) * 0.5 + 0.5;
             const opacity = 0.1 + pulse * 0.15;
 
-            // Create radial gradient for nebula
-            const gradient = ctx.createRadialGradient(
-                cloud.x, cloud.y, 0,
-                cloud.x, cloud.y, cloud.radius
-            );
+            const sprite = this._getNebulaSprite(cloud.color, cloud.radius);
+            if (!sprite) {
+                continue;
+            }
 
-            gradient.addColorStop(0, this.hexToRgba(cloud.color, opacity * 0.3));
-            gradient.addColorStop(0.5, this.hexToRgba(cloud.color, opacity * 0.15));
-            gradient.addColorStop(1, this.hexToRgba(cloud.color, 0));
-
-            ctx.fillStyle = gradient;
-            ctx.fillRect(
+            ctx.globalAlpha = opacity;
+            ctx.drawImage(
+                sprite,
                 cloud.x - cloud.radius,
                 cloud.y - cloud.radius,
                 cloud.radius * 2,
                 cloud.radius * 2
             );
+            ctx.globalAlpha = 1;
         }
 
         ctx.restore();
+    }
+    
+    _getNebulaSprite(color, radius) {
+        const roundedRadius = Math.max(10, Math.round(radius));
+        const key = `${color}_${roundedRadius}`;
+
+        if (this._nebulaSpriteCache.has(key)) {
+            return this._nebulaSpriteCache.get(key);
+        }
+
+        if (typeof document === 'undefined') {
+            return null;
+        }
+
+        const size = Math.max(2, roundedRadius * 2);
+        const offscreen = document.createElement('canvas');
+        offscreen.width = size;
+        offscreen.height = size;
+        const offCtx = offscreen.getContext('2d');
+        if (!offCtx) {
+            return null;
+        }
+
+        const gradient = offCtx.createRadialGradient(
+            roundedRadius, roundedRadius, 0,
+            roundedRadius, roundedRadius, roundedRadius
+        );
+
+        gradient.addColorStop(0, this.hexToRgba(color, 0.3));
+        gradient.addColorStop(0.5, this.hexToRgba(color, 0.15));
+        gradient.addColorStop(1, this.hexToRgba(color, 0));
+
+        offCtx.fillStyle = gradient;
+        offCtx.fillRect(0, 0, size, size);
+
+        if (this._nebulaSpriteCache.size >= this._nebulaCacheLimit) {
+            const firstKey = this._nebulaSpriteCache.keys().next().value;
+            this._nebulaSpriteCache.delete(firstKey);
+        }
+        this._nebulaSpriteCache.set(key, offscreen);
+        return offscreen;
     }
 
     renderStars() {
