@@ -62,6 +62,11 @@ class GameEngine {
         this.lastFrameTime = 0;
         this.performanceMode = false;
         this.debugMode = false;
+        this.lowGpuMode = false;
+        this.lowPerformanceMode = false;
+        this._autoLowQualityCosmic = false;
+        this._autoParticleLowQuality = false;
+        this._manualPerformanceOverride = null;
 
         // Track pause origins so auto-resume doesn't override manual pauses
         this.manualPause = false;
@@ -160,11 +165,81 @@ class GameEngine {
             if (typeof CosmicBackground === 'function') {
                 this.cosmicBackground = new CosmicBackground(this.canvas);
                 ((typeof window !== "undefined" && window.logger?.info) || console.log)('Cosmic background initialized');
+
+                // Auto-enable low quality on constrained devices or reduced-motion preference
+                try {
+                    const prefersReducedMotion = typeof window !== 'undefined'
+                        && typeof window.matchMedia === 'function'
+                        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                    const hardwareConcurrency = typeof navigator !== 'undefined'
+                        ? navigator.hardwareConcurrency
+                        : undefined;
+                    const deviceMemory = typeof navigator !== 'undefined'
+                        ? navigator.deviceMemory
+                        : undefined;
+
+                    const lowPowerDevice =
+                        (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 4) ||
+                        (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 4);
+
+                    const autoLowQuality = prefersReducedMotion || lowPowerDevice;
+
+                    this._autoLowQualityCosmic = !!autoLowQuality;
+                    this._autoParticleLowQuality = !!autoLowQuality;
+                } catch (autoQualityError) {
+                    ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Auto quality adjustment failed', autoQualityError);
+                }
+
+                this._applyBackgroundQuality();
+                this._updateParticleQuality();
             }
         } catch (e) {
             ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('CosmicBackground initialization failed', e);
             this.cosmicBackground = null;
         }
+    }
+
+    _updateParticleQuality() {
+        const manualOverride = this._manualPerformanceOverride;
+        let shouldEnable;
+
+        if (manualOverride === 'on') {
+            shouldEnable = true;
+        } else if (manualOverride === 'off') {
+            shouldEnable = false;
+        } else {
+            shouldEnable = !!(this.lowGpuMode || this._autoParticleLowQuality);
+        }
+
+        this.lowPerformanceMode = shouldEnable;
+
+        if (typeof window !== 'undefined' && window.optimizedParticles && typeof window.optimizedParticles.setLowQuality === 'function') {
+            window.optimizedParticles.setLowQuality(shouldEnable);
+        }
+
+        if (typeof window !== 'undefined' && window.gameManager) {
+            window.gameManager.lowPerformanceMode = shouldEnable;
+        }
+    }
+
+    _applyBackgroundQuality() {
+        if (!this.cosmicBackground || typeof this.cosmicBackground.setLowQuality !== 'function') {
+            return;
+        }
+
+        const manualOverride = this._manualPerformanceOverride;
+        let shouldUseLowQuality;
+
+        if (manualOverride === 'on') {
+            shouldUseLowQuality = true;
+        } else if (manualOverride === 'off') {
+            shouldUseLowQuality = false;
+        } else {
+            shouldUseLowQuality = !!(this.lowGpuMode || this._autoLowQualityCosmic);
+        }
+
+        this.cosmicBackground.setLowQuality(shouldUseLowQuality);
     }
 
     // ===== GAMESTATE PROXY PROPERTIES =====
@@ -464,6 +539,11 @@ class GameEngine {
         this.contextLost = false;
         this.performanceMode = false;
         this.lowPerformanceMode = false;
+        this.lowGpuMode = false;
+        if (this._manualPerformanceOverride === 'on') {
+            this.performanceMode = true;
+            this.lowGpuMode = true;
+        }
         this.isVisible = true;
         this.isMinimized = false;
 
@@ -506,6 +586,9 @@ class GameEngine {
             window.optimizedParticles.clear();
         }
 
+        this._applyBackgroundQuality();
+        this._updateParticleQuality();
+
         // Reset input state to avoid stuck keys between runs
         this.keys = {};
 
@@ -534,6 +617,8 @@ class GameEngine {
                 ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Failed to notify player creation:', error);
             }
         }
+
+        this._updateParticleQuality();
     }
 
     onKeyDown(e) {
@@ -547,7 +632,15 @@ class GameEngine {
         
         // Toggle performance mode with 'O' key (O for Optimize)
         if (e.key === 'o' || e.key === 'O') {
-            this.togglePerformanceMode();
+            if (e.altKey) {
+                this._manualPerformanceOverride = null;
+                this.performanceMode = false;
+                this.lowGpuMode = false;
+                this._applyBackgroundQuality();
+                this._updateParticleQuality();
+            } else {
+                this.togglePerformanceMode();
+            }
         }
 
         // Pause/resume with P or Escape
@@ -824,6 +917,19 @@ class GameEngine {
         if (window.performanceManager) {
             return;
         }
+        const manualOverride = this._manualPerformanceOverride;
+        if (manualOverride === 'on') {
+            if (!this.performanceMode) {
+                this.enablePerformanceMode();
+            }
+            return;
+        }
+        if (manualOverride === 'off') {
+            if (this.performanceMode) {
+                this.disablePerformanceMode();
+            }
+            return;
+        }
         // Simple FPS-based performance adjustment
         if (this.fps < 30 && !this.performanceMode) {
             this.enablePerformanceMode();
@@ -834,8 +940,10 @@ class GameEngine {
     
     togglePerformanceMode() {
         if (this.performanceMode) {
+            this._manualPerformanceOverride = 'off';
             this.disablePerformanceMode();
         } else {
+            this._manualPerformanceOverride = 'on';
             this.enablePerformanceMode();
         }
     }
@@ -853,10 +961,8 @@ class GameEngine {
             this.ctx.globalCompositeOperation = 'source-over';
         }
 
-        // 🌌 Reduce cosmic background quality
-        if (this.cosmicBackground && typeof this.cosmicBackground.setLowQuality === 'function') {
-            this.cosmicBackground.setLowQuality(true);
-        }
+        this._applyBackgroundQuality();
+        this._updateParticleQuality();
         // Performance mode enabled
     }
     
@@ -871,10 +977,8 @@ class GameEngine {
             delete this._previousImageSmoothingEnabled;
         }
 
-        // 🌌 Restore cosmic background quality
-        if (this.cosmicBackground && typeof this.cosmicBackground.setLowQuality === 'function') {
-            this.cosmicBackground.setLowQuality(false);
-        }
+        this._applyBackgroundQuality();
+        this._updateParticleQuality();
         // Performance mode disabled
     }
     

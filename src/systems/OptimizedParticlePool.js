@@ -18,6 +18,14 @@ class OptimizedParticlePool {
         // Performance tracking
         this.lastCleanupTime = 0;
         this.cleanupInterval = 1000; // Clean up dead particles every second
+        this.lowQuality = false;
+        this.densityMultiplier = 1;
+        this._defaults = {
+            maxParticles: this.maxParticles,
+            batchSize: this.batchSize,
+            cleanupInterval: this.cleanupInterval,
+            poolSize: this.poolSize
+        };
     }
     
     createParticleObject() {
@@ -77,6 +85,11 @@ class OptimizedParticlePool {
     }
     
     spawnParticle(config) {
+        if (this.lowQuality && this.densityMultiplier < 1) {
+            if (Math.random() > this.densityMultiplier) {
+                return null;
+            }
+        }
         const particle = this.getParticle();
         
         // Configure particle
@@ -244,7 +257,7 @@ class OptimizedParticlePool {
     // Performance-aware cleanup method for external calls
     cleanup() {
         // Reduce particle count if performance is struggling
-        const performanceMode = window.gameManager?.lowPerformanceMode || false;
+        const performanceMode = (window.gameManager?.lowPerformanceMode || this.lowQuality) || false;
 
         if (performanceMode) {
             // Aggressively reduce particles in low performance mode
@@ -270,9 +283,12 @@ class OptimizedParticlePool {
     // Spawn common particle types with optimized settings
     spawnHitEffect(x, y, intensity = 1) {
         const count = Math.min(8, Math.ceil(intensity * 5));
+        const effectiveCount = this.lowQuality
+            ? Math.max(1, Math.floor(count * this.densityMultiplier))
+            : count;
         
-        for (let i = 0; i < count; i++) {
-            const angle = (i / count) * Math.PI * 2;
+        for (let i = 0; i < effectiveCount; i++) {
+            const angle = (i / effectiveCount) * Math.PI * 2;
             const speed = 50 + Math.random() * 100 * intensity;
             
             this.spawnParticle({
@@ -301,6 +317,24 @@ class OptimizedParticlePool {
             type: 'basic',
             friction: 0.95
         });
+    }
+    
+    setLowQuality(enabled) {
+        if (this.lowQuality === enabled) return;
+        this.lowQuality = enabled;
+
+        if (enabled) {
+            this.densityMultiplier = 0.6;
+            this.maxParticles = Math.min(this._defaults.maxParticles, 120);
+            this.batchSize = Math.min(this._defaults.batchSize, 30);
+            this.cleanupInterval = Math.min(this._defaults.cleanupInterval, 500);
+            this.cleanup();
+        } else {
+            this.densityMultiplier = 1;
+            this.maxParticles = this._defaults.maxParticles;
+            this.batchSize = this._defaults.batchSize;
+            this.cleanupInterval = this._defaults.cleanupInterval;
+        }
     }
     
     // Get performance stats
@@ -362,8 +396,11 @@ if (typeof window !== 'undefined') {
             }
             createExplosion(x, y, radius, color) {
                 const count = Math.min(20, Math.floor((radius || 60) / 3));
-                for (let i = 0; i < count; i++) {
-                    const angle = (i / count) * Math.PI * 2;
+                const effectiveCount = this.pool.lowQuality
+                    ? Math.max(4, Math.floor(count * this.pool.densityMultiplier))
+                    : count;
+                for (let i = 0; i < effectiveCount; i++) {
+                    const angle = (i / effectiveCount) * Math.PI * 2;
                     const speed = 50 + Math.random() * 100;
                     this.pool.spawnParticle({
                         x: x + (Math.random() - 0.5) * 10,
@@ -379,8 +416,11 @@ if (typeof window !== 'undefined') {
             }
             createHitEffect(x, y, intensity = 1) { this.pool.spawnHitEffect(x, y, intensity); }
             createLevelUpEffect(x, y) {
-                for (let i = 0; i < 20; i++) {
-                    const angle = (i / 20) * Math.PI * 2;
+                const total = this.pool.lowQuality
+                    ? Math.max(6, Math.floor(20 * this.pool.densityMultiplier))
+                    : 20;
+                for (let i = 0; i < total; i++) {
+                    const angle = (i / total) * Math.PI * 2;
                     const speed = 60 + Math.random() * 80;
                     this.pool.spawnParticle({
                         x, y,

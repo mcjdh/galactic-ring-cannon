@@ -35,6 +35,9 @@ class CosmicBackground {
         this.lastPlayerX = 0;
         this.lastPlayerY = 0;
         this._hasPlayerBaseline = false;
+        this._pendingParallaxX = 0;
+        this._pendingParallaxY = 0;
+        this._frameAccumulator = 0;
 
         // Nebula clouds
         this.nebulaClouds = [];
@@ -79,8 +82,12 @@ class CosmicBackground {
         this._hasPlayerBaseline = false;
         this.lastPlayerX = 0;
         this.lastPlayerY = 0;
+        this._pendingParallaxX = 0;
+        this._pendingParallaxY = 0;
+        this._frameAccumulator = 0;
 
         // Generate nebula clouds
+        this.nebulaClouds.length = 0;
         for (let i = 0; i < this.nebulaCount; i++) {
             this.nebulaClouds.push({
                 x: Math.random() * this.canvas.width,
@@ -116,8 +123,26 @@ class CosmicBackground {
             }
 
             // Calculate camera movement (how much player moved this frame)
-            const cameraDeltaX = player.x - this.lastPlayerX;
-            const cameraDeltaY = player.y - this.lastPlayerY;
+            let cameraDeltaX = player.x - this.lastPlayerX;
+            let cameraDeltaY = player.y - this.lastPlayerY;
+
+            if (this.lowQuality) {
+                this._pendingParallaxX += cameraDeltaX;
+                this._pendingParallaxY += cameraDeltaY;
+                this._frameAccumulator = (this._frameAccumulator + 1) % 2;
+
+                // Only update parallax every other frame to cut work in half
+                if (this._frameAccumulator !== 0) {
+                    this.lastPlayerX = player.x;
+                    this.lastPlayerY = player.y;
+                    return;
+                }
+
+                cameraDeltaX = this._pendingParallaxX;
+                cameraDeltaY = this._pendingParallaxY;
+                this._pendingParallaxX = 0;
+                this._pendingParallaxY = 0;
+            }
 
             // Update stars - they move OPPOSITE to camera at different speeds
             for (const layer of this.starLayers) {
@@ -158,6 +183,9 @@ class CosmicBackground {
         } else {
             // Reset baseline so new players reinitialize smoothly
             this._hasPlayerBaseline = false;
+            this._pendingParallaxX = 0;
+            this._pendingParallaxY = 0;
+            this._frameAccumulator = 0;
         }
     }
 
@@ -220,6 +248,7 @@ class CosmicBackground {
 
     renderStars() {
         const ctx = this.ctx;
+        const skipTwinkle = this.lowQuality;
 
         // Performance: Batch rendering by layer to reduce style changes
         for (const layer of this.starLayers) {
@@ -227,8 +256,10 @@ class CosmicBackground {
 
             for (const star of layer.stars) {
                 // Twinkling effect
-                const twinkle = Math.sin(this.time * star.twinkleSpeed + star.twinkleOffset) * 0.5 + 0.5;
-                const alpha = layer.brightness * (0.5 + twinkle * 0.5);
+                const twinkle = skipTwinkle
+                    ? 0.5
+                    : Math.sin(this.time * star.twinkleSpeed + star.twinkleOffset) * 0.5 + 0.5;
+                const alpha = layer.brightness * (skipTwinkle ? 0.7 : (0.5 + twinkle * 0.5));
 
                 ctx.globalAlpha = alpha;
                 ctx.fillStyle = '#ffffff';
@@ -335,11 +366,17 @@ class CosmicBackground {
             // Reduce effects for better performance
             this.grid.enabled = false;
             // Store original counts
-            this._originalStarCounts = this.starLayers.map(l => l.count);
-            // Reduce by 60%
-            this.starLayers[0].count = Math.floor(this.starLayers[0].count * 0.4);
-            this.starLayers[1].count = Math.floor(this.starLayers[1].count * 0.4);
-            this.starLayers[2].count = Math.floor(this.starLayers[2].count * 0.4);
+            if (!this._originalStarCounts) {
+                this._originalStarCounts = this.starLayers.map(l => l.count);
+            }
+            if (typeof this._originalNebulaCount !== 'number') {
+                this._originalNebulaCount = this.nebulaCount;
+            }
+            // Aggressively reduce draw calls for low-power devices
+            this.starLayers[0].count = Math.max(20, Math.floor(this._originalStarCounts[0] * 0.25));
+            this.starLayers[1].count = Math.max(15, Math.floor(this._originalStarCounts[1] * 0.25));
+            this.starLayers[2].count = Math.max(10, Math.floor(this._originalStarCounts[2] * 0.25));
+            this.nebulaCount = Math.max(2, Math.floor(this._originalNebulaCount * 0.3));
         } else {
             // Restore quality
             this.grid.enabled = true;
@@ -348,7 +385,13 @@ class CosmicBackground {
                 this.starLayers[1].count = this._originalStarCounts[1];
                 this.starLayers[2].count = this._originalStarCounts[2];
             }
+            if (typeof this._originalNebulaCount === 'number') {
+                this.nebulaCount = this._originalNebulaCount;
+            }
         }
+        this._pendingParallaxX = 0;
+        this._pendingParallaxY = 0;
+        this._frameAccumulator = 0;
         // Reinitialize with new counts
         this.initialize();
     }
