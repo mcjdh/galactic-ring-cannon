@@ -34,6 +34,7 @@ class CosmicBackground {
         // Track last player position for proper parallax
         this.lastPlayerX = 0;
         this.lastPlayerY = 0;
+        this._hasPlayerBaseline = false;
 
         // Nebula clouds
         this.nebulaClouds = [];
@@ -74,6 +75,11 @@ class CosmicBackground {
             }
         }
 
+        // Reset parallax baseline after reinitializing
+        this._hasPlayerBaseline = false;
+        this.lastPlayerX = 0;
+        this.lastPlayerY = 0;
+
         // Generate nebula clouds
         for (let i = 0; i < this.nebulaCount; i++) {
             this.nebulaClouds.push({
@@ -102,9 +108,10 @@ class CosmicBackground {
         // Update stars with proper camera-based parallax
         if (player) {
             // Initialize position on first frame to avoid big jump
-            if (this.lastPlayerX === 0 && this.lastPlayerY === 0) {
+            if (!this._hasPlayerBaseline) {
                 this.lastPlayerX = player.x;
                 this.lastPlayerY = player.y;
+                this._hasPlayerBaseline = true;
                 return; // Skip first frame to establish baseline
             }
 
@@ -148,6 +155,9 @@ class CosmicBackground {
             // Store position for next frame
             this.lastPlayerX = player.x;
             this.lastPlayerY = player.y;
+        } else {
+            // Reset baseline so new players reinitialize smoothly
+            this._hasPlayerBaseline = false;
         }
     }
 

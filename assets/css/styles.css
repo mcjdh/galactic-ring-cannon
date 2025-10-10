@@ -1,11 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap');
-
 body {
     margin: 0;
     overflow: hidden;
     background-color: #0a0a1f;  /* Deep space purple-black */
     color: #00ffff;  /* Neon cyan text */
-    font-family: 'Orbitron', 'Courier New', monospace;
+    font-family: 'Lucida Console', 'Courier New', monospace;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
 }
 

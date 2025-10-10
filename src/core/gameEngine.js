@@ -845,8 +845,13 @@ class GameEngine {
         this.performanceMode = true;
         this.lowGpuMode = true;
         // Optimize rendering
-        this.ctx.imageSmoothingEnabled = false;
-        this.ctx.globalCompositeOperation = 'source-over';
+        if (this.ctx) {
+            if (typeof this._previousImageSmoothingEnabled !== 'boolean') {
+                this._previousImageSmoothingEnabled = this.ctx.imageSmoothingEnabled;
+            }
+            this.ctx.imageSmoothingEnabled = false;
+            this.ctx.globalCompositeOperation = 'source-over';
+        }
 
         // 🌌 Reduce cosmic background quality
         if (this.cosmicBackground && typeof this.cosmicBackground.setLowQuality === 'function') {
@@ -860,7 +865,11 @@ class GameEngine {
         this.performanceMode = false;
         this.lowGpuMode = false;
         // Restore rendering quality
-        this.ctx.imageSmoothingEnabled = true;
+        if (this.ctx) {
+            const previous = this._previousImageSmoothingEnabled;
+            this.ctx.imageSmoothingEnabled = (typeof previous === 'boolean') ? previous : false;
+            delete this._previousImageSmoothingEnabled;
+        }
 
         // 🌌 Restore cosmic background quality
         if (this.cosmicBackground && typeof this.cosmicBackground.setLowQuality === 'function') {
