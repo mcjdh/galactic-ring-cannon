@@ -44,11 +44,16 @@ class EnemyRenderer {
         const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
         const drawRadius = enemy.radius * pulseScale;
 
-        // Draw main enemy body
+        // Draw main enemy body with synthwave glow
+        ctx.shadowBlur = enemy.isElite || enemy.isBoss ? 15 : 8;
+        ctx.shadowColor = enemy.color;
+
         ctx.fillStyle = enemy.color;
         ctx.beginPath();
         ctx.arc(enemy.x, enemy.y, drawRadius, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.shadowBlur = 0;
 
         // Draw boss crown if boss
         if (enemy.isBoss) {
@@ -65,16 +70,19 @@ class EnemyRenderer {
     }
 
     /**
-     * Render shield effect around enemy
+     * Render shield effect around enemy - Synthwave themed
      */
     static renderShieldEffect(enemy, ctx) {
-        ctx.strokeStyle = '#3498db';
+        ctx.strokeStyle = '#00ffff';
         ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00ffff';
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.arc(enemy.x, enemy.y, enemy.radius + 8, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
     }
 
     /**
@@ -96,10 +104,12 @@ class EnemyRenderer {
     }
 
     /**
-     * Render boss crown indicator
+     * Render boss crown indicator - Synthwave themed
      */
     static renderBossCrown(enemy, ctx) {
-        ctx.fillStyle = '#f1c40f';
+        ctx.fillStyle = '#ffff00';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ffff00';
         const crownSize = 6;
 
         // Simple crown shape
@@ -109,6 +119,7 @@ class EnemyRenderer {
         ctx.lineTo(enemy.x + crownSize, enemy.y - enemy.radius - 5);
         ctx.closePath();
         ctx.fill();
+        ctx.shadowBlur = 0;
     }
 
     /**

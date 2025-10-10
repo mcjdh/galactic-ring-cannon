@@ -55,21 +55,27 @@ class ProjectileRenderer {
     }
 
     /**
-     * Render main projectile body
+     * Render main projectile body - Enhanced with glow
      */
     static renderBody(projectile, ctx) {
-        ctx.fillStyle = this.getBodyColor(projectile);
+        const color = this.getBodyColor(projectile);
+
+        // Add glow effect
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = color;
+
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner bright core for crits
-        if (projectile.isCrit) {
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(projectile.x, projectile.y, projectile.radius * 0.4, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        ctx.shadowBlur = 0;
+
+        // Inner bright core for all projectiles (stronger for crits)
+        ctx.fillStyle = projectile.isCrit ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(projectile.x, projectile.y, projectile.radius * 0.4, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     /**
@@ -114,39 +120,39 @@ class ProjectileRenderer {
     }
 
     /**
-     * Get trail color based on behaviors
+     * Get trail color based on behaviors - Synthwave themed
      */
     static getTrailColor(projectile) {
-        if (!projectile.behaviorManager) return '#3498db';
+        if (!projectile.behaviorManager) return '#00ffff';
 
         const behaviors = projectile.behaviorManager.behaviors;
 
         // Priority: Chain > Explosive > Homing > Piercing > Default
-        if (behaviors.some(b => b.getType() === 'chain')) return '#6c5ce7';
-        if (behaviors.some(b => b.getType() === 'explosive')) return '#ff6b35';
-        if (behaviors.some(b => b.getType() === 'homing')) return '#e74c3c';
-        if (behaviors.some(b => b.getType() === 'piercing')) return '#16a085';
+        if (behaviors.some(b => b.getType() === 'chain')) return '#a855f7';
+        if (behaviors.some(b => b.getType() === 'explosive')) return '#ff0080';
+        if (behaviors.some(b => b.getType() === 'homing')) return '#ff00ff';
+        if (behaviors.some(b => b.getType() === 'piercing')) return '#00ff88';
 
-        return '#3498db';
+        return '#00ffff';
     }
 
     /**
-     * Get body color based on behaviors
+     * Get body color based on behaviors - Synthwave themed
      */
     static getBodyColor(projectile) {
-        if (projectile.isCrit) return '#ffd700'; // Gold for crits
+        if (projectile.isCrit) return '#ffff00'; // Bright yellow for crits
 
-        if (!projectile.behaviorManager) return '#2ecc71';
+        if (!projectile.behaviorManager) return '#00ff88'; // Neon green default
 
         const behaviors = projectile.behaviorManager.behaviors;
 
-        // Mix colors based on behaviors
-        if (behaviors.some(b => b.getType() === 'chain')) return '#a29bfe';
-        if (behaviors.some(b => b.getType() === 'explosive')) return '#fd79a8';
-        if (behaviors.some(b => b.getType() === 'homing')) return '#ff7675';
-        if (behaviors.some(b => b.getType() === 'ricochet')) return '#4ecdc4';
+        // Synthwave colors based on behaviors
+        if (behaviors.some(b => b.getType() === 'chain')) return '#a855f7'; // Purple
+        if (behaviors.some(b => b.getType() === 'explosive')) return '#ff0080'; // Hot pink
+        if (behaviors.some(b => b.getType() === 'homing')) return '#ff00ff'; // Magenta
+        if (behaviors.some(b => b.getType() === 'ricochet')) return '#00ffff'; // Cyan
 
-        return '#2ecc71'; // Default green
+        return '#00ff88'; // Neon green default
     }
 
     /**

@@ -18,28 +18,56 @@ class PlayerRenderer {
     }
 
     renderPlayerBody(ctx) {
-        ctx.beginPath();
-        ctx.arc(this.player.x, this.player.y, this.player.radius, 0, Math.PI * 2);
+        // 🌌 Synthwave player rendering
+        const x = this.player.x;
+        const y = this.player.y;
+        const radius = this.player.radius;
 
         if (this.player.stats.isInvulnerable) {
-            // Draw invulnerability effect
-            ctx.strokeStyle = this.player.movement.isDodging ? '#3498db' : this.player.color;
-            ctx.lineWidth = 3;
-            ctx.stroke();
+            // Invulnerability effect - bright cyan glow
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 2);
+            gradient.addColorStop(0, '#00ffff');
+            gradient.addColorStop(0.5, '#00ffff');
+            gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+            ctx.fill();
 
             // Add dash effect when dodging
             if (this.player.movement.isDodging) {
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#00ffff';
                 ctx.beginPath();
-                ctx.arc(this.player.x, this.player.y, this.player.radius + 5, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
-                ctx.lineWidth = 2;
+                ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
                 ctx.stroke();
+                ctx.shadowBlur = 0;
             }
-        } else {
-            // Normal player rendering
-            ctx.fillStyle = this.player.color;
-            ctx.fill();
         }
+
+        // Core player body - bright cyan with glow
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.3, '#00ffff');
+        gradient.addColorStop(1, '#0088ff');
+
+        ctx.fillStyle = gradient;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00ffff';
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Outer glow
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.stroke();
     }
 
     // Create upgrade stack effect

@@ -146,6 +146,25 @@ class GameEngine {
 
         // Track if the render loop has already been bootstrapped
         this._loopInitialized = false;
+
+        // 🌌 Initialize Cosmic Background
+        this.cosmicBackground = null;
+        this._initializeCosmicBackground();
+    }
+
+    _initializeCosmicBackground() {
+        try {
+            const CosmicBackground = (typeof window !== 'undefined')
+                ? window.Game?.CosmicBackground
+                : undefined;
+            if (typeof CosmicBackground === 'function') {
+                this.cosmicBackground = new CosmicBackground(this.canvas);
+                ((typeof window !== "undefined" && window.logger?.info) || console.log)('Cosmic background initialized');
+            }
+        } catch (e) {
+            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('CosmicBackground initialization failed', e);
+            this.cosmicBackground = null;
+        }
     }
 
     // ===== GAMESTATE PROXY PROPERTIES =====
@@ -546,14 +565,19 @@ class GameEngine {
         try {
             this.canvas.width = window.innerWidth;
             this.canvas.height = window.innerHeight;
-            
+
             // Optimize canvas for performance
             this.canvas.style.imageRendering = 'pixelated';
             this.ctx.imageSmoothingEnabled = false;
-            
+
             // Set up GPU-optimized rendering
             this.ctx.imageSmoothingQuality = 'low'; // Better performance
             this.ctx.globalCompositeOperation = 'source-over'; // Optimize blending
+
+            // 🌌 Notify cosmic background of resize
+            if (this.cosmicBackground && typeof this.cosmicBackground.resize === 'function') {
+                this.cosmicBackground.resize();
+            }
         } catch (error) {
             ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error resizing canvas:', error);
         }
@@ -693,6 +717,11 @@ class GameEngine {
             window.optimizedParticles.update(deltaTime);
         }
 
+        // 🌌 Update cosmic background
+        if (this.cosmicBackground && typeof this.cosmicBackground.update === 'function') {
+            this.cosmicBackground.update(deltaTime, this.player);
+        }
+
         // Late-bind unified systems if modules loaded after engine
         if (!this.collisionSystem && typeof window !== 'undefined') {
             const CollisionSystem = window.Game?.CollisionSystem;
@@ -818,6 +847,11 @@ class GameEngine {
         // Optimize rendering
         this.ctx.imageSmoothingEnabled = false;
         this.ctx.globalCompositeOperation = 'source-over';
+
+        // 🌌 Reduce cosmic background quality
+        if (this.cosmicBackground && typeof this.cosmicBackground.setLowQuality === 'function') {
+            this.cosmicBackground.setLowQuality(true);
+        }
         // Performance mode enabled
     }
     
@@ -827,6 +861,11 @@ class GameEngine {
         this.lowGpuMode = false;
         // Restore rendering quality
         this.ctx.imageSmoothingEnabled = true;
+
+        // 🌌 Restore cosmic background quality
+        if (this.cosmicBackground && typeof this.cosmicBackground.setLowQuality === 'function') {
+            this.cosmicBackground.setLowQuality(false);
+        }
         // Performance mode disabled
     }
     
@@ -1132,11 +1171,17 @@ class GameEngine {
                 return;
             }
             
-            // Clear canvas with optimized method
-            this.ctx.save();
-            this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.restore();
+            // 🌌 Render cosmic background (replaces canvas clear)
+            if (this.cosmicBackground && typeof this.cosmicBackground.render === 'function') {
+                this.cosmicBackground.render(this.player);
+            } else {
+                // Fallback: Clear canvas with optimized method
+                this.ctx.save();
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+                this.ctx.fillStyle = '#0a0a1f';  // Deep space color
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.restore();
+            }
         
             // Set camera with optimized transform
             this.ctx.save();
