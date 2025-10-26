@@ -28,7 +28,7 @@ Start here to understand the codebase:
 
 ## Documentation Structure
 
-The documentation is organized into four main categories:
+The documentation is organized into five main categories:
 
 ### 📘 [current/](current/) - Current Reference Documentation
 
@@ -82,6 +82,23 @@ Roadmaps, enhancement ideas, and future refactoring plans. These are **proposed/
 Documents of uncertain relevance or outdated material. Preserved for reference but not actively maintained.
 
 **When to use**: Rarely - only if researching old features or deprecated functionality.
+
+---
+
+### 📊 [audits/](audits/) - Documentation Audit Reports
+
+Reports from documentation verification and cleanup efforts (October 2025). Shows evidence and findings from 3 verification phases ensuring docs match actual code.
+
+| Document | Description |
+|----------|-------------|
+| [COMPLETE_VERIFICATION_REPORT.md](audits/COMPLETE_VERIFICATION_REPORT.md) | Final comprehensive report (all 3 phases) |
+| [DOCUMENTATION_AUDIT_2025.md](audits/DOCUMENTATION_AUDIT_2025.md) | Phase 1 - Initial reorganization |
+| [MECHANICS_AUDIT_FINDINGS.md](audits/MECHANICS_AUDIT_FINDINGS.md) | Phase 2 - Boss mechanics verification |
+| [ADDITIONAL_DOCUMENTATION_ISSUES.md](audits/ADDITIONAL_DOCUMENTATION_ISSUES.md) | Phase 2 - Additional issues found |
+| [FINAL_DOCUMENTATION_UPDATE.md](audits/FINAL_DOCUMENTATION_UPDATE.md) | Phase 2 - Update summary |
+| [DOCUMENTATION_UPDATE_SUMMARY.md](audits/DOCUMENTATION_UPDATE_SUMMARY.md) | Phase 1 - Update summary |
+
+**When to use**: Understanding the documentation verification process, seeing evidence for doc changes.
 
 ---
 
@@ -208,11 +225,12 @@ The documentation reorganization (October 2025) was specifically done to prevent
 
 ## Audit History
 
-- **October 25, 2025**: Major documentation reorganization
-  - Separated current docs from historical development notes
-  - Created clear folder structure (current/ development-history/ planning/ archive/)
-  - Updated API and Project Structure docs to reflect current codebase
-  - See [DOCUMENTATION_AUDIT_2025.md](DOCUMENTATION_AUDIT_2025.md) for details
+- **October 25-26, 2025**: Comprehensive documentation verification (3 phases)
+  - **Phase 1**: Reorganized 70+ docs into clear folder structure
+  - **Phase 2**: Verified game mechanics accuracy (found boss system discrepancy)
+  - **Phase 3**: Verified all current docs against actual code
+  - **Result**: 17 issues found and fixed, 100% documentation accuracy
+  - See [audits/](audits/) for complete audit reports and evidence
 
 ---
 

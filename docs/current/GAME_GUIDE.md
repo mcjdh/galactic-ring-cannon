@@ -1,9 +1,9 @@
 # GALACTIC RING: CANNON - GAME GUIDE
 
 ## 🌌 OVERVIEW
-Galactic Ring: Cannon - VS-Like incremental space upgrade game. 
+Galactic Ring: Cannon - VS-Like incremental space upgrade game.
 
-Level up by collecting XP, choose powerful upgrades, and complete three boss fights.
+Level up by collecting XP, choose powerful upgrades, and survive continuous boss encounters. Each boss defeat presents a choice: continue your run for greater rewards, or start fresh.
 
 ## 🎮 BASIC CONTROLS
 - **WASD or Arrow Keys**: Move your character
@@ -22,28 +22,46 @@ Level up by collecting XP, choose powerful upgrades, and complete three boss fig
 - 🧲 **Magnet Range**: Increases XP collection radius
 
 ## 👾 ENEMY TYPES
+
+**9 distinct enemy types** unlock as you survive:
+
 - 👾 **Basic**: Standard enemy with balanced stats
-- ⚡ **Fast**: Quicker but weaker enemies
-- 🛡️ **Tank**: Slow but high health and damage
-- 🏹 **Ranged**: Attacks from distance
-- 💨 **Dasher**: Periodically charges at high speed
-- 💣 **Exploder**: Explodes on death, dealing area damage
-- ✨ **Teleporter**: Can warp around the battlefield (advanced type)
+- ⚡ **Fast**: Quicker but weaker enemies (unlocks 30s)
+- 🛡️ **Tank**: Slow but high health and damage (unlocks 1m)
+- 🏹 **Ranged**: Attacks from distance (unlocks 1.5m)
+- 💨 **Dasher**: Periodically charges at high speed (unlocks 2m)
+- 💣 **Exploder**: Explodes on death, dealing area damage (unlocks 2.5m)
+- ✨ **Teleporter**: Can warp around the battlefield (unlocks 3m)
+- 👻 **Phantom**: Phases through obstacles, unpredictable movement (unlocks 3.5m)
+- 🔰 **Shielder**: Protected by regenerating shield (unlocks 4m)
 
 ### 🔥 ELITE ENEMIES
-- Special versions of standard enemies
-- Identified by special visual effects
-- Higher health, damage, and XP reward
+- **6% base spawn chance** for any enemy type (increases over time)
+- Special versions of standard enemies with glowing effects
+- **2.5x health, 1.5x damage** multiplier
+- Higher XP rewards
 - Unique enhancements based on enemy type
+
+## 🌊 WAVE SYSTEM
+
+### Enemy Waves
+- **Wave events occur every 30 seconds**
+- Larger groups of enemies spawn simultaneously
+- Wave size scales with time and difficulty
+- Creates periodic intensity spikes
+- Can overlap with boss encounters for maximum challenge
+- Track progress with "Wave Master" achievement (survive 10 waves)
 
 ## ☠️ BOSS MECHANICS
 
 ### 🏆 Boss Encounters
-- Appear every 60-180 seconds (time decreases as difficulty increases)
-- Significantly stronger than normal enemies
+- Spawn at ~60 second intervals (configurable)
+- Each boss is significantly stronger than normal enemies (+20% health/damage per boss)
 - Multi-phase battles with changing attack patterns
 - Drop large amounts of XP when defeated
 - Heal the player upon defeat
+- **Victory Screen**: After each boss, choose to Continue Run or Start New Run
+- **Infinite Progression**: Bosses keep spawning with scaling difficulty
 
 ### ⚔️ Boss Phases
 Bosses have multiple phases triggered at health thresholds:
@@ -59,22 +77,35 @@ Bosses have multiple phases triggered at health thresholds:
 - 🔥 **Damage Zones**: Creates areas that damage the player
 - 🌀 **Multi-Attack Patterns**: Different projectile patterns (spread, circle, random)
 
-### 👑 Mega Boss
-- Appears as the third boss encounter
-- Significantly stronger than regular bosses
-- Defeating the Mega Boss wins the game
-- Has enhanced abilities and more aggressive behavior
-- Larger size and distinctive purple appearance
+### 👑 Boss Scaling
+- Each successive boss becomes harder (+20% stats per boss)
+- Boss 1: 1.0x difficulty baseline
+- Boss 2: 1.2x difficulty
+- Boss 3: 1.4x difficulty
+- Boss 4: 1.6x difficulty
+- ... continues infinitely
+- Has enhanced abilities and more aggressive behavior as difficulty increases
+- Earn 10 star tokens per boss defeated
+
+## ⭐ META PROGRESSION (Star Vendor)
+
+**Permanent upgrades** purchased with star tokens:
+- **5 meta upgrades available**, each with multiple levels
+- Earn 10 star tokens per boss defeated
+- Upgrades persist across all runs
+- Examples: Enhanced Firepower, Reinforced Hull, Ion Thrusters, Stellar Fortune, Lightning Mastery
 
 ## 📈 DIFFICULTY SCALING
+
+### Continuous Spawning
+- Enemies spawn gradually (1-2 per second based on difficulty)
+- **Wave events** every 30 seconds (larger groups)
+- **Boss encounters** every ~60 seconds
 - Enemy count increases over time
 - Enemy health and damage scale up
-- New enemy types unlock as game progresses:
-  - ⚡ Fast enemies: 30 seconds
-  - 🛡️ Tank enemies: 1 minute
-  - 🏹 Ranged enemies: 1.5 minutes
-  - 💨 Dasher enemies: 2 minutes
-  - 💣 Exploder enemies: 2.5 minutes
+
+### Enemy Type Unlocks
+New enemy types unlock as you survive longer (see Enemy Types section above)
 
 ***
 

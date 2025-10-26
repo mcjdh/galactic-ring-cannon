@@ -132,9 +132,8 @@ gameState.off('kill', callback);
 
 ### `flow` - Game Flow State
 - `isGameOver` - Player died?
-- `isGameWon` - Player won (Normal mode)?
+- `isGameWon` - Boss defeated (triggers victory screen)?
 - `hasShownEndScreen` - End screen displayed?
-- `gameMode` - 'normal' | 'endless'
 - `difficulty` - 'easy' | 'normal' | 'hard'
 
 ### `player` - Player State Snapshot

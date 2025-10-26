@@ -14,11 +14,16 @@
 
 ### Run Structure
 
-#### Normal Mode (Looping Boss Rush)
-- Three boss encounters per run with escalating pacing
-- Victory unlocks the option to immediately start a fresh loop
-- Encourages experimenting with different upgrade paths across runs
-- Difficulty scaling continues through successive loops
+#### Normal Mode (Instanced Boss Encounters)
+- Continuous boss encounters at ~60 second intervals
+- Each boss defeat shows a victory screen with choices:
+  - **Continue Run**: Keep current upgrades and stats, next boss will spawn
+  - **Start New Run**: Restart from beginning
+  - **Main Menu**: Return to menu
+- Bosses scale in difficulty (+20% health/damage per boss)
+- Infinite progression - survive as long as you can
+- Earn 10 star tokens per boss defeated
+- Encourages both long survival runs and experimental restart strategies
 
 ## 👾 Enemy Design
 
@@ -31,7 +36,7 @@
 - **Exploder**: Explodes on death, area damage
 
 ### Elite Variants
-- 10% spawn chance for any enemy type
+- 6% base spawn chance for any enemy type (increases over time)
 - 2.5x health, 1.5x damage multiplier
 - Special visual effects and enhanced XP rewards
 
@@ -39,7 +44,8 @@
 - **Multi-phase combat**: 4 phases based on health thresholds
 - **Dynamic abilities**: Shield, teleportation, minion spawning
 - **Area attacks**: Damage zones and projectile patterns
-- **Mega Boss**: Final encounter with enhanced all abilities
+- **Scaling Difficulty**: Each boss is 20% stronger than the previous (+health, +damage)
+- **Infinite Encounters**: Bosses continue spawning indefinitely with increasing difficulty
 
 ## ⚡ Upgrade System
 

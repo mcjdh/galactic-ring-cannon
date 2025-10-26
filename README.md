@@ -41,7 +41,12 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 - **1-3**: Select upgrades when leveling up
 
 ### Run Structure
-- **Normal Mode**: Defeat three bosses to finish a run, then jump straight into the next loop with your upgrades.
+- **Normal Mode**: Face continuous boss encounters (~60 second intervals). Each boss defeat shows a victory screen where you can:
+  - **Continue Run**: Keep playing with current upgrades, next boss will spawn
+  - **Start New Run**: Restart from beginning
+  - Bosses scale in difficulty (+20% health/damage per boss)
+  - Earn 10 star tokens per boss defeated
+  - Infinite progression - survive as long as you can!
 
 ## 📁 Project Structure
 
