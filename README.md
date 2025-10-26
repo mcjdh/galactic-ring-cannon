@@ -57,10 +57,10 @@ galactic-ring-cannon/
 │   └── css/               # Stylesheets
 ├── config/                 # Configuration files
 ├── docs/                   # Documentation
-│   ├── GAME_GUIDE.md      # Player guide
-│   ├── API_DOCUMENTATION.md # Code documentation
-│   ├── GAME_DESIGN.md     # Design document
-│   └── DEPLOYMENT.md      # Deployment guide
+│   ├── current/           # Current reference docs
+│   ├── development-history/ # Multi-agent development notes
+│   ├── planning/          # Future enhancements
+│   └── README.md          # Documentation guide
 └── index.html             # Single entry point (unified)
 ```
 
@@ -78,7 +78,9 @@ galactic-ring-cannon/
 4. Right-click `index.html` → "Open with Live Server"
 
 ### Code Architecture & Patterns
-📋 **For developers**: See [`key-code-patterns.md`](./key-code-patterns.md) for essential architectural patterns, component design principles, and development guidelines established through collaborative AI development.
+📋 **For developers**: See [docs/current/KEY_CODE_PATTERNS.md](docs/current/KEY_CODE_PATTERNS.md) for essential architectural patterns, component design principles, and development guidelines established through collaborative AI development.
+
+📚 **Full documentation**: See [docs/README.md](docs/README.md) for complete documentation navigation.
 
 ### Code Organization
 - **Modular Architecture**: Clear separation of concerns
