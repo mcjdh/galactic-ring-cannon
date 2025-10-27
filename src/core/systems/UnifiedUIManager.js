@@ -43,6 +43,7 @@ class UnifiedUIManager {
         this.maxFloatingTexts = 150;
         this.textPoolSize = 200;
         this.initializeTextPool();
+        this._fontCache = new Map();
         
         // Health Bar System
         this.healthBarCache = new Map(); // Cache for entity health bar data
@@ -290,7 +291,7 @@ class UnifiedUIManager {
             
             ctx.globalAlpha = text.opacity;
             ctx.fillStyle = text.color;
-            ctx.font = `bold ${text.size}px Arial`;
+            ctx.font = this._getFont(text.size);
             
             // Outline for better visibility
             ctx.strokeStyle = '#000000';
@@ -300,6 +301,16 @@ class UnifiedUIManager {
         }
         
         ctx.restore();
+    }
+
+    _getFont(size) {
+        const cached = this._fontCache.get(size);
+        if (cached) {
+            return cached;
+        }
+        const font = `bold ${size}px Arial`;
+        this._fontCache.set(size, font);
+        return font;
     }
     
     /**

@@ -54,7 +54,20 @@
         updateSpatialGrid() {
             const engine = this.engine;
             if (!engine.spatialGrid) engine.spatialGrid = new Map();
-            engine.spatialGrid.clear();
+            if (!engine._spatialGridCellPool) {
+                engine._spatialGridCellPool = [];
+            }
+
+            const grid = engine.spatialGrid;
+            const cellPool = engine._spatialGridCellPool;
+
+            for (const [, cell] of grid) {
+                if (cell && cell.length) {
+                    cell.length = 0;
+                }
+                cellPool.push(cell);
+            }
+            grid.clear();
             
             const list = engine.entities || [];
             this.stats.cellsProcessed = 0;
@@ -93,11 +106,10 @@
                 const gridY = Math.floor(entity.y / gridSize);
                 const key = engine.encodeGridKey(gridX, gridY);
                 
-                let cell = engine.spatialGrid.get(key);
+                let cell = grid.get(key);
                 if (!cell) {
-                    // Create new cell array (pooling optimization disabled for now due to correctness issues)
-                    cell = [];
-                    engine.spatialGrid.set(key, cell);
+                    cell = cellPool.length > 0 ? cellPool.pop() : [];
+                    grid.set(key, cell);
                     this.stats.cellsProcessed++;
                 }
                 
@@ -108,6 +120,12 @@
             // Update performance statistics
             this.stats.avgEntitiesPerCell = this.stats.cellsProcessed > 0 ? 
                 totalEntitiesInCells / this.stats.cellsProcessed : 0;
+
+            const activeCells = grid.size;
+            const desiredPoolSize = Math.max(32, Math.min(512, Math.ceil(activeCells * 1.5)));
+            if (cellPool.length > desiredPoolSize) {
+                cellPool.length = desiredPoolSize;
+            }
         }
         
         // ✅ CALCULATE OPTIMAL GRID SIZE based on entity density - improved stability

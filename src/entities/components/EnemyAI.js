@@ -33,6 +33,10 @@ class EnemyAI {
         // Collision avoidance
         this.avoidanceVector = { x: 0, y: 0 };
         this.separationRadius = 30; // Distance to maintain from other enemies
+        this.avoidanceUpdateTimer = Math.random() * 0.1;
+        this.avoidanceUpdateInterval = 0.12 + Math.random() * 0.08;
+        this._avoidanceFrameGroup = EnemyAI._nextAvoidanceAssignment;
+        EnemyAI._nextAvoidanceAssignment = (EnemyAI._nextAvoidanceAssignment + 1) % EnemyAI._avoidanceBuckets;
         
         // Behavior flags
         this.isAggressive = true;
@@ -61,14 +65,19 @@ class EnemyAI {
         
         // Calculate avoidance if enabled (throttled for performance)
         if (this.canAvoidOthers) {
-            // Only recalculate avoidance every few frames to prevent jittering
-            if (!this.avoidanceUpdateTimer) this.avoidanceUpdateTimer = Math.random() * 0.1;
-            if (!this.avoidanceUpdateInterval) this.avoidanceUpdateInterval = 0.08 + Math.random() * 0.04; // 80-120ms random
             this.avoidanceUpdateTimer += deltaTime;
+            const frameCount = game?.frameCount;
+            const shouldProcess = typeof frameCount !== 'number'
+                || ((frameCount + this._avoidanceFrameGroup) % EnemyAI._avoidanceBuckets === 0);
 
-            if (this.avoidanceUpdateTimer >= this.avoidanceUpdateInterval) {
-                this.calculateAvoidance(game);
+            if (shouldProcess && this.avoidanceUpdateTimer >= this.avoidanceUpdateInterval) {
+                const neighbors = this.calculateAvoidance(game);
                 this.avoidanceUpdateTimer = 0;
+                if (neighbors === 0) {
+                    this.avoidanceUpdateInterval = Math.min(0.35, this.avoidanceUpdateInterval + 0.05);
+                } else {
+                    this.avoidanceUpdateInterval = 0.08 + Math.random() * 0.04;
+                }
             }
         }
     }
@@ -381,52 +390,85 @@ class EnemyAI {
      * Calculate collision avoidance with other enemies
      */
     calculateAvoidance(game) {
-        this.avoidanceVector = { x: 0, y: 0 };
+        const avoidance = this.avoidanceVector;
+        avoidance.x = 0;
+        avoidance.y = 0;
         let neighborCount = 0;
-        const nearbyEnemies = this.getNearbyEnemies(game);
 
-        for (const other of nearbyEnemies) {
-            if (other === this.enemy || other.isDead) continue;
+        const separationRadius = this.separationRadius;
+        const separationRadiusSq = separationRadius * separationRadius;
+        const originX = this.enemy.x;
+        const originY = this.enemy.y;
 
-            const dx = this.enemy.x - other.x;
-            const dy = this.enemy.y - other.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance < this.separationRadius && distance > 0) {
-                // Add separation force
-                const force = (this.separationRadius - distance) / this.separationRadius;
-                this.avoidanceVector.x += (dx / distance) * force;
-                this.avoidanceVector.y += (dy / distance) * force;
+        if (!game || !game.spatialGrid || !game.gridSize) {
+            const enemies = game?.getEnemies?.() ?? game?.enemies ?? [];
+            for (let i = 0; i < enemies.length; i++) {
+                const other = enemies[i];
+                if (!other || other === this.enemy || other.isDead) continue;
+                const dx = originX - other.x;
+                const dy = originY - other.y;
+                const distSq = dx * dx + dy * dy;
+                if (distSq === 0 || distSq > separationRadiusSq) continue;
+                const distance = Math.sqrt(distSq);
+                const force = (separationRadius - distance) / separationRadius;
+                avoidance.x += (dx / distance) * force;
+                avoidance.y += (dy / distance) * force;
                 neighborCount++;
-
-                // Limit checks to prevent performance issues
-                if (neighborCount >= 8) break; // Only consider closest 8 neighbors
+                if (neighborCount >= 8) break;
             }
-        }
+        } else {
+            const gridSize = game.gridSize;
+            const gridX = Math.floor(originX / gridSize);
+            const gridY = Math.floor(originY / gridSize);
+            const searchRadius = Math.ceil(separationRadius / gridSize) + 1;
+            const grid = game.spatialGrid;
 
-        
-        if (neighborCount > 0) {
-            // Average and normalize avoidance vector
-            this.avoidanceVector.x /= neighborCount;
-            this.avoidanceVector.y /= neighborCount;
-            
-            // Apply avoidance to target direction
-            if (this.enemy.targetDirection) {
-                this.enemy.targetDirection.x += this.avoidanceVector.x * 0.5;
-                this.enemy.targetDirection.y += this.avoidanceVector.y * 0.5;
-                
-                // Normalize the combined direction
-                const magnitude = Math.sqrt(
-                    this.enemy.targetDirection.x * this.enemy.targetDirection.x +
-                    this.enemy.targetDirection.y * this.enemy.targetDirection.y
-                );
-                
-                if (magnitude > 0) {
-                    this.enemy.targetDirection.x /= magnitude;
-                    this.enemy.targetDirection.y /= magnitude;
+            outerLoop:
+            for (let dxCell = -searchRadius; dxCell <= searchRadius; dxCell++) {
+                for (let dyCell = -searchRadius; dyCell <= searchRadius; dyCell++) {
+                    const key = game.encodeGridKey(gridX + dxCell, gridY + dyCell);
+                    const cell = grid.get(key);
+                    if (!cell || cell.length === 0) continue;
+
+                    for (let i = 0; i < cell.length; i++) {
+                        const other = cell[i];
+                        if (!other || other === this.enemy || other.isDead || other.type !== 'enemy') continue;
+
+                        const dx = originX - other.x;
+                        const dy = originY - other.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq === 0 || distSq > separationRadiusSq) continue;
+
+                        const distance = Math.sqrt(distSq);
+                        const force = (separationRadius - distance) / separationRadius;
+                        avoidance.x += (dx / distance) * force;
+                        avoidance.y += (dy / distance) * force;
+                        neighborCount++;
+
+                        if (neighborCount >= 8) {
+                            break outerLoop;
+                        }
+                    }
                 }
             }
         }
+
+        if (neighborCount > 0 && this.enemy.targetDirection) {
+            avoidance.x /= neighborCount;
+            avoidance.y /= neighborCount;
+
+            this.enemy.targetDirection.x += avoidance.x * 0.5;
+            this.enemy.targetDirection.y += avoidance.y * 0.5;
+
+            const dir = this.enemy.targetDirection;
+            const magnitude = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (magnitude > 0) {
+                dir.x /= magnitude;
+                dir.y /= magnitude;
+            }
+        }
+
+        return neighborCount;
     }
     
     /**
@@ -548,38 +590,6 @@ class EnemyAI {
     /**
      * Get nearby enemies using spatial grid for efficient neighbor detection
      */
-    getNearbyEnemies(game) {
-        // Fallback to full list if no spatial grid available
-        if (!game.spatialGrid || !game.gridSize) {
-            return game?.getEnemies?.() ?? game?.enemies ?? [];
-        }
-
-        const gridSize = game.gridSize;
-        const gridX = Math.floor(this.enemy.x / gridSize);
-        const gridY = Math.floor(this.enemy.y / gridSize);
-        const searchRadius = Math.ceil(this.separationRadius / gridSize) + 1; // Grid cells to search
-
-        const nearbyEnemies = [];
-
-        // Search neighboring grid cells
-        for (let dx = -searchRadius; dx <= searchRadius; dx++) {
-            for (let dy = -searchRadius; dy <= searchRadius; dy++) {
-                const key = game.encodeGridKey(gridX + dx, gridY + dy);
-                const cell = game.spatialGrid.get(key);
-
-                if (cell) {
-                    for (const entity of cell) {
-                        if (entity && entity.type === 'enemy' && !entity.isDead) {
-                            nearbyEnemies.push(entity);
-                        }
-                    }
-                }
-            }
-        }
-
-        return nearbyEnemies;
-    }
-
     /**
      * Configure AI for specific enemy type
      */
@@ -625,3 +635,6 @@ if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.EnemyAI = EnemyAI;
 }
+
+EnemyAI._nextAvoidanceAssignment = 0;
+EnemyAI._avoidanceBuckets = 4;

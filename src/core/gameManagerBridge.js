@@ -40,6 +40,9 @@ class GameManagerBridge {
         this._minimapRetryHandle = null;
 
         (window.logger?.log || console.log)('🌊 GameManager Bridge ready');
+
+        this._uiRefs = new Map();
+        this._uiLookupInterval = 750;
     }
 
     getNamespace() {
@@ -549,9 +552,9 @@ class GameManagerBridge {
 
         // Combo system is updated by GameState
         // Just sync UI
-        const comboText = document.getElementById('combo-text');
-        const comboFill = document.getElementById('combo-fill');
-        const comboContainer = document.getElementById('combo-container');
+        const comboText = this._getUiRef('comboText', 'combo-text');
+        const comboFill = this._getUiRef('comboFill', 'combo-fill');
+        const comboContainer = this._getUiRef('comboContainer', 'combo-container');
         const comboCount = this.currentCombo;
 
         if (comboText) {
@@ -712,12 +715,12 @@ class GameManagerBridge {
     }
 
     returnToMenu() {
-        const gameContainer = document.getElementById('game-container');
-        const mainMenu = document.getElementById('main-menu');
+        const gameContainer = this._getUiRef('gameContainer', 'game-container', true);
+        const mainMenu = this._getUiRef('mainMenu', 'main-menu', true);
         if (gameContainer) gameContainer.classList.add('hidden');
         if (mainMenu) mainMenu.classList.remove('hidden');
 
-        const pauseMenu = document.getElementById('pause-menu');
+        const pauseMenu = this._getUiRef('pauseMenu', 'pause-menu', true);
         if (pauseMenu) pauseMenu.classList.add('hidden');
 
         if (window.resultScreen && typeof window.resultScreen.hide === 'function') {
@@ -741,7 +744,7 @@ class GameManagerBridge {
 
         this.updateStarDisplay();
 
-        const bossCountdown = document.getElementById('boss-countdown');
+        const bossCountdown = this._getUiRef('bossCountdown', 'boss-countdown');
         if (bossCountdown) bossCountdown.classList.add('hidden');
     }
 
@@ -1019,7 +1022,7 @@ class GameManagerBridge {
      * Update the timer display
      */
     updateTimerDisplay() {
-        const timerElement = document.getElementById('timer-display');
+        const timerElement = this._getUiRef('timerDisplay', 'timer-display');
         if (timerElement) {
             const minutes = Math.floor(this.gameTime / 60);
             const seconds = Math.floor(this.gameTime % 60);
@@ -1035,7 +1038,7 @@ class GameManagerBridge {
             return;
         }
 
-        const bossCountdownElement = document.getElementById('boss-countdown');
+        const bossCountdownElement = this._getUiRef('bossCountdown', 'boss-countdown');
 
         if (bossCountdownElement) {
             if (typeof this.enemySpawner.isBossAlive === 'function' && this.enemySpawner.isBossAlive()) {
@@ -1117,12 +1120,12 @@ class GameManagerBridge {
 
     updateStarDisplay() {
         const stars = this.getStarTokenBalance();
-        const starDisplay = document.getElementById('star-menu-display');
+        const starDisplay = this._getUiRef('starMenuDisplay', 'star-menu-display');
         if (starDisplay) {
             starDisplay.textContent = '⭐ ' + stars;
         }
 
-        const vendorDisplay = document.getElementById('vendor-star-display');
+        const vendorDisplay = this._getUiRef('vendorStarDisplay', 'vendor-star-display');
         if (vendorDisplay) {
             vendorDisplay.textContent = '⭐ ' + stars;
         }
@@ -1140,8 +1143,44 @@ class GameManagerBridge {
      * Check if any menus are active (for input handling)
      */
     isMenuActive() {
-        const levelUpContainer = document.getElementById('level-up-container');
+        const levelUpContainer = this._getUiRef('levelUpContainer', 'level-up-container');
         return levelUpContainer && !levelUpContainer.classList.contains('hidden');
+    }
+
+    _getUiRef(key, elementId, force = false) {
+        if (typeof document === 'undefined') {
+            return null;
+        }
+
+        let entry = this._uiRefs.get(key);
+        if (!entry) {
+            entry = { element: null, nextLookup: 0 };
+            this._uiRefs.set(key, entry);
+        }
+
+        const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+            ? performance.now()
+            : Date.now();
+
+        const needsLookup = force
+            || !entry.element
+            || (entry.element && typeof entry.element.isConnected === 'boolean' && !entry.element.isConnected)
+            || now >= entry.nextLookup;
+
+        if (needsLookup) {
+            entry.element = document.getElementById(elementId) || null;
+            entry.nextLookup = now + this._uiLookupInterval;
+        }
+
+        return entry.element;
+    }
+
+    _invalidateUiRef(key) {
+        const entry = this._uiRefs.get(key);
+        if (entry) {
+            entry.element = null;
+            entry.nextLookup = 0;
+        }
     }
     
     onPlayerDamaged() {
