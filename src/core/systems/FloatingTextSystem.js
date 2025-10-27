@@ -22,16 +22,25 @@
 
         update(dt) {
             if (!this._activeTexts || this._activeTexts.length === 0) return;
-            for (let i = this._activeTexts.length - 1; i >= 0; i--) {
-                const t = this._activeTexts[i];
+            let writeIndex = 0;
+            const list = this._activeTexts;
+            for (let i = 0; i < list.length; i++) {
+                const t = list[i];
+                if (!t) continue;
                 t.age += dt;
                 if (t.age >= t.lifetime) {
-                    this._activeTexts.splice(i, 1);
-                    t.active = false; this._textPool.push(t);
+                    t.active = false;
+                    this._textPool.push(t);
                     continue;
                 }
-                // simple upward drift
                 t.y += (t.vy || -30) * dt;
+                if (writeIndex !== i) {
+                    list[writeIndex] = t;
+                }
+                writeIndex++;
+            }
+            if (writeIndex < list.length) {
+                list.length = writeIndex;
             }
         }
 

@@ -117,29 +117,19 @@ class DamageZone {
         const pulseFactor = 1 + 0.2 * Math.sin(this.pulseRate * this.timer * Math.PI * 2 + this.pulsePhase);
         
         // Draw outer glow
-        const gradient = ctx.createRadialGradient(
-            this.x, this.y, 0,
-            this.x, this.y, this.radius * pulseFactor
-        );
-        
-        // Fade out towards the end of duration
         const alpha = this.timer > (this.duration * 0.7) ? 
             0.6 * (1 - (this.timer - this.duration * 0.7) / (this.duration * 0.3)) : 
             0.6;
-        
-        gradient.addColorStop(0, `rgba(231, 76, 60, 0)`);
-        gradient.addColorStop(0.7, `rgba(231, 76, 60, ${alpha * 0.3})`);
-        gradient.addColorStop(1, `rgba(231, 76, 60, 0)`);
-        
+
+        ctx.fillStyle = DamageZone._colorWithAlpha(this.color, alpha * 0.25);
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius * pulseFactor, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
         ctx.fill();
         
         // Draw border
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius * 0.95 * pulseFactor, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(231, 76, 60, ${alpha})`;
+        ctx.strokeStyle = DamageZone._colorWithAlpha(this.color, alpha);
         ctx.lineWidth = 2;
         ctx.stroke();
         
@@ -154,7 +144,7 @@ class DamageZone {
                 0, 
                 Math.PI * 2
             );
-            ctx.strokeStyle = `rgba(231, 76, 60, ${alpha * 0.5})`;
+            ctx.strokeStyle = DamageZone._colorWithAlpha(this.color, alpha * 0.5);
             ctx.lineWidth = 2;
             ctx.stroke();
         }
@@ -180,3 +170,67 @@ if (typeof window !== 'undefined') {
     if (!window.Game) window.Game = {};
     window.Game.DamageZone = DamageZone;
 }
+
+DamageZone._alphaColorCache = new Map();
+DamageZone._parsedColorCache = new Map();
+
+DamageZone._colorWithAlpha = function(color, alpha) {
+    const key = `${color}|${alpha}`;
+    const cache = DamageZone._alphaColorCache;
+    if (cache.has(key)) {
+        return cache.get(key);
+    }
+    const parsed = DamageZone._parseColor(color);
+    const value = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+    cache.set(key, value);
+    return value;
+};
+
+DamageZone._parseColor = function(color) {
+    const cache = DamageZone._parsedColorCache;
+    if (cache.has(color)) {
+        return cache.get(color);
+    }
+    const parsed = DamageZone._extractRGBComponents(color);
+    cache.set(color, parsed);
+    return parsed;
+};
+
+DamageZone._extractRGBComponents = function(color) {
+    const clamp = (value) => {
+        const num = parseFloat(value);
+        if (!Number.isFinite(num)) return 255;
+        return Math.max(0, Math.min(255, Math.round(num)));
+    };
+
+    if (typeof color === 'string') {
+        if (color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 3) {
+                return {
+                    r: parseInt(hex[0] + hex[0], 16),
+                    g: parseInt(hex[1] + hex[1], 16),
+                    b: parseInt(hex[2] + hex[2], 16)
+                };
+            }
+            if (hex.length >= 6) {
+                return {
+                    r: parseInt(hex.slice(0, 2), 16),
+                    g: parseInt(hex.slice(2, 4), 16),
+                    b: parseInt(hex.slice(4, 6), 16)
+                };
+            }
+        } else {
+            const rgbaMatch = color.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*[0-9]+(?:\.[0-9]+)?)?\s*\)$/i);
+            if (rgbaMatch) {
+                return {
+                    r: clamp(rgbaMatch[1]),
+                    g: clamp(rgbaMatch[2]),
+                    b: clamp(rgbaMatch[3])
+                };
+            }
+        }
+    }
+
+    return { r: 255, g: 255, b: 255 };
+};

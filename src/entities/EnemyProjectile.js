@@ -130,16 +130,9 @@ class EnemyProjectile {
      */
     renderGlow(ctx) {
         if (!this.glowColor) return;
-        const gradient = ctx.createRadialGradient(
-            this.x, this.y, 0,
-            this.x, this.y, this.radius * 3
-        );
-        gradient.addColorStop(0, this.glowColor);
-        gradient.addColorStop(1, 'rgba(155, 89, 182, 0)');
-        
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius * 3, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = EnemyProjectile._colorWithAlpha(this.glowColor, 0.35);
         ctx.fill();
     }
     
@@ -250,3 +243,67 @@ if (typeof window !== 'undefined') {
     if (!window.Game) window.Game = {};
     window.Game.EnemyProjectile = EnemyProjectile;
 }
+
+EnemyProjectile._alphaColorCache = new Map();
+EnemyProjectile._parsedColorCache = new Map();
+
+EnemyProjectile._colorWithAlpha = function(color, alpha) {
+    const key = `${color}|${alpha}`;
+    const cache = EnemyProjectile._alphaColorCache;
+    if (cache.has(key)) {
+        return cache.get(key);
+    }
+    const parsed = EnemyProjectile._parseColor(color);
+    const value = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+    cache.set(key, value);
+    return value;
+};
+
+EnemyProjectile._parseColor = function(color) {
+    const cache = EnemyProjectile._parsedColorCache;
+    if (cache.has(color)) {
+        return cache.get(color);
+    }
+    const parsed = EnemyProjectile._extractRGBComponents(color);
+    cache.set(color, parsed);
+    return parsed;
+};
+
+EnemyProjectile._extractRGBComponents = function(color) {
+    const clamp = (value) => {
+        const num = parseFloat(value);
+        if (!Number.isFinite(num)) return 255;
+        return Math.max(0, Math.min(255, Math.round(num)));
+    };
+
+    if (typeof color === 'string') {
+        if (color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 3) {
+                return {
+                    r: parseInt(hex[0] + hex[0], 16),
+                    g: parseInt(hex[1] + hex[1], 16),
+                    b: parseInt(hex[2] + hex[2], 16)
+                };
+            }
+            if (hex.length >= 6) {
+                return {
+                    r: parseInt(hex.slice(0, 2), 16),
+                    g: parseInt(hex.slice(2, 4), 16),
+                    b: parseInt(hex.slice(4, 6), 16)
+                };
+            }
+        } else {
+            const rgbaMatch = color.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*[0-9]+(?:\.[0-9]+)?)?\s*\)$/i);
+            if (rgbaMatch) {
+                return {
+                    r: clamp(rgbaMatch[1]),
+                    g: clamp(rgbaMatch[2]),
+                    b: clamp(rgbaMatch[3])
+                };
+            }
+        }
+    }
+
+    return { r: 255, g: 255, b: 255 };
+};

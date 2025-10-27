@@ -270,16 +270,9 @@ class XPOrb {
      * @param {number} renderY - Y position with bob effect
      */
     renderGlow(ctx, renderY) {
-        const gradient = ctx.createRadialGradient(
-            this.x, renderY, 0,
-            this.x, renderY, this.radius * 2
-        );
-        gradient.addColorStop(0, this.glowColor);
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        
         ctx.beginPath();
         ctx.arc(this.x, renderY, this.radius * 2, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = XPOrb._colorWithAlpha(this.glowColor, 0.3);
         ctx.fill();
     }
     
@@ -414,3 +407,67 @@ if (typeof window !== 'undefined') {
     if (!window.Game) window.Game = {};
     window.Game.XPOrb = XPOrb;
 }
+
+XPOrb._alphaColorCache = new Map();
+XPOrb._parsedColorCache = new Map();
+
+XPOrb._colorWithAlpha = function(color, alpha) {
+    const key = `${color}|${alpha}`;
+    const cache = XPOrb._alphaColorCache;
+    if (cache.has(key)) {
+        return cache.get(key);
+    }
+    const parsed = XPOrb._parseColor(color);
+    const value = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+    cache.set(key, value);
+    return value;
+};
+
+XPOrb._parseColor = function(color) {
+    const cache = XPOrb._parsedColorCache;
+    if (cache.has(color)) {
+        return cache.get(color);
+    }
+    const parsed = XPOrb._extractRGBComponents(color);
+    cache.set(color, parsed);
+    return parsed;
+};
+
+XPOrb._extractRGBComponents = function(color) {
+    const clamp = (value) => {
+        const num = parseFloat(value);
+        if (!Number.isFinite(num)) return 255;
+        return Math.max(0, Math.min(255, Math.round(num)));
+    };
+
+    if (typeof color === 'string') {
+        if (color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 3) {
+                return {
+                    r: parseInt(hex[0] + hex[0], 16),
+                    g: parseInt(hex[1] + hex[1], 16),
+                    b: parseInt(hex[2] + hex[2], 16)
+                };
+            }
+            if (hex.length >= 6) {
+                return {
+                    r: parseInt(hex.slice(0, 2), 16),
+                    g: parseInt(hex.slice(2, 4), 16),
+                    b: parseInt(hex.slice(4, 6), 16)
+                };
+            }
+        } else {
+            const rgbaMatch = color.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*[0-9]+(?:\.[0-9]+)?)?\s*\)$/i);
+            if (rgbaMatch) {
+                return {
+                    r: clamp(rgbaMatch[1]),
+                    g: clamp(rgbaMatch[2]),
+                    b: clamp(rgbaMatch[3])
+                };
+            }
+        }
+    }
+
+    return { r: 255, g: 255, b: 255 };
+};

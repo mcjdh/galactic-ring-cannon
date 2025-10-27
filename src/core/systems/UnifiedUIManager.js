@@ -214,7 +214,9 @@ class UnifiedUIManager {
         // Render enemy health bars
         if (this.gameEngine.enemies) {
             for (const enemy of this.gameEngine.enemies) {
-                if (enemy.isDead || !this.isEntityVisible(enemy)) continue;
+                if (enemy.isDead) continue;
+                if (!enemy.maxHealth || enemy.health >= enemy.maxHealth) continue;
+                if (!this.isEntityVisible(enemy)) continue;
                 this.renderEntityHealthBar(enemy);
             }
         }

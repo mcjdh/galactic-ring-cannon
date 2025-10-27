@@ -191,6 +191,7 @@ class GameEngine {
         this._loopInitialized = false;
         this._boundGameLoop = this.gameLoop.bind(this);
 
+
         // 🌌 Initialize Cosmic Background
         this.cosmicBackground = null;
         this._initializeCosmicBackground();

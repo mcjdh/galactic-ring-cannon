@@ -188,23 +188,47 @@ class EnemyRenderer {
         if (cache.has(color)) {
             return cache.get(color);
         }
-        let r = 255;
-        let g = 255;
-        let b = 255;
-        if (typeof color === 'string' && color.startsWith('#')) {
-            const hex = color.slice(1);
-            if (hex.length === 3) {
-                r = parseInt(hex[0] + hex[0], 16);
-                g = parseInt(hex[1] + hex[1], 16);
-                b = parseInt(hex[2] + hex[2], 16);
-            } else if (hex.length >= 6) {
-                r = parseInt(hex.slice(0, 2), 16);
-                g = parseInt(hex.slice(2, 4), 16);
-                b = parseInt(hex.slice(4, 6), 16);
-            }
-        }
-        const parsed = { r, g, b };
+        const parsed = EnemyRenderer._extractRGBComponents(color);
         cache.set(color, parsed);
         return parsed;
+    }
+
+    static _extractRGBComponents(color) {
+        const clamp = (value) => {
+            const num = parseFloat(value);
+            if (!Number.isFinite(num)) return 255;
+            return Math.max(0, Math.min(255, Math.round(num)));
+        };
+
+        if (typeof color === 'string') {
+            if (color.startsWith('#')) {
+                const hex = color.slice(1);
+                if (hex.length === 3) {
+                    return {
+                        r: parseInt(hex[0] + hex[0], 16),
+                        g: parseInt(hex[1] + hex[1], 16),
+                        b: parseInt(hex[2] + hex[2], 16)
+                    };
+                }
+                if (hex.length >= 6) {
+                    return {
+                        r: parseInt(hex.slice(0, 2), 16),
+                        g: parseInt(hex.slice(2, 4), 16),
+                        b: parseInt(hex.slice(4, 6), 16)
+                    };
+                }
+            } else {
+                const rgbaMatch = color.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*[0-9]+(?:\.[0-9]+)?)?\s*\)$/i);
+                if (rgbaMatch) {
+                    return {
+                        r: clamp(rgbaMatch[1]),
+                        g: clamp(rgbaMatch[2]),
+                        b: clamp(rgbaMatch[3])
+                    };
+                }
+            }
+        }
+
+        return { r: 255, g: 255, b: 255 };
     }
 }

@@ -25,44 +25,36 @@ class PlayerRenderer {
         const radius = this.player.radius;
 
         if (!sprites) {
-            // Fallback rendering when offscreen canvases unavailable
-            if (this.player.stats.isInvulnerable) {
-                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 2);
-                gradient.addColorStop(0, '#00ffff');
-                gradient.addColorStop(0.5, '#00ffff');
-                gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+            const haloColor = PlayerRenderer._colorWithAlpha('#00ffff', 0.4);
+            const coreColor = '#00aaff';
+            const highlightColor = 'rgba(255,255,255,0.6)';
 
-                ctx.fillStyle = gradient;
+            if (this.player.stats.isInvulnerable) {
+                ctx.fillStyle = PlayerRenderer._colorWithAlpha('#00ffff', 0.3);
                 ctx.beginPath();
                 ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
                 ctx.fill();
 
                 if (this.player.movement.isDodging) {
-                    ctx.strokeStyle = '#00ffff';
+                    ctx.strokeStyle = haloColor;
                     ctx.lineWidth = 3;
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = '#00ffff';
                     ctx.beginPath();
                     ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
                     ctx.stroke();
-                    ctx.shadowBlur = 0;
                 }
             }
 
-            const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-            gradient.addColorStop(0, '#ffffff');
-            gradient.addColorStop(0.3, '#00ffff');
-            gradient.addColorStop(1, '#0088ff');
-
-            ctx.fillStyle = gradient;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00ffff';
+            ctx.fillStyle = coreColor;
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.fill();
-            ctx.shadowBlur = 0;
 
-            ctx.strokeStyle = '#00ffff';
+            ctx.fillStyle = highlightColor;
+            ctx.beginPath();
+            ctx.arc(x - radius * 0.35, y - radius * 0.35, radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = haloColor;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -268,3 +260,67 @@ class PlayerRenderer {
         };
     }
 }
+
+PlayerRenderer._alphaColorCache = new Map();
+PlayerRenderer._parsedColorCache = new Map();
+
+PlayerRenderer._colorWithAlpha = function(color, alpha) {
+    const key = `${color}|${alpha}`;
+    const cache = PlayerRenderer._alphaColorCache;
+    if (cache.has(key)) {
+        return cache.get(key);
+    }
+    const parsed = PlayerRenderer._parseColor(color);
+    const value = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+    cache.set(key, value);
+    return value;
+};
+
+PlayerRenderer._parseColor = function(color) {
+    const cache = PlayerRenderer._parsedColorCache;
+    if (cache.has(color)) {
+        return cache.get(color);
+    }
+    const parsed = PlayerRenderer._extractRGBComponents(color);
+    cache.set(color, parsed);
+    return parsed;
+};
+
+PlayerRenderer._extractRGBComponents = function(color) {
+    const clamp = (value) => {
+        const num = parseFloat(value);
+        if (!Number.isFinite(num)) return 255;
+        return Math.max(0, Math.min(255, Math.round(num)));
+    };
+
+    if (typeof color === 'string') {
+        if (color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 3) {
+                return {
+                    r: parseInt(hex[0] + hex[0], 16),
+                    g: parseInt(hex[1] + hex[1], 16),
+                    b: parseInt(hex[2] + hex[2], 16)
+                };
+            }
+            if (hex.length >= 6) {
+                return {
+                    r: parseInt(hex.slice(0, 2), 16),
+                    g: parseInt(hex.slice(2, 4), 16),
+                    b: parseInt(hex.slice(4, 6), 16)
+                };
+            }
+        } else {
+            const rgbaMatch = color.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*[0-9]+(?:\.[0-9]+)?)?\s*\)$/i);
+            if (rgbaMatch) {
+                return {
+                    r: clamp(rgbaMatch[1]),
+                    g: clamp(rgbaMatch[2]),
+                    b: clamp(rgbaMatch[3])
+                };
+            }
+        }
+    }
+
+    return { r: 255, g: 255, b: 255 };
+};
