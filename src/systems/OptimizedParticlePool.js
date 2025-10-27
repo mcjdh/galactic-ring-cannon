@@ -3,6 +3,7 @@ class OptimizedParticlePool {
     constructor(initialSize = 100) {
         this.pool = [];
         this.activeParticles = [];
+        this._lastReturnedIndex = -1;
         this.maxParticles = 200;
         this.poolSize = initialSize;
         
@@ -12,7 +13,7 @@ class OptimizedParticlePool {
         }
         
         // Batching for rendering optimization
-        this.batchedParticles = new Map(); // Group by type/color for batched rendering
+        this.batchedParticles = new Map(); // type -> Map(color -> particle[])
         this.batchSize = 50;
         
         // Performance tracking
@@ -42,8 +43,6 @@ class OptimizedParticlePool {
             // Pre-allocated for physics
             friction: 0.95,
             gravity: 0,
-            // Rendering optimization
-            batchKey: 'basic_white',
             lastUpdateTime: 0
         };
     }
@@ -64,23 +63,23 @@ class OptimizedParticlePool {
     }
     
     recycleOldestParticle() {
-        if (this.activeParticles.length === 0) {
+        const length = this.activeParticles.length;
+        if (length === 0) {
             return this.createParticleObject();
         }
-        
-        // Find and recycle the oldest particle
-        let oldestIndex = 0;
-        let oldestTime = this.activeParticles[0].lastUpdateTime;
-        
-        for (let i = 1; i < this.activeParticles.length; i++) {
-            if (this.activeParticles[i].lastUpdateTime < oldestTime) {
-                oldestTime = this.activeParticles[i].lastUpdateTime;
-                oldestIndex = i;
-            }
+
+        let index = this._lastReturnedIndex + 1;
+        if (index >= length) {
+            index = 0;
         }
-        
-        const recycled = this.activeParticles[oldestIndex];
-        this.activeParticles.splice(oldestIndex, 1);
+
+        const recycled = this.activeParticles[index];
+        this.activeParticles[index] = this.activeParticles[length - 1];
+        this.activeParticles.pop();
+        this._lastReturnedIndex = index - 1;
+        if (this._lastReturnedIndex >= this.activeParticles.length) {
+            this._lastReturnedIndex = -1;
+        }
         return recycled;
     }
     
@@ -108,9 +107,6 @@ class OptimizedParticlePool {
         particle.active = true;
         particle.lastUpdateTime = performance.now();
         
-        // Create batch key for rendering optimization
-        particle.batchKey = `${particle.type}_${particle.color}`;
-        
         this.activeParticles.push(particle);
         return particle;
     }
@@ -119,7 +115,11 @@ class OptimizedParticlePool {
         const currentTime = performance.now();
         
         // Clear batched particles for this frame
-        this.batchedParticles.clear();
+        for (const colorMap of this.batchedParticles.values()) {
+            for (const batch of colorMap.values()) {
+                batch.length = 0;
+            }
+        }
         
         // Update active particles in reverse order for safe removal
         for (let i = this.activeParticles.length - 1; i >= 0; i--) {
@@ -129,7 +129,14 @@ class OptimizedParticlePool {
                 // Particle is dead, return to pool
                 particle.active = false;
                 this.pool.push(particle);
-                this.activeParticles.splice(i, 1);
+                const lastIndex = this.activeParticles.length - 1;
+                if (i !== lastIndex) {
+                    this.activeParticles[i] = this.activeParticles[lastIndex];
+                }
+                this.activeParticles.pop();
+                if (this._lastReturnedIndex >= this.activeParticles.length) {
+                    this._lastReturnedIndex = -1;
+                }
             } else {
                 // Add to batch for rendering
                 this.addToBatch(particle);
@@ -165,13 +172,21 @@ class OptimizedParticlePool {
     }
     
     addToBatch(particle) {
-        const key = particle.batchKey;
-        
-        if (!this.batchedParticles.has(key)) {
-            this.batchedParticles.set(key, []);
+        const type = particle.type || 'basic';
+        const color = particle.color || '#ffffff';
+
+        let colorMap = this.batchedParticles.get(type);
+        if (!colorMap) {
+            colorMap = new Map();
+            this.batchedParticles.set(type, colorMap);
         }
-        
-        const batch = this.batchedParticles.get(key);
+
+        let batch = colorMap.get(color);
+        if (!batch) {
+            batch = [];
+            colorMap.set(color, batch);
+        }
+
         if (batch.length < this.batchSize) {
             batch.push(particle);
         }
@@ -179,20 +194,19 @@ class OptimizedParticlePool {
     
     render(ctx) {
         // Render particles in batches for better performance
-        for (const [batchKey, particles] of this.batchedParticles) {
-            if (particles.length === 0) continue;
-            
-            this.renderBatch(ctx, particles, batchKey);
+        for (const [type, colorMap] of this.batchedParticles) {
+            for (const [color, particles] of colorMap) {
+                if (!particles || particles.length === 0) continue;
+                this.renderBatch(ctx, particles, type, color);
+            }
         }
     }
-    
-    renderBatch(ctx, particles, batchKey) {
-        const [type, color] = batchKey.split('_');
-        
+
+    renderBatch(ctx, particles, type, color) {
         ctx.save();
         ctx.fillStyle = color;
         ctx.strokeStyle = color;
-        
+
         switch (type) {
             case 'basic':
                 this.renderBasicBatch(ctx, particles);

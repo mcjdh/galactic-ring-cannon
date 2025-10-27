@@ -157,10 +157,14 @@ class CosmicBackground {
 
             const canvasWidth = this.canvas.width;
             const canvasHeight = this.canvas.height;
-            const wrapBufferX = canvasWidth * 2;
-            const wrapBufferY = canvasHeight * 2;
-            const wrapSpanX = wrapBufferX * 2;
-            const wrapSpanY = wrapBufferY * 2;
+            const marginX = Math.max(32, canvasWidth * 0.1);
+            const marginY = Math.max(32, canvasHeight * 0.1);
+            const minStarX = -marginX;
+            const maxStarX = canvasWidth + marginX;
+            const minStarY = -marginY;
+            const maxStarY = canvasHeight + marginY;
+            const spanX = maxStarX - minStarX;
+            const spanY = maxStarY - minStarY;
 
             for (const layer of this.starLayers) {
                 const stars = layer.stars;
@@ -175,16 +179,16 @@ class CosmicBackground {
                     star.x -= parallaxX;
                     star.y -= parallaxY;
 
-                    if (star.x < -wrapBufferX) {
-                        star.x += wrapSpanX;
-                    } else if (star.x > wrapBufferX) {
-                        star.x -= wrapSpanX;
+                    if (star.x < minStarX) {
+                        star.x += spanX;
+                    } else if (star.x > maxStarX) {
+                        star.x -= spanX;
                     }
 
-                    if (star.y < -wrapBufferY) {
-                        star.y += wrapSpanY;
-                    } else if (star.y > wrapBufferY) {
-                        star.y -= wrapSpanY;
+                    if (star.y < minStarY) {
+                        star.y += spanY;
+                    } else if (star.y > maxStarY) {
+                        star.y -= spanY;
                     }
                 }
             }
@@ -318,12 +322,29 @@ class CosmicBackground {
         const originalAlpha = ctx.globalAlpha;
         ctx.fillStyle = '#ffffff';
 
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+
         for (const layer of this.starLayers) {
             const layerStars = layer.stars;
             if (!layerStars || layerStars.length === 0) continue;
 
+            const cullMargin = Math.max((layer.size || 1) * 4, Math.max(width, height) * 0.05);
+            const minX = -cullMargin;
+            const maxX = width + cullMargin;
+            const minY = -cullMargin;
+            const maxY = height + cullMargin;
+
             for (let i = 0; i < layerStars.length; i++) {
                 const star = layerStars[i];
+                if (!star) continue;
+
+                const x = star.x;
+                const y = star.y;
+                if (x < minX || x > maxX || y < minY || y > maxY) {
+                    continue;
+                }
+
                 const twinkle = skipTwinkle
                     ? 0.5
                     : Math.sin(this.time * star.twinkleSpeed + star.twinkleOffset) * 0.5 + 0.5;
@@ -331,7 +352,7 @@ class CosmicBackground {
 
                 ctx.globalAlpha = alpha;
                 ctx.beginPath();
-                ctx.arc(star.x, star.y, layer.size, 0, Math.PI * 2);
+                ctx.arc(x, y, layer.size, 0, Math.PI * 2);
                 ctx.fill();
             }
         }

@@ -91,6 +91,13 @@ class GameEngine {
         this._domCache = new Map();
         this._minimapUpdateAccumulator = 0;
         this._minimapHasDrawn = false;
+        this._collisionFallbackRules = {
+            player: new Set(['enemy', 'xpOrb', 'enemyProjectile']),
+            enemy: new Set(['player', 'projectile']),
+            projectile: new Set(['enemy']),
+            enemyProjectile: new Set(['player']),
+            xpOrb: new Set(['player'])
+        };
         this._updateTimingTargets();
 
         // Track pause origins so auto-resume doesn't override manual pauses
@@ -1195,6 +1202,10 @@ class GameEngine {
                 const entity2 = entities[j];
                 // Skip invalid or dead entities
                 if (!entity2 || entity2.isDead) continue;
+
+                if (!this._canFallbackCollide(entity1, entity2)) {
+                    continue;
+                }
                 
                 // Quick distance check before expensive collision test
                 const dx = entity1.x - entity2.x;
@@ -1221,15 +1232,58 @@ class GameEngine {
             const adjacentEntities = this.spatialGrid.get(adjacentKey);
             
             if (adjacentEntities) {
-                for (const entity of entities) {
-                    for (const adjacentEntity of adjacentEntities) {
-                        if (this.isColliding(entity, adjacentEntity)) {
-                            this.handleCollision(entity, adjacentEntity);
+                for (let i = 0; i < entities.length; i++) {
+                    const entity = entities[i];
+                    if (!entity || entity.isDead) continue;
+
+                    for (let j = 0; j < adjacentEntities.length; j++) {
+                        const adjacentEntity = adjacentEntities[j];
+                        if (!adjacentEntity || adjacentEntity.isDead || adjacentEntity === entity) continue;
+
+                        if (!this._canFallbackCollide(entity, adjacentEntity)) {
+                            continue;
+                        }
+
+                        const dxPos = entity.x - adjacentEntity.x;
+                        const dyPos = entity.y - adjacentEntity.y;
+                        const maxRadius = (entity.radius || 0) + (adjacentEntity.radius || 0);
+                        if (dxPos * dxPos + dyPos * dyPos < maxRadius * maxRadius) {
+                            if (this.isColliding(entity, adjacentEntity)) {
+                                this.handleCollision(entity, adjacentEntity);
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    _canFallbackCollide(entity1, entity2) {
+        const type1 = entity1?.type;
+        const type2 = entity2?.type;
+        if (!type1 || !type2 || type1 === type2) {
+            if (type1 === 'enemy' && type2 === 'enemy') {
+                return false;
+            }
+            if (type1 === 'projectile' && type2 === 'projectile') {
+                return false;
+            }
+        }
+
+        const rules = this._collisionFallbackRules;
+
+        const set1 = rules[type1];
+        if (set1 && set1.has(type2)) {
+            return true;
+        }
+
+        const set2 = rules[type2];
+        if (set2 && set2.has(type1)) {
+            return true;
+        }
+
+        // Fallback: allow if either lacks type rules but objects are defined
+        return !set1 && !set2;
     }
       handleCollision(entity1, entity2) {
         // Comprehensive validation to prevent invalid collisions
