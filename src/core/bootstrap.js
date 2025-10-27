@@ -352,6 +352,15 @@
                 this.systemReadyCheckId = null;
             }
 
+            // Clean up system managers to prevent memory leaks
+            if (window.inputManager?.destroy) {
+                window.inputManager.destroy();
+            }
+
+            if (window.performanceManager?.destroy) {
+                window.performanceManager.destroy();
+            }
+
             window.gameManager?.cleanup?.();
         }
     }

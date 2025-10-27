@@ -95,18 +95,22 @@ class InputManager {
     handleKeyDown(e) {
         const key = e.key;
         this.keyStates[key] = true;
-        
+
         // Check for special key handling
         this.handleSpecialKeys(e);
-        
-        // Notify callbacks
-        this.callbacks.keyDown.forEach(callback => {
+
+        // Optimized: early exit if no callbacks, use for loop instead of forEach
+        const callbacks = this.callbacks.keyDown;
+        const length = callbacks.length;
+        if (length === 0) return;
+
+        for (let i = 0; i < length; i++) {
             try {
-                callback(e, key);
+                callbacks[i](e, key);
             } catch (error) {
                 console.error('Input callback error:', error);
             }
-        });
+        }
     }
     
     /**
@@ -116,15 +120,19 @@ class InputManager {
     handleKeyUp(e) {
         const key = e.key;
         this.keyStates[key] = false;
-        
-        // Notify callbacks
-        this.callbacks.keyUp.forEach(callback => {
+
+        // Optimized: early exit if no callbacks, use for loop instead of forEach
+        const callbacks = this.callbacks.keyUp;
+        const length = callbacks.length;
+        if (length === 0) return;
+
+        for (let i = 0; i < length; i++) {
             try {
-                callback(e, key);
+                callbacks[i](e, key);
             } catch (error) {
                 console.error('Input callback error:', error);
             }
-        });
+        }
     }
     
     /**
@@ -184,14 +192,19 @@ class InputManager {
     handleMouseMove(e) {
         this.mouseState.x = e.clientX;
         this.mouseState.y = e.clientY;
-        
-        this.callbacks.mouseMove.forEach(callback => {
+
+        // Optimized: early exit if no callbacks, use for loop instead of forEach
+        const callbacks = this.callbacks.mouseMove;
+        const length = callbacks.length;
+        if (length === 0) return;
+
+        for (let i = 0; i < length; i++) {
             try {
-                callback(e);
+                callbacks[i](e);
             } catch (error) {
                 console.error('Mouse move callback error:', error);
             }
-        });
+        }
     }
     
     /**
@@ -200,14 +213,19 @@ class InputManager {
      */
     handleMouseDown(e) {
         this.mouseState.buttons |= (1 << e.button);
-        
-        this.callbacks.mouseDown.forEach(callback => {
+
+        // Optimized: early exit if no callbacks, use for loop instead of forEach
+        const callbacks = this.callbacks.mouseDown;
+        const length = callbacks.length;
+        if (length === 0) return;
+
+        for (let i = 0; i < length; i++) {
             try {
-                callback(e);
+                callbacks[i](e);
             } catch (error) {
                 console.error('Mouse down callback error:', error);
             }
-        });
+        }
     }
     
     /**
@@ -216,14 +234,19 @@ class InputManager {
      */
     handleMouseUp(e) {
         this.mouseState.buttons &= ~(1 << e.button);
-        
-        this.callbacks.mouseUp.forEach(callback => {
+
+        // Optimized: early exit if no callbacks, use for loop instead of forEach
+        const callbacks = this.callbacks.mouseUp;
+        const length = callbacks.length;
+        if (length === 0) return;
+
+        for (let i = 0; i < length; i++) {
             try {
-                callback(e);
+                callbacks[i](e);
             } catch (error) {
                 console.error('Mouse up callback error:', error);
             }
-        });
+        }
     }
     
     /**
@@ -249,22 +272,26 @@ class InputManager {
      */
     updateGamepad() {
         if (!this.gamepadState) return;
-        
+
         // Get fresh gamepad state
         const gamepads = navigator.getGamepads();
         const gamepad = gamepads[this.gamepadState.index];
-        
+
         if (gamepad) {
             this.gamepadState = gamepad;
-            
-            // Process gamepad input
-            this.callbacks.gamepadInput.forEach(callback => {
+
+            // Optimized: early exit if no callbacks, use for loop instead of forEach
+            const callbacks = this.callbacks.gamepadInput;
+            const length = callbacks.length;
+            if (length === 0) return;
+
+            for (let i = 0; i < length; i++) {
                 try {
-                    callback(gamepad);
+                    callbacks[i](gamepad);
                 } catch (error) {
                     console.error('Gamepad callback error:', error);
                 }
-            });
+            }
         }
     }
     
@@ -390,19 +417,9 @@ class InputManager {
     }
     
     /**
-     * Clean up event listeners
+     * Clean up event listeners - removed duplicate destroy() method
+     * Using the correct implementation at lines 74-89 that properly uses _listeners array
      */
-    destroy() {
-        document.removeEventListener('keydown', this.handleKeyDown);
-        document.removeEventListener('keyup', this.handleKeyUp);
-        document.removeEventListener('mousemove', this.handleMouseMove);
-        document.removeEventListener('mousedown', this.handleMouseDown);
-        document.removeEventListener('mouseup', this.handleMouseUp);
-        window.removeEventListener('gamepadconnected', this.handleGamepadConnected);
-        window.removeEventListener('gamepaddisconnected', this.handleGamepadDisconnected);
-
-        // Input manager cleanup completed
-    }
 }
 
 // Export to window.Game namespace

@@ -8,41 +8,46 @@ class PerformanceManager {
         this.fps = 0;
         this.fpsHistory = [];
         this.maxHistorySize = 20; // Reduced for simplicity
-        
+
         // Simple performance thresholds - work well across devices
         this.lowFpsThreshold = 45;
         this.criticalFpsThreshold = 30;
-        
+
         // Current performance mode
         this.performanceMode = 'normal';
         this.pendingMode = null;
         this.pendingModeSamples = 0;
-        
+
         // Memory monitoring (simplified)
         this.memoryUsage = 0;
         this.lastMemoryCheck = 0;
         this.memoryCheckInterval = 5000;
-        
+
         // Mode change cooldown to prevent thrashing
         this.lastModeChange = 0;
         this.modeChangeCooldown = 3000;
         this.warmupDuration = 4000;
         this.monitoringStart = this.lastTime;
-        
+
+        // Store references for cleanup
+        this.displayUpdateInterval = null;
+        this.keydownHandler = null;
+
         this.init();
     }
     
     init() {
         // Start monitoring
         this.startMonitoring();
-        
-        // Add performance toggle hotkey
-        window.addEventListener('keydown', (e) => {
+
+        // Add performance toggle hotkey - store bound reference for cleanup
+        this.keydownHandler = (e) => {
             if (e.key === 'F1' || (e.ctrlKey && e.key === 'p')) {
                 e.preventDefault();
                 this.togglePerformanceMode();
             }
-        });
+        };
+        window.addEventListener('keydown', this.keydownHandler);
     }
     
     update(deltaTime) {
@@ -221,9 +226,9 @@ class PerformanceManager {
             min-width: 150px;
         `;
         document.body.appendChild(display);
-        
-        // Update display every second
-        setInterval(() => {
+
+        // Update display every second - store reference for cleanup
+        this.displayUpdateInterval = setInterval(() => {
             const fpsColor = this.fps >= 60 ? '#00ff00' : this.fps >= 30 ? '#ffff00' : '#ff0000';
             display.innerHTML = `
                 <div>FPS: <span style="color:${fpsColor}">${this.fps}</span></div>
@@ -233,7 +238,30 @@ class PerformanceManager {
             `;
         }, 1000);
     }
-    
+
+    /**
+     * Clean up all timers and event listeners
+     */
+    destroy() {
+        // Clear the display update interval
+        if (this.displayUpdateInterval) {
+            clearInterval(this.displayUpdateInterval);
+            this.displayUpdateInterval = null;
+        }
+
+        // Remove event listener
+        if (this.keydownHandler) {
+            window.removeEventListener('keydown', this.keydownHandler);
+            this.keydownHandler = null;
+        }
+
+        // Remove performance display from DOM
+        const display = document.getElementById('performance-display');
+        if (display) {
+            display.remove();
+        }
+    }
+
     // Static method to initialize performance manager
     static init() {
         if (!window.performanceManager) {
