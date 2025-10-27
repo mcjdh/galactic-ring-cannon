@@ -251,8 +251,11 @@ class CosmicBackground {
         const h = this.canvas.height;
 
         // 1. Fill deep space background
-        ctx.fillStyle = this.colors.deepSpace;
-        ctx.fillRect(0, 0, w, h);
+        const bgColor = this.colors.deepSpace;
+        ctx.fillStyle = bgColor;
+        for (let y = 0; y < h; y += 16) {
+            ctx.fillRect(0, y, w, 16);
+        }
 
         // 2. Render nebula clouds (behind stars)
         if (!this.lowQuality) {
@@ -351,6 +354,7 @@ class CosmicBackground {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
+        const time = this.time;
         for (const layer of this.starLayers) {
             const layerStars = layer.stars;
             if (!layerStars || layerStars.length === 0) continue;
@@ -361,6 +365,7 @@ class CosmicBackground {
             const minY = -cullMargin;
             const maxY = height + cullMargin;
 
+            let seed = (layer.seed || 0) + (time * layer.twinkleSpeedScalar || time);
             for (let i = 0; i < layerStars.length; i++) {
                 const star = layerStars[i];
                 if (!star) continue;
@@ -371,9 +376,12 @@ class CosmicBackground {
                     continue;
                 }
 
-                const twinkle = skipTwinkle
-                    ? 0.5
-                    : Math.sin(this.time * star.twinkleSpeed + star.twinkleOffset) * 0.5 + 0.5;
+                let twinkle = 0.5;
+                if (!skipTwinkle) {
+                    seed = (seed * 1664525 + 1013904223) | 0;
+                    const phase = ((seed >>> 16) & 0xffff) / 0xffff;
+                    twinkle = Math.sqrt(phase);
+                }
                 const alpha = layer.brightness * (skipTwinkle ? 0.7 : (0.5 + twinkle * 0.5));
 
                 ctx.globalAlpha = alpha;

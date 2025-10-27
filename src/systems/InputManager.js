@@ -7,6 +7,7 @@ class InputManager {
         this.keyStates = {};
         this.mouseState = { x: 0, y: 0, buttons: 0 };
         this.gamepadState = null;
+        this._listeners = [];
         
         // Input callbacks
         this.callbacks = {
@@ -50,19 +51,41 @@ class InputManager {
      */
     initialize() {
         // Keyboard events
-        document.addEventListener('keydown', this.handleKeyDown.bind(this));
-        document.addEventListener('keyup', this.handleKeyUp.bind(this));
-        
+        this._attachListener(document, 'keydown', this.handleKeyDown.bind(this));
+        this._attachListener(document, 'keyup', this.handleKeyUp.bind(this));
+
         // Mouse events
-        document.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        document.addEventListener('mousedown', this.handleMouseDown.bind(this));
-        document.addEventListener('mouseup', this.handleMouseUp.bind(this));
-        
+        this._attachListener(document, 'mousemove', this.handleMouseMove.bind(this));
+        this._attachListener(document, 'mousedown', this.handleMouseDown.bind(this));
+        this._attachListener(document, 'mouseup', this.handleMouseUp.bind(this));
+
         // Gamepad support
-        window.addEventListener('gamepadconnected', this.handleGamepadConnected.bind(this));
-        window.addEventListener('gamepaddisconnected', this.handleGamepadDisconnected.bind(this));
-        
+        this._attachListener(window, 'gamepadconnected', this.handleGamepadConnected.bind(this));
+        this._attachListener(window, 'gamepaddisconnected', this.handleGamepadDisconnected.bind(this));
+
         // Input manager initialized successfully
+    }
+
+    _attachListener(target, type, handler) {
+        target.addEventListener(type, handler);
+        this._listeners.push({ target, type, handler });
+    }
+
+    destroy() {
+        for (const listener of this._listeners) {
+            listener.target.removeEventListener(listener.type, listener.handler);
+        }
+        this._listeners = [];
+
+        // Clear callbacks to release references
+        this.callbacks = {
+            keyDown: [],
+            keyUp: [],
+            mouseMove: [],
+            mouseDown: [],
+            mouseUp: [],
+            gamepadInput: []
+        };
     }
     
     /**
