@@ -76,6 +76,9 @@ class GameEngine {
         this.lastFpsUpdate = 0;
         this.targetFps = 60;
         this.lastFrameTime = 0;
+        this._cleanupTimer = 0;
+        this._cleanupInterval = 0.2;
+        this._needsCleanup = false;
         this._maxFixedSteps = 5;
         this._accumulatorMs = 0;
         this._renderAccumulatorMs = 0;
@@ -327,6 +330,7 @@ class GameEngine {
             const removed = this.entityManager.removeEntity(entity);
             if (removed) {
                 handleSideEffects(entity);
+                this._needsCleanup = true;
             }
             return removed;
         }
@@ -362,6 +366,7 @@ class GameEngine {
             this._releaseEnemyProjectile(entity);
         }
 
+        this._needsCleanup = true;
         return removed;
     }
 
@@ -997,6 +1002,7 @@ class GameEngine {
         }
         
         // Clean up dead entities
+        this._cleanupTimer += deltaTime;
         this.cleanupEntities();
     }
 
@@ -1496,12 +1502,12 @@ class GameEngine {
             if (this.cosmicBackground && typeof this.cosmicBackground.render === 'function') {
                 this.cosmicBackground.render(this.player);
             } else {
-                // Fallback: Clear canvas with optimized method
-                this.ctx.save();
-                this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
-                this.ctx.fillStyle = '#0a0a1f';  // Deep space color
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                this.ctx.restore();
+                const ctx = this.ctx;
+                const previousFill = ctx.fillStyle;
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = '#0a0a1f';
+                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                ctx.fillStyle = previousFill;
             }
         
             // Set camera with optimized transform
@@ -1641,7 +1647,16 @@ class GameEngine {
         return (dx * dx + dy * dy) < (r * r);
     }
 
-    cleanupEntities() {
+    cleanupEntities(force = false) {
+        if (!force) {
+            if (this._cleanupTimer < this._cleanupInterval && !this._needsCleanup) {
+                return;
+            }
+        }
+
+        this._cleanupTimer = 0;
+        this._needsCleanup = false;
+
         if (this.entityManager) {
             this._cleanupEntitiesWithManager();
         } else {
@@ -1957,6 +1972,7 @@ class GameEngine {
                 this.setPlayer(entity);
             }
 
+            this._needsCleanup = true;
             return entity;
         } catch (error) {
             ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error adding entity:', error, entity);
@@ -2237,7 +2253,7 @@ class GameEngine {
     }
     cleanupResources() {
         // Clean up dead entities
-        this.cleanupEntities();
+        this.cleanupEntities(true);
 
         // More aggressive pool management for better memory usage
         const maxPoolSize = this.maxPoolSize || 100;

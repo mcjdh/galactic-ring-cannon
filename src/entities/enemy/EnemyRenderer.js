@@ -12,23 +12,23 @@ class EnemyRenderer {
             return;
         }
 
-        // Save context state
-        ctx.save();
+        const previousAlpha = ctx.globalAlpha;
+        const previousFill = ctx.fillStyle;
+        const previousStroke = ctx.strokeStyle;
+        const previousLineWidth = ctx.lineWidth;
+        const previousLineCap = ctx.lineCap;
 
-        // Apply opacity for death animation
+        let combinedAlpha = previousAlpha;
+
         if (enemy.opacity !== undefined && enemy.opacity < 1.0) {
-            ctx.globalAlpha = enemy.opacity;
+            combinedAlpha *= enemy.opacity;
         }
 
-        // Apply transparency for phantom enemies
         if (enemy.abilities.canPhase && enemy.abilities.isVisible) {
-            ctx.globalAlpha = 0.7;
+            combinedAlpha *= 0.7;
         }
 
-        // Apply damage flash effect
-        if (enemy.damageFlashTimer > 0) {
-            ctx.filter = 'brightness(150%) saturate(150%)';
-        }
+        ctx.globalAlpha = combinedAlpha;
 
         // Draw shield effect if active
         if (enemy.abilities.shieldActive) {
@@ -44,16 +44,15 @@ class EnemyRenderer {
         const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
         const drawRadius = enemy.radius * pulseScale;
 
-        // Draw main enemy body with synthwave glow
-        ctx.shadowBlur = enemy.isElite || enemy.isBoss ? 15 : 8;
-        ctx.shadowColor = enemy.color;
+        const baseColor = enemy.color || '#ffffff';
+        const fillColor = enemy.damageFlashTimer > 0
+            ? EnemyRenderer._getHitFlashColor(baseColor)
+            : baseColor;
 
-        ctx.fillStyle = enemy.color;
+        ctx.fillStyle = fillColor;
         ctx.beginPath();
         ctx.arc(enemy.x, enemy.y, drawRadius, 0, Math.PI * 2);
         ctx.fill();
-
-        ctx.shadowBlur = 0;
 
         // Draw boss crown if boss
         if (enemy.isBoss) {
@@ -65,39 +64,37 @@ class EnemyRenderer {
             this.renderPhaseIndicator(enemy, ctx);
         }
 
-        // Restore context state
-        ctx.restore();
+        ctx.globalAlpha = previousAlpha;
+        ctx.fillStyle = previousFill;
+        ctx.strokeStyle = previousStroke;
+        ctx.lineWidth = previousLineWidth;
+        ctx.setLineDash([]);
+        ctx.lineCap = previousLineCap;
     }
 
     /**
      * Render shield effect around enemy - Synthwave themed
      */
     static renderShieldEffect(enemy, ctx) {
-        ctx.strokeStyle = '#00ffff';
+        const previousAlpha = ctx.globalAlpha;
+        ctx.globalAlpha *= 0.6;
+        ctx.strokeStyle = EnemyRenderer._colorWithAlpha('#00ffff', 0.6);
         ctx.lineWidth = 3;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#00ffff';
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.arc(enemy.x, enemy.y, enemy.radius + 8, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.shadowBlur = 0;
+        ctx.globalAlpha = previousAlpha;
     }
 
     /**
      * Render elite enemy glow
      */
     static renderEliteGlow(enemy, ctx) {
-        const glowRadius = enemy.radius + 5;
-        const gradient = ctx.createRadialGradient(
-            enemy.x, enemy.y, enemy.radius,
-            enemy.x, enemy.y, glowRadius
-        );
-        gradient.addColorStop(0, 'transparent');
-        gradient.addColorStop(1, enemy.glowColor + '40'); // 40 = 25% opacity in hex
-
-        ctx.fillStyle = gradient;
+        const glowRadius = enemy.radius + 6;
+        const glowColor = enemy.glowColor || enemy.color || '#ffffff';
+        ctx.fillStyle = EnemyRenderer._colorWithAlpha(glowColor, 0.28);
         ctx.beginPath();
         ctx.arc(enemy.x, enemy.y, glowRadius, 0, Math.PI * 2);
         ctx.fill();
@@ -108,8 +105,6 @@ class EnemyRenderer {
      */
     static renderBossCrown(enemy, ctx) {
         ctx.fillStyle = '#ffff00';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#ffff00';
         const crownSize = 6;
 
         // Simple crown shape
@@ -119,7 +114,6 @@ class EnemyRenderer {
         ctx.lineTo(enemy.x + crownSize, enemy.y - enemy.radius - 5);
         ctx.closePath();
         ctx.fill();
-        ctx.shadowBlur = 0;
     }
 
     /**
@@ -137,11 +131,7 @@ class EnemyRenderer {
      */
     static renderHealthBar(enemy, ctx) {
         try {
-            // Save context state to avoid interference
-            ctx.save();
-
-            // Reset filters and alpha but preserve camera transform
-            ctx.filter = 'none';
+            const previousAlpha = ctx.globalAlpha;
             ctx.globalAlpha = 1.0;
 
             const barWidth = Math.max(enemy.radius * 2, 20);
@@ -163,10 +153,58 @@ class EnemyRenderer {
             ctx.fillStyle = healthColor;
             ctx.fillRect(enemy.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
 
-            // Restore context state
-            ctx.restore();
+            ctx.globalAlpha = previousAlpha;
         } catch (error) {
             (window.logger?.warn || (() => {}))('Error rendering enemy health bar:', error);
         }
+    }
+
+    static _getHitFlashColor(color) {
+        const cache = EnemyRenderer._flashColorCache || (EnemyRenderer._flashColorCache = new Map());
+        if (cache.has(color)) {
+            return cache.get(color);
+        }
+        const parsed = EnemyRenderer._parseColor(color);
+        const lighten = (value) => Math.min(255, Math.round(value + (255 - value) * 0.4));
+        const flash = `rgb(${lighten(parsed.r)}, ${lighten(parsed.g)}, ${lighten(parsed.b)})`;
+        cache.set(color, flash);
+        return flash;
+    }
+
+    static _colorWithAlpha(color, alpha) {
+        const key = `${color}|${alpha}`;
+        const cache = EnemyRenderer._alphaColorCache || (EnemyRenderer._alphaColorCache = new Map());
+        if (cache.has(key)) {
+            return cache.get(key);
+        }
+        const parsed = EnemyRenderer._parseColor(color);
+        const result = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+        cache.set(key, result);
+        return result;
+    }
+
+    static _parseColor(color) {
+        const cache = EnemyRenderer._parsedColorCache || (EnemyRenderer._parsedColorCache = new Map());
+        if (cache.has(color)) {
+            return cache.get(color);
+        }
+        let r = 255;
+        let g = 255;
+        let b = 255;
+        if (typeof color === 'string' && color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            } else if (hex.length >= 6) {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+            }
+        }
+        const parsed = { r, g, b };
+        cache.set(color, parsed);
+        return parsed;
     }
 }

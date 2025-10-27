@@ -71,15 +71,10 @@ class ProjectileRenderer {
         }
 
         // Fallback: direct draw if canvas caching unavailable
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = color;
-
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
         ctx.fill();
-
-        ctx.shadowBlur = 0;
 
         ctx.fillStyle = projectile.isCrit ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
         ctx.beginPath();
@@ -104,15 +99,7 @@ class ProjectileRenderer {
             return;
         }
 
-        const gradient = ctx.createRadialGradient(
-            projectile.x, projectile.y, projectile.radius * 0.5,
-            projectile.x, projectile.y, projectile.radius * 2
-        );
-
-        gradient.addColorStop(0, glowColor + '80'); // 50% opacity
-        gradient.addColorStop(1, glowColor + '00'); // 0% opacity
-
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = this._colorWithAlpha(glowColor, 0.35);
         ctx.beginPath();
         ctx.arc(projectile.x, projectile.y, projectile.radius * 2, 0, Math.PI * 2);
         ctx.fill();
@@ -137,15 +124,7 @@ class ProjectileRenderer {
             return;
         }
 
-        const gradient = ctx.createRadialGradient(
-            projectile.x, projectile.y, 0,
-            projectile.x, projectile.y, projectile.radius * 2.5
-        );
-
-        gradient.addColorStop(0, `rgba(255, 215, 0, ${0.4 * pulseIntensity})`);
-        gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
-
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = `rgba(255, 215, 0, ${0.35 * pulseIntensity})`;
         ctx.beginPath();
         ctx.arc(projectile.x, projectile.y, projectile.radius * 2.5, 0, Math.PI * 2);
         ctx.fill();
@@ -187,6 +166,43 @@ class ProjectileRenderer {
         const sprite = { canvas, halfSize: size / 2 };
         this._storeSprite(cache, cacheKey, sprite, this._BODY_CACHE_LIMIT);
         return sprite;
+    }
+
+    static _colorWithAlpha(color, alpha) {
+        const key = `${color}|${alpha}`;
+        const cache = this._glowColorCache || (this._glowColorCache = new Map());
+        if (cache.has(key)) {
+            return cache.get(key);
+        }
+        const parsed = this._parseColor(color);
+        const value = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+        cache.set(key, value);
+        return value;
+    }
+
+    static _parseColor(color) {
+        const cache = this._parsedColorCache || (this._parsedColorCache = new Map());
+        if (cache.has(color)) {
+            return cache.get(color);
+        }
+        let r = 255;
+        let g = 255;
+        let b = 255;
+        if (typeof color === 'string' && color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            } else if (hex.length >= 6) {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+            }
+        }
+        const parsed = { r, g, b };
+        cache.set(color, parsed);
+        return parsed;
     }
 
     static _getGlowSprite(radius, color) {

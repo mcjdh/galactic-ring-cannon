@@ -56,6 +56,7 @@ class CosmicBackground {
 
         // Performance settings
         this.lowQuality = false;
+        this._starWrapBounds = null;
 
         // Cached RGBA strings (optimization - avoid repeated string concat)
         this._cachedRgbaStrings = new Map();
@@ -157,14 +158,29 @@ class CosmicBackground {
 
             const canvasWidth = this.canvas.width;
             const canvasHeight = this.canvas.height;
-            const marginX = Math.max(32, canvasWidth * 0.1);
-            const marginY = Math.max(32, canvasHeight * 0.1);
-            const minStarX = -marginX;
-            const maxStarX = canvasWidth + marginX;
-            const minStarY = -marginY;
-            const maxStarY = canvasHeight + marginY;
-            const spanX = maxStarX - minStarX;
-            const spanY = maxStarY - minStarY;
+
+            let wrap = this._starWrapBounds;
+            if (!wrap || wrap.width !== canvasWidth || wrap.height !== canvasHeight) {
+                const marginX = Math.max(32, canvasWidth * 0.1);
+                const marginY = Math.max(32, canvasHeight * 0.1);
+                wrap = this._starWrapBounds = {
+                    width: canvasWidth,
+                    height: canvasHeight,
+                    minX: -marginX,
+                    maxX: canvasWidth + marginX,
+                    minY: -marginY,
+                    maxY: canvasHeight + marginY,
+                    spanX: canvasWidth + marginX * 2,
+                    spanY: canvasHeight + marginY * 2
+                };
+            }
+
+            const minStarX = wrap.minX;
+            const maxStarX = wrap.maxX;
+            const minStarY = wrap.minY;
+            const maxStarY = wrap.maxY;
+            const spanX = wrap.spanX;
+            const spanY = wrap.spanY;
 
             for (const layer of this.starLayers) {
                 const stars = layer.stars;
@@ -174,21 +190,31 @@ class CosmicBackground {
                 const parallaxY = cameraDeltaY * layer.speed;
                 if (parallaxX === 0 && parallaxY === 0) continue;
 
+                const updateX = parallaxX !== 0;
+                const updateY = parallaxY !== 0;
+
                 for (let idx = 0; idx < stars.length; idx++) {
                     const star = stars[idx];
-                    star.x -= parallaxX;
-                    star.y -= parallaxY;
+                    if (!star) continue;
 
-                    if (star.x < minStarX) {
-                        star.x += spanX;
-                    } else if (star.x > maxStarX) {
-                        star.x -= spanX;
+                    if (updateX) {
+                        let newX = star.x - parallaxX;
+                        if (newX < minStarX) {
+                            newX += spanX;
+                        } else if (newX > maxStarX) {
+                            newX -= spanX;
+                        }
+                        star.x = newX;
                     }
 
-                    if (star.y < minStarY) {
-                        star.y += spanY;
-                    } else if (star.y > maxStarY) {
-                        star.y -= spanY;
+                    if (updateY) {
+                        let newY = star.y - parallaxY;
+                        if (newY < minStarY) {
+                            newY += spanY;
+                        } else if (newY > maxStarY) {
+                            newY -= spanY;
+                        }
+                        star.y = newY;
                     }
                 }
             }
