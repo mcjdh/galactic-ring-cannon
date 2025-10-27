@@ -1,5 +1,17 @@
 // FloatingTextSystem: pooled floating/combat text renderer
 (function () {
+    // Cache common font strings (performance optimization)
+    const FONT_CACHE = {
+        12: '12px Arial',
+        14: '14px Arial',
+        16: '16px Arial',
+        18: '18px Arial',
+        20: '20px Arial',
+        24: '24px Arial',
+        28: '28px Arial',
+        32: '32px Arial'
+    };
+
     class FloatingTextSystem {
         constructor(options = {}) {
             this._textPool = [];
@@ -52,7 +64,9 @@
                 const a = 1 - (t.age / t.lifetime);
                 ctx.globalAlpha = Math.max(0, a);
                 ctx.fillStyle = t.color || 'white';
-                ctx.font = `${t.size || 16}px Arial`;
+                // Use cached font string if available, otherwise create it
+                const size = t.size || 16;
+                ctx.font = FONT_CACHE[size] || `${size}px Arial`;
                 ctx.fillText(t.text, t.x, t.y);
             }
             ctx.globalAlpha = 1;

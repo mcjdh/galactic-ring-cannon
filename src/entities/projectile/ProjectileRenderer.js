@@ -10,7 +10,7 @@ class ProjectileRenderer {
         ctx.save();
 
         // Draw trail
-        if (projectile.trail && projectile.trail.length > 1) {
+        if (projectile.trail && projectile.trailCount > 1) {
             this.renderTrail(projectile, ctx);
         }
 
@@ -62,7 +62,7 @@ class ProjectileRenderer {
             const projectile = projectiles[i];
             if (!projectile || projectile.isDead) continue;
 
-            if (projectile.trail && projectile.trail.length > 1) {
+            if (projectile.trail && projectile.trailCount > 1) {
                 trailProjectiles.push(projectile);
             }
 
@@ -135,8 +135,7 @@ class ProjectileRenderer {
 
             for (let i = 0; i < trailProjectiles.length; i++) {
                 const projectile = trailProjectiles[i];
-                const trail = projectile.trail;
-                if (!trail || trail.length < 2) continue;
+                if (!projectile.trail || projectile.trailCount < 2) continue;
 
                 ctx.strokeStyle = this.getTrailColor(projectile);
                 ctx.lineWidth = projectile.radius * 0.5;
@@ -144,11 +143,21 @@ class ProjectileRenderer {
                 ctx.globalAlpha = 0.6;
 
                 ctx.beginPath();
-                ctx.moveTo(trail[0].x, trail[0].y);
-                for (let j = 1; j < trail.length; j++) {
-                    const alpha = j / trail.length;
+
+                // Read from circular buffer: oldest to newest
+                const startIdx = projectile.trailCount < projectile.maxTrailLength ? 0 : projectile.trailIndex;
+                const firstPoint = projectile.trail[startIdx];
+                if (!firstPoint) continue;
+
+                ctx.moveTo(firstPoint.x, firstPoint.y);
+
+                for (let j = 1; j < projectile.trailCount; j++) {
+                    const idx = (startIdx + j) % projectile.maxTrailLength;
+                    const point = projectile.trail[idx];
+                    if (!point) continue;
+                    const alpha = j / projectile.trailCount;
                     ctx.globalAlpha = alpha * 0.6;
-                    ctx.lineTo(trail[j].x, trail[j].y);
+                    ctx.lineTo(point.x, point.y);
                 }
                 ctx.stroke();
 
@@ -269,7 +278,7 @@ class ProjectileRenderer {
      * Render projectile trail
      */
     static renderTrail(projectile, ctx) {
-        if (projectile.trail.length < 2) return;
+        if (projectile.trailCount < 2) return;
 
         ctx.strokeStyle = this.getTrailColor(projectile);
         ctx.lineWidth = projectile.radius * 0.5;
@@ -277,12 +286,21 @@ class ProjectileRenderer {
         ctx.globalAlpha = 0.6;
 
         ctx.beginPath();
-        ctx.moveTo(projectile.trail[0].x, projectile.trail[0].y);
 
-        for (let i = 1; i < projectile.trail.length; i++) {
-            const alpha = i / projectile.trail.length;
+        // Read from circular buffer: oldest to newest
+        const startIdx = projectile.trailCount < projectile.maxTrailLength ? 0 : projectile.trailIndex;
+        const firstPoint = projectile.trail[startIdx];
+        if (!firstPoint) return;
+
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+
+        for (let i = 1; i < projectile.trailCount; i++) {
+            const idx = (startIdx + i) % projectile.maxTrailLength;
+            const point = projectile.trail[idx];
+            if (!point) continue;
+            const alpha = i / projectile.trailCount;
             ctx.globalAlpha = alpha * 0.6;
-            ctx.lineTo(projectile.trail[i].x, projectile.trail[i].y);
+            ctx.lineTo(point.x, point.y);
         }
 
         ctx.stroke();

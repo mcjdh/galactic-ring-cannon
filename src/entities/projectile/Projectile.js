@@ -47,9 +47,11 @@ class Projectile {
         // Hit tracking (for piercing)
         this.hitEnemies = new Set();
 
-        // Visual trail
-        this.trail = [];
+        // Visual trail - using circular buffer for performance
         this.maxTrailLength = 5;
+        this.trail = new Array(this.maxTrailLength);
+        this.trailIndex = 0;
+        this.trailCount = 0;
 
         // Behavior system - THIS is where all upgrade logic lives now!
         // Wrap in try-catch to handle missing BehaviorManager class gracefully
@@ -265,11 +267,10 @@ class Projectile {
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
 
-        // Update trail
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > this.maxTrailLength) {
-            this.trail.shift();
-        }
+        // Update trail using circular buffer (O(1) instead of O(n))
+        this.trail[this.trailIndex] = { x: this.x, y: this.y };
+        this.trailIndex = (this.trailIndex + 1) % this.maxTrailLength;
+        this.trailCount = Math.min(this.trailCount + 1, this.maxTrailLength);
 
         // Update all behaviors (e.g., homing)
         this.behaviorManager.update(deltaTime, game);

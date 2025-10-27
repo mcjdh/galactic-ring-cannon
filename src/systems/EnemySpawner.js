@@ -25,7 +25,9 @@ class EnemySpawner {
 
         // Performance monitoring and adaptive limits
         this.performanceMonitor = {
-            frameTimeHistory: [],
+            frameTimeHistory: new Array(10).fill(0),
+            frameTimeIndex: 0,
+            frameTimeCount: 0,
             maxHistory: 10,
             lagThreshold: 33, // 30 FPS threshold
             isLagging: false,
@@ -107,15 +109,18 @@ class EnemySpawner {
         const monitor = this.performanceMonitor;
         const frameTime = deltaTime * 1000; // Convert to milliseconds
 
-        // Track frame time history
-        monitor.frameTimeHistory.push(frameTime);
-        if (monitor.frameTimeHistory.length > monitor.maxHistory) {
-            monitor.frameTimeHistory.shift();
-        }
+        // Track frame time history using circular buffer (O(1) instead of O(n))
+        monitor.frameTimeHistory[monitor.frameTimeIndex] = frameTime;
+        monitor.frameTimeIndex = (monitor.frameTimeIndex + 1) % monitor.maxHistory;
+        monitor.frameTimeCount = Math.min(monitor.frameTimeCount + 1, monitor.maxHistory);
 
         // Calculate average frame time every few frames
-        if (monitor.frameTimeHistory.length >= monitor.maxHistory) {
-            const avgFrameTime = monitor.frameTimeHistory.reduce((a, b) => a + b) / monitor.frameTimeHistory.length;
+        if (monitor.frameTimeCount >= monitor.maxHistory) {
+            let sum = 0;
+            for (let i = 0; i < monitor.maxHistory; i++) {
+                sum += monitor.frameTimeHistory[i];
+            }
+            const avgFrameTime = sum / monitor.maxHistory;
             const wasLagging = monitor.isLagging;
             monitor.isLagging = avgFrameTime > monitor.lagThreshold;
 
@@ -698,7 +703,9 @@ class EnemySpawner {
         this.bossesKilled = 0;
         this.enemyHealthMultiplier = 1.0;
         this.enemiesKilledThisWave = 0;
-        this.performanceMonitor.frameTimeHistory.length = 0;
+        this.performanceMonitor.frameTimeHistory.fill(0);
+        this.performanceMonitor.frameTimeIndex = 0;
+        this.performanceMonitor.frameTimeCount = 0;
         this.performanceMonitor.isLagging = false;
         this.performanceMonitor.adaptiveMaxEnemies = this.maxEnemies;
         this.performanceMonitor.lastFrameTime = 0;

@@ -53,6 +53,7 @@ body {
     width: var(--health-width, 100%);
     transition: width 0.3s;
     box-shadow: 0 0 10px rgba(255, 0, 255, 0.6);
+    will-change: width;
 }
 
 /* Critical health animation */
@@ -70,6 +71,7 @@ body {
     width: var(--xp-width, 0%);
     transition: width 0.3s;
     box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+    will-change: width;
 }
 
 #level-display {
@@ -100,6 +102,7 @@ body {
     height: 100%;
     background: linear-gradient(90deg, #f1c40f, #e67e22);
     transition: width 0.2s linear;
+    will-change: width;
 }
 
 /* Timer container at top center */
@@ -190,6 +193,7 @@ body {
     align-items: center;
     position: relative;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+    will-change: transform, box-shadow;
 }
 
 .upgrade-option:hover {
@@ -363,6 +367,7 @@ body {
     z-index: 20;
     text-shadow: 0 0 3px #000, 0 0 3px #000;
     white-space: nowrap;
+    will-change: transform, opacity;
 }
 
 /* Base float-up animation */
