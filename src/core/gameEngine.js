@@ -207,6 +207,8 @@ class GameEngine {
                 ((typeof window !== "undefined" && window.logger?.info) || console.log)('Cosmic background initialized');
 
                 // Auto-enable low quality on constrained devices or reduced-motion preference
+                // Default: Start with full quality and let FPS monitoring adjust if needed
+                // Only pre-enable low quality for very constrained devices (≤2 cores or ≤2GB RAM)
                 try {
                     const prefersReducedMotion = typeof window !== 'undefined'
                         && typeof window.matchMedia === 'function'
@@ -220,8 +222,8 @@ class GameEngine {
                         : undefined;
 
                     const lowPowerDevice =
-                        (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 4) ||
-                        (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 4);
+                        (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 2) ||
+                        (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 2);
 
                     const autoLowQuality = prefersReducedMotion || lowPowerDevice;
 

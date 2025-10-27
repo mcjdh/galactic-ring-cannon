@@ -58,6 +58,15 @@ class CosmicBackground {
         this.lowQuality = false;
         this._starWrapBounds = null;
 
+        // Adaptive update frequency for better performance
+        this._updateFrameCounter = 0;
+        this._updateFrequency = 1; // Update every N frames (1 = every frame, 2 = every other frame)
+        this._cameraMovementThreshold = 0.5; // Skip updates for movements smaller than this (balanced performance/quality)
+
+        // Twinkle cache for performance - update less frequently than every frame
+        this._twinkleUpdateCounter = 0;
+        this._twinkleUpdateFrequency = 3; // Update twinkle values every N frames
+
         // Cached RGBA strings (optimization - avoid repeated string concat)
         this._cachedRgbaStrings = new Map();
         this._nebulaSpriteCache = new Map();
@@ -68,15 +77,20 @@ class CosmicBackground {
     }
 
     initialize() {
+        // Ensure canvas has valid dimensions before initializing
+        const canvasWidth = this.canvas.width || 800; // Fallback to reasonable default
+        const canvasHeight = this.canvas.height || 600;
+
         // Generate stars for each layer
         for (const layer of this.starLayers) {
             layer.stars = [];
             for (let i = 0; i < layer.count; i++) {
                 layer.stars.push({
-                    x: Math.random() * this.canvas.width,
-                    y: Math.random() * this.canvas.height,
+                    x: Math.random() * canvasWidth,
+                    y: Math.random() * canvasHeight,
                     twinkleOffset: Math.random() * Math.PI * 2,
-                    twinkleSpeed: 0.5 + Math.random() * 1.5
+                    twinkleSpeed: 0.5 + Math.random() * 1.5,
+                    cachedTwinkle: 0.5 + Math.random() * 0.5 // Pre-calculated twinkle value
                 });
             }
         }
@@ -93,8 +107,8 @@ class CosmicBackground {
         this.nebulaClouds.length = 0;
         for (let i = 0; i < this.nebulaCount; i++) {
             this.nebulaClouds.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
+                x: Math.random() * canvasWidth,
+                y: Math.random() * canvasHeight,
                 radius: 100 + Math.random() * 200,
                 color: Math.random() > 0.5 ? this.colors.nebulaPurple : this.colors.nebulaPink,
                 drift: {
@@ -105,6 +119,9 @@ class CosmicBackground {
                 pulseOffset: Math.random() * Math.PI * 2
             });
         }
+
+        // Clear sprite cache when reinitializing to ensure fresh rendering
+        this._nebulaSpriteCache.clear();
     }
 
     resize() {
@@ -122,7 +139,18 @@ class CosmicBackground {
                 this.lastPlayerX = player.x;
                 this.lastPlayerY = player.y;
                 this._hasPlayerBaseline = true;
-                return; // Skip first frame to establish baseline
+                // Don't skip first frame - allow one update cycle to establish position
+            }
+
+            // Adaptive frame skipping for better performance (only after baseline established)
+            this._updateFrameCounter++;
+            const shouldUpdate = (this._updateFrameCounter % this._updateFrequency) === 0;
+
+            if (!shouldUpdate) {
+                // Still track player position even when skipping updates
+                this.lastPlayerX = player.x;
+                this.lastPlayerY = player.y;
+                return;
             }
 
             // Calculate camera movement (how much player moved this frame)
@@ -147,8 +175,10 @@ class CosmicBackground {
                 this._pendingParallaxY = 0;
             }
 
-            if (Math.abs(cameraDeltaX) < 0.001) cameraDeltaX = 0;
-            if (Math.abs(cameraDeltaY) < 0.001) cameraDeltaY = 0;
+            // Use configurable threshold - skip tiny movements to save performance
+            const threshold = this._cameraMovementThreshold;
+            if (Math.abs(cameraDeltaX) < threshold) cameraDeltaX = 0;
+            if (Math.abs(cameraDeltaY) < threshold) cameraDeltaY = 0;
 
             if (cameraDeltaX === 0 && cameraDeltaY === 0) {
                 this.lastPlayerX = player.x;
@@ -220,10 +250,23 @@ class CosmicBackground {
             }
 
             // Update nebula clouds with parallax (they're farther than stars)
+            // Only update clouds that might be visible (with generous buffer for smooth wrapping)
+            const nebulaUpdateMargin = canvasWidth * 0.5; // Update clouds within 50% screen width/height margin
+            const minNebulaX = -nebulaUpdateMargin;
+            const maxNebulaX = canvasWidth + nebulaUpdateMargin;
+            const minNebulaY = -nebulaUpdateMargin;
+            const maxNebulaY = canvasHeight + nebulaUpdateMargin;
+
             for (const cloud of this.nebulaClouds) {
+                // Skip updating clouds that are very far off-screen
+                const cloudInUpdateRange = (
+                    cloud.x > minNebulaX - cloud.radius && cloud.x < maxNebulaX + cloud.radius &&
+                    cloud.y > minNebulaY - cloud.radius && cloud.y < maxNebulaY + cloud.radius
+                );
+
                 // Nebulae move even slower (0.1x camera speed) + their own drift
-                cloud.x -= cameraDeltaX * 0.1 + cloud.drift.x;
-                cloud.y -= cameraDeltaY * 0.1 + cloud.drift.y;
+                cloud.x -= cameraDeltaX * 0.1 + (cloudInUpdateRange ? cloud.drift.x : 0);
+                cloud.y -= cameraDeltaY * 0.1 + (cloudInUpdateRange ? cloud.drift.y : 0);
 
                 // Wrap clouds with buffer
                 const buffer = cloud.radius * 2;
@@ -254,21 +297,23 @@ class CosmicBackground {
         ctx.fillStyle = this.colors.deepSpace;
         ctx.fillRect(0, 0, w, h);
 
-        // 2. Render nebula clouds (behind stars)
-        if (!this.lowQuality) {
-            this.renderNebulae();
-        }
+        // 2. Render nebula clouds (behind stars) - always render for visual appeal
+        // In low quality mode, there are just fewer of them (controlled by setLowQuality)
+        this.renderNebulae();
 
         // 3. Render star layers (far to near)
         this.renderStars();
 
-        // 4. Render perspective grid (optional, looks cool)
-        if (this.grid.enabled && !this.lowQuality) {
+        // 4. Render perspective grid (core visual element)
+        // Always render grid - it's part of the synthwave aesthetic!
+        if (this.grid.enabled) {
             this.renderGrid(player);
         }
     }
 
     renderNebulae() {
+        if (this.nebulaClouds.length === 0) return;
+
         const ctx = this.ctx;
 
         const previousComposite = ctx.globalCompositeOperation;
@@ -280,19 +325,37 @@ class CosmicBackground {
             const pulse = Math.sin(this.time * cloud.pulseSpeed + cloud.pulseOffset) * 0.5 + 0.5;
             const opacity = 0.16 + pulse * 0.2;
 
-            const sprite = this._getNebulaSprite(cloud.color, cloud.radius);
-            if (!sprite) {
+            try {
+                const sprite = this._getNebulaSprite(cloud.color, cloud.radius);
+                if (!sprite) {
+                    // Fallback to simple gradient rendering if sprite creation fails
+                    ctx.globalAlpha = opacity * 0.3;
+                    const gradient = ctx.createRadialGradient(
+                        cloud.x, cloud.y, 0,
+                        cloud.x, cloud.y, cloud.radius
+                    );
+                    gradient.addColorStop(0, this.hexToRgba(cloud.color, 0.3));
+                    gradient.addColorStop(0.5, this.hexToRgba(cloud.color, 0.15));
+                    gradient.addColorStop(1, this.hexToRgba(cloud.color, 0));
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    continue;
+                }
+
+                ctx.globalAlpha = opacity;
+                ctx.drawImage(
+                    sprite,
+                    cloud.x - cloud.radius,
+                    cloud.y - cloud.radius,
+                    cloud.radius * 2,
+                    cloud.radius * 2
+                );
+            } catch (err) {
+                // Silently skip this cloud if rendering fails
                 continue;
             }
-
-            ctx.globalAlpha = opacity;
-            ctx.drawImage(
-                sprite,
-                cloud.x - cloud.radius,
-                cloud.y - cloud.radius,
-                cloud.radius * 2,
-                cloud.radius * 2
-            );
         }
 
         ctx.globalCompositeOperation = previousComposite;
@@ -344,6 +407,10 @@ class CosmicBackground {
         const ctx = this.ctx;
         const skipTwinkle = this.lowQuality;
 
+        // Performance: Update twinkle values only every N frames
+        this._twinkleUpdateCounter++;
+        const shouldUpdateTwinkle = !skipTwinkle && ((this._twinkleUpdateCounter % this._twinkleUpdateFrequency) === 0);
+
         // Performance: Batch rendering by layer to reduce style changes
         const originalAlpha = ctx.globalAlpha;
         ctx.fillStyle = '#ffffff';
@@ -362,7 +429,9 @@ class CosmicBackground {
             const minY = -cullMargin;
             const maxY = height + cullMargin;
 
-            let seed = (layer.seed || 0) + (time * layer.twinkleSpeedScalar || time);
+            // Use fast LCG for twinkle calculation when updating
+            let seed = shouldUpdateTwinkle ? ((layer.seed || 0) + (time * layer.twinkleSpeedScalar || time)) : 0;
+
             for (let i = 0; i < layerStars.length; i++) {
                 const star = layerStars[i];
                 if (!star) continue;
@@ -373,13 +442,15 @@ class CosmicBackground {
                     continue;
                 }
 
-                let twinkle = 0.5;
-                if (!skipTwinkle) {
+                // Update cached twinkle value periodically (not every frame)
+                if (shouldUpdateTwinkle) {
                     seed = (seed * 1664525 + 1013904223) | 0;
                     const phase = ((seed >>> 16) & 0xffff) / 0xffff;
-                    twinkle = Math.sqrt(phase);
+                    star.cachedTwinkle = Math.sqrt(phase);
                 }
-                const alpha = layer.brightness * (skipTwinkle ? 0.7 : (0.5 + twinkle * 0.5));
+
+                // Use cached twinkle value for rendering
+                const alpha = layer.brightness * (skipTwinkle ? 0.7 : (0.5 + star.cachedTwinkle * 0.5));
 
                 ctx.globalAlpha = alpha;
                 ctx.beginPath();
@@ -398,6 +469,10 @@ class CosmicBackground {
         const horizonY = h * this.grid.horizonY;
         const spacing = this.grid.spacing;
 
+        // Low-quality mode: fewer lines for better performance
+        const maxHorizontalLines = this.lowQuality ? 12 : 20;
+        const numVerticalLines = this.lowQuality ? 15 : 25;
+
         ctx.save();
         ctx.strokeStyle = this.hexToRgba(this.colors.gridColor, 0.2);
         ctx.lineWidth = 1.5;
@@ -408,7 +483,7 @@ class CosmicBackground {
 
         // Horizontal lines with perspective (moving with player)
         const gridStartY = horizonY + offsetY;
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < maxHorizontalLines; i++) {
             const yOffset = i * spacing * 0.8; // Lines get closer for perspective
             const y = gridStartY + yOffset;
 
@@ -429,7 +504,6 @@ class CosmicBackground {
         }
 
         // Vertical lines with perspective (moving with player)
-        const numVerticalLines = 25;
         for (let i = -numVerticalLines; i <= numVerticalLines; i++) {
             const x = w * 0.5 + (i * spacing) + offsetX;
 
@@ -476,6 +550,36 @@ class CosmicBackground {
         return rgba;
     }
 
+    /**
+     * Set update frequency to reduce CPU load (1 = every frame, 2 = every other frame, etc.)
+     * Higher values = better performance but less smooth parallax
+     */
+    setUpdateFrequency(frequency) {
+        this._updateFrequency = Math.max(1, Math.floor(frequency));
+    }
+
+    /**
+     * Set camera movement threshold - movements smaller than this are ignored
+     * Higher values = better performance but less responsive parallax
+     */
+    setCameraThreshold(threshold) {
+        this._cameraMovementThreshold = Math.max(0, threshold);
+    }
+
+    /**
+     * Get current performance settings for monitoring
+     */
+    getPerformanceSettings() {
+        return {
+            lowQuality: this.lowQuality,
+            updateFrequency: this._updateFrequency,
+            cameraThreshold: this._cameraMovementThreshold,
+            twinkleUpdateFrequency: this._twinkleUpdateFrequency,
+            starCount: this.starLayers.reduce((sum, layer) => sum + layer.stars.length, 0),
+            nebulaCount: this.nebulaClouds.length
+        };
+    }
+
     // Performance toggle
     setLowQuality(enabled) {
         if (this.lowQuality === enabled) return; // No change needed
@@ -483,7 +587,7 @@ class CosmicBackground {
         this.lowQuality = enabled;
         if (enabled) {
             // Reduce effects for better performance
-            this.grid.enabled = false;
+            // Grid stays enabled but will render in simplified mode
             // Store original counts
             if (!this._originalStarCounts) {
                 this._originalStarCounts = this.starLayers.map(l => l.count);
@@ -491,14 +595,14 @@ class CosmicBackground {
             if (typeof this._originalNebulaCount !== 'number') {
                 this._originalNebulaCount = this.nebulaCount;
             }
-            // Aggressively reduce draw calls for low-power devices
+            // Reduce draw calls for low-power devices while keeping visual appeal
             this.starLayers[0].count = Math.max(20, Math.floor(this._originalStarCounts[0] * 0.25));
             this.starLayers[1].count = Math.max(15, Math.floor(this._originalStarCounts[1] * 0.25));
             this.starLayers[2].count = Math.max(10, Math.floor(this._originalStarCounts[2] * 0.25));
-            this.nebulaCount = Math.max(2, Math.floor(this._originalNebulaCount * 0.3));
+            // Keep at least 4 nebulae for visual appeal even in low quality
+            this.nebulaCount = Math.max(4, Math.floor(this._originalNebulaCount * 0.5));
         } else {
-            // Restore quality
-            this.grid.enabled = true;
+            // Restore quality - grid stays enabled (always on for synthwave aesthetic)
             if (this._originalStarCounts) {
                 this.starLayers[0].count = this._originalStarCounts[0];
                 this.starLayers[1].count = this._originalStarCounts[1];
