@@ -89,6 +89,141 @@ class EnemyProjectile {
         
         ctx.restore();
     }
+
+    /**
+     * Batched render path used by the game engine for performance-sensitive frames
+     */
+    static renderBatch(projectiles, ctx) {
+        if (!projectiles || projectiles.length === 0) return;
+
+        const originalFill = ctx.fillStyle;
+        const originalStroke = ctx.strokeStyle;
+        const originalLineWidth = ctx.lineWidth;
+        const originalLineCap = ctx.lineCap;
+        const originalAlpha = ctx.globalAlpha;
+
+        const trailBatches = this._batchTrailBatches || (this._batchTrailBatches = new Map());
+        const bodyBatches = this._batchBodyBatches || (this._batchBodyBatches = new Map());
+        const glowBatches = this._batchGlowBatches || (this._batchGlowBatches = new Map());
+
+        trailBatches.clear();
+        bodyBatches.clear();
+        glowBatches.clear();
+
+        for (let i = 0; i < projectiles.length; i++) {
+            const projectile = projectiles[i];
+            if (!projectile || projectile.isDead) continue;
+
+            const trailKey = `${projectile.color}|${(projectile.radius * 1.5).toFixed(3)}|${projectile.trailLength}`;
+            let trailBatch = trailBatches.get(trailKey);
+            if (!trailBatch) {
+                trailBatch = [];
+                trailBatches.set(trailKey, trailBatch);
+            }
+            trailBatch.push(projectile);
+
+            const bodyKey = `${projectile.color}|${projectile.radius}`;
+            let bodyBatch = bodyBatches.get(bodyKey);
+            if (!bodyBatch) {
+                bodyBatch = [];
+                bodyBatches.set(bodyKey, bodyBatch);
+            }
+            bodyBatch.push(projectile);
+
+            if (projectile.glowColor) {
+                const glowKey = `${projectile.glowColor}|${projectile.radius}`;
+                let glowBatch = glowBatches.get(glowKey);
+                if (!glowBatch) {
+                    glowBatch = [];
+                    glowBatches.set(glowKey, glowBatch);
+                }
+                glowBatch.push(projectile);
+            }
+        }
+
+        for (const [key, batch] of trailBatches) {
+            const [color, lineWidthStr, trailLengthStr] = key.split('|');
+            const lineWidth = parseFloat(lineWidthStr);
+            const trailLength = parseFloat(trailLengthStr);
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                const trailX = projectile.x - projectile.vx * trailLength;
+                const trailY = projectile.y - projectile.vy * trailLength;
+                ctx.moveTo(projectile.x, projectile.y);
+                ctx.lineTo(trailX, trailY);
+            }
+
+            ctx.stroke();
+            batch.length = 0;
+        }
+        trailBatches.clear();
+
+        ctx.lineCap = originalLineCap;
+        ctx.lineWidth = originalLineWidth;
+        ctx.strokeStyle = originalStroke;
+
+        for (const [key, batch] of bodyBatches) {
+            const [color, radiusStr] = key.split('|');
+            const radius = parseFloat(radiusStr);
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                ctx.moveTo(projectile.x + radius, projectile.y);
+                ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
+            }
+
+            ctx.fill();
+
+            const highlightColor = 'rgba(255, 255, 255, 0.4)';
+            const innerRadius = radius * 0.4;
+            ctx.fillStyle = highlightColor;
+            ctx.beginPath();
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                const hx = projectile.x - radius * 0.3;
+                const hy = projectile.y - radius * 0.3;
+                ctx.moveTo(hx + innerRadius, hy);
+                ctx.arc(hx, hy, innerRadius, 0, Math.PI * 2);
+            }
+            ctx.fill();
+
+            batch.length = 0;
+        }
+        bodyBatches.clear();
+
+        if (glowBatches.size) {
+            ctx.globalAlpha = originalAlpha;
+            for (const [key, batch] of glowBatches) {
+                const [color, radiusStr] = key.split('|');
+                const radius = parseFloat(radiusStr) * 3;
+                ctx.fillStyle = EnemyProjectile._colorWithAlpha(color, 0.35);
+                ctx.beginPath();
+                for (let i = 0; i < batch.length; i++) {
+                    const projectile = batch[i];
+                    ctx.moveTo(projectile.x + radius, projectile.y);
+                    ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                batch.length = 0;
+            }
+            glowBatches.clear();
+        }
+
+        ctx.fillStyle = originalFill;
+        ctx.strokeStyle = originalStroke;
+        ctx.lineWidth = originalLineWidth;
+        ctx.lineCap = originalLineCap;
+        ctx.globalAlpha = originalAlpha;
+    }
     
     /**
      * Render projectile trail

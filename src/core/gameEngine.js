@@ -1570,20 +1570,105 @@ class GameEngine {
         }
     }
     
-    // Simplified rendering - removed overengineered batching system
+    // Render batching to reduce per-frame draw overhead for common entity types
     renderEntities(entities) {
         if (!entities || entities.length === 0) return;
-        
-        // Simple, reliable rendering loop
+
+        const ctx = this.ctx;
+        const projectileBatch = this._projectileBatch || (this._projectileBatch = []);
+        const enemyBatch = this._enemyBatch || (this._enemyBatch = []);
+        const enemyProjectileBatch = this._enemyProjectileBatch || (this._enemyProjectileBatch = []);
+        const fallbackBatch = this._renderFallbackBatch || (this._renderFallbackBatch = []);
+
+        projectileBatch.length = 0;
+        enemyBatch.length = 0;
+        enemyProjectileBatch.length = 0;
+        fallbackBatch.length = 0;
+
+        const projectileRenderer = (typeof ProjectileRenderer !== 'undefined')
+            ? ProjectileRenderer
+            : (typeof window !== 'undefined' ? window.Game?.ProjectileRenderer : undefined);
+        const enemyRenderer = (typeof EnemyRenderer !== 'undefined')
+            ? EnemyRenderer
+            : (typeof window !== 'undefined' ? window.Game?.EnemyRenderer : undefined);
+        const enemyProjectileClass = (typeof EnemyProjectile !== 'undefined')
+            ? EnemyProjectile
+            : (typeof window !== 'undefined' ? window.Game?.EnemyProjectile : undefined);
+
         for (const entity of entities) {
-            if (entity && typeof entity.render === 'function' && !entity.isDead) {
+            if (!entity || entity.isDead || typeof entity.render !== 'function' || entity === this.player) {
+                continue;
+            }
+
+            switch (entity.type) {
+                case 'projectile':
+                    projectileBatch.push(entity);
+                    break;
+                case 'enemy':
+                    enemyBatch.push(entity);
+                    break;
+                case 'enemyProjectile':
+                    enemyProjectileBatch.push(entity);
+                    break;
+                default:
+                    fallbackBatch.push(entity);
+            }
+        }
+
+        if (projectileBatch.length) {
+            if (projectileRenderer && typeof projectileRenderer.renderBatch === 'function') {
                 try {
-                    entity.render(this.ctx);
+                    projectileRenderer.renderBatch(projectileBatch, ctx);
                 } catch (error) {
-                    // Silent error handling - don't spam console in production
-                    if (window.debugManager?.debugMode) {
-                        ((typeof window !== "undefined" && window.logger?.error) || console.error)(`Render error for ${entity.constructor?.name || 'entity'}:`, error);
-                    }
+                    this._renderEntitiesIndividually(projectileBatch, error);
+                }
+            } else {
+                this._renderEntitiesIndividually(projectileBatch);
+            }
+        }
+
+        if (enemyBatch.length) {
+            if (enemyRenderer && typeof enemyRenderer.renderBatch === 'function') {
+                try {
+                    enemyRenderer.renderBatch(enemyBatch, ctx);
+                } catch (error) {
+                    this._renderEntitiesIndividually(enemyBatch, error);
+                }
+            } else {
+                this._renderEntitiesIndividually(enemyBatch);
+            }
+        }
+
+        if (enemyProjectileBatch.length) {
+            if (enemyProjectileClass && typeof enemyProjectileClass.renderBatch === 'function') {
+                try {
+                    enemyProjectileClass.renderBatch(enemyProjectileBatch, ctx);
+                } catch (error) {
+                    this._renderEntitiesIndividually(enemyProjectileBatch, error);
+                }
+            } else {
+                this._renderEntitiesIndividually(enemyProjectileBatch);
+            }
+        }
+
+        if (fallbackBatch.length) {
+            this._renderEntitiesIndividually(fallbackBatch);
+        }
+    }
+
+    _renderEntitiesIndividually(entities, batchError = null) {
+        if (batchError && typeof window !== 'undefined' && window.debugManager?.debugMode) {
+            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Render batch failed, falling back to per-entity rendering:', batchError);
+        }
+
+        const ctx = this.ctx;
+        for (const entity of entities) {
+            if (!entity || entity.isDead || typeof entity.render !== 'function') continue;
+            try {
+                entity.render(ctx);
+            } catch (error) {
+                if (typeof window !== 'undefined' && window.debugManager?.debugMode) {
+                    ((typeof window !== "undefined" && window.logger?.error) || console.error)(`Render error for ${entity.constructor?.name || 'entity'}:`, error);
                 }
             }
         }

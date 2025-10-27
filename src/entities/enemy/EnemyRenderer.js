@@ -73,6 +73,198 @@ class EnemyRenderer {
     }
 
     /**
+     * Batched rendering for enemies to minimize repeated canvas state changes
+     */
+    static renderBatch(enemies, ctx) {
+        if (!enemies || enemies.length === 0) return;
+
+        const originalAlpha = ctx.globalAlpha;
+        const originalFill = ctx.fillStyle;
+        const originalStroke = ctx.strokeStyle;
+        const originalLineWidth = ctx.lineWidth;
+        const originalLineCap = ctx.lineCap;
+        const originalFont = ctx.font;
+        const originalTextAlign = ctx.textAlign;
+        const originalLineDash = ctx.getLineDash ? ctx.getLineDash() : null;
+
+        const bodyBatches = this._bodyBatches || (this._bodyBatches = new Map());
+        const shieldBatch = this._shieldBatch || (this._shieldBatch = []);
+        const eliteGlowBatches = this._eliteGlowBatches || (this._eliteGlowBatches = new Map());
+        const bossCrownBatch = this._bossCrownBatch || (this._bossCrownBatch = []);
+        const phaseIndicatorBatch = this._phaseIndicatorBatch || (this._phaseIndicatorBatch = []);
+
+        bodyBatches.clear();
+        shieldBatch.length = 0;
+        eliteGlowBatches.clear();
+        bossCrownBatch.length = 0;
+        phaseIndicatorBatch.length = 0;
+
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
+            if (!enemy || enemy.isDead) continue;
+            if (enemy.abilities?.canPhase && !enemy.abilities.isVisible) continue;
+
+            let combinedAlpha = originalAlpha;
+            if (typeof enemy.opacity === 'number' && enemy.opacity < 1) {
+                combinedAlpha *= Math.max(enemy.opacity, 0);
+            }
+            if (enemy.abilities?.canPhase && enemy.abilities.isVisible) {
+                combinedAlpha *= 0.7;
+            }
+            combinedAlpha = Math.max(0, Math.min(1, combinedAlpha));
+
+            const baseColor = enemy.color || '#ffffff';
+            const fillColor = enemy.damageFlashTimer > 0
+                ? EnemyRenderer._getHitFlashColor(baseColor)
+                : baseColor;
+
+            const key = `${fillColor}|${combinedAlpha.toFixed(3)}`;
+            let batch = bodyBatches.get(key);
+            if (!batch) {
+                batch = [];
+                bodyBatches.set(key, batch);
+            }
+            batch.push(enemy);
+
+            if (enemy.abilities?.shieldActive) {
+                shieldBatch.push(enemy);
+            }
+
+            if (enemy.isElite && (enemy.glowColor || enemy.color)) {
+                const glowColor = enemy.glowColor || enemy.color || '#ffffff';
+                const glowKey = EnemyRenderer._colorWithAlpha(glowColor, 0.28);
+                let glowBatch = eliteGlowBatches.get(glowKey);
+                if (!glowBatch) {
+                    glowBatch = [];
+                    eliteGlowBatches.set(glowKey, glowBatch);
+                }
+                glowBatch.push(enemy);
+            }
+
+            if (enemy.isBoss) {
+                bossCrownBatch.push(enemy);
+            }
+
+            if (enemy.hasPhases && enemy.currentPhase > 1) {
+                phaseIndicatorBatch.push(enemy);
+            }
+        }
+
+        for (const [key, batch] of bodyBatches) {
+            const [fillColor, alphaStr] = key.split('|');
+            const batchAlpha = parseFloat(alphaStr);
+            ctx.globalAlpha = batchAlpha;
+            ctx.fillStyle = fillColor;
+            ctx.beginPath();
+
+            for (let i = 0; i < batch.length; i++) {
+                const enemy = batch[i];
+                const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
+                const drawRadius = enemy.radius * pulseScale;
+                ctx.moveTo(enemy.x + drawRadius, enemy.y);
+                ctx.arc(enemy.x, enemy.y, drawRadius, 0, Math.PI * 2);
+            }
+
+            ctx.fill();
+            batch.length = 0;
+        }
+        bodyBatches.clear();
+
+        ctx.globalAlpha = originalAlpha;
+
+        if (shieldBatch.length) {
+            const previousStroke = ctx.strokeStyle;
+            const previousLineWidth = ctx.lineWidth;
+            const previousLineDash = originalLineDash;
+
+            ctx.globalAlpha = originalAlpha * 0.6;
+            ctx.strokeStyle = EnemyRenderer._colorWithAlpha('#00ffff', 0.6);
+            ctx.lineWidth = 3;
+            ctx.setLineDash ? ctx.setLineDash([5, 5]) : null;
+
+            ctx.beginPath();
+            for (let i = 0; i < shieldBatch.length; i++) {
+                const enemy = shieldBatch[i];
+                const radius = enemy.radius + 8;
+                ctx.moveTo(enemy.x + radius, enemy.y);
+                ctx.arc(enemy.x, enemy.y, radius, 0, Math.PI * 2);
+            }
+            ctx.stroke();
+
+            if (ctx.setLineDash) {
+                ctx.setLineDash(previousLineDash || []);
+            }
+            ctx.strokeStyle = previousStroke;
+            ctx.lineWidth = previousLineWidth;
+            ctx.globalAlpha = originalAlpha;
+            shieldBatch.length = 0;
+        }
+
+        if (eliteGlowBatches.size) {
+            ctx.globalAlpha = originalAlpha;
+            for (const [fillStyle, batch] of eliteGlowBatches) {
+                ctx.fillStyle = fillStyle;
+                ctx.beginPath();
+                for (let i = 0; i < batch.length; i++) {
+                    const enemy = batch[i];
+                    const glowRadius = enemy.radius + 6;
+                    ctx.moveTo(enemy.x + glowRadius, enemy.y);
+                    ctx.arc(enemy.x, enemy.y, glowRadius, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                batch.length = 0;
+            }
+            eliteGlowBatches.clear();
+        }
+
+        if (bossCrownBatch.length) {
+            ctx.globalAlpha = originalAlpha;
+            ctx.fillStyle = '#ffff00';
+            const crownSize = 6;
+            for (let i = 0; i < bossCrownBatch.length; i++) {
+                const enemy = bossCrownBatch[i];
+                ctx.beginPath();
+                ctx.moveTo(enemy.x - crownSize, enemy.y - enemy.radius - 5);
+                ctx.lineTo(enemy.x, enemy.y - enemy.radius - 12);
+                ctx.lineTo(enemy.x + crownSize, enemy.y - enemy.radius - 5);
+                ctx.closePath();
+                ctx.fill();
+            }
+            bossCrownBatch.length = 0;
+        }
+
+        if (phaseIndicatorBatch.length) {
+            ctx.globalAlpha = originalAlpha;
+            const previousFont = originalFont || ctx.font;
+            const previousAlign = originalTextAlign || ctx.textAlign;
+
+            ctx.fillStyle = '#ff6b35';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+
+            for (let i = 0; i < phaseIndicatorBatch.length; i++) {
+                const enemy = phaseIndicatorBatch[i];
+                ctx.fillText(`P${enemy.currentPhase}`, enemy.x, enemy.y - enemy.radius - 25);
+            }
+
+            ctx.font = previousFont;
+            ctx.textAlign = previousAlign;
+            phaseIndicatorBatch.length = 0;
+        }
+
+        ctx.globalAlpha = originalAlpha;
+        ctx.fillStyle = originalFill;
+        ctx.strokeStyle = originalStroke;
+        ctx.lineWidth = originalLineWidth;
+        ctx.lineCap = originalLineCap;
+        if (ctx.setLineDash) {
+            ctx.setLineDash(originalLineDash || []);
+        }
+        ctx.font = originalFont;
+        ctx.textAlign = originalTextAlign;
+    }
+
+    /**
      * Render shield effect around enemy - Synthwave themed
      */
     static renderShieldEffect(enemy, ctx) {

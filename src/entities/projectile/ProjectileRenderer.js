@@ -31,6 +31,241 @@ class ProjectileRenderer {
     }
 
     /**
+     * Batched render path to minimize canvas state churn when drawing many projectiles
+     */
+    static renderBatch(projectiles, ctx) {
+        if (!projectiles || projectiles.length === 0) return;
+
+        const originalFill = ctx.fillStyle;
+        const originalStroke = ctx.strokeStyle;
+        const originalLineWidth = ctx.lineWidth;
+        const originalLineCap = ctx.lineCap;
+        const originalAlpha = ctx.globalAlpha;
+
+        const bodySpriteBatches = this._batchBodySpriteBatches || (this._batchBodySpriteBatches = new Map());
+        const bodyFallbackBatches = this._batchBodyFallbackBatches || (this._batchBodyFallbackBatches = new Map());
+        const glowSpriteBatches = this._batchGlowSpriteBatches || (this._batchGlowSpriteBatches = new Map());
+        const glowFallbackBatches = this._batchGlowFallbackBatches || (this._batchGlowFallbackBatches = new Map());
+        const critSpriteBatches = this._batchCritSpriteBatches || (this._batchCritSpriteBatches = new Map());
+        const critFallbackBatches = this._batchCritFallbackBatches || (this._batchCritFallbackBatches = new Map());
+        const trailProjectiles = this._batchTrailProjectiles || (this._batchTrailProjectiles = []);
+
+        bodySpriteBatches.clear();
+        bodyFallbackBatches.clear();
+        glowSpriteBatches.clear();
+        glowFallbackBatches.clear();
+        critSpriteBatches.clear();
+        critFallbackBatches.clear();
+        trailProjectiles.length = 0;
+
+        for (let i = 0; i < projectiles.length; i++) {
+            const projectile = projectiles[i];
+            if (!projectile || projectile.isDead) continue;
+
+            if (projectile.trail && projectile.trail.length > 1) {
+                trailProjectiles.push(projectile);
+            }
+
+            const bodyColor = this.getBodyColor(projectile);
+            const bodySprite = this._getBodySprite(projectile.radius, bodyColor, projectile.isCrit);
+            if (bodySprite) {
+                let batch = bodySpriteBatches.get(bodySprite);
+                if (!batch) {
+                    batch = [];
+                    bodySpriteBatches.set(bodySprite, batch);
+                }
+                batch.push(projectile);
+            } else {
+                const key = `${bodyColor}|${projectile.radius}|${projectile.isCrit ? 1 : 0}`;
+                let batch = bodyFallbackBatches.get(key);
+                if (!batch) {
+                    batch = [];
+                    bodyFallbackBatches.set(key, batch);
+                }
+                batch.push(projectile);
+            }
+
+            const glowColor = this.getGlowColor(projectile);
+            if (glowColor) {
+                const glowSprite = this._getGlowSprite(projectile.radius, glowColor);
+                if (glowSprite) {
+                    let batch = glowSpriteBatches.get(glowSprite);
+                    if (!batch) {
+                        batch = [];
+                        glowSpriteBatches.set(glowSprite, batch);
+                    }
+                    batch.push(projectile);
+                } else {
+                    const key = `${glowColor}|${projectile.radius}`;
+                    let batch = glowFallbackBatches.get(key);
+                    if (!batch) {
+                        batch = [];
+                        glowFallbackBatches.set(key, batch);
+                    }
+                    batch.push(projectile);
+                }
+            }
+
+            if (projectile.isCrit) {
+                const critSprite = this._getCritGlowSprite(projectile.radius);
+                if (critSprite) {
+                    let batch = critSpriteBatches.get(critSprite);
+                    if (!batch) {
+                        batch = [];
+                        critSpriteBatches.set(critSprite, batch);
+                    }
+                    batch.push(projectile);
+                } else {
+                    const key = projectile.radius.toString();
+                    let batch = critFallbackBatches.get(key);
+                    if (!batch) {
+                        batch = [];
+                        critFallbackBatches.set(key, batch);
+                    }
+                    batch.push(projectile);
+                }
+            }
+        }
+
+        // Trails still rely on per-projectile alpha modulation
+        if (trailProjectiles.length) {
+            const previousStroke = ctx.strokeStyle;
+            const previousLineWidth = ctx.lineWidth;
+            const previousLineCap = ctx.lineCap;
+
+            for (let i = 0; i < trailProjectiles.length; i++) {
+                const projectile = trailProjectiles[i];
+                const trail = projectile.trail;
+                if (!trail || trail.length < 2) continue;
+
+                ctx.strokeStyle = this.getTrailColor(projectile);
+                ctx.lineWidth = projectile.radius * 0.5;
+                ctx.lineCap = 'round';
+                ctx.globalAlpha = 0.6;
+
+                ctx.beginPath();
+                ctx.moveTo(trail[0].x, trail[0].y);
+                for (let j = 1; j < trail.length; j++) {
+                    const alpha = j / trail.length;
+                    ctx.globalAlpha = alpha * 0.6;
+                    ctx.lineTo(trail[j].x, trail[j].y);
+                }
+                ctx.stroke();
+
+                ctx.globalAlpha = originalAlpha;
+            }
+
+            ctx.strokeStyle = previousStroke;
+            ctx.lineWidth = previousLineWidth;
+            ctx.lineCap = previousLineCap;
+        }
+        trailProjectiles.length = 0;
+
+        for (const [sprite, batch] of bodySpriteBatches) {
+            if (!batch || batch.length === 0) continue;
+            const { canvas, halfSize } = sprite;
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                ctx.drawImage(canvas, projectile.x - halfSize, projectile.y - halfSize);
+            }
+            batch.length = 0;
+        }
+        for (const [key, batch] of bodyFallbackBatches) {
+            if (!batch || batch.length === 0) continue;
+            const [color, radiusStr, critFlag] = key.split('|');
+            const radius = parseFloat(radiusStr);
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                ctx.moveTo(projectile.x + radius, projectile.y);
+                ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
+            }
+            ctx.fill();
+
+            const highlightColor = critFlag === '1' ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
+            const innerRadius = radius * 0.4;
+            ctx.fillStyle = highlightColor;
+            ctx.beginPath();
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                ctx.moveTo(projectile.x + innerRadius, projectile.y);
+                ctx.arc(projectile.x, projectile.y, innerRadius, 0, Math.PI * 2);
+            }
+            ctx.fill();
+
+            batch.length = 0;
+        }
+        for (const [sprite, batch] of glowSpriteBatches) {
+            if (!batch || batch.length === 0) continue;
+            const { canvas, halfSize } = sprite;
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                ctx.drawImage(canvas, projectile.x - halfSize, projectile.y - halfSize);
+            }
+            batch.length = 0;
+        }
+        for (const [key, batch] of glowFallbackBatches) {
+            if (!batch || batch.length === 0) continue;
+            const [color, radiusStr] = key.split('|');
+            const radius = parseFloat(radiusStr) * 2;
+
+            ctx.fillStyle = this._colorWithAlpha(color, 0.35);
+            ctx.beginPath();
+            for (let i = 0; i < batch.length; i++) {
+                const projectile = batch[i];
+                ctx.moveTo(projectile.x + radius, projectile.y);
+                ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
+            }
+            ctx.fill();
+
+            batch.length = 0;
+        }
+        if (critSpriteBatches.size || critFallbackBatches.size) {
+            const pulseIntensity = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+
+            if (critSpriteBatches.size) {
+                ctx.globalAlpha = pulseIntensity;
+                for (const [sprite, batch] of critSpriteBatches) {
+                    if (!batch || batch.length === 0) continue;
+                    const { canvas, halfSize } = sprite;
+                    for (let i = 0; i < batch.length; i++) {
+                        const projectile = batch[i];
+                        ctx.drawImage(canvas, projectile.x - halfSize, projectile.y - halfSize);
+                    }
+                    batch.length = 0;
+                }
+            }
+
+            if (critFallbackBatches.size) {
+                ctx.globalAlpha = 1;
+                const fillAlpha = 0.35 * pulseIntensity;
+                const fillStyle = `rgba(255, 215, 0, ${fillAlpha})`;
+                ctx.fillStyle = fillStyle;
+
+                for (const [radiusKey, batch] of critFallbackBatches) {
+                    if (!batch || batch.length === 0) continue;
+                    const radius = parseFloat(radiusKey) * 2.5;
+                    ctx.beginPath();
+                    for (let i = 0; i < batch.length; i++) {
+                        const projectile = batch[i];
+                        ctx.moveTo(projectile.x + radius, projectile.y);
+                        ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
+                    }
+                    ctx.fill();
+                    batch.length = 0;
+                }
+            }
+        }
+        ctx.fillStyle = originalFill;
+        ctx.strokeStyle = originalStroke;
+        ctx.lineWidth = originalLineWidth;
+        ctx.lineCap = originalLineCap;
+        ctx.globalAlpha = originalAlpha;
+    }
+
+    /**
      * Render projectile trail
      */
     static renderTrail(projectile, ctx) {
