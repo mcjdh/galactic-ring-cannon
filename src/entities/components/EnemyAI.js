@@ -564,7 +564,7 @@ class EnemyAI {
         // Search neighboring grid cells
         for (let dx = -searchRadius; dx <= searchRadius; dx++) {
             for (let dy = -searchRadius; dy <= searchRadius; dy++) {
-                const key = `${gridX + dx},${gridY + dy}`;
+                const key = game.encodeGridKey(gridX + dx, gridY + dy);
                 const cell = game.spatialGrid.get(key);
 
                 if (cell) {

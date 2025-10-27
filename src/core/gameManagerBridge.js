@@ -36,8 +36,49 @@ class GameManagerBridge {
 
         // Minimap system
         this.minimapSystem = null;
+        this.performanceMode = 'normal';
+        this._minimapRetryHandle = null;
 
         (window.logger?.log || console.log)('🌊 GameManager Bridge ready');
+    }
+
+    getNamespace() {
+        return window.Game || {};
+    }
+
+    resolveNamespace(name) {
+        const ns = this.getNamespace();
+        if (typeof ns.resolve === 'function') {
+            const resolved = ns.resolve(name);
+            if (typeof resolved !== 'undefined') {
+                return resolved;
+            }
+        } else if (typeof ns[name] !== 'undefined') {
+            return ns[name];
+        }
+
+        if (typeof window !== 'undefined' && typeof window[name] !== 'undefined') {
+            const candidate = window[name];
+            if (typeof ns.register === 'function') {
+                ns.register(name, candidate, { silent: true });
+            } else {
+                ns[name] = candidate;
+            }
+            return candidate;
+        }
+
+        return undefined;
+    }
+
+    hasNamespace(name) {
+        const ns = this.getNamespace();
+        if (typeof ns.has === 'function') {
+            return ns.has(name);
+        }
+        if (typeof ns[name] !== 'undefined') {
+            return true;
+        }
+        return typeof window?.[name] !== 'undefined';
     }
 
     // ===== GAMESTATE PROXY PROPERTIES =====
@@ -138,6 +179,43 @@ class GameManagerBridge {
         this.minimapSystem?.update();
     }
 
+    onPerformanceModeChange(mode) {
+        const normalized = (mode === 'critical' || mode === 'low') ? mode : 'normal';
+        this.performanceMode = normalized;
+
+        if (this.game) {
+            if (typeof this.game.setPerformancePreference === 'function') {
+                this.game.setPerformancePreference(normalized);
+            } else if (normalized === 'normal') {
+                this.game.disablePerformanceMode?.();
+            } else {
+                this.game.enablePerformanceMode?.();
+            }
+        }
+
+        this.lowQuality = normalized === 'critical';
+
+        if (this.minimapSystem) {
+            if (typeof this.minimapSystem.setUpdateInterval === 'function') {
+                const interval = normalized === 'critical'
+                    ? 320
+                    : normalized === 'low'
+                        ? 220
+                        : 100;
+                this.minimapSystem.setUpdateInterval(interval);
+            }
+
+            if (typeof this.minimapSystem.setEnabled === 'function' && !this.minimapSystem.enabled) {
+                this.minimapSystem.setEnabled(true);
+                this.minimapSystem.update?.(true);
+            }
+
+            if (normalized !== 'critical') {
+                this.minimapSystem.update?.(true);
+            }
+        }
+    }
+
     // Prefer pooled particles with graceful fallback
     _spawnParticleViaPoolOrFallback(x, y, vx, vy, size, color, life, type = 'basic') {
         try {
@@ -145,8 +223,9 @@ class GameManagerBridge {
                 window.optimizedParticles.spawnParticle({ x, y, vx, vy, size, color, life, type });
                 return true;
             }
-            if (typeof this.addParticleViaEffectsManager === 'function' && typeof Particle !== 'undefined') {
-                const particle = new Particle(x, y, vx, vy, size, color, life);
+            const ParticleClass = this.resolveNamespace('Particle');
+            if (typeof this.addParticleViaEffectsManager === 'function' && typeof ParticleClass === 'function') {
+                const particle = new ParticleClass(x, y, vx, vy, size, color, life);
                 return this.addParticleViaEffectsManager(particle);
             }
         } catch (e) {
@@ -163,16 +242,18 @@ class GameManagerBridge {
 
         try {
             // Create game engine
-            this.game = new GameEngine();
+            const GameEngineClass = this.resolveNamespace('GameEngine');
+            if (typeof GameEngineClass !== 'function') {
+                throw new Error('GameEngine class not available on window.Game namespace');
+            }
+            this.game = new GameEngineClass();
 
             // 🌊 LINK GAME STATE - Single Source of Truth
             this.state = this.game.state;
             (window.logger?.log || console.log)('✅ GameState linked to GameManagerBridge');
         
             // Create enemy spawner
-            const EnemySpawnerClass = typeof EnemySpawner !== 'undefined'
-                ? EnemySpawner
-                : window.Game?.EnemySpawner;
+            const EnemySpawnerClass = this.resolveNamespace('EnemySpawner');
             if (typeof EnemySpawnerClass === 'function') {
                 this.enemySpawner = new EnemySpawnerClass(this.game);
                 (window.logger?.log || console.log)('✅ Enemy spawner created');
@@ -192,14 +273,14 @@ class GameManagerBridge {
             this.setupMinimap();
 
             // Initialize UI Manager for HUD (timer, bars, boss UI)
-            const UIManagerClass = window.Game?.UnifiedUIManager;
+            const UIManagerClass = this.resolveNamespace('UnifiedUIManager');
             if (typeof UIManagerClass === 'function') {
                 this.uiManager = new UIManagerClass(this);
                 (window.logger?.log || console.log)('✅ UIManager initialized');
             }
 
             // Initialize Effects Manager for particles, screen shake, etc.
-            const EffectsManagerClass = window.Game?.EffectsManager;
+            const EffectsManagerClass = this.resolveNamespace('EffectsManager');
             if (typeof EffectsManagerClass === 'function') {
                 this.effectsManager = new EffectsManagerClass(this);
                 (window.logger?.log || console.log)('✅ EffectsManager initialized');
@@ -207,7 +288,7 @@ class GameManagerBridge {
                 (window.logger?.warn || console.warn)('⚠️ EffectsManager not available');
             }
 
-            const StatsManagerClass = window.Game?.StatsManager;
+            const StatsManagerClass = this.resolveNamespace('StatsManager');
             if (typeof StatsManagerClass === 'function') {
                 this.statsManager = new StatsManagerClass(this);
                 if (!window.statsManager) {
@@ -258,6 +339,8 @@ class GameManagerBridge {
                 this.game.isPaused = false;
             }
             this.running = true;
+            this.setupMinimap();
+            this.renderMinimap();
             (window.logger?.log || console.log)('✅ Game started successfully!');
             (window.logger?.log || console.log)('🎮 Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
             (window.logger?.log || console.log)('🎨 Canvas size:', this.game.canvas ? `${this.game.canvas.width}x${this.game.canvas.height}` : 'No canvas');
@@ -297,13 +380,40 @@ class GameManagerBridge {
     }
 
     setupMinimap() {
-        const MinimapSystemClass = (typeof window !== 'undefined')
-            ? window.Game?.MinimapSystem
-            : (typeof MinimapSystem !== 'undefined' ? MinimapSystem : undefined);
+        const MinimapSystemClass = this.resolveNamespace('MinimapSystem');
 
         if (!this.game || typeof MinimapSystemClass !== 'function') {
             return;
         }
+
+        const ensureUpdate = system => {
+            if (!system) {
+                return;
+            }
+            if (this._minimapRetryHandle) {
+                clearTimeout(this._minimapRetryHandle);
+                this._minimapRetryHandle = null;
+            }
+            system.setEnabled?.(true);
+            system.update?.(true);
+        };
+
+        const initialize = system => {
+            if (!system) {
+                return false;
+            }
+            try {
+                const result = system.initialize?.();
+                if (result === false) {
+                    return false;
+                }
+                ensureUpdate(system);
+                return true;
+            } catch (error) {
+                (window.logger?.warn || console.warn)('Minimap initialization error:', error);
+                return false;
+            }
+        };
 
         if (!this.minimapSystem) {
             this.minimapSystem = new MinimapSystemClass(this.game, {
@@ -314,10 +424,24 @@ class GameManagerBridge {
                 containerId: 'minimap-container',
                 canvasId: 'minimap'
             });
-            this.minimapSystem.initialize();
+
+            if (initialize(this.minimapSystem)) {
+                return;
+            }
         } else {
-            this.minimapSystem.setGame(this.game);
-            this.minimapSystem.initialize();
+            if (typeof this.minimapSystem.setGame === 'function') {
+                this.minimapSystem.setGame(this.game);
+            }
+            if (initialize(this.minimapSystem)) {
+                return;
+            }
+        }
+
+        if (!this._minimapRetryHandle) {
+            this._minimapRetryHandle = window.setTimeout(() => {
+                this._minimapRetryHandle = null;
+                this.setupMinimap();
+            }, 500);
         }
     }
     
@@ -567,7 +691,7 @@ class GameManagerBridge {
 
     _ensureHUDEventHandlers() {
         try {
-            const HandlerClass = window.Game?.HUDEventHandlers;
+            const HandlerClass = this.resolveNamespace('HUDEventHandlers');
             if (!HandlerClass) {
                 (window.logger?.warn || console.warn)('⚠️ HUDEventHandlers class not found');
                 return;
@@ -753,7 +877,7 @@ class GameManagerBridge {
             effectsManager.createHitEffect(x, y, damage);
             return;
         }
-        const helpers = window.Game?.ParticleHelpers;
+        const helpers = this.resolveNamespace('ParticleHelpers');
         if (helpers && typeof helpers.createHitEffect === 'function') {
             helpers.createHitEffect(x, y, damage);
             return;
@@ -794,7 +918,7 @@ class GameManagerBridge {
             effectsManager.createExplosion(x, y, radius, color);
             return;
         }
-        const helpers = window.Game?.ParticleHelpers;
+        const helpers = this.resolveNamespace('ParticleHelpers');
         if (helpers && typeof helpers.createExplosion === 'function') {
             helpers.createExplosion(x, y, radius, color);
             this.addScreenShake(radius / 10, 0.5);
@@ -837,7 +961,7 @@ class GameManagerBridge {
             effectsManager.createLevelUpEffect(x, y);
             return;
         }
-        const helpers = window.Game?.ParticleHelpers;
+        const helpers = this.resolveNamespace('ParticleHelpers');
         if (helpers && typeof helpers.createLevelUpEffect === 'function') {
             helpers.createLevelUpEffect(x, y);
             return;
@@ -1088,10 +1212,23 @@ class GameManagerBridge {
             );
         }
     }
+
+    cleanup() {
+        if (this._minimapRetryHandle) {
+            clearTimeout(this._minimapRetryHandle);
+            this._minimapRetryHandle = null;
+        }
+        this.minimapSystem?.destroy?.();
+        this.minimapSystem = null;
+    }
 }
 
 // Make globally available
 if (typeof window !== 'undefined') {
-    window.Game = window.Game || {};
-    window.Game.GameManagerBridge = GameManagerBridge;
+    const namespace = window.Game || (window.Game = {});
+    if (typeof namespace.register === 'function') {
+        namespace.register('GameManagerBridge', GameManagerBridge);
+    } else {
+        namespace.GameManagerBridge = GameManagerBridge;
+    }
 }

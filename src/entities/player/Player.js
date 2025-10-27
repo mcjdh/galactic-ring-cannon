@@ -30,7 +30,19 @@ class Player {
      * Apply meta upgrades from Star Vendor (persistent upgrades)
      */
     applyMetaUpgrades() {
-        const getMetaLevel = (id) => parseInt(localStorage.getItem(`meta_${id}`) || '0', 10);
+        // Safe localStorage access with error handling for private browsing mode
+        const getMetaLevel = (id) => {
+            try {
+                const value = localStorage.getItem(`meta_${id}`);
+                return parseInt(value || '0', 10);
+            } catch (e) {
+                // localStorage may throw in private browsing mode or if disabled
+                if (window.debugManager?.enabled) {
+                    console.warn('[Player] localStorage access failed:', e.message);
+                }
+                return 0; // Default to no meta upgrades if storage unavailable
+            }
+        };
 
         // Enhanced Firepower - Starting damage boost
         const damageLevel = getMetaLevel('starting_damage');

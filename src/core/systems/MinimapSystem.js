@@ -61,6 +61,15 @@ class MinimapSystem {
         }
     }
 
+    setUpdateInterval(intervalMs) {
+        const parsed = Number(intervalMs);
+        if (!Number.isFinite(parsed)) {
+            return;
+        }
+        const clamped = Math.max(30, Math.round(parsed));
+        this.updateInterval = clamped;
+    }
+
     update(force = false) {
         if (!this.enabled) return;
         if (!this.ctx || !this.game || !this.game.player) return;
@@ -191,6 +200,10 @@ class MinimapSystem {
 }
 
 if (typeof window !== 'undefined') {
-    window.Game = window.Game || {};
-    window.Game.MinimapSystem = MinimapSystem;
+    const namespace = window.Game || (window.Game = {});
+    if (typeof namespace.register === 'function') {
+        namespace.register('MinimapSystem', MinimapSystem);
+    } else {
+        namespace.MinimapSystem = MinimapSystem;
+    }
 }

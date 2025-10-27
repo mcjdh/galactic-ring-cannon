@@ -59,8 +59,18 @@ class ProjectileRenderer {
      */
     static renderBody(projectile, ctx) {
         const color = this.getBodyColor(projectile);
+        const sprite = this._getBodySprite(projectile.radius, color, projectile.isCrit);
 
-        // Add glow effect
+        if (sprite) {
+            ctx.drawImage(
+                sprite.canvas,
+                projectile.x - sprite.halfSize,
+                projectile.y - sprite.halfSize
+            );
+            return;
+        }
+
+        // Fallback: direct draw if canvas caching unavailable
         ctx.shadowBlur = 10;
         ctx.shadowColor = color;
 
@@ -71,7 +81,6 @@ class ProjectileRenderer {
 
         ctx.shadowBlur = 0;
 
-        // Inner bright core for all projectiles (stronger for crits)
         ctx.fillStyle = projectile.isCrit ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
         ctx.beginPath();
         ctx.arc(projectile.x, projectile.y, projectile.radius * 0.4, 0, Math.PI * 2);
@@ -84,6 +93,16 @@ class ProjectileRenderer {
     static renderGlow(projectile, ctx) {
         const glowColor = this.getGlowColor(projectile);
         if (!glowColor) return;
+
+        const sprite = this._getGlowSprite(projectile.radius, glowColor);
+        if (sprite) {
+            ctx.drawImage(
+                sprite.canvas,
+                projectile.x - sprite.halfSize,
+                projectile.y - sprite.halfSize
+            );
+            return;
+        }
 
         const gradient = ctx.createRadialGradient(
             projectile.x, projectile.y, projectile.radius * 0.5,
@@ -104,6 +123,19 @@ class ProjectileRenderer {
      */
     static renderCritGlow(projectile, ctx) {
         const pulseIntensity = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+        const sprite = this._getCritGlowSprite(projectile.radius);
+
+        if (sprite) {
+            ctx.save();
+            ctx.globalAlpha = pulseIntensity;
+            ctx.drawImage(
+                sprite.canvas,
+                projectile.x - sprite.halfSize,
+                projectile.y - sprite.halfSize
+            );
+            ctx.restore();
+            return;
+        }
 
         const gradient = ctx.createRadialGradient(
             projectile.x, projectile.y, 0,
@@ -117,6 +149,140 @@ class ProjectileRenderer {
         ctx.beginPath();
         ctx.arc(projectile.x, projectile.y, projectile.radius * 2.5, 0, Math.PI * 2);
         ctx.fill();
+    }
+
+    static _getBodySprite(radius, color, isCrit) {
+        const cacheKey = `${color}|${isCrit ? 'crit' : 'base'}|${radius.toFixed(2)}`;
+        const cache = this._bodySpriteCache;
+
+        if (cache.has(cacheKey)) {
+            return cache.get(cacheKey);
+        }
+
+        const glowBlur = 10;
+        const glowPadding = Math.max(glowBlur * 2, radius * 0.5);
+        const outerRadius = radius + glowPadding;
+        const size = Math.max(4, Math.ceil(outerRadius * 2));
+        const canvas = this._createOffscreen(size);
+        if (!canvas) return null;
+
+        const offCtx = canvas.getContext('2d');
+        if (!offCtx) return null;
+
+        const center = size / 2;
+        offCtx.shadowBlur = glowBlur;
+        offCtx.shadowColor = color;
+
+        offCtx.fillStyle = color;
+        offCtx.beginPath();
+        offCtx.arc(center, center, radius, 0, Math.PI * 2);
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fillStyle = isCrit ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
+        offCtx.beginPath();
+        offCtx.arc(center, center, radius * 0.4, 0, Math.PI * 2);
+        offCtx.fill();
+
+        const sprite = { canvas, halfSize: size / 2 };
+        this._storeSprite(cache, cacheKey, sprite, this._BODY_CACHE_LIMIT);
+        return sprite;
+    }
+
+    static _getGlowSprite(radius, color) {
+        const cacheKey = `${color}|${radius.toFixed(2)}`;
+        const cache = this._glowSpriteCache;
+
+        if (cache.has(cacheKey)) {
+            return cache.get(cacheKey);
+        }
+
+        const outerRadius = radius * 2;
+        const padding = Math.max(outerRadius * 0.2, 6);
+        const size = Math.max(4, Math.ceil((outerRadius + padding) * 2));
+        const canvas = this._createOffscreen(size);
+        if (!canvas) return null;
+
+        const offCtx = canvas.getContext('2d');
+        if (!offCtx) return null;
+
+        const center = size / 2;
+        const gradient = offCtx.createRadialGradient(
+            center, center, radius * 0.5,
+            center, center, outerRadius
+        );
+
+        gradient.addColorStop(0, `${color}80`);
+        gradient.addColorStop(1, `${color}00`);
+
+        offCtx.fillStyle = gradient;
+        offCtx.beginPath();
+        offCtx.arc(center, center, outerRadius, 0, Math.PI * 2);
+        offCtx.fill();
+
+        const sprite = { canvas, halfSize: size / 2 };
+        this._storeSprite(cache, cacheKey, sprite, this._GLOW_CACHE_LIMIT);
+        return sprite;
+    }
+
+    static _getCritGlowSprite(radius) {
+        const cacheKey = radius.toFixed(2);
+        const cache = this._critGlowCache;
+
+        if (cache.has(cacheKey)) {
+            return cache.get(cacheKey);
+        }
+
+        const outerRadius = radius * 2.5;
+        const padding = Math.max(outerRadius * 0.1, 6);
+        const size = Math.max(4, Math.ceil((outerRadius + padding) * 2));
+        const canvas = this._createOffscreen(size);
+        if (!canvas) return null;
+
+        const offCtx = canvas.getContext('2d');
+        if (!offCtx) return null;
+
+        const center = size / 2;
+        const gradient = offCtx.createRadialGradient(
+            center, center, 0,
+            center, center, outerRadius
+        );
+
+        gradient.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+        gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+
+        offCtx.fillStyle = gradient;
+        offCtx.beginPath();
+        offCtx.arc(center, center, outerRadius, 0, Math.PI * 2);
+        offCtx.fill();
+
+        const sprite = { canvas, halfSize: size / 2 };
+        this._storeSprite(cache, cacheKey, sprite, this._CRIT_CACHE_LIMIT);
+        return sprite;
+    }
+
+    static _createOffscreen(size) {
+        if (typeof document === 'undefined') {
+            return null;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        return canvas;
+    }
+
+    static _storeSprite(cache, key, sprite, limit) {
+        if (!cache || !sprite) {
+            return;
+        }
+        if (limit > 0 && cache.size >= limit) {
+            const oldestKey = cache.keys().next().value;
+            if (oldestKey !== undefined) {
+                cache.delete(oldestKey);
+            }
+        }
+        cache.set(key, sprite);
     }
 
     /**
@@ -170,3 +336,10 @@ class ProjectileRenderer {
         return null;
     }
 }
+
+ProjectileRenderer._bodySpriteCache = new Map();
+ProjectileRenderer._glowSpriteCache = new Map();
+ProjectileRenderer._critGlowCache = new Map();
+ProjectileRenderer._BODY_CACHE_LIMIT = 120;
+ProjectileRenderer._GLOW_CACHE_LIMIT = 80;
+ProjectileRenderer._CRIT_CACHE_LIMIT = 40;

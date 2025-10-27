@@ -1,5 +1,13 @@
 class GameEngine {
     constructor() {
+        if (typeof window !== 'undefined' && window.__activeGameEngine && typeof window.__activeGameEngine.cleanupEventListeners === 'function') {
+            try {
+                window.__activeGameEngine.cleanupEventListeners();
+            } catch (e) {
+                ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Previous GameEngine cleanup failed:', e);
+            }
+        }
+
         // Initialize canvas with error handling
         this.canvas = document.getElementById('game-canvas');
         if (!this.canvas) {
@@ -32,9 +40,17 @@ class GameEngine {
             this.boundHandleVisibilityChange = this.handleVisibilityChange.bind(this);
             this.boundHandleFocusChange = this.handleFocusChange.bind(this);
             this.boundHandleBlurChange = this.handleBlurChange.bind(this);
+            this.boundHandleBeforeUnload = () => {
+                try {
+                    this.cleanupEventListeners();
+                } catch (error) {
+                    ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Cleanup during unload failed:', error);
+                }
+            };
             
             this.resizeCanvas();
             window.addEventListener('resize', this.boundResizeCanvas);
+            window.addEventListener('beforeunload', this.boundHandleBeforeUnload, { once: true });
         } catch (error) {
             ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error initializing canvas:', error);
         }
@@ -60,6 +76,9 @@ class GameEngine {
         this.lastFpsUpdate = 0;
         this.targetFps = 60;
         this.lastFrameTime = 0;
+        this._maxFixedSteps = 5;
+        this._accumulatorMs = 0;
+        this._renderAccumulatorMs = 0;
         this.performanceMode = false;
         this.debugMode = false;
         this.lowGpuMode = false;
@@ -67,6 +86,12 @@ class GameEngine {
         this._autoLowQualityCosmic = false;
         this._autoParticleLowQuality = false;
         this._manualPerformanceOverride = null;
+        this._visibleEntitiesScratch = [];
+        this._visibleEntitiesSeen = new Set();
+        this._domCache = new Map();
+        this._minimapUpdateAccumulator = 0;
+        this._minimapHasDrawn = false;
+        this._updateTimingTargets();
 
         // Track pause origins so auto-resume doesn't override manual pauses
         this.manualPause = false;
@@ -83,6 +108,8 @@ class GameEngine {
 		// Spatial partitioning system
 		this.gridSize = 100; // Fixed grid size for collision detection
 		this.spatialGrid = new Map();
+        this._spatialGridCellPool = [];
+        this._maxSpatialGridPoolSize = 256;
         
 		// Initialize unified systems if available
 			try {
@@ -111,13 +138,14 @@ class GameEngine {
 				: null;
 				
 			// Make game engine globally accessible for UI systems
-			if (!window.gameEngine) {
-				window.gameEngine = this;
-			}
-		} catch (e) {
-			((typeof window !== "undefined" && window.logger?.warn) || console.warn)('UnifiedUIManager initialization failed, using legacy UI systems.', e);
-			this.unifiedUI = null;
-		}
+            window.gameEngine = this;
+        } catch (e) {
+            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('UnifiedUIManager initialization failed, using legacy UI systems.', e);
+            this.unifiedUI = null;
+        }
+        if (typeof window !== 'undefined') {
+            window.__activeGameEngine = this;
+        }
           // Input handling with additional pause key support and error handling
         this.keys = {};
         try {
@@ -151,6 +179,7 @@ class GameEngine {
 
         // Track if the render loop has already been bootstrapped
         this._loopInitialized = false;
+        this._boundGameLoop = this.gameLoop.bind(this);
 
         // 🌌 Initialize Cosmic Background
         this.cosmicBackground = null;
@@ -358,6 +387,15 @@ class GameEngine {
         }
     }
 
+    _updateTimingTargets() {
+        const clampedFps = Math.max(15, Math.min(this.targetFps || 60, 240));
+        this.targetFps = clampedFps;
+        this.frameTime = 1000 / this.targetFps;
+        this._fixedDeltaMs = this.frameTime;
+        this._fixedDeltaSeconds = this._fixedDeltaMs / 1000;
+        this._renderIntervalMs = this.frameTime;
+    }
+
     getEntitiesByType(type) {
         if (this.entityManager) {
             const collection = this.entityManager.getEntitiesByType(type);
@@ -379,7 +417,13 @@ class GameEngine {
             case 'player':
                 return this.player ? [this.player] : [];
             default:
-                return this.entities.filter(entity => entity?.type === type);
+                const matches = [];
+                for (let i = 0; i < this.entities.length; i++) {
+                    const entity = this.entities[i];
+                    if (!entity || entity.type !== type) continue;
+                    matches.push(entity);
+                }
+                return matches;
         }
     }
 
@@ -463,7 +507,7 @@ class GameEngine {
 
             for (let dx = -1; dx <= 1; dx++) {
                 for (let dy = -1; dy <= 1; dy++) {
-                    const cell = this.spatialGrid.get(`${gridX + dx},${gridY + dy}`);
+                    const cell = this.spatialGrid.get(this._encodeGridKey(gridX + dx, gridY + dy));
                     if (!cell || cell.length === 0) continue;
 
                     for (const entity of cell) {
@@ -513,6 +557,50 @@ class GameEngine {
         return dx * dx + dy * dy;
     }
 
+    encodeGridKey(gridX, gridY) {
+        return this._encodeGridKey(gridX, gridY);
+    }
+
+    decodeGridKey(key) {
+        return this._decodeGridKey(key);
+    }
+
+    _encodeGridKey(gridX, gridY) {
+        return `${gridX},${gridY}`;
+    }
+
+    _decodeGridKey(key) {
+        if (typeof key !== 'string') {
+            key = String(key);
+        }
+        const separator = key.indexOf(',');
+        if (separator === -1) {
+            return [Number(key) || 0, 0];
+        }
+        const x = Number(key.slice(0, separator)) || 0;
+        const y = Number(key.slice(separator + 1)) || 0;
+        return [x, y];
+    }
+
+    _getDomRef(id) {
+        if (!this._domCache) {
+            this._domCache = new Map();
+        }
+        const body = typeof document !== 'undefined' ? document.body : null;
+        if (this._domCache.has(id)) {
+            const cached = this._domCache.get(id);
+            if (cached && body && body.contains(cached)) {
+                return cached;
+            }
+            this._domCache.delete(id);
+        }
+        const el = typeof document !== 'undefined' ? document.getElementById(id) : null;
+        if (el) {
+            this._domCache.set(id, el);
+        }
+        return el;
+    }
+
     prepareNewRun() {
         // Abort if canvas or player constructor are missing
         if (!this.canvas) {
@@ -531,6 +619,8 @@ class GameEngine {
         this.lastFpsUpdate = 0;
         this.frameCount = 0;
         this.deltaTimeHistory = null;
+        this._accumulatorMs = 0;
+        this._renderAccumulatorMs = 0;
 
         // Reset pause/visibility state
         this.isPaused = false;
@@ -688,6 +778,8 @@ class GameEngine {
         this.lastTime = now;
         this.lastFrameTime = now;
         this.lastRenderTime = now;
+        this._accumulatorMs = 0;
+        this._renderAccumulatorMs = 0;
 
         if (!this._loopInitialized) {
             this._loopInitialized = true;
@@ -699,47 +791,54 @@ class GameEngine {
     }
     
     gameLoop(timestamp) {
-        // Calculate deltaTime properly
-        if (this.lastTime === 0) {
+        if (this.lastTime === 0 || !Number.isFinite(this.lastTime)) {
             this.lastTime = timestamp;
         }
-        
-        const deltaTime = (timestamp - this.lastTime) / 1000; // Convert to seconds
-        this.lastTime = timestamp;
-        
-        // Cap deltaTime to prevent large jumps (e.g., when tab is inactive)
-        const cappedDeltaTime = Math.min(deltaTime, 1/30); // Max 30fps equivalent
-        
-        // Frame pacing to prevent black flashes
-        const targetFrameTime = 1000 / this.targetFps;
-        const actualFrameTime = timestamp - this.lastFrameTime;
-        
-        // Skip frame if we're running too fast (prevents black flashes)
-        if (actualFrameTime < targetFrameTime - 2) {
-            requestAnimationFrame(this.gameLoop.bind(this));
-            return;
+
+        let frameDeltaMs = timestamp - this.lastTime;
+        if (!Number.isFinite(frameDeltaMs) || frameDeltaMs < 0) {
+            frameDeltaMs = this.frameTime;
         }
-        
-        // Update performance metrics
-        this.updatePerformanceMetrics(actualFrameTime);
-        
-        // Adjust performance mode based on GPU usage
+
+        const maxCatchup = this.frameTime * this._maxFixedSteps;
+        if (frameDeltaMs > maxCatchup) {
+            frameDeltaMs = maxCatchup;
+        }
+
+        this.lastTime = timestamp;
+
+        this.updatePerformanceMetrics(frameDeltaMs);
         this.adjustPerformanceMode();
-        
-        // Update game state only if not paused
+
         if (!this.isPaused) {
-            this.update(cappedDeltaTime);
-            
-            // Only render if enough time has passed since last render
-            const timeSinceLastRender = timestamp - (this.lastRenderTime || 0);
-            if (timeSinceLastRender >= targetFrameTime * 0.8) {
+            this._accumulatorMs += frameDeltaMs;
+            const stepMs = this._fixedDeltaMs;
+            const stepSeconds = this._fixedDeltaSeconds;
+
+            let steps = 0;
+            while (this._accumulatorMs >= stepMs && steps < this._maxFixedSteps) {
+                this.update(stepSeconds);
+                this._accumulatorMs -= stepMs;
+                steps++;
+            }
+
+            if (steps === this._maxFixedSteps) {
+                this._accumulatorMs = 0;
+            }
+
+            this._renderAccumulatorMs += frameDeltaMs;
+            if (this._renderAccumulatorMs >= this._renderIntervalMs) {
                 this.render();
                 this.lastRenderTime = timestamp;
+                this._renderAccumulatorMs %= this._renderIntervalMs;
             }
+        } else {
+            this._accumulatorMs = 0;
+            this._renderAccumulatorMs = 0;
         }
-        
+
         this.lastFrameTime = timestamp;
-        requestAnimationFrame(this.gameLoop.bind(this));
+        requestAnimationFrame(this._boundGameLoop);
     }
     
     update(deltaTime) {
@@ -828,10 +927,8 @@ class GameEngine {
         
     // Update all entities with proper error handling
         if (this.entities && Array.isArray(this.entities)) {
-            // Create a safe copy to avoid modification during iteration
-            const entitiesToUpdate = [...this.entities];
-            
-            entitiesToUpdate.forEach(entity => {
+            for (let i = this.entities.length - 1; i >= 0; i--) {
+                const entity = this.entities[i];
                 if (entity && typeof entity.update === 'function' && !entity.isDead) {
                     try {
                         entity.update(deltaTime, this);
@@ -840,7 +937,7 @@ class GameEngine {
                         entity.isDead = true; // Mark as dead to prevent further errors
                     }
                 }
-            });
+            }
         }
         
     // Rebuild spatial grid AFTER entities have moved so culling/collisions are accurate
@@ -859,9 +956,15 @@ class GameEngine {
         if (window.gameManager && typeof window.gameManager.update === 'function') {
             try {
                 window.gameManager.update(deltaTime);
-                // Always allow minimap rendering via bridge; it will no-op if not ready
+
                 if (typeof window.gameManager.renderMinimap === 'function') {
-                    window.gameManager.renderMinimap();
+                    this._minimapUpdateAccumulator += deltaTime;
+                    const interval = this._getMinimapUpdateInterval();
+                    if (!this._minimapHasDrawn || this._minimapUpdateAccumulator >= interval) {
+                        this._minimapUpdateAccumulator = 0;
+                        this._minimapHasDrawn = true;
+                        window.gameManager.renderMinimap();
+                    }
                 }
             } catch (error) {
                 if (window.debugManager?.enabled) {
@@ -888,6 +991,26 @@ class GameEngine {
         
         // Clean up dead entities
         this.cleanupEntities();
+    }
+
+    _getMinimapUpdateInterval() {
+        if (!this._minimapHasDrawn) {
+            return 0;
+        }
+
+        if (this.performanceMode || this.lowPerformanceMode || this.lowGpuMode) {
+            return 0.28;
+        }
+
+        if (this.fps && this.fps < 40) {
+            return 0.24;
+        }
+
+        if (this.fps && this.fps > 57) {
+            return 0.12;
+        }
+
+        return 0.16;
     }
     
     updatePerformanceMetrics(elapsed) {
@@ -937,6 +1060,25 @@ class GameEngine {
             this.disablePerformanceMode();
         }
     }
+
+    setPerformancePreference(level) {
+        const normalized = (level === 'critical' || level === 'low') ? level : 'normal';
+
+        if (normalized === 'normal') {
+            this._manualPerformanceOverride = null;
+            this.disablePerformanceMode();
+            this._autoLowQualityCosmic = false;
+            this._autoParticleLowQuality = false;
+        } else {
+            this._manualPerformanceOverride = 'on';
+            this.enablePerformanceMode();
+            this._autoLowQualityCosmic = normalized === 'critical';
+            this._autoParticleLowQuality = true;
+        }
+
+        this._applyBackgroundQuality();
+        this._updateParticleQuality();
+    }
     
     togglePerformanceMode() {
         if (this.performanceMode) {
@@ -947,11 +1089,12 @@ class GameEngine {
             this.enablePerformanceMode();
         }
     }
-    
+
     enablePerformanceMode() {
         if (this.performanceMode) return;
         this.performanceMode = true;
         this.lowGpuMode = true;
+        this._maxSpatialGridPoolSize = 128;
         // Optimize rendering
         if (this.ctx) {
             if (typeof this._previousImageSmoothingEnabled !== 'boolean') {
@@ -970,6 +1113,7 @@ class GameEngine {
         if (!this.performanceMode) return;
         this.performanceMode = false;
         this.lowGpuMode = false;
+        this._maxSpatialGridPoolSize = 256;
         // Restore rendering quality
         if (this.ctx) {
             const previous = this._previousImageSmoothingEnabled;
@@ -983,10 +1127,19 @@ class GameEngine {
     }
     
     updateSpatialGrid() {
-        // Clear grid efficiently by reusing arrays instead of creating new ones
-        for (const [key, entities] of this.spatialGrid) {
-            entities.length = 0; // Clear array without deallocating
+        if (!this.spatialGrid) {
+            this.spatialGrid = new Map();
         }
+
+        const grid = this.spatialGrid;
+        const cellPool = this._spatialGridCellPool;
+
+        // Move existing cell arrays into a reusable pool
+        for (const [, entities] of grid) {
+            entities.length = 0;
+            cellPool.push(entities);
+        }
+        grid.clear();
         
         // Add entities to grid with bounds checking
         for (const entity of this.entities) {
@@ -996,23 +1149,24 @@ class GameEngine {
             
             const gridX = Math.floor(entity.x / this.gridSize);
             const gridY = Math.floor(entity.y / this.gridSize);
-            const key = `${gridX},${gridY}`;
+            const key = this._encodeGridKey(gridX, gridY);
             
-            let cellEntities = this.spatialGrid.get(key);
+            let cellEntities = grid.get(key);
             if (!cellEntities) {
-                cellEntities = [];
-                this.spatialGrid.set(key, cellEntities);
+                cellEntities = cellPool.pop() || [];
+                grid.set(key, cellEntities);
             }
             cellEntities.push(entity);
         }
         
-        // Clean up empty cells periodically to prevent memory bloat
-        if (this.entities.length % 100 === 0) {
-            for (const [key, entities] of this.spatialGrid) {
-                if (entities.length === 0) {
-                    this.spatialGrid.delete(key);
-                }
-            }
+        // Keep the pool from growing without bound
+        const activeCells = grid.size;
+        const desiredPoolSize = Math.max(
+            32,
+            Math.min(this._maxSpatialGridPoolSize, Math.ceil(activeCells * 1.5))
+        );
+        if (cellPool.length > desiredPoolSize) {
+            cellPool.length = desiredPoolSize;
         }
     }
     
@@ -1023,7 +1177,7 @@ class GameEngine {
             this.checkCollisionsInCell(entities);
             
             // Check collisions with adjacent cells
-            const [gridX, gridY] = key.split(',').map(Number);
+            const [gridX, gridY] = this._decodeGridKey(key);
             this.checkAdjacentCellCollisions(gridX, gridY, entities);
         }
     }
@@ -1063,7 +1217,7 @@ class GameEngine {
         ];
         
         for (const [dx, dy] of adjacentOffsets) {
-            const adjacentKey = `${gridX + dx},${gridY + dy}`;
+            const adjacentKey = this._encodeGridKey(gridX + dx, gridY + dy);
             const adjacentEntities = this.spatialGrid.get(adjacentKey);
             
             if (adjacentEntities) {
@@ -1454,117 +1608,122 @@ class GameEngine {
             }
         };
 
-        this.entityManager.prune(
-            (entity) => !entity || entity.isDead || typeof entity !== 'object',
-            handleRemoval
-        );
+        const shouldCull = (entity) => !entity || entity.isDead || typeof entity !== 'object';
+
+        this.entityManager.prune(shouldCull, handleRemoval);
 
         const maxEntities = 2000;
-        if (this.entities.length > maxEntities) {
-            const nonPlayerEntities = this.entities.filter(e => e && e.type !== 'player');
-            const toRemove = this.entities.length - maxEntities;
-            for (let i = 0; i < toRemove && i < nonPlayerEntities.length; i++) {
-                const entity = nonPlayerEntities[i];
-                if (entity) {
-                    entity.isDead = true;
-                }
+        const currentCount = this.entities.length;
+        if (currentCount > maxEntities) {
+            const initialExcess = currentCount - maxEntities;
+            let toRemove = initialExcess;
+            for (let i = this.entities.length - 1; i >= 0 && toRemove > 0; i--) {
+                const entity = this.entities[i];
+                if (!entity || entity.type === 'player' || entity.isDead) continue;
+                entity.isDead = true;
+                toRemove--;
             }
 
-            this.entityManager.prune(
-                (entity) => !entity || entity.isDead || typeof entity !== 'object',
-                handleRemoval
-            );
+            if (toRemove !== initialExcess) {
+                this.entityManager.prune(shouldCull, handleRemoval);
+            }
         }
     }
 
     _legacyCleanupEntities() {
-        // Batch cleanup with reduced array operations
-        let entityIndex = 0;
-        let enemyIndex = 0;
-        let xpOrbIndex = 0;
-        let projectileIndex = 0;
-        let enemyProjectileIndex = 0;
-        
-        // Clean main entities array using write-back approach for better performance
-        for (let i = 0; i < this.entities.length; i++) {
-            const entity = this.entities[i];
-            if (entity && !entity.isDead && typeof entity === 'object') {
-                if (entityIndex !== i) {
-                    this.entities[entityIndex] = entity;
-                }
-                entityIndex++;
-            }
-            // Dead projectiles are just garbage collected - no pooling needed
-        }
-        this.entities.length = entityIndex;
-        
-        // Clean enemies array
-        for (let i = 0; i < this.enemies.length; i++) {
-            const enemy = this.enemies[i];
-            if (enemy && !enemy.isDead && typeof enemy === 'object') {
-                if (enemyIndex !== i) {
-                    this.enemies[enemyIndex] = enemy;
-                }
-                enemyIndex++;
-            }
-        }
-        this.enemies.length = enemyIndex;
-        
-        // Clean XP orbs array
-        for (let i = 0; i < this.xpOrbs.length; i++) {
-            const orb = this.xpOrbs[i];
-            if (orb && !orb.isDead && typeof orb === 'object') {
-                if (xpOrbIndex !== i) {
-                    this.xpOrbs[xpOrbIndex] = orb;
-                }
-                xpOrbIndex++;
-            }
-        }
-        this.xpOrbs.length = xpOrbIndex;
-        
-        // Clean projectiles array
-        for (let i = 0; i < this.projectiles.length; i++) {
-            const p = this.projectiles[i];
-            if (p && !p.isDead && typeof p === 'object') {
-                if (projectileIndex !== i) {
-                    this.projectiles[projectileIndex] = p;
-                }
-                projectileIndex++;
-            }
-            // Dead projectiles are just garbage collected - no pooling needed
-        }
-        this.projectiles.length = projectileIndex;
-        
-        // Clean enemy projectiles array
-        if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
-            for (let i = 0; i < this.enemyProjectiles.length; i++) {
-                const ep = this.enemyProjectiles[i];
-                if (ep && !ep.isDead && typeof ep === 'object') {
-                    if (enemyProjectileIndex !== i) {
-                        this.enemyProjectiles[enemyProjectileIndex] = ep;
-                    }
-                    enemyProjectileIndex++;
-                } else if (ep && ep.isDead && ep.type === 'enemyProjectile') {
-                    // Release dead enemy projectiles back to pool
-                    this._releaseEnemyProjectile(ep);
-                }
-            }
-            this.enemyProjectiles.length = enemyProjectileIndex;
-        }
-        
-        // Basic entity limit enforcement (unchanged)
         const maxEntities = 2000;
-        if (this.entities.length > maxEntities) {
-            const nonPlayerEntities = this.entities.filter(e => e && e.type !== 'player');
-            const toRemove = this.entities.length - maxEntities;
-            for (let i = 0; i < toRemove && i < nonPlayerEntities.length; i++) {
-                if (nonPlayerEntities[i]) {
-                    nonPlayerEntities[i].isDead = true;
+        let needsTrim;
+
+        do {
+            needsTrim = false;
+
+            // Batch cleanup with reduced array operations
+            let entityIndex = 0;
+            let enemyIndex = 0;
+            let xpOrbIndex = 0;
+            let projectileIndex = 0;
+            let enemyProjectileIndex = 0;
+            
+            // Clean main entities array using write-back approach for better performance
+            for (let i = 0; i < this.entities.length; i++) {
+                const entity = this.entities[i];
+                if (entity && !entity.isDead && typeof entity === 'object') {
+                    if (entityIndex !== i) {
+                        this.entities[entityIndex] = entity;
+                    }
+                    entityIndex++;
+                }
+                // Dead projectiles are just garbage collected - no pooling needed
+            }
+            this.entities.length = entityIndex;
+            
+            // Clean enemies array
+            for (let i = 0; i < this.enemies.length; i++) {
+                const enemy = this.enemies[i];
+                if (enemy && !enemy.isDead && typeof enemy === 'object') {
+                    if (enemyIndex !== i) {
+                        this.enemies[enemyIndex] = enemy;
+                    }
+                    enemyIndex++;
                 }
             }
-            // Re-run cleanup after marking entities as dead
-            this._legacyCleanupEntities();
-        }
+            this.enemies.length = enemyIndex;
+            
+            // Clean XP orbs array
+            for (let i = 0; i < this.xpOrbs.length; i++) {
+                const orb = this.xpOrbs[i];
+                if (orb && !orb.isDead && typeof orb === 'object') {
+                    if (xpOrbIndex !== i) {
+                        this.xpOrbs[xpOrbIndex] = orb;
+                    }
+                    xpOrbIndex++;
+                }
+            }
+            this.xpOrbs.length = xpOrbIndex;
+            
+            // Clean projectiles array
+            for (let i = 0; i < this.projectiles.length; i++) {
+                const p = this.projectiles[i];
+                if (p && !p.isDead && typeof p === 'object') {
+                    if (projectileIndex !== i) {
+                        this.projectiles[projectileIndex] = p;
+                    }
+                    projectileIndex++;
+                }
+                // Dead projectiles are just garbage collected - no pooling needed
+            }
+            this.projectiles.length = projectileIndex;
+            
+            // Clean enemy projectiles array
+            if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
+                for (let i = 0; i < this.enemyProjectiles.length; i++) {
+                    const ep = this.enemyProjectiles[i];
+                    if (ep && !ep.isDead && typeof ep === 'object') {
+                        if (enemyProjectileIndex !== i) {
+                            this.enemyProjectiles[enemyProjectileIndex] = ep;
+                        }
+                        enemyProjectileIndex++;
+                    } else if (ep && ep.isDead && ep.type === 'enemyProjectile') {
+                        // Release dead enemy projectiles back to pool
+                        this._releaseEnemyProjectile(ep);
+                    }
+                }
+                this.enemyProjectiles.length = enemyProjectileIndex;
+            }
+            
+            if (this.entities.length > maxEntities) {
+                let toRemove = this.entities.length - maxEntities;
+                for (let i = this.entities.length - 1; i >= 0 && toRemove > 0; i--) {
+                    const entity = this.entities[i];
+                    if (!entity || entity.type === 'player' || entity.isDead) continue;
+                    entity.isDead = true;
+                    toRemove--;
+                }
+                if (toRemove < this.entities.length - maxEntities) {
+                    needsTrim = true;
+                }
+            }
+        } while (needsTrim);
     }
 
     // Simplified projectile spawning - no pooling complexity
@@ -1782,14 +1941,14 @@ class GameEngine {
             this.isPaused = true;
         }
         
-        const resultScreen = document.getElementById('result-screen');
+        const resultScreen = this._getDomRef('result-screen');
         const resultVisible = resultScreen && !resultScreen.classList.contains('hidden');
 
         const shouldShowPauseMenu = reason === 'manual';
 
         // Only show pause menu if we're not in level-up mode or result screen
         if (shouldShowPauseMenu && !resultVisible && (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive())) {
-            const pauseMenu = document.getElementById('pause-menu');
+            const pauseMenu = this._getDomRef('pause-menu');
             if (pauseMenu) pauseMenu.classList.remove('hidden');
         }
 
@@ -1828,7 +1987,7 @@ class GameEngine {
         
         if (reason === 'manual') {
             // Hide pause menu
-            const pauseMenu = document.getElementById('pause-menu');
+            const pauseMenu = this._getDomRef('pause-menu');
             if (pauseMenu) pauseMenu.classList.add('hidden');
         }
         // Resume audio on unpause
@@ -1845,7 +2004,7 @@ class GameEngine {
             }
         }
 
-        const resultScreen = document.getElementById('result-screen');
+        const resultScreen = this._getDomRef('result-screen');
         if (resultScreen && !resultScreen.classList.contains('hidden')) {
             return false;
         }
@@ -1855,77 +2014,106 @@ class GameEngine {
     
     getVisibleEntities() {
         if (!this.player || !Array.isArray(this.entities)) {
-            return []; // Return empty array if game state is invalid
+            return [];
         }
         
-        // Calculate visible area around player with margin
         const viewportWidth = this.canvas.width;
         const viewportHeight = this.canvas.height;
-        const margin = 200; // Extra margin for entities about to enter view
+        const margin = 200;
         
-        // Validate canvas dimensions
         if (!viewportWidth || !viewportHeight) {
-            return this.entities.filter(e => e && !e.isDead);
+            const fallback = [];
+            for (let i = 0; i < this.entities.length; i++) {
+                const entity = this.entities[i];
+                if (!entity || entity.isDead) continue;
+                fallback.push(entity);
+            }
+            return fallback;
         }
-        
-        // Use spatial grid for faster culling
-    const visibleEntities = [];
-    const seenEntities = new Set(); // Track entities already added
-        const startX = Math.floor((this.player.x - viewportWidth/2 - margin) / this.gridSize);
-        const startY = Math.floor((this.player.y - viewportHeight/2 - margin) / this.gridSize);
-        const endX = Math.ceil((this.player.x + viewportWidth/2 + margin) / this.gridSize);
-        const endY = Math.ceil((this.player.y + viewportHeight/2 + margin) / this.gridSize);
 
-    // Check only relevant grid cells
-    let anyCellFound = false;
-        for (let x = startX; x <= endX; x++) {
+        const visibleEntities = this._visibleEntitiesScratch;
+        const seenEntities = this._visibleEntitiesSeen;
+
+        visibleEntities.length = 0;
+        seenEntities.clear();
+
+        const halfW = viewportWidth / 2 + margin;
+        const halfH = viewportHeight / 2 + margin;
+        const maxVisible = (this.performanceMode || this.lowPerformanceMode || this.lowGpuMode) ? 350 : 600;
+
+        const startX = Math.floor((this.player.x - halfW) / this.gridSize);
+        const startY = Math.floor((this.player.y - halfH) / this.gridSize);
+        const endX = Math.ceil((this.player.x + halfW) / this.gridSize);
+        const endY = Math.ceil((this.player.y + halfH) / this.gridSize);
+
+        let anyCellFound = false;
+        let hitCap = false;
+
+        for (let x = startX; x <= endX && !hitCap; x++) {
             for (let y = startY; y <= endY; y++) {
-                const key = `${x},${y}`;
-                const cellEntities = this.spatialGrid.get(key);
-                if (cellEntities) {
-            anyCellFound = true;
-                    for (const entity of cellEntities) {
-                        // Skip if already processed
-                        if (seenEntities.has(entity)) continue;
+                const cellEntities = this.spatialGrid.get(this._encodeGridKey(x, y));
+                if (!cellEntities) {
+                    continue;
+                }
 
-                        const dx = Math.abs(entity.x - this.player.x);
-                        const dy = Math.abs(entity.y - this.player.y);
+                anyCellFound = true;
+                for (let i = 0; i < cellEntities.length; i++) {
+                    const entity = cellEntities[i];
+                    if (!entity || seenEntities.has(entity)) continue;
 
-                        // Only include entities within viewport + margin
-                        if (dx < viewportWidth/2 + margin && dy < viewportHeight/2 + margin) {
-                            visibleEntities.push(entity);
-                            seenEntities.add(entity);
+                    const dx = Math.abs(entity.x - this.player.x);
+                    const dy = Math.abs(entity.y - this.player.y);
+
+                    if (dx < halfW && dy < halfH) {
+                        visibleEntities.push(entity);
+                        seenEntities.add(entity);
+
+                        if (visibleEntities.length >= maxVisible) {
+                            hitCap = true;
+                            break;
                         }
+                    }
+                }
+
+                if (hitCap) {
+                    break;
+                }
+            }
+        }
+
+        if (!anyCellFound && Array.isArray(this.entities)) {
+            for (let i = 0; i < this.entities.length && !hitCap; i++) {
+                const entity = this.entities[i];
+                if (!entity || entity.isDead || seenEntities.has(entity)) continue;
+
+                const dx = Math.abs(entity.x - this.player.x);
+                const dy = Math.abs(entity.y - this.player.y);
+                if (dx < halfW && dy < halfH) {
+                    visibleEntities.push(entity);
+                    seenEntities.add(entity);
+
+                    if (visibleEntities.length >= maxVisible) {
+                        hitCap = true;
                     }
                 }
             }
         }
-        // If grid returned nothing (edge case), fall back to scanning all entities
-        if (!anyCellFound && Array.isArray(this.entities)) {
-            const halfW = viewportWidth/2 + margin, halfH = viewportHeight/2 + margin;
-            for (const e of this.entities) {
-                if (!e || e.isDead) continue;
-                const dx = Math.abs(e.x - this.player.x);
-                const dy = Math.abs(e.y - this.player.y);
-                if (dx < halfW && dy < halfH) {
-                    visibleEntities.push(e);
-                }
-            }
-        }
-        // Ensure player is always visible and rendered
-        if (this.player && !visibleEntities.includes(this.player)) {
+
+        if (this.player && !seenEntities.has(this.player) && visibleEntities.length < maxVisible) {
             visibleEntities.push(this.player);
+            seenEntities.add(this.player);
         }
 
-        // Fallback: if grid missed some active entities near the edges (rare), do a quick direct pass
         if (visibleEntities.length < 10 && Array.isArray(this.entities)) {
-            const halfW = viewportWidth/2 + margin, halfH = viewportHeight/2 + margin;
-            for (const e of this.entities) {
-                if (!e || e.isDead) continue;
-                const dx = Math.abs(e.x - this.player.x);
-                const dy = Math.abs(e.y - this.player.y);
-                if (dx < halfW && dy < halfH && !visibleEntities.includes(e)) {
-                    visibleEntities.push(e);
+            for (let i = 0; i < this.entities.length && visibleEntities.length < maxVisible; i++) {
+                const entity = this.entities[i];
+                if (!entity || entity.isDead || seenEntities.has(entity)) continue;
+
+                const dx = Math.abs(entity.x - this.player.x);
+                const dy = Math.abs(entity.y - this.player.y);
+                if (dx < halfW && dy < halfH) {
+                    visibleEntities.push(entity);
+                    seenEntities.add(entity);
                 }
             }
         }
@@ -1937,7 +2125,8 @@ class GameEngine {
         const now = Date.now();
         if (now - this.lastVisibilityChange < 1000) return; // Debounce
         
-        this.isVisible = !document.hidden;
+        const hidden = typeof document !== 'undefined' ? document.hidden : false;
+        this.isVisible = !hidden;
         this.lastVisibilityChange = now;
         
         if (!this.isVisible) {
@@ -1969,7 +2158,8 @@ class GameEngine {
         
         // Reduce update frequency
         this.targetFps = 30;
-        this.frameTime = 1000 / this.targetFps;
+        this._updateTimingTargets();
+        this._maxSpatialGridPoolSize = 128;
         
         // Clear unnecessary resources
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -1983,14 +2173,15 @@ class GameEngine {
     restoreResourceUsage() {
         // Restore normal FPS
         this.targetFps = 60;
-        this.frameTime = 1000 / this.targetFps;
+        this._updateTimingTargets();
+        this._maxSpatialGridPoolSize = 256;
         
         // Resume audio if available
         if (window.audioSystem && window.audioSystem.audioContext) {
             window.audioSystem.audioContext.resume();
         }
     }
-      cleanupResources() {
+    cleanupResources() {
         // Clean up dead entities
         this.cleanupEntities();
 
@@ -2021,6 +2212,13 @@ class GameEngine {
         
         // Clear spatial grid
         this.spatialGrid.clear();
+        if (this._spatialGridCellPool && this._spatialGridCellPool.length) {
+            if (this.isShuttingDown) {
+                this._spatialGridCellPool.length = 0;
+            } else if (this._spatialGridCellPool.length > this._maxSpatialGridPoolSize) {
+                this._spatialGridCellPool.length = this._maxSpatialGridPoolSize;
+            }
+        }
         
         // Rebuild spatial grid
         if (this.collisionSystem && typeof this.collisionSystem.updateSpatialGrid === 'function') {
@@ -2067,11 +2265,13 @@ class GameEngine {
             if (this.boundResizeCanvas) {
                 window.removeEventListener('resize', this.boundResizeCanvas);
             }
-            if (this.boundHandleContextLoss) {
-                this.canvas.removeEventListener('webglcontextlost', this.boundHandleContextLoss);
-            }
-            if (this.boundHandleContextRestore) {
-                this.canvas.removeEventListener('webglcontextrestored', this.boundHandleContextRestore);
+            if (this.canvas) {
+                if (this.boundHandleContextLoss) {
+                    this.canvas.removeEventListener('webglcontextlost', this.boundHandleContextLoss);
+                }
+                if (this.boundHandleContextRestore) {
+                    this.canvas.removeEventListener('webglcontextrestored', this.boundHandleContextRestore);
+                }
             }
             if (this.boundHandleVisibilityChange) {
                 document.removeEventListener('visibilitychange', this.boundHandleVisibilityChange);
@@ -2087,6 +2287,30 @@ class GameEngine {
             }
             if (this.boundHandleKeyUp) {
                 window.removeEventListener('keyup', this.boundHandleKeyUp);
+            }
+            if (this.boundHandleBeforeUnload) {
+                window.removeEventListener('beforeunload', this.boundHandleBeforeUnload);
+            }
+
+            if (this._domCache) {
+                this._domCache.clear();
+            }
+
+            this.boundResizeCanvas = null;
+            this.boundHandleContextLoss = null;
+            this.boundHandleContextRestore = null;
+            this.boundHandleVisibilityChange = null;
+            this.boundHandleFocusChange = null;
+            this.boundHandleBlurChange = null;
+            this.boundHandleKeyDown = null;
+            this.boundHandleKeyUp = null;
+            this.boundHandleBeforeUnload = null;
+
+            if (typeof window !== 'undefined' && window.__activeGameEngine === this) {
+                window.__activeGameEngine = null;
+            }
+            if (typeof window !== 'undefined' && window.gameEngine === this) {
+                window.gameEngine = null;
             }
             
             ((typeof window !== "undefined" && window.logger?.log) || console.log)('Event listeners cleaned up successfully');
@@ -2113,6 +2337,10 @@ class GameEngine {
         // Clear pools
         this.enemyProjectilePool = [];
         this.particlePool = [];
+
+        if (typeof window !== 'undefined' && window.__activeGameEngine === this) {
+            window.__activeGameEngine = null;
+        }
 
         ((typeof window !== "undefined" && window.logger?.log) || console.log)('Game engine shutdown complete');
     }

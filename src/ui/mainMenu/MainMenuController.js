@@ -478,11 +478,20 @@
         }
 
         getMetaUpgradeLevel(id) {
-            return parseInt(localStorage.getItem(`meta_${id}`) || '0', 10);
+            try {
+                return parseInt(localStorage.getItem(`meta_${id}`) || '0', 10);
+            } catch (e) {
+                console.warn('[MainMenuController] Failed to get meta upgrade level:', e.message);
+                return 0;
+            }
         }
 
         setMetaUpgradeLevel(id, level) {
-            localStorage.setItem(`meta_${id}`, level.toString());
+            try {
+                localStorage.setItem(`meta_${id}`, level.toString());
+            } catch (e) {
+                console.warn('[MainMenuController] Failed to set meta upgrade level:', e.message);
+            }
         }
 
         refreshStarDisplay() {

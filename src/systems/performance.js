@@ -4,7 +4,7 @@
 class PerformanceManager {
     constructor() {
         this.frameCount = 0;
-        this.lastTime = 0;
+        this.lastTime = performance.now();
         this.fps = 0;
         this.fpsHistory = [];
         this.maxHistorySize = 20; // Reduced for simplicity
@@ -15,6 +15,8 @@ class PerformanceManager {
         
         // Current performance mode
         this.performanceMode = 'normal';
+        this.pendingMode = null;
+        this.pendingModeSamples = 0;
         
         // Memory monitoring (simplified)
         this.memoryUsage = 0;
@@ -24,6 +26,8 @@ class PerformanceManager {
         // Mode change cooldown to prevent thrashing
         this.lastModeChange = 0;
         this.modeChangeCooldown = 3000;
+        this.warmupDuration = 4000;
+        this.monitoringStart = this.lastTime;
         
         this.init();
     }
@@ -70,6 +74,11 @@ class PerformanceManager {
     checkPerformance() {
         const avgFps = this.getAverageFps();
         const currentTime = Date.now();
+        const elapsedSinceStart = performance.now() - this.monitoringStart;
+        
+        if (elapsedSinceStart < this.warmupDuration) {
+            return;
+        }
         
         // Don't change modes too frequently
         if (currentTime - this.lastModeChange < this.modeChangeCooldown) {
@@ -88,8 +97,23 @@ class PerformanceManager {
         }
         
         if (newMode !== this.performanceMode) {
-            this.changePerformanceMode(newMode);
-            this.lastModeChange = currentTime;
+            if (this.pendingMode === newMode) {
+                this.pendingModeSamples += 1;
+            } else {
+                this.pendingMode = newMode;
+                this.pendingModeSamples = 1;
+            }
+
+            const requiredSamples = newMode === 'critical' ? 2 : 1;
+            if (this.pendingModeSamples >= requiredSamples) {
+                this.changePerformanceMode(newMode);
+                this.lastModeChange = currentTime;
+                this.pendingMode = null;
+                this.pendingModeSamples = 0;
+            }
+        } else {
+            this.pendingMode = null;
+            this.pendingModeSamples = 0;
         }
     }
     

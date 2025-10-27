@@ -102,9 +102,11 @@ class UnifiedUIManager {
      */
     updateFloatingTexts(deltaTime) {
         if (!this.settings.enableFloatingText) return;
-        
-        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
-            const text = this.floatingTexts[i];
+        const texts = this.floatingTexts;
+        let writeIndex = 0;
+
+        for (let i = 0; i < texts.length; i++) {
+            const text = texts[i];
             
             // Update position and age
             text.x += text.vx * deltaTime;
@@ -118,9 +120,20 @@ class UnifiedUIManager {
             // Remove expired texts
             if (text.age >= text.lifetime) {
                 text.active = false;
-                this.textPool.push(text);
-                this.floatingTexts.splice(i, 1);
+                if (this.textPool.length < this.textPoolSize) {
+                    this.textPool.push(text);
+                }
+                continue;
             }
+
+            if (writeIndex !== i) {
+                texts[writeIndex] = text;
+            }
+            writeIndex++;
+        }
+
+        if (writeIndex < texts.length) {
+            texts.length = writeIndex;
         }
     }
     
@@ -131,12 +144,35 @@ class UnifiedUIManager {
         if (!this.settings.enableUIOptimization) return;
         
         // Cull floating texts outside viewport
-        this.floatingTexts = this.floatingTexts.filter(text => {
-            return text.x >= this.viewportBounds.left && 
-                   text.x <= this.viewportBounds.right &&
-                   text.y >= this.viewportBounds.top && 
-                   text.y <= this.viewportBounds.bottom;
-        });
+        const texts = this.floatingTexts;
+        const bounds = this.viewportBounds;
+        let writeIndex = 0;
+
+        for (let i = 0; i < texts.length; i++) {
+            const text = texts[i];
+            const withinBounds =
+                text.x >= bounds.left &&
+                text.x <= bounds.right &&
+                text.y >= bounds.top &&
+                text.y <= bounds.bottom;
+
+            if (!withinBounds) {
+                text.active = false;
+                if (this.textPool.length < this.textPoolSize) {
+                    this.textPool.push(text);
+                }
+                continue;
+            }
+
+            if (writeIndex !== i) {
+                texts[writeIndex] = text;
+            }
+            writeIndex++;
+        }
+
+        if (writeIndex < texts.length) {
+            texts.length = writeIndex;
+        }
     }
     
     /**

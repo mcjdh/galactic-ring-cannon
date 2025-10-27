@@ -25,6 +25,26 @@
                 XP_ORB: 8,
                 ENEMY_PROJECTILE: 16
             };
+
+            this.collisionRules = {
+                player: new Set(['enemy', 'xpOrb', 'enemyProjectile']),
+                projectile: new Set(['enemy']),
+                enemyProjectile: new Set(['player']),
+                enemy: new Set(['player', 'projectile']),
+                xpOrb: new Set(['player'])
+            };
+
+            this._adjacentOffsets = [
+                [1, 0],
+                [0, 1],
+                [1, 1],
+                [-1, 1]
+            ];
+
+            this._cachedGridSize = engine.gridSize || 100;
+            this._lastGridSampleCount = 0;
+            this._lastGridSampleTime = performance.now();
+            this._gridRecalcIntervalMs = 250;
             
             // Performance optimization: reusable objects
             this.tempVector = { x: 0, y: 0 };
@@ -36,16 +56,34 @@
             if (!engine.spatialGrid) engine.spatialGrid = new Map();
             engine.spatialGrid.clear();
             
-            // ✅ ADAPTIVE GRID SIZE based on entity density
-            const entityCount = (engine.entities || []).length;
-            const adaptiveGridSize = this.calculateOptimalGridSize(entityCount);
-            const gridSize = adaptiveGridSize || engine.gridSize || 100;
-            // Sync engine gridSize so helpers (e.g., projectile targeting) use the same value
-            engine.gridSize = gridSize;
-            
             const list = engine.entities || [];
             this.stats.cellsProcessed = 0;
             let totalEntitiesInCells = 0;
+
+            const now = performance.now();
+            const entityCount = list.length;
+            let gridSize = this._cachedGridSize;
+            let shouldRecalculate = false;
+
+            if (now - this._lastGridSampleTime >= this._gridRecalcIntervalMs) {
+                shouldRecalculate = true;
+            } else if (Math.abs(entityCount - this._lastGridSampleCount) > 50) {
+                shouldRecalculate = true;
+            }
+
+            if (shouldRecalculate) {
+                const adaptiveGridSize = this.calculateOptimalGridSize(entityCount);
+                if (adaptiveGridSize && adaptiveGridSize !== this._cachedGridSize) {
+                    gridSize = adaptiveGridSize;
+                    this._cachedGridSize = adaptiveGridSize;
+                } else {
+                    gridSize = this._cachedGridSize;
+                }
+                this._lastGridSampleTime = now;
+                this._lastGridSampleCount = entityCount;
+            }
+
+            engine.gridSize = gridSize;
             
             // ✅ OBJECT POOLING for grid cells to reduce allocations
             for (const entity of list) {
@@ -53,7 +91,7 @@
                 
                 const gridX = Math.floor(entity.x / gridSize);
                 const gridY = Math.floor(entity.y / gridSize);
-                const key = `${gridX},${gridY}`;
+                const key = engine.encodeGridKey(gridX, gridY);
                 
                 let cell = engine.spatialGrid.get(key);
                 if (!cell) {
@@ -92,35 +130,30 @@
             this.stats.collisionsDetected = 0;
             const startTime = performance.now();
             
+            const singleCells = [];
+
             try {
                 for (const [key, entities] of engine.spatialGrid) {
                     // ✅ EARLY EXIT STRATEGY for empty regions
                     if (!entities || entities.length === 0) continue;
+                    const [gridX, gridY] = engine.decodeGridKey(key);
                     
                     // ✅ BROAD-PHASE: Skip cells with only one entity
                     if (entities.length === 1) {
-                        // Still check adjacent cells for cross-cell collisions
-                        const coords = key.split(',');
-                        if (coords.length === 2) {
-                            const gridX = parseInt(coords[0], 10);
-                            const gridY = parseInt(coords[1], 10);
-                            if (Number.isFinite(gridX) && Number.isFinite(gridY)) {
-                                this.checkAdjacentCellCollisions(gridX, gridY, entities);
-                            }
-                        }
+                        singleCells.push({ entity: entities[0], gridX, gridY });
                         continue;
                     }
                     
                     this.checkCollisionsInCell(entities);
-                    const coords = key.split(',');
-
-                    // Validate grid coordinates
-                    if (coords.length !== 2) continue;
-                    const gridX = parseInt(coords[0], 10);
-                    const gridY = parseInt(coords[1], 10);
-                    if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) continue;
-                    
                     this.checkAdjacentCellCollisions(gridX, gridY, entities);
+                }
+
+                if (singleCells.length > 0) {
+                    for (const cellInfo of singleCells) {
+                        const entity = cellInfo.entity;
+                        if (!entity || entity.isDead) continue;
+                        this._checkSingleEntityNeighbors(entity, cellInfo.gridX, cellInfo.gridY);
+                    }
                 }
                 
                 // ✅ LOG PERFORMANCE STATISTICS periodically
@@ -151,13 +184,24 @@
             for (let i = 0; i < entities.length - 1; i++) {
                 const entity1 = entities[i];
                 if (!entity1 || entity1.isDead) continue; // Skip dead entities
+
+                const type1 = entity1.type;
+                const rulesForEntity1 = this.collisionRules[type1];
                 
                 for (let j = i + 1; j < entities.length; j++) {
                     const entity2 = entities[j];
                     if (!entity2 || entity2.isDead) continue; // Skip dead entities
+
+                    const type2 = entity2.type;
+                    const rulesForEntity2 = this.collisionRules[type2];
                     
                     // ✅ BROAD-PHASE: Skip impossible collision combinations
-                    if (!this.canCollide(entity1, entity2)) {
+                    if (
+                        !(
+                            (rulesForEntity1 && rulesForEntity1.has(type2)) ||
+                            (rulesForEntity2 && rulesForEntity2.has(type1))
+                        )
+                    ) {
                         continue;
                     }
                     
@@ -166,6 +210,9 @@
                     if (this.isColliding(entity1, entity2)) {
                         this.stats.collisionsDetected++;
                         this.handleCollision(entity1, entity2);
+                        if (entity1.isDead) {
+                            break;
+                        }
                     }
                 }
             }
@@ -173,38 +220,88 @@
         
         // ✅ COLLISION LAYER SYSTEM - determine if two entities can collide
         canCollide(entity1, entity2) {
-            const type1 = entity1.type;
-            const type2 = entity2.type;
-            
-            // Define collision rules (what CAN collide)
-            const collisionRules = {
-                'player': ['enemy', 'xpOrb', 'enemyProjectile'],
-                'projectile': ['enemy'],
-                'enemyProjectile': ['player'],
-                'enemy': ['player', 'projectile'],
-                'xpOrb': ['player']
-            };
-            
-            return collisionRules[type1]?.includes(type2) || collisionRules[type2]?.includes(type1);
+            if (!entity1 || !entity2) return false;
+            return this._canCollideTypes(entity1.type, entity2.type);
+        }
+
+        _canCollideTypes(type1, type2) {
+            if (!type1 || !type2) return false;
+            const rulesForEntity1 = this.collisionRules[type1];
+            if (rulesForEntity1 && rulesForEntity1.has(type2)) {
+                return true;
+            }
+            const rulesForEntity2 = this.collisionRules[type2];
+            return !!(rulesForEntity2 && rulesForEntity2.has(type1));
         }
 
         checkAdjacentCellCollisions(gridX, gridY, entities) {
             const engine = this.engine;
             // Check only forward neighbors to avoid duplicate pair processing
-            const adjacentOffsets = [
-                [1, 0], [0, 1], [1, 1], [-1, 1]
-            ];
-            for (const [dx, dy] of adjacentOffsets) {
-                const adjacentKey = `${gridX + dx},${gridY + dy}`;
+            for (const [dx, dy] of this._adjacentOffsets) {
+                const adjacentKey = engine.encodeGridKey(gridX + dx, gridY + dy);
                 const adjacentEntities = engine.spatialGrid.get(adjacentKey);
                 if (!adjacentEntities || adjacentEntities.length === 0) continue;
                 for (const e of entities) {
                     if (!e || e.isDead) continue;
+                    const type1 = e.type;
+                    const rulesForEntity1 = this.collisionRules[type1];
                     for (const ae of adjacentEntities) {
                         if (!ae || ae.isDead) continue;
-                        if (!this.canCollide(e, ae)) continue;
+                        const type2 = ae.type;
+                        const rulesForEntity2 = this.collisionRules[type2];
+                        if (
+                            !(
+                                (rulesForEntity1 && rulesForEntity1.has(type2)) ||
+                                (rulesForEntity2 && rulesForEntity2.has(type1))
+                            )
+                        ) {
+                            continue;
+                        }
                         if (this.isColliding(e, ae)) {
                             this.handleCollision(e, ae);
+                            if (e.isDead) {
+                                break;
+                            }
+                        }
+                    }
+                    if (e.isDead) {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        _checkSingleEntityNeighbors(entity, gridX, gridY) {
+            const engine = this.engine;
+            const type1 = entity.type;
+            const rulesForEntity1 = this.collisionRules[type1];
+            if (!rulesForEntity1 || rulesForEntity1.size === 0) {
+                return;
+            }
+
+            for (const [dx, dy] of this._adjacentOffsets) {
+                const key = engine.encodeGridKey(gridX + dx, gridY + dy);
+                const neighborEntities = engine.spatialGrid.get(key);
+                if (!neighborEntities || neighborEntities.length === 0) continue;
+
+                for (const other of neighborEntities) {
+                    if (!other || other === entity || other.isDead) continue;
+
+                    const type2 = other.type;
+                    const rulesForEntity2 = this.collisionRules[type2];
+                    if (
+                        !(
+                            (rulesForEntity1 && rulesForEntity1.has(type2)) ||
+                            (rulesForEntity2 && rulesForEntity2.has(type1))
+                        )
+                    ) {
+                        continue;
+                    }
+
+                    if (this.isColliding(entity, other)) {
+                        this.handleCollision(entity, other);
+                        if (entity.isDead) {
+                            return;
                         }
                     }
                 }

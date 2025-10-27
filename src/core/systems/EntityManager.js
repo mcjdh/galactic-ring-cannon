@@ -111,52 +111,71 @@ class EntityManager {
         }
 
         const removed = [];
-        const keep = [];
+        const removedByType = new Map();
+        const list = this.allEntities;
+        let writeIndex = 0;
 
-        for (let i = 0; i < this.allEntities.length; i++) {
-            const entity = this.allEntities[i];
+        for (let i = 0; i < list.length; i++) {
+            const entity = list[i];
             if (predicate(entity)) {
                 removed.push(entity);
                 if (entity?.id) {
                     this.entitiesById.delete(entity.id);
                 }
-            } else {
-                keep.push(entity);
-            }
-        }
-
-        // Overwrite array while preserving reference
-        this.allEntities.length = 0;
-        for (let i = 0; i < keep.length; i++) {
-            this.allEntities[i] = keep[i];
-        }
-
-        if (removed.length > 0) {
-            const removedSet = new Set(removed);
-            this.typeCollections.forEach((collection, type) => {
-                let writeIndex = 0;
-                for (let i = 0; i < collection.length; i++) {
-                    const entity = collection[i];
-                    if (!entity || removedSet.has(entity) || (entity.type && entity.type !== type)) {
-                        continue;
+                if (entity && typeof entity === 'object') {
+                    const typeKey = entity.type ?? '__untyped__';
+                    let bucket = removedByType.get(typeKey);
+                    if (!bucket) {
+                        bucket = new Set();
+                        removedByType.set(typeKey, bucket);
                     }
-                    if (writeIndex !== i) {
-                        collection[writeIndex] = entity;
-                    }
-                    writeIndex++;
+                    bucket.add(entity);
                 }
-                collection.length = writeIndex;
-            });
-
-            if (typeof onRemove === 'function') {
-                removed.forEach(entity => {
-                    try {
-                        onRemove(entity);
-                    } catch (error) {
-                        ((typeof window !== "undefined" && window.logger?.error) || console.error)('EntityManager prune callback failed:', error);
-                    }
-                });
+            } else {
+                if (writeIndex !== i) {
+                    list[writeIndex] = entity;
+                }
+                writeIndex++;
             }
+        }
+
+        if (writeIndex < list.length) {
+            list.length = writeIndex;
+        }
+
+        if (removed.length === 0) {
+            return removed;
+        }
+
+        removedByType.forEach((removedSet, type) => {
+            let typeWrite = 0;
+            const collection = this.typeCollections.get(type);
+            if (!collection) {
+                return;
+            }
+
+            for (let i = 0; i < collection.length; i++) {
+                const entity = collection[i];
+                const entityType = entity?.type ?? '__untyped__';
+                if (!entity || removedSet.has(entity) || entityType !== type) {
+                    continue;
+                }
+                if (typeWrite !== i) {
+                    collection[typeWrite] = entity;
+                }
+                typeWrite++;
+            }
+            collection.length = typeWrite;
+        });
+
+        if (typeof onRemove === 'function') {
+            removed.forEach(entity => {
+                try {
+                    onRemove(entity);
+                } catch (error) {
+                    ((typeof window !== "undefined" && window.logger?.error) || console.error)('EntityManager prune callback failed:', error);
+                }
+            });
         }
 
         return removed;

@@ -146,22 +146,46 @@ class CosmicBackground {
                 this._pendingParallaxY = 0;
             }
 
-            // Update stars - they move OPPOSITE to camera at different speeds
+            if (Math.abs(cameraDeltaX) < 0.001) cameraDeltaX = 0;
+            if (Math.abs(cameraDeltaY) < 0.001) cameraDeltaY = 0;
+
+            if (cameraDeltaX === 0 && cameraDeltaY === 0) {
+                this.lastPlayerX = player.x;
+                this.lastPlayerY = player.y;
+                return;
+            }
+
+            const canvasWidth = this.canvas.width;
+            const canvasHeight = this.canvas.height;
+            const wrapBufferX = canvasWidth * 2;
+            const wrapBufferY = canvasHeight * 2;
+            const wrapSpanX = wrapBufferX * 2;
+            const wrapSpanY = wrapBufferY * 2;
+
             for (const layer of this.starLayers) {
-                for (const star of layer.stars) {
-                    // Parallax: far layers move slower (less affected by camera)
-                    // This creates depth - far stars barely move, near stars move more
-                    star.x -= cameraDeltaX * layer.speed;
-                    star.y -= cameraDeltaY * layer.speed;
+                const stars = layer.stars;
+                if (!stars || stars.length === 0) continue;
 
-                    // Wrap around screen edges with larger buffer for smooth wrapping
-                    const wrapBuffer = this.canvas.width * 2;
-                    const wrapBufferY = this.canvas.height * 2;
+                const parallaxX = cameraDeltaX * layer.speed;
+                const parallaxY = cameraDeltaY * layer.speed;
+                if (parallaxX === 0 && parallaxY === 0) continue;
 
-                    if (star.x < -wrapBuffer) star.x += wrapBuffer * 2;
-                    if (star.x > wrapBuffer) star.x -= wrapBuffer * 2;
-                    if (star.y < -wrapBufferY) star.y += wrapBufferY * 2;
-                    if (star.y > wrapBufferY) star.y -= wrapBufferY * 2;
+                for (let idx = 0; idx < stars.length; idx++) {
+                    const star = stars[idx];
+                    star.x -= parallaxX;
+                    star.y -= parallaxY;
+
+                    if (star.x < -wrapBufferX) {
+                        star.x += wrapSpanX;
+                    } else if (star.x > wrapBufferX) {
+                        star.x -= wrapSpanX;
+                    }
+
+                    if (star.y < -wrapBufferY) {
+                        star.y += wrapSpanY;
+                    } else if (star.y > wrapBufferY) {
+                        star.y -= wrapSpanY;
+                    }
                 }
             }
 
@@ -173,10 +197,10 @@ class CosmicBackground {
 
                 // Wrap clouds with buffer
                 const buffer = cloud.radius * 2;
-                if (cloud.x < -buffer) cloud.x = this.canvas.width + buffer;
-                if (cloud.x > this.canvas.width + buffer) cloud.x = -buffer;
-                if (cloud.y < -buffer) cloud.y = this.canvas.height + buffer;
-                if (cloud.y > this.canvas.height + buffer) cloud.y = -buffer;
+                if (cloud.x < -buffer) cloud.x = canvasWidth + buffer;
+                if (cloud.x > canvasWidth + buffer) cloud.x = -buffer;
+                if (cloud.y < -buffer) cloud.y = canvasHeight + buffer;
+                if (cloud.y > canvasHeight + buffer) cloud.y = -buffer;
             }
 
             // Store position for next frame
@@ -217,14 +241,14 @@ class CosmicBackground {
     renderNebulae() {
         const ctx = this.ctx;
 
-        // Performance: Set globalCompositeOperation once for all nebulae
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter'; // Additive blending for glow effect
+        const previousComposite = ctx.globalCompositeOperation;
+        const previousAlpha = ctx.globalAlpha;
+        ctx.globalCompositeOperation = 'lighter';
 
         for (const cloud of this.nebulaClouds) {
             // Pulsing opacity
             const pulse = Math.sin(this.time * cloud.pulseSpeed + cloud.pulseOffset) * 0.5 + 0.5;
-            const opacity = 0.1 + pulse * 0.15;
+            const opacity = 0.16 + pulse * 0.2;
 
             const sprite = this._getNebulaSprite(cloud.color, cloud.radius);
             if (!sprite) {
@@ -239,10 +263,10 @@ class CosmicBackground {
                 cloud.radius * 2,
                 cloud.radius * 2
             );
-            ctx.globalAlpha = 1;
         }
 
-        ctx.restore();
+        ctx.globalCompositeOperation = previousComposite;
+        ctx.globalAlpha = previousAlpha;
     }
     
     _getNebulaSprite(color, radius) {
@@ -291,25 +315,28 @@ class CosmicBackground {
         const skipTwinkle = this.lowQuality;
 
         // Performance: Batch rendering by layer to reduce style changes
-        for (const layer of this.starLayers) {
-            ctx.save();
+        const originalAlpha = ctx.globalAlpha;
+        ctx.fillStyle = '#ffffff';
 
-            for (const star of layer.stars) {
-                // Twinkling effect
+        for (const layer of this.starLayers) {
+            const layerStars = layer.stars;
+            if (!layerStars || layerStars.length === 0) continue;
+
+            for (let i = 0; i < layerStars.length; i++) {
+                const star = layerStars[i];
                 const twinkle = skipTwinkle
                     ? 0.5
                     : Math.sin(this.time * star.twinkleSpeed + star.twinkleOffset) * 0.5 + 0.5;
                 const alpha = layer.brightness * (skipTwinkle ? 0.7 : (0.5 + twinkle * 0.5));
 
                 ctx.globalAlpha = alpha;
-                ctx.fillStyle = '#ffffff';
                 ctx.beginPath();
                 ctx.arc(star.x, star.y, layer.size, 0, Math.PI * 2);
                 ctx.fill();
             }
-
-            ctx.restore();
         }
+
+        ctx.globalAlpha = originalAlpha;
     }
 
     renderGrid(player) {

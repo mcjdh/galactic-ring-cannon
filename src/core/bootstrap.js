@@ -39,6 +39,26 @@
             (window.logger?.error || console.error)(...args);
         }
 
+        getNamespace() {
+            return window.Game || {};
+        }
+
+        resolveNamespace(name) {
+            const ns = this.getNamespace();
+            if (typeof ns.resolve === 'function') {
+                return ns.resolve(name);
+            }
+            return ns?.[name];
+        }
+
+        hasNamespace(name) {
+            const ns = this.getNamespace();
+            if (typeof ns.has === 'function') {
+                return ns.has(name);
+            }
+            return typeof ns?.[name] !== 'undefined';
+        }
+
         async handleDomLoaded() {
             try {
                 this.log('🌊 DOM loaded, initializing game bridge...');
@@ -69,39 +89,81 @@
             }
         }
 
-        async waitForCoreClasses(maxAttempts, delayMs) {
+        async waitForCoreClasses(maxAttempts = 20, delayMs = 100) {
+            const required = ['GameEngine', 'Player', 'Enemy', 'Projectile'];
+            const ns = this.getNamespace();
+            const interval = Math.max(10, delayMs);
+            const totalWait = Math.max(1, maxAttempts) * interval;
+
+            if (typeof ns.whenReady === 'function') {
+                return new Promise(resolve => {
+                    let settled = false;
+                    const finish = result => {
+                        if (settled) {
+                            return;
+                        }
+                        settled = true;
+                        resolve(result);
+                    };
+
+                    const cancel = ns.whenReady(required, () => finish(true), {
+                        checkInterval: interval,
+                        timeoutMs: totalWait,
+                        silent: true
+                    });
+
+                    window.setTimeout(() => {
+                        if (settled) {
+                            return;
+                        }
+                        if (typeof cancel === 'function') {
+                            cancel();
+                        }
+                        const ready = required.every(name => this.hasNamespace(name));
+                        if (!ready) {
+                            this.warn('Core classes still missing after wait:', required.filter(name => !this.hasNamespace(name)));
+                        }
+                        finish(ready);
+                    }, totalWait + interval);
+                });
+            }
+
             let attempts = 0;
             while (attempts < maxAttempts) {
-                const coreReady = typeof GameEngine !== 'undefined'
-                    && typeof Player !== 'undefined'
-                    && typeof Enemy !== 'undefined'
-                    && typeof Projectile !== 'undefined';
-
-                if (coreReady) {
+                if (required.every(name => typeof window[name] !== 'undefined')) {
                     return true;
                 }
 
-                await new Promise(resolve => setTimeout(resolve, delayMs));
+                await new Promise(resolve => setTimeout(resolve, interval));
                 attempts += 1;
             }
             return false;
         }
 
         inspectSystemAvailability() {
-            const ensure = (windowName, localValue) => {
-                if (typeof window[windowName] === 'undefined' && typeof localValue !== 'undefined') {
-                    window[windowName] = localValue;
+            const ns = this.getNamespace();
+            const register = typeof ns.register === 'function'
+                ? ns.register.bind(ns)
+                : (name, value) => {
+                    if (typeof value !== 'undefined') {
+                        ns[name] = value;
+                    }
+                };
+
+            const attachIfPresent = (name, candidate) => {
+                if (!this.hasNamespace(name) && typeof candidate !== 'undefined') {
+                    register(name, candidate, { silent: true });
                 }
-                return typeof window[windowName] !== 'undefined';
+                return this.hasNamespace(name);
             };
 
             const availability = {
-                GameEngine: ensure('GameEngine', typeof GameEngine !== 'undefined' ? GameEngine : undefined),
-                EnemySpawner: ensure('EnemySpawner', typeof EnemySpawner !== 'undefined' ? EnemySpawner : undefined),
-                Player: ensure('Player', typeof Player !== 'undefined' ? Player : undefined),
-                Projectile: ensure('Projectile', typeof Projectile !== 'undefined' ? Projectile : undefined),
-                Enemy: ensure('Enemy', typeof Enemy !== 'undefined' ? Enemy : undefined),
-                Particle: ensure('Particle', typeof Particle !== 'undefined' ? Particle : undefined)
+                GameEngine: attachIfPresent('GameEngine', typeof GameEngine !== 'undefined' ? GameEngine : undefined),
+                EnemySpawner: attachIfPresent('EnemySpawner', typeof EnemySpawner !== 'undefined' ? EnemySpawner : undefined),
+                Player: attachIfPresent('Player', typeof Player !== 'undefined' ? Player : undefined),
+                Projectile: attachIfPresent('Projectile', typeof Projectile !== 'undefined' ? Projectile : undefined),
+                Enemy: attachIfPresent('Enemy', typeof Enemy !== 'undefined' ? Enemy : undefined),
+                Particle: attachIfPresent('Particle', typeof Particle !== 'undefined' ? Particle : undefined)
             };
 
             this.info('🔍 System availability:', availability);
@@ -110,7 +172,7 @@
 
         initGameManager() {
             this.info('🌊 Creating GameManager bridge...');
-            const GameManagerBridge = window.Game?.GameManagerBridge;
+            const GameManagerBridge = this.resolveNamespace('GameManagerBridge');
             if (typeof GameManagerBridge === 'function') {
                 window.gameManager = new GameManagerBridge();
                 window.gameManagerBridge = window.gameManager;
@@ -130,7 +192,7 @@
         }
 
         initInputManager() {
-            const InputManager = window.Game?.InputManager;
+            const InputManager = this.resolveNamespace('InputManager');
             if (typeof InputManager !== 'function') {
                 this.warn('⚠️ InputManager not available');
                 return;
@@ -145,7 +207,7 @@
         }
 
         initUpgradeSystem() {
-            const UpgradeSystem = window.Game?.UpgradeSystem;
+            const UpgradeSystem = this.resolveNamespace('UpgradeSystem');
             if (typeof UpgradeSystem !== 'function') {
                 this.warn('⚠️ UpgradeSystem not available');
                 return;
@@ -160,7 +222,7 @@
         }
 
         initAudioSystem() {
-            const AudioSystem = window.Game?.AudioSystem;
+            const AudioSystem = this.resolveNamespace('AudioSystem');
             if (typeof AudioSystem !== 'function') {
                 this.warn('⚠️ AudioSystem not available - creating stub');
                 window.audioSystem = {
@@ -183,7 +245,7 @@
         }
 
         initPerformanceManager() {
-            const PerformanceManager = window.Game?.PerformanceManager;
+            const PerformanceManager = this.resolveNamespace('PerformanceManager');
             if (typeof PerformanceManager !== 'function') {
                 return;
             }
@@ -197,7 +259,7 @@
         }
 
         initHUDEventHandlers() {
-            const HUDEventHandlers = window.Game?.HUDEventHandlers;
+            const HUDEventHandlers = this.resolveNamespace('HUDEventHandlers');
             if (typeof HUDEventHandlers !== 'function') {
                 this.warn('⚠️ HUDEventHandlers not available');
                 return;
@@ -210,7 +272,7 @@
         }
 
         initAchievementSystem() {
-            const AchievementSystem = window.Game?.AchievementSystem;
+            const AchievementSystem = this.resolveNamespace('AchievementSystem');
             if (typeof AchievementSystem !== 'function') {
                 this.warn('⚠️ AchievementSystem not available - creating stub');
                 window.achievementSystem = {
@@ -226,7 +288,7 @@
         }
 
         setupUI() {
-            const Controller = window.Game?.MainMenuController;
+            const Controller = this.resolveNamespace('MainMenuController');
             if (typeof Controller !== 'function') {
                 this.warn('MainMenuController not available');
                 return;

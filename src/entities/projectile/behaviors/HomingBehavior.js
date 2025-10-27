@@ -42,17 +42,18 @@ class HomingBehavior extends ProjectileBehaviorBase {
         }
 
         let nearest = null;
-        let minDist = this.range;
+        const rangeSq = this.range * this.range;
+        let minDistSq = rangeSq;
 
         for (const enemy of enemies) {
             if (!enemy || enemy.isDead) continue;
 
             const dx = enemy.x - this.projectile.x;
             const dy = enemy.y - this.projectile.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const distSq = dx * dx + dy * dy;
 
-            if (dist < minDist) {
-                minDist = dist;
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
                 nearest = enemy;
             }
         }
@@ -64,35 +65,45 @@ class HomingBehavior extends ProjectileBehaviorBase {
      * Gradually turn projectile velocity toward target
      */
     _turnTowardTarget(deltaTime) {
-        // Calculate direction to target
         const dx = this.target.x - this.projectile.x;
         const dy = this.target.y - this.projectile.y;
-        const targetAngle = Math.atan2(dy, dx);
+        const targetLenSq = dx * dx + dy * dy;
+        if (targetLenSq === 0) {
+            return;
+        }
 
-        // Current velocity angle
-        const currentAngle = Math.atan2(this.projectile.vy, this.projectile.vx);
+        const currentVx = this.projectile.vx;
+        const currentVy = this.projectile.vy;
+        const currentSpeedSq = currentVx * currentVx + currentVy * currentVy;
+        if (currentSpeedSq === 0) {
+            return;
+        }
 
-        // Calculate angular difference
-        let angleDiff = targetAngle - currentAngle;
+        const invCurrentSpeed = 1 / Math.sqrt(currentSpeedSq);
+        const invTargetLen = 1 / Math.sqrt(targetLenSq);
+        const currentDirX = currentVx * invCurrentSpeed;
+        const currentDirY = currentVy * invCurrentSpeed;
+        const targetDirX = dx * invTargetLen;
+        const targetDirY = dy * invTargetLen;
 
-        // Normalize to -PI to PI range
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        const dot = currentDirX * targetDirX + currentDirY * targetDirY;
+        const cross = currentDirX * targetDirY - currentDirY * targetDirX;
+        const angleDiff = Math.atan2(cross, dot);
 
-        // Apply turn (limited by turn speed)
         const maxTurn = this.turnSpeed * deltaTime;
         const turn = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
-        const newAngle = currentAngle + turn;
+        if (turn === 0) {
+            return;
+        }
 
-        // Calculate speed (preserve it)
-        const speed = Math.sqrt(
-            this.projectile.vx * this.projectile.vx +
-            this.projectile.vy * this.projectile.vy
-        );
+        const sin = Math.sin(turn);
+        const cos = Math.cos(turn);
+        const newDirX = currentDirX * cos - currentDirY * sin;
+        const newDirY = currentDirX * sin + currentDirY * cos;
+        const speed = Math.sqrt(currentSpeedSq);
 
-        // Apply new velocity
-        this.projectile.vx = Math.cos(newAngle) * speed;
-        this.projectile.vy = Math.sin(newAngle) * speed;
+        this.projectile.vx = newDirX * speed;
+        this.projectile.vy = newDirY * speed;
     }
 
     /**

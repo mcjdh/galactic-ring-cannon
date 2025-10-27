@@ -52,14 +52,35 @@ class Projectile {
         this.maxTrailLength = 5;
 
         // Behavior system - THIS is where all upgrade logic lives now!
-        this.behaviorManager = new ProjectileBehaviorManager(this);
+        // Wrap in try-catch to handle missing BehaviorManager class gracefully
+        try {
+            if (typeof ProjectileBehaviorManager === 'function') {
+                this.behaviorManager = new ProjectileBehaviorManager(this);
+            } else {
+                throw new Error('ProjectileBehaviorManager class not found');
+            }
+        } catch (error) {
+            // Fallback: Create a minimal stub manager if BehaviorManager fails
+            if (window.debugProjectiles) {
+                console.warn(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error.message);
+            }
+            this.behaviorManager = this._createFallbackBehaviorManager();
+        }
 
         // If created with old system (has piercing param), add piercing behavior
         if (this.piercing > 0) {
-            const piercingBehavior = new PiercingBehavior(this, { charges: this.piercing });
-            this.behaviorManager.addBehavior(piercingBehavior);
-            if (window.debugProjectiles) {
-                console.log(`[Projectile ${this.id}] Created with piercing=${this.piercing}, added PiercingBehavior`);
+            try {
+                if (typeof PiercingBehavior === 'function') {
+                    const piercingBehavior = new PiercingBehavior(this, { charges: this.piercing });
+                    this.behaviorManager.addBehavior(piercingBehavior);
+                    if (window.debugProjectiles) {
+                        console.log(`[Projectile ${this.id}] Created with piercing=${this.piercing}, added PiercingBehavior`);
+                    }
+                }
+            } catch (error) {
+                if (window.debugProjectiles) {
+                    console.warn(`[Projectile ${this.id}] Failed to add PiercingBehavior:`, error.message);
+                }
             }
         }
 
@@ -77,6 +98,33 @@ class Projectile {
 
         // Lifesteal (applied directly, not a behavior for simplicity)
         this.lifesteal = 0;
+    }
+
+    /**
+     * Create a minimal fallback behavior manager if the real one fails to instantiate
+     * This ensures projectiles can still function even if behavior system is broken
+     */
+    _createFallbackBehaviorManager() {
+        return {
+            behaviors: [],
+            addBehavior: function() {
+                // Stub - do nothing
+                if (window.debugProjectiles) {
+                    console.warn('[Projectile] Fallback manager: addBehavior called (no-op)');
+                }
+            },
+            hasBehavior: function() { return false; },
+            update: function() { /* no-op */ },
+            handleCollision: function(target, engine) {
+                // Basic collision handling - just mark hit and die
+                if (this.projectile && this.projectile.hitEnemies) {
+                    this.projectile.hitEnemies.add(target.id);
+                }
+                return true; // Projectile should die after hit
+            },
+            getState: function() { return { behaviors: [], isFallback: true }; },
+            projectile: this
+        };
     }
 
     /**

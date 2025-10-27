@@ -352,13 +352,45 @@ class EnemySpawner {
      * @returns {Object} Position {x, y}
      */
     getSpawnPosition() {
+        // Validate player exists and has valid position
+        if (!this.game.player ||
+            typeof this.game.player.x !== 'number' ||
+            typeof this.game.player.y !== 'number' ||
+            !Number.isFinite(this.game.player.x) ||
+            !Number.isFinite(this.game.player.y)) {
+            // Fallback to canvas center if player position is invalid
+            const fallbackX = this.game.canvas ? this.game.canvas.width / 2 : 400;
+            const fallbackY = this.game.canvas ? this.game.canvas.height / 2 : 300;
+            if (window.debugManager?.enabled) {
+                console.warn('[EnemySpawner] Invalid player position, using fallback:', { fallbackX, fallbackY });
+            }
+            return { x: fallbackX, y: fallbackY };
+        }
+
+        // Validate spawn radius
+        const spawnRadius = typeof this.spawnRadius === 'number' && Number.isFinite(this.spawnRadius)
+            ? this.spawnRadius
+            : 800; // Fallback to default
+
         const angle = Math.random() * Math.PI * 2;
-        const distance = this.spawnRadius + Math.random() * 200; // Some distance variation
-        
-        return {
-            x: this.game.player.x + Math.cos(angle) * distance,
-            y: this.game.player.y + Math.sin(angle) * distance
-        };
+        const distance = spawnRadius + Math.random() * 200; // Some distance variation
+
+        const x = this.game.player.x + Math.cos(angle) * distance;
+        const y = this.game.player.y + Math.sin(angle) * distance;
+
+        // Final validation - ensure no NaN or Infinity values
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            if (window.debugManager?.enabled) {
+                console.warn('[EnemySpawner] Calculated position is invalid:', { x, y, angle, distance });
+            }
+            // Return player position as last resort
+            return {
+                x: this.game.player.x,
+                y: this.game.player.y
+            };
+        }
+
+        return { x, y };
     }
     
     /**

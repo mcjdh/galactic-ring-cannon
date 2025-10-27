@@ -18,6 +18,7 @@ class EnemyMovement {
         // Anti-jitter properties
         this.velocitySmoothing = { x: 0, y: 0 }; // Smoothed velocity for ultra-stable movement
         this.smoothingFactor = 0.85; // How much to smooth velocity changes
+        this.lastNonZeroDirection = { x: 1, y: 0 };
         
         // Movement patterns
         this.movementPattern = 'direct'; // direct, circular, zigzag, random
@@ -151,26 +152,47 @@ class EnemyMovement {
             // Reset to normal speed
             this.speed = this.enemy.baseSpeed || 100;
         }
-        
-        // Update target direction with increased smoothing to reduce jitter
-        const smoothingFactor = 0.95; // Much higher smoothing for stability
 
-        // Add stability check - only update if change is significant
-        const directionChange = Math.sqrt(
-            Math.pow(baseDirection.x - this.currentDirection.x, 2) +
-            Math.pow(baseDirection.y - this.currentDirection.y, 2)
-        );
+        let desiredDirection = { x: baseDirection.x, y: baseDirection.y };
+        let desiredMagnitude = Math.hypot(desiredDirection.x, desiredDirection.y);
 
-        // Only apply direction changes if they're significant enough (reduces micro-jitters)
-        if (directionChange > 0.05) {
-            if (this.currentDirection.x !== 0 || this.currentDirection.y !== 0) {
-                // Smooth the direction change
-                this.currentDirection.x = this.currentDirection.x * smoothingFactor + baseDirection.x * (1 - smoothingFactor);
-                this.currentDirection.y = this.currentDirection.y * smoothingFactor + baseDirection.y * (1 - smoothingFactor);
-            } else {
-                // First time setting direction
-                this.currentDirection = { x: baseDirection.x, y: baseDirection.y };
-            }
+        const lastMagnitude = Math.hypot(this.lastNonZeroDirection.x, this.lastNonZeroDirection.y);
+        if (desiredMagnitude < 0.02 && lastMagnitude > 0.01) {
+            desiredDirection = {
+                x: this.lastNonZeroDirection.x * 0.7,
+                y: this.lastNonZeroDirection.y * 0.7
+            };
+            desiredMagnitude = Math.hypot(desiredDirection.x, desiredDirection.y);
+        }
+
+        if (desiredMagnitude > 1) {
+            desiredDirection.x /= desiredMagnitude;
+            desiredDirection.y /= desiredMagnitude;
+            desiredMagnitude = 1;
+        } else if (desiredMagnitude < 0.005) {
+            desiredDirection.x = 0;
+            desiredDirection.y = 0;
+        }
+
+        const frames = Math.max(deltaTime * 60, 1);
+        const smoothingBase = this.collidedThisFrame ? 0.7 : 0.82;
+        const lerpFactor = 1 - Math.pow(smoothingBase, frames);
+
+        this.currentDirection.x += (desiredDirection.x - this.currentDirection.x) * lerpFactor;
+        this.currentDirection.y += (desiredDirection.y - this.currentDirection.y) * lerpFactor;
+
+        this.currentDirection.x = Math.max(-1, Math.min(1, this.currentDirection.x));
+        this.currentDirection.y = Math.max(-1, Math.min(1, this.currentDirection.y));
+
+        const currentMagnitude = Math.hypot(this.currentDirection.x, this.currentDirection.y);
+        if (currentMagnitude > 1) {
+            this.currentDirection.x /= currentMagnitude;
+            this.currentDirection.y /= currentMagnitude;
+        }
+
+        if (currentMagnitude > 0.05) {
+            this.lastNonZeroDirection.x = this.currentDirection.x;
+            this.lastNonZeroDirection.y = this.currentDirection.y;
         }
     }
     
@@ -316,7 +338,8 @@ class EnemyMovement {
 
         // Add deadzone to prevent micro-movements that cause jitter
         const dirMagnitudeSquared = currentDir.x * currentDir.x + currentDir.y * currentDir.y;
-        if (dirMagnitudeSquared < 0.01) { // Use squared magnitude to avoid sqrt
+        const activeDeadzone = this.collidedThisFrame ? 0.0004 : 0.0001;
+        if (dirMagnitudeSquared < activeDeadzone) {
             currentDir.x = 0;
             currentDir.y = 0;
         }
@@ -502,24 +525,28 @@ class EnemyMovement {
 
         if (collisionCount > 0) {
             // Apply averaged separation with damping to prevent oscillation
-            const avgSeparationX = (totalSeparationX / collisionCount) * 30; // Reduced strength
-            const avgSeparationY = (totalSeparationY / collisionCount) * 30;
+            const avgSeparationX = (totalSeparationX / collisionCount) * 20;
+            const avgSeparationY = (totalSeparationY / collisionCount) * 20;
 
-            // Apply separation to position directly for immediate correction
-            this.enemy.x += avgSeparationX * 0.3;
-            this.enemy.y += avgSeparationY * 0.3;
+            // Apply separation to position using a small, clamped adjustment to avoid oscillation
+            const positionAdjustmentScale = 0.18;
+            this.enemy.x += avgSeparationX * positionAdjustmentScale;
+            this.enemy.y += avgSeparationY * positionAdjustmentScale;
 
-            // Apply gentler velocity adjustment with stronger damping
-            this.velocity.x += avgSeparationX * 0.2;
-            this.velocity.y += avgSeparationY * 0.2;
+            // Apply gentle velocity impulse to steer enemies apart without sudden snaps
+            const velocityImpulseScale = 0.1;
+            this.velocity.x += avgSeparationX * velocityImpulseScale;
+            this.velocity.y += avgSeparationY * velocityImpulseScale;
+            this.velocitySmoothing.x += avgSeparationX * (velocityImpulseScale * 0.5);
+            this.velocitySmoothing.y += avgSeparationY * (velocityImpulseScale * 0.5);
 
-            // Apply extra damping when colliding to prevent jitter
-            this.velocity.x *= 0.85;
-            this.velocity.y *= 0.85;
+            // Apply mild damping when colliding to settle movement gracefully
+            this.velocity.x *= 0.9;
+            this.velocity.y *= 0.9;
 
             // Mark collision with longer cooldown
             this.collidedThisFrame = true;
-            this.collisionCooldown = 0.15; // Slightly longer to reduce jitter
+            this.collisionCooldown = 0.12;
             this.lastCollisionTime = performance.now();
         }
     }
