@@ -578,20 +578,17 @@ class GameEngine {
     }
 
     _encodeGridKey(gridX, gridY) {
-        return `${gridX},${gridY}`;
+        const offset = 0x200000; // 2,097,152
+        const stride = 0x400000; // 4,194,304 (2^22)
+        return ((gridX + offset) * stride) + (gridY + offset);
     }
 
     _decodeGridKey(key) {
-        if (typeof key !== 'string') {
-            key = String(key);
-        }
-        const separator = key.indexOf(',');
-        if (separator === -1) {
-            return [Number(key) || 0, 0];
-        }
-        const x = Number(key.slice(0, separator)) || 0;
-        const y = Number(key.slice(separator + 1)) || 0;
-        return [x, y];
+        const offset = 0x200000;
+        const stride = 0x400000;
+        const gridX = Math.floor(key / stride) - offset;
+        const gridY = (key % stride) - offset;
+        return [gridX, gridY];
     }
 
     _getDomRef(id) {
@@ -2110,49 +2107,49 @@ class GameEngine {
         const halfW = viewportWidth / 2 + margin;
         const halfH = viewportHeight / 2 + margin;
         const maxVisible = (this.performanceMode || this.lowPerformanceMode || this.lowGpuMode) ? 350 : 600;
+        const minVisible = Math.min(10, maxVisible);
 
-        const startX = Math.floor((this.player.x - halfW) / this.gridSize);
-        const startY = Math.floor((this.player.y - halfH) / this.gridSize);
-        const endX = Math.ceil((this.player.x + halfW) / this.gridSize);
-        const endY = Math.ceil((this.player.y + halfH) / this.gridSize);
-
+        const grid = this.spatialGrid;
         let anyCellFound = false;
-        let hitCap = false;
 
-        for (let x = startX; x <= endX && !hitCap; x++) {
-            for (let y = startY; y <= endY; y++) {
-                const cellEntities = this.spatialGrid.get(this._encodeGridKey(x, y));
-                if (!cellEntities) {
-                    continue;
-                }
+        if (grid && grid.size > 0) {
+            const startX = Math.floor((this.player.x - halfW) / this.gridSize);
+            const startY = Math.floor((this.player.y - halfH) / this.gridSize);
+            const endX = Math.ceil((this.player.x + halfW) / this.gridSize);
+            const endY = Math.ceil((this.player.y + halfH) / this.gridSize);
 
-                anyCellFound = true;
-                for (let i = 0; i < cellEntities.length; i++) {
-                    const entity = cellEntities[i];
-                    if (!entity || seenEntities.has(entity)) continue;
+            outer: for (let x = startX; x <= endX; x++) {
+                for (let y = startY; y <= endY; y++) {
+                    const cellEntities = grid.get(this._encodeGridKey(x, y));
+                    if (!cellEntities || cellEntities.length === 0) {
+                        continue;
+                    }
 
-                    const dx = Math.abs(entity.x - this.player.x);
-                    const dy = Math.abs(entity.y - this.player.y);
+                    anyCellFound = true;
+                    for (let i = 0; i < cellEntities.length; i++) {
+                        const entity = cellEntities[i];
+                        if (!entity || seenEntities.has(entity) || entity.isDead) continue;
 
-                    if (dx < halfW && dy < halfH) {
-                        visibleEntities.push(entity);
-                        seenEntities.add(entity);
+                        const dx = Math.abs(entity.x - this.player.x);
+                        const dy = Math.abs(entity.y - this.player.y);
 
-                        if (visibleEntities.length >= maxVisible) {
-                            hitCap = true;
-                            break;
+                        if (dx < halfW && dy < halfH) {
+                            visibleEntities.push(entity);
+                            seenEntities.add(entity);
+
+                            if (visibleEntities.length >= maxVisible) {
+                                break outer;
+                            }
                         }
                     }
-                }
-
-                if (hitCap) {
-                    break;
                 }
             }
         }
 
-        if (!anyCellFound && Array.isArray(this.entities)) {
-            for (let i = 0; i < this.entities.length && !hitCap; i++) {
+        const needFallback = (!anyCellFound || visibleEntities.length < minVisible) && Array.isArray(this.entities);
+        if (needFallback) {
+            const targetCount = Math.min(maxVisible, Math.max(minVisible, visibleEntities.length));
+            for (let i = 0; i < this.entities.length && visibleEntities.length < targetCount; i++) {
                 const entity = this.entities[i];
                 if (!entity || entity.isDead || seenEntities.has(entity)) continue;
 
@@ -2161,10 +2158,6 @@ class GameEngine {
                 if (dx < halfW && dy < halfH) {
                     visibleEntities.push(entity);
                     seenEntities.add(entity);
-
-                    if (visibleEntities.length >= maxVisible) {
-                        hitCap = true;
-                    }
                 }
             }
         }
@@ -2172,20 +2165,6 @@ class GameEngine {
         if (this.player && !seenEntities.has(this.player) && visibleEntities.length < maxVisible) {
             visibleEntities.push(this.player);
             seenEntities.add(this.player);
-        }
-
-        if (visibleEntities.length < 10 && Array.isArray(this.entities)) {
-            for (let i = 0; i < this.entities.length && visibleEntities.length < maxVisible; i++) {
-                const entity = this.entities[i];
-                if (!entity || entity.isDead || seenEntities.has(entity)) continue;
-
-                const dx = Math.abs(entity.x - this.player.x);
-                const dy = Math.abs(entity.y - this.player.y);
-                if (dx < halfW && dy < halfH) {
-                    visibleEntities.push(entity);
-                    seenEntities.add(entity);
-                }
-            }
         }
 
         return visibleEntities;

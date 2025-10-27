@@ -251,11 +251,8 @@ class CosmicBackground {
         const h = this.canvas.height;
 
         // 1. Fill deep space background
-        const bgColor = this.colors.deepSpace;
-        ctx.fillStyle = bgColor;
-        for (let y = 0; y < h; y += 16) {
-            ctx.fillRect(0, y, w, 16);
-        }
+        ctx.fillStyle = this.colors.deepSpace;
+        ctx.fillRect(0, 0, w, h);
 
         // 2. Render nebula clouds (behind stars)
         if (!this.lowQuality) {

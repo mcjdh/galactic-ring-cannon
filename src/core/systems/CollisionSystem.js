@@ -148,32 +148,44 @@
             this.stats.collisionsDetected = 0;
             const startTime = performance.now();
             
-            const singleCells = [];
-
             try {
                 for (const [key, entities] of engine.spatialGrid) {
                     // ✅ EARLY EXIT STRATEGY for empty regions
                     if (!entities || entities.length === 0) continue;
                     const [gridX, gridY] = engine.decodeGridKey(key);
-                    
-                    // ✅ BROAD-PHASE: Skip cells with only one entity
-                    if (entities.length === 1) {
-                        singleCells.push({ entity: entities[0], gridX, gridY });
-                        continue;
-                    }
-                    
-                    this.checkCollisionsInCell(entities);
+
                     this.checkAdjacentCellCollisions(gridX, gridY, entities);
+
+                    for (let i = 0; i < entities.length; i++) {
+                        const entity1 = entities[i];
+                        if (!entity1 || entity1.isDead) continue;
+                        const type1 = entity1.type;
+
+                        for (let j = i + 1; j < entities.length; j++) {
+                            const entity2 = entities[j];
+                            if (!entity2 || entity2.isDead) continue;
+                            const type2 = entity2.type;
+
+                            if (!this._canCollideTypes(type1, type2)) continue;
+
+                            const dx = entity1.x - entity2.x;
+                            const dy = entity1.y - entity2.y;
+                            const maxRadius = (entity1.radius || 0) + (entity2.radius || 0);
+
+                            if (dx * dx + dy * dy >= maxRadius * maxRadius) continue;
+
+                            this.stats.collisionsChecked++;
+                            if (this.isColliding(entity1, entity2)) {
+                                this.stats.collisionsDetected++;
+                                this.handleCollision(entity1, entity2);
+                                if (entity1.isDead) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
 
-                if (singleCells.length > 0) {
-                    for (const cellInfo of singleCells) {
-                        const entity = cellInfo.entity;
-                        if (!entity || entity.isDead) continue;
-                        this._checkSingleEntityNeighbors(entity, cellInfo.gridX, cellInfo.gridY);
-                    }
-                }
-                
                 // ✅ LOG PERFORMANCE STATISTICS periodically
                 if (window.debugManager?.enabled && startTime - this.stats.lastResetTime > 5000) {
                     this.logPerformanceStats(performance.now() - startTime);
@@ -284,43 +296,6 @@
                     }
                     if (e.isDead) {
                         continue;
-                    }
-                }
-            }
-        }
-
-        _checkSingleEntityNeighbors(entity, gridX, gridY) {
-            const engine = this.engine;
-            const type1 = entity.type;
-            const rulesForEntity1 = this.collisionRules[type1];
-            if (!rulesForEntity1 || rulesForEntity1.size === 0) {
-                return;
-            }
-
-            for (const [dx, dy] of this._adjacentOffsets) {
-                const key = engine.encodeGridKey(gridX + dx, gridY + dy);
-                const neighborEntities = engine.spatialGrid.get(key);
-                if (!neighborEntities || neighborEntities.length === 0) continue;
-
-                for (const other of neighborEntities) {
-                    if (!other || other === entity || other.isDead) continue;
-
-                    const type2 = other.type;
-                    const rulesForEntity2 = this.collisionRules[type2];
-                    if (
-                        !(
-                            (rulesForEntity1 && rulesForEntity1.has(type2)) ||
-                            (rulesForEntity2 && rulesForEntity2.has(type1))
-                        )
-                    ) {
-                        continue;
-                    }
-
-                    if (this.isColliding(entity, other)) {
-                        this.handleCollision(entity, other);
-                        if (entity.isDead) {
-                            return;
-                        }
                     }
                 }
             }
