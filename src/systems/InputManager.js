@@ -23,21 +23,22 @@ class InputManager {
         this.keyBindings = {
             // Movement
             moveUp: ['w', 'W', 'ArrowUp'],
-            moveDown: ['s', 'S', 'ArrowDown'], 
+            moveDown: ['s', 'S', 'ArrowDown'],
             moveLeft: ['a', 'A', 'ArrowLeft'],
             moveRight: ['d', 'D', 'ArrowRight'],
-            
+
             // Actions
             dodge: [' ', 'Space'],
             pause: ['p', 'P', 'Escape'],
             mute: ['m', 'M'],
             lowQuality: ['l', 'L'],
-            
+            autoLevel: ['g', 'G'],
+
             // Upgrade selection
             upgrade1: ['1'],
             upgrade2: ['2'],
             upgrade3: ['3'],
-            
+
             // Debug
             debug: ['F3'],
             performance: ['o', 'O']
@@ -168,7 +169,30 @@ class InputManager {
                 // Low quality mode toggled
             }
         }
-        
+
+        // Toggle auto-level with G key
+        if (key === 'g' || key === 'G') {
+            if (window.upgradeSystem) {
+                // Use setter method for clean encapsulation
+                const newState = !window.upgradeSystem.isAutoLevelEnabled();
+                window.upgradeSystem.setAutoLevel(newState);
+
+                // Show notification
+                const message = newState ? 'Auto-Level: ON' : 'Auto-Level: OFF';
+                const color = newState ? '#2ecc71' : '#e74c3c';
+
+                if (window.gameManager?.showFloatingText && window.gameManager?.game?.player) {
+                    window.gameManager.showFloatingText(
+                        message,
+                        window.gameManager.game.player.x,
+                        window.gameManager.game.player.y - 30,
+                        color,
+                        20
+                    );
+                }
+            }
+        }
+
         // Debug mode toggle
         if (key === 'F3') {
             e.preventDefault();

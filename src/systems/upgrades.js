@@ -15,6 +15,10 @@ class UpgradeSystem {
         this.levelUpActive = false;
         this.levelUpKeyListener = null; // Store reference to listener for cleanup
         this.comboEffects = new Set();
+
+        // Auto-level feature: load from localStorage
+        const savedAutoLevel = localStorage.getItem('autoLevelEnabled');
+        this.autoLevelEnabled = savedAutoLevel === 'true';
     }
 
     resetForNewRun() {
@@ -47,27 +51,38 @@ class UpgradeSystem {
     }
     
     showUpgradeOptions() {
-        // Set level up active state BEFORE pausing the game
+        // Get three random upgrades
+        const options = this.getRandomUpgrades(3);
+
+        // Auto-level: immediately select random upgrade if enabled
+        // Do this BEFORE setting any state to avoid blocking input
+        if (this.autoLevelEnabled && options.length > 0) {
+            const randomIndex = Math.floor(Math.random() * options.length);
+            const selectedUpgrade = options[randomIndex];
+
+            // Directly apply upgrade without state changes or pausing
+            this.applyUpgradeDirectly(selectedUpgrade);
+            return;
+        }
+
+        // Normal flow: Set level up active state BEFORE pausing the game
         this.levelUpActive = true;
-        
+
         // Pause game without showing pause menu
         if (window.gameManager && window.gameManager.game) {
             window.gameManager.game.isPaused = true;
         }
-        
-        // Get three random upgrades
-        const options = this.getRandomUpgrades(3);
-        
+
         // Clear previous options
         this.upgradeOptionsContainer.innerHTML = '';
-        
+
         // Add upgrade options to the DOM
         options.forEach((upgrade, index) => {
             const option = document.createElement('div');
             option.className = 'upgrade-option';
             option.dataset.rarity = upgrade.rarity || 'common';
             option.dataset.index = index + 1; // Store numeric index
-            
+
             option.innerHTML = `
                 <div class="shortcut-key">${index + 1}</div>
                 <div class="upgrade-icon">${upgrade.icon}</div>
@@ -75,21 +90,72 @@ class UpgradeSystem {
                 <p>${upgrade.description}</p>
                 <div class="upgrade-rarity">${upgrade.rarity || 'common'}</div>
             `;
-            
+
             option.addEventListener('click', () => {
                 this.selectUpgrade(upgrade);
             });
-            
+
             this.upgradeOptionsContainer.appendChild(option);
         });
-        
+
         // Show the level up UI
         this.levelUpContainer.classList.remove('hidden');
-        
+
         // Add keyboard shortcut listener
         this.addKeyboardShortcuts(options);
     }
     
+    applyUpgradeDirectly(upgrade) {
+        // Streamlined upgrade application for auto-level (no UI state changes)
+        // Apply the core upgrade logic
+        this._applyUpgradeCore(upgrade);
+
+        // Show notification with "(Auto)" label for auto-level
+        if (window.gameManager?.showFloatingText && window.gameManager?.game?.player) {
+            const message = `${upgrade.icon} ${upgrade.name} (Auto)`;
+            window.gameManager.showFloatingText(
+                message,
+                window.gameManager.game.player.x,
+                window.gameManager.game.player.y - 50,
+                '#3498db',
+                20
+            );
+        }
+
+        // Play a subtle sound for auto-level
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('levelUp', 0.3); // Lower volume than manual
+        }
+    }
+
+    _applyUpgradeCore(upgrade) {
+        // Core upgrade application logic shared by both manual and auto-level
+        // Add to selected upgrades
+        this.selectedUpgrades.push(upgrade);
+
+        // Apply upgrade to player using clean delegation
+        const playerUpgrades = window.Game?.PlayerUpgrades;
+        if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
+            playerUpgrades.apply(window.gameManager.game.player, upgrade);
+        } else {
+            // Fallback to player method if PlayerUpgrades not available
+            window.gameManager.game.player.applyUpgrade(upgrade);
+        }
+
+        // Handle special effects
+        if (upgrade.specialEffect) {
+            this.applySpecialEffect(upgrade);
+        }
+
+        // Handle combo effects
+        if (upgrade.comboEffects) {
+            this.updateComboEffects(upgrade);
+        }
+
+        // Track stats
+        window.gameManager?.statsManager?.trackSpecialEvent?.('upgrade_chosen');
+    }
+
     addKeyboardShortcuts(upgrades) {
         // Remove existing listener if present
         this.removeKeyboardShortcuts();
@@ -121,6 +187,15 @@ class UpgradeSystem {
     
     isLevelUpActive() {
         return this.levelUpActive;
+    }
+
+    isAutoLevelEnabled() {
+        return this.autoLevelEnabled;
+    }
+
+    setAutoLevel(enabled) {
+        this.autoLevelEnabled = !!enabled;
+        localStorage.setItem('autoLevelEnabled', this.autoLevelEnabled);
     }
     
     // Enhanced method to get better quality random upgrades with build path consideration
@@ -251,42 +326,21 @@ class UpgradeSystem {
     }
     
     selectUpgrade(upgrade) {
-        // Add to selected upgrades
-        this.selectedUpgrades.push(upgrade);
-        
-        // Apply upgrade to player using clean delegation (no monkey patching)
-        const playerUpgrades = window.Game?.PlayerUpgrades;
-        if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
-            playerUpgrades.apply(window.gameManager.game.player, upgrade);
-        } else {
-            // Fallback to player method if PlayerUpgrades not available
-            window.gameManager.game.player.applyUpgrade(upgrade);
-        }
-        
-        // Handle special effects
-        if (upgrade.specialEffect) {
-            this.applySpecialEffect(upgrade);
-        }
+        // Apply the core upgrade logic (shared with auto-level)
+        this._applyUpgradeCore(upgrade);
 
-        // Handle combo effects
-        if (upgrade.comboEffects) {
-            this.updateComboEffects(upgrade);
-        }
-
-        window.gameManager?.statsManager?.trackSpecialEvent?.('upgrade_chosen');
-
-        // Show special notification
+        // Show special notification for manual selection
         this.showUpgradeNotification(upgrade);
-        
+
         // Hide the level up UI
         this.levelUpContainer.classList.add('hidden');
-        
+
         // Clean up keyboard shortcuts
         this.removeKeyboardShortcuts();
-        
+
         // Reset levelUpActive state
         this.levelUpActive = false;
-        
+
         // Resume game
         if (window.gameManager && window.gameManager.game) {
             window.gameManager.game.isPaused = false;
