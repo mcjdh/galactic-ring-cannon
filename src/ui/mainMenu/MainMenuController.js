@@ -15,7 +15,12 @@
             this.dynamicListeners = [];
             this.dom = this.captureDomRefs();
 
+            // Menu background state
+            this.menuStars = null;
+            this.menuGradient = null;
+
             this.bindButtons();
+            // Don't init background here - wait for show() to avoid double init
         }
 
         captureDomRefs() {
@@ -27,6 +32,7 @@
             return {
                 loadingScreen: byId('loading-screen'),
                 mainMenu: byId('main-menu'),
+                menuBackground: byId('menu-background'),
                 gameContainer: byId('game-container'),
                 pauseMenu: byId('pause-menu'),
                 starMenuDisplay: byId('star-menu-display'),
@@ -133,6 +139,12 @@
             this.refreshStarDisplay();
             this.loadStoredSettingsIntoUI();
             this.state.visible = true;
+
+            // Restart background animation
+            if (this.dom.menuBackground) {
+                this.initMenuBackground();
+            }
+
             if (this.logger && typeof this.logger.log === 'function') {
                 this.logger.log('Main menu shown');
             }
@@ -143,6 +155,12 @@
                 this.dom.mainMenu.classList.add('hidden');
             }
             this.state.visible = false;
+
+            // Stop background animation for performance
+            if (this.menuAnimationFrame) {
+                cancelAnimationFrame(this.menuAnimationFrame);
+                this.menuAnimationFrame = null;
+            }
         }
 
         showGameContainer() {
@@ -523,6 +541,135 @@
             return Number.isFinite(stored) ? stored : 0;
         }
 
+        initMenuBackground() {
+            const canvas = this.dom.menuBackground;
+            if (!canvas || !canvas.getContext) {
+                return;
+            }
+
+            // Cancel any existing animation
+            if (this.menuAnimationFrame) {
+                cancelAnimationFrame(this.menuAnimationFrame);
+            }
+
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size and handle resize
+            const resizeCanvas = () => {
+                const oldWidth = canvas.width;
+                const oldHeight = canvas.height;
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+                // Recreate gradient after resize
+                this.menuGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                this.menuGradient.addColorStop(0, '#0a0a1f');
+                this.menuGradient.addColorStop(0.5, '#1a0a2f');
+                this.menuGradient.addColorStop(1, '#0a0a1f');
+
+                // Reposition stars if resized and stars exist
+                if (this.menuStars && oldWidth > 0 && oldHeight > 0) {
+                    this.menuStars.forEach(star => {
+                        star.x = (star.x / oldWidth) * canvas.width;
+                        star.y = (star.y / oldHeight) * canvas.height;
+                    });
+                }
+            };
+            resizeCanvas();
+
+            // Only add resize listener once
+            if (!this.menuResizeHandler) {
+                this.menuResizeHandler = resizeCanvas;
+                window.addEventListener('resize', this.menuResizeHandler);
+            }
+
+            // Create or reuse stars array
+            if (!this.menuStars) {
+                const starCount = 200;
+                this.menuStars = [];
+                for (let i = 0; i < starCount; i++) {
+                    this.menuStars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: Math.random() * 2 + 0.5,
+                        speed: Math.random() * 0.5 + 0.1,
+                        brightness: Math.random() * 0.5 + 0.5,
+                        twinkle: Math.random() * Math.PI * 2,
+                        // Pre-calculate color strings for performance
+                        colorCyan: 'rgba(0, 255, 255, ',
+                        colorMagenta: 'rgba(255, 0, 255, '
+                    });
+                }
+            }
+
+            // Animation loop
+            const animate = () => {
+                if (!this.state.visible) {
+                    return;
+                }
+
+                // Clear with cached gradient
+                ctx.fillStyle = this.menuGradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw grid (static, only once per frame)
+                ctx.strokeStyle = 'rgba(138, 0, 255, 0.1)';
+                ctx.lineWidth = 1;
+                const gridSize = 80;
+                ctx.beginPath();
+                for (let x = 0; x < canvas.width; x += gridSize) {
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                }
+                for (let y = 0; y < canvas.height; y += gridSize) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                }
+                ctx.stroke();
+
+                // Draw stars - batch rendering for performance
+                const time = Date.now() * 0.001;
+                const stars = this.menuStars;
+                const len = stars.length;
+
+                for (let i = 0; i < len; i++) {
+                    const star = stars[i];
+                    star.y += star.speed;
+                    if (star.y > canvas.height) {
+                        star.y = 0;
+                        star.x = Math.random() * canvas.width;
+                    }
+
+                    // Twinkle effect
+                    const twinkle = Math.sin(time * 2 + star.twinkle) * 0.3 + 0.7;
+                    const alpha = star.brightness * twinkle;
+
+                    // Use pre-calculated color strings
+                    const colorStr = star.size > 1.5 ? star.colorMagenta : star.colorCyan;
+                    ctx.fillStyle = colorStr + alpha + ')';
+
+                    // Only use shadow on larger stars for performance
+                    if (star.size > 1.5) {
+                        ctx.shadowBlur = star.size * 3;
+                        ctx.shadowColor = ctx.fillStyle;
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (star.size > 1.5) {
+                        ctx.shadowBlur = 0;
+                    }
+                }
+
+                this.menuAnimationFrame = requestAnimationFrame(animate);
+            };
+
+            // Start animation
+            animate();
+        }
+
         cleanup() {
             this.clearDynamicListeners();
             this.eventListeners.forEach(({ element, event, handler, options }) => {
@@ -535,6 +682,20 @@
                 }
             });
             this.eventListeners = [];
+
+            // Clean up menu background animation
+            if (this.menuAnimationFrame) {
+                cancelAnimationFrame(this.menuAnimationFrame);
+                this.menuAnimationFrame = null;
+            }
+            if (this.menuResizeHandler) {
+                window.removeEventListener('resize', this.menuResizeHandler);
+                this.menuResizeHandler = null;
+            }
+
+            // Clean up cached menu background resources
+            this.menuStars = null;
+            this.menuGradient = null;
         }
     }
 
