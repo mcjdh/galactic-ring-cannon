@@ -47,8 +47,9 @@ class CosmicBackground {
         this.grid = {
             enabled: true,
             spacing: 80,
-            horizonY: 0.6, // 60% down the screen
-            perspectiveDepth: 0.5
+            horizonY: 0.75, // 75% down the screen for more coverage
+            perspectiveDepth: 0.5,
+            showUpperGrid: true // Add subtle grid in upper area too
         };
 
         // Animation time
@@ -470,7 +471,7 @@ class CosmicBackground {
         const spacing = this.grid.spacing;
 
         // Low-quality mode: fewer lines for better performance
-        const maxHorizontalLines = this.lowQuality ? 12 : 20;
+        const maxHorizontalLines = this.lowQuality ? 15 : 25; // Increased for better coverage
         const numVerticalLines = this.lowQuality ? 15 : 25;
 
         ctx.save();
@@ -481,10 +482,49 @@ class CosmicBackground {
         const offsetX = player ? (-player.x * 0.3) % spacing : 0;
         const offsetY = player ? (-player.y * 0.3) % spacing : 0;
 
+        // === UPPER GRID (subtle, integrates with stars) ===
+        if (this.grid.showUpperGrid) {
+            const upperSpacing = spacing * 1.5;
+            const upperOffsetX = player ? (-player.x * 0.15) % upperSpacing : 0; // Slower parallax
+            const upperOffsetY = player ? (-player.y * 0.15) % upperSpacing : 0;
+
+            // Subtle horizontal lines in upper area
+            for (let i = 0; i < 8; i++) {
+                const y = (i * upperSpacing + upperOffsetY) % horizonY;
+                if (y < 0 || y > horizonY) continue;
+
+                const fadeFromTop = y / horizonY; // Fade out near top
+                ctx.globalAlpha = 0.03 + fadeFromTop * 0.05;
+
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Subtle vertical lines in upper area
+            const upperVerticalLines = this.lowQuality ? 8 : 12;
+            for (let i = -upperVerticalLines; i <= upperVerticalLines; i++) {
+                const x = w * 0.5 + (i * upperSpacing) + upperOffsetX;
+                if (x < 0 || x > w) continue;
+
+                const distFromCenter = Math.abs(i) / upperVerticalLines;
+                ctx.globalAlpha = 0.04 + (1 - distFromCenter) * 0.06;
+
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, horizonY);
+                ctx.stroke();
+            }
+        }
+
+        // === LOWER PERSPECTIVE GRID (main grid) ===
+        ctx.strokeStyle = this.hexToRgba(this.colors.gridColor, 0.2);
+
         // Horizontal lines with perspective (moving with player)
         const gridStartY = horizonY + offsetY;
         for (let i = 0; i < maxHorizontalLines; i++) {
-            const yOffset = i * spacing * 0.8; // Lines get closer for perspective
+            const yOffset = i * spacing * 0.7; // Slightly tighter spacing for more lines
             const y = gridStartY + yOffset;
 
             if (y < horizonY || y > h) continue; // Skip lines outside view
@@ -493,7 +533,7 @@ class CosmicBackground {
             const perspectiveScale = progress;
 
             // Fade lines near horizon and bottom
-            ctx.globalAlpha = 0.05 + perspectiveScale * 0.25;
+            ctx.globalAlpha = 0.08 + perspectiveScale * 0.3;
 
             ctx.beginPath();
             const leftX = w * 0.5 - (w * perspectiveScale);
@@ -512,7 +552,7 @@ class CosmicBackground {
 
             // Lines closer to center are more opaque
             const distanceFromCenter = Math.abs(i) / numVerticalLines;
-            ctx.globalAlpha = 0.1 + (1 - distanceFromCenter) * 0.15;
+            ctx.globalAlpha = 0.12 + (1 - distanceFromCenter) * 0.2;
 
             ctx.beginPath();
             ctx.moveTo(x, horizonY);
