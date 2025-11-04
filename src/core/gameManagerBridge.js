@@ -536,14 +536,7 @@ class GameManagerBridge {
         // Update DifficultyManager before other systems
         this.difficultyManager?.update?.(deltaTime);
 
-        // Push DifficultyManager multipliers to enemy spawner
-        if (this.difficultyManager && this.enemySpawner) {
-            this.enemySpawner.enemyHealthMultiplier = this.difficultyManager.enemyHealthMultiplier;
-            this.enemySpawner.enemyDamageMultiplier = this.difficultyManager.enemyDamageMultiplier;
-            this.enemySpawner.enemySpeedMultiplier = this.difficultyManager.enemySpeedMultiplier;
-            this.enemySpawner.enemySpawnRateMultiplier = this.difficultyManager.enemySpawnRateMultiplier;
-            this.enemySpawner.bossScalingFactor = this.difficultyManager.bossScalingFactor;
-        }
+        // (Removed redundant copying of DifficultyManager multipliers to enemy spawner)
 
         // Update StatsManager (it syncs with GameState)
         this.statsManager?.update?.(deltaTime);
