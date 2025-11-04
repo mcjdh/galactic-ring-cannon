@@ -71,7 +71,7 @@ class SummonerEnemy extends EnemyTypeBase {
         
         // Ensure glow color is set for visual effect
         if (!enemy.glowColor) {
-            enemy.glowColor = 'rgba(187, 107, 217, 0.5)';
+            enemy.glowColor = window.GAME_CONSTANTS?.COLORS?.SUMMONER_GLOW || 'rgba(187, 107, 217, 0.5)';
         }
     }
 }
