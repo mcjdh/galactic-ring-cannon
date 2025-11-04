@@ -120,7 +120,7 @@ class ArcBurstWeapon {
         this._ensureChainBaseline();
 
         this.combat.fireProjectile(game, angle, {
-            projectileCount: this.baseProjectileCount,
+            additionalProjectiles: this.baseProjectileCount - 1, // Add to player's count (base is 2, so add 1)
             spreadDegrees: this.baseSpread,
             damageMultiplier: this.baseDamageMultiplier,
             speedMultiplier: this.baseSpeedMultiplier,

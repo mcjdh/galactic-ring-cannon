@@ -35,6 +35,11 @@ class EnemyRenderer {
             this.renderShieldEffect(enemy, ctx);
         }
 
+        // Draw boss aura if boss (before body for layering)
+        if (enemy.isBoss) {
+            this.renderBossAura(enemy, ctx);
+        }
+
         // Draw elite glow if elite
         if (enemy.isElite && enemy.glowColor) {
             this.renderEliteGlow(enemy, ctx);
@@ -90,12 +95,14 @@ class EnemyRenderer {
         const bodyBatches = this._bodyBatches || (this._bodyBatches = new Map());
         const shieldBatch = this._shieldBatch || (this._shieldBatch = []);
         const eliteGlowBatches = this._eliteGlowBatches || (this._eliteGlowBatches = new Map());
+        const bossAuraBatch = this._bossAuraBatch || (this._bossAuraBatch = []);
         const bossCrownBatch = this._bossCrownBatch || (this._bossCrownBatch = []);
         const phaseIndicatorBatch = this._phaseIndicatorBatch || (this._phaseIndicatorBatch = []);
 
         bodyBatches.clear();
         shieldBatch.length = 0;
         eliteGlowBatches.clear();
+        bossAuraBatch.length = 0;
         bossCrownBatch.length = 0;
         phaseIndicatorBatch.length = 0;
 
@@ -142,12 +149,22 @@ class EnemyRenderer {
             }
 
             if (enemy.isBoss) {
+                bossAuraBatch.push(enemy);
                 bossCrownBatch.push(enemy);
             }
 
             if (enemy.hasPhases && enemy.currentPhase > 1) {
                 phaseIndicatorBatch.push(enemy);
             }
+        }
+
+        // Render boss auras first (underneath everything)
+        if (bossAuraBatch.length) {
+            ctx.globalAlpha = originalAlpha;
+            for (let i = 0; i < bossAuraBatch.length; i++) {
+                this.renderBossAura(bossAuraBatch[i], ctx);
+            }
+            bossAuraBatch.length = 0;
         }
 
         for (const [key, batch] of bodyBatches) {
@@ -219,16 +236,8 @@ class EnemyRenderer {
 
         if (bossCrownBatch.length) {
             ctx.globalAlpha = originalAlpha;
-            ctx.fillStyle = '#ffff00';
-            const crownSize = 6;
             for (let i = 0; i < bossCrownBatch.length; i++) {
-                const enemy = bossCrownBatch[i];
-                ctx.beginPath();
-                ctx.moveTo(enemy.x - crownSize, enemy.y - enemy.radius - 5);
-                ctx.lineTo(enemy.x, enemy.y - enemy.radius - 12);
-                ctx.lineTo(enemy.x + crownSize, enemy.y - enemy.radius - 5);
-                ctx.closePath();
-                ctx.fill();
+                this.renderBossCrown(bossCrownBatch[i], ctx);
             }
             bossCrownBatch.length = 0;
         }
@@ -293,17 +302,102 @@ class EnemyRenderer {
     }
 
     /**
-     * Render boss crown indicator - Synthwave themed
+     * Render boss aura - animated glowing ring effect
+     * Performance-optimized with simple canvas operations
+     */
+    static renderBossAura(enemy, ctx) {
+        const now = Date.now();
+        const pulseSpeed = 2.0; // Seconds per pulse cycle
+        const pulsePhase = (now % (pulseSpeed * 1000)) / (pulseSpeed * 1000);
+        const pulseIntensity = Math.sin(pulsePhase * Math.PI * 2) * 0.3 + 0.7; // 0.4 to 1.0
+
+        // Determine aura color based on boss type
+        const isMega = enemy.isMegaBoss;
+        const auraColor = isMega ? '#8e44ad' : '#f39c12'; // Purple for mega, golden for regular
+        const ringColor = isMega ? '#9b59b6' : '#f1c40f';
+
+        // Outer glow (faint aura)
+        const outerGlowRadius = enemy.radius + 12;
+        const outerAlpha = pulseIntensity * 0.25;
+        ctx.fillStyle = EnemyRenderer._colorWithAlpha(auraColor, outerAlpha);
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, outerGlowRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Middle ring (pulsing)
+        const middleRingRadius = enemy.radius + 8;
+        const middleAlpha = pulseIntensity * 0.4;
+        ctx.strokeStyle = EnemyRenderer._colorWithAlpha(ringColor, middleAlpha);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, middleRingRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner ring (constant, more visible)
+        const innerRingRadius = enemy.radius + 4;
+        ctx.strokeStyle = EnemyRenderer._colorWithAlpha(ringColor, 0.6);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, innerRingRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Mega boss only: Rotating arc segments (looks like energy arcs)
+        if (isMega) {
+            const rotationSpeed = 3.0; // Seconds per rotation
+            const rotationPhase = (now % (rotationSpeed * 1000)) / (rotationSpeed * 1000);
+            const rotationAngle = rotationPhase * Math.PI * 2;
+            const arcRadius = enemy.radius + 10;
+            const arcLength = Math.PI / 3; // 60 degrees
+            const numArcs = 3;
+
+            ctx.strokeStyle = EnemyRenderer._colorWithAlpha('#e74c3c', 0.7); // Red energy
+            ctx.lineWidth = 2;
+
+            for (let i = 0; i < numArcs; i++) {
+                const startAngle = rotationAngle + (i * Math.PI * 2 / numArcs);
+                const endAngle = startAngle + arcLength;
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, arcRadius, startAngle, endAngle);
+                ctx.stroke();
+            }
+        }
+    }
+
+    /**
+     * Render boss crown indicator - Enhanced with glow
      */
     static renderBossCrown(enemy, ctx) {
-        ctx.fillStyle = '#ffff00';
-        const crownSize = 6;
+        const isMega = enemy.isMegaBoss;
+        const crownSize = isMega ? 10 : 8;
+        const crownY = enemy.y - enemy.radius - (isMega ? 8 : 6);
 
-        // Simple crown shape
+        // Crown glow (shadow effect)
+        const glowColor = isMega ? '#9b59b6' : '#f1c40f';
+        ctx.fillStyle = EnemyRenderer._colorWithAlpha(glowColor, 0.4);
+        const glowSize = crownSize + 2;
         ctx.beginPath();
-        ctx.moveTo(enemy.x - crownSize, enemy.y - enemy.radius - 5);
-        ctx.lineTo(enemy.x, enemy.y - enemy.radius - 12);
-        ctx.lineTo(enemy.x + crownSize, enemy.y - enemy.radius - 5);
+        ctx.moveTo(enemy.x - glowSize, crownY - 2);
+        ctx.lineTo(enemy.x, crownY - (isMega ? 16 : 14));
+        ctx.lineTo(enemy.x + glowSize, crownY - 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Main crown
+        ctx.fillStyle = isMega ? '#e74c3c' : '#ffff00'; // Red for mega, yellow for regular
+        ctx.beginPath();
+        ctx.moveTo(enemy.x - crownSize, crownY);
+        ctx.lineTo(enemy.x, crownY - (isMega ? 14 : 12));
+        ctx.lineTo(enemy.x + crownSize, crownY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Crown highlight (makes it pop)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        const highlightSize = crownSize * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(enemy.x - highlightSize, crownY - 3);
+        ctx.lineTo(enemy.x, crownY - (isMega ? 10 : 8));
+        ctx.lineTo(enemy.x + highlightSize, crownY - 3);
         ctx.closePath();
         ctx.fill();
     }

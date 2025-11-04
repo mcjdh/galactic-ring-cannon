@@ -399,21 +399,14 @@ class Player {
 
     // Unified upgrade system
     applyUpgrade(upgrade) {
-        // Track if this is a stacked upgrade
-        const isUpgradeStacked = this.upgrades.some(existing =>
-            existing.id === upgrade.id && existing.stackCount);
+        const existingStacks = this.upgrades.filter(existing => existing.id === upgrade.id).length;
+        const newStackCount = existingStacks + 1;
+        const tiers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
-        // Initialize stack count
-        if (!upgrade.stackCount) {
-            upgrade.stackCount = 1;
-            upgrade.tier = 'I';
-        } else {
-            upgrade.stackCount++;
+        upgrade.stackCount = newStackCount;
+        upgrade.tier = tiers[Math.min(newStackCount - 1, tiers.length - 1)];
 
-            // Set tier indicator based on stack count
-            const tiers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-            upgrade.tier = tiers[Math.min(upgrade.stackCount - 1, tiers.length - 1)];
-        }
+        const isUpgradeStacked = newStackCount > 1;
 
         this.upgrades.push(upgrade);
 

@@ -130,30 +130,48 @@ class UpgradeSystem {
 
     _applyUpgradeCore(upgrade) {
         // Core upgrade application logic shared by both manual and auto-level
+        const upgradeInstance = this._cloneUpgrade(upgrade);
+
         // Add to selected upgrades
-        this.selectedUpgrades.push(upgrade);
+        this.selectedUpgrades.push(upgradeInstance);
 
         // Apply upgrade to player using clean delegation
         const playerUpgrades = window.Game?.PlayerUpgrades;
         if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
-            playerUpgrades.apply(window.gameManager.game.player, upgrade);
+            playerUpgrades.apply(window.gameManager.game.player, upgradeInstance);
         } else {
             // Fallback to player method if PlayerUpgrades not available
-            window.gameManager.game.player.applyUpgrade(upgrade);
+            window.gameManager.game.player.applyUpgrade(upgradeInstance);
         }
 
         // Handle special effects
-        if (upgrade.specialEffect) {
-            this.applySpecialEffect(upgrade);
+        if (upgradeInstance.specialEffect) {
+            this.applySpecialEffect(upgradeInstance);
         }
 
         // Handle combo effects
-        if (upgrade.comboEffects) {
-            this.updateComboEffects(upgrade);
+        if (upgradeInstance.comboEffects) {
+            this.updateComboEffects(upgradeInstance);
         }
 
         // Track stats
         window.gameManager?.statsManager?.trackSpecialEvent?.('upgrade_chosen');
+    }
+
+    _cloneUpgrade(upgrade) {
+        if (!upgrade || typeof upgrade !== 'object') {
+            return upgrade;
+        }
+
+        if (typeof structuredClone === 'function') {
+            try {
+                return structuredClone(upgrade);
+            } catch (error) {
+                // Fallback to JSON clone below
+            }
+        }
+
+        return JSON.parse(JSON.stringify(upgrade));
     }
 
     addKeyboardShortcuts(upgrades) {

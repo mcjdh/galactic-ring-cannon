@@ -65,17 +65,69 @@
 
         // Enemy Configuration
         ENEMIES: {
-            SPAWN_DISTANCE_MIN: 400,
-            SPAWN_DISTANCE_MAX: 800,
-            BASE_SPAWN_RATE: 2.2,
-            BASE_MAX_ENEMIES: 90,
+            SPAWN_DISTANCE_MIN: 320,
+            SPAWN_DISTANCE_MAX: 640,
+            BASE_SPAWN_RATE: 2.1,
+            BASE_MAX_ENEMIES: 86,
+            EARLY_GAME_SPAWN_MULTIPLIER: 1.22,
+            EARLY_GAME_DURATION: 48,
+            EARLY_GAME_MAX_ENEMY_BONUS: 10,
+            SPAWN_RAMP_DAMPENER: 0.58,
+            MID_GAME_SOFTENER_START: 45,
+            MID_GAME_SOFTENER_END: 110,
+            MID_GAME_SOFTENER_STRENGTH: 0.35,
+            BOSS_BASE_INTERVAL: 90,
+            BOSS_INTERVAL_INCREMENT: 70,
+            BOSS_MIN_INTERVAL: 8,           // Fast-paced speedruns for overpowered players
+            BOSS_KILL_REDUCTION: 0.85,
+            BOSS_PROGRESSIVE_REDUCTION: 6,
             ELITE_CHANCE_BASE: 0.06,
             ELITE_HEALTH_MULTIPLIER: 2.5,
-            ELITE_DAMAGE_MULTIPLIER: 1.5,
+            ELITE_DAMAGE_MULTIPLIER: 1.5
+        },
 
-            // Boss System
-            BOSS_HEAL_BONUS: 0.15,
-            BOSS_INVULNERABILITY_REWARD: 2.0
+        // Boss System (Enhanced)
+        BOSSES: {
+            // Fight duration targets
+            MIN_FIGHT_DURATION: 7,          // Regular boss target fight time (seconds)
+            MEGA_FIGHT_DURATION: 10,        // Mega boss target fight time (seconds)
+
+            // DPS calculation adjustments
+            DPS_SAFETY_MULTIPLIER: 1.3,     // Safety buffer for health calculation
+            DPS_EFFICIENCY: 0.70,           // Realistic hit rate (accounts for dodging/missing)
+            ABILITY_MULTIPLIERS: {
+                CHAIN_LIGHTNING: 0.30,      // +30% effective DPS from chains
+                PIERCING: 0.20,             // +20% effective DPS from piercing
+                AOE: 0.15                   // +15% effective DPS from AOE
+            },
+
+            // Resistance scaling (diminishing returns)
+            BASE_RESISTANCE: 0.20,          // Starting resistance (20%)
+            RESISTANCE_GROWTH_RATE: 0.30,   // Growth rate for exponential curve
+            MAX_RESISTANCE: 0.60,           // Asymptotic maximum (60%)
+
+            // Mega boss system
+            MEGA_BOSS_INTERVAL: 4,          // Every Nth boss is mega (4th, 8th, 12th...)
+            MEGA_HEALTH_MULTIPLIER: 1.5,    // Health multiplier for mega bosses
+            MEGA_RADIUS_MULTIPLIER: 1.2,    // Size increase for visibility
+            MEGA_MINION_RATE_MULTIPLIER: 1.5,  // Spawn minions faster
+            MEGA_MINION_COUNT_BONUS: 2,     // +2 max minions
+
+            // Phase system
+            PHASE_VARIANCE: 0.05,           // ±5% random variance on phase thresholds
+            BASE_PHASE_THRESHOLDS: [0.70, 0.40, 0.15],  // Base thresholds for phases
+
+            // Perfect kill rewards
+            PERFECT_KILL_HEAL_BONUS: 0.15,  // 15% max health heal on perfect kill
+            PERFECT_KILL_INVULN_DURATION: 2.0,  // 2s invulnerability
+            PERFECT_KILL_THRESHOLD: 0.90,   // 90%+ health = perfect kill
+
+            // Spawn interval safety
+            MIN_REST_PERIOD: 8,             // Minimum seconds between boss spawns (fast-paced speedruns)
+            SPAWN_DELAY_IF_LAGGING: 15,     // Extra delay if performance is poor
+
+            // XP rewards
+            PERFECT_KILL_XP_BONUS: 1.5      // 50% bonus XP for perfect kills
         },
 
         // Difficulty Scaling

@@ -211,9 +211,18 @@ class PlayerCombat {
 
     fireProjectile(game, angle, overrides = {}) {
         // Clean split shot implementation - consistent math for any projectile count
-        const projectileCount = overrides.projectileCount !== undefined
-            ? Math.max(1, Math.floor(overrides.projectileCount))
-            : Math.max(1, Math.floor(this.projectileCount || 1));
+        let projectileCount;
+        if (overrides.projectileCount !== undefined) {
+            // Legacy: Direct override (replaces player's count)
+            projectileCount = Math.max(1, Math.floor(overrides.projectileCount));
+        } else if (overrides.additionalProjectiles !== undefined) {
+            // New: Add to player's count (weapons should use this)
+            const baseCount = Math.max(1, Math.floor(this.projectileCount || 1));
+            projectileCount = baseCount + Math.max(0, Math.floor(overrides.additionalProjectiles));
+        } else {
+            // Default: Use player's projectile count
+            projectileCount = Math.max(1, Math.floor(this.projectileCount || 1));
+        }
 
         const speedMultiplier = overrides.speedMultiplier !== undefined ? overrides.speedMultiplier : 1;
         const baseSpeedStat = this.projectileSpeed || 450;
@@ -224,16 +233,15 @@ class PlayerCombat {
         let spreadDegrees = overrides.spreadDegrees;
         if (spreadDegrees === undefined) {
             if (projectileCount > 1) {
-                if (this.projectileSpread > 0) {
-                    // Use the explicitly set spread (from upgrades like "Wide Spread")
-                    spreadDegrees = this.projectileSpread;
-                } else {
-                    // Calculate smart default: more projectiles = wider spread
-                    spreadDegrees = Math.min(60, 20 + (projectileCount * 8));
-                }
+                // Calculate smart default: more projectiles = wider spread
+                spreadDegrees = Math.min(60, 20 + (projectileCount * 8));
             } else {
                 spreadDegrees = 0;
             }
+        }
+        // Add player's spread upgrades to the base spread (always additive, never replaces)
+        if (this.projectileSpread > 0) {
+            spreadDegrees += this.projectileSpread;
         }
         if (projectileCount > 1 && spreadDegrees > 0) {
             totalSpreadRadians = (spreadDegrees * Math.PI) / 180;
@@ -244,16 +252,9 @@ class PlayerCombat {
             ? overrides.piercingOverride
             : this.piercing || 0;
 
-        // Determine special effects ONCE per volley for consistency
+        // Setup special effects configuration (each projectile rolls independently)
         const allowBehaviors = overrides.applyBehaviors !== undefined ? overrides.applyBehaviors : true;
         const forcedSpecialTypes = Array.isArray(overrides.forcedSpecialTypes) ? overrides.forcedSpecialTypes : [];
-        let volleySpecialTypes = allowBehaviors ? this._determineSpecialTypesForShot() : [];
-        if (forcedSpecialTypes.length > 0) {
-            const merged = new Set(volleySpecialTypes);
-            forcedSpecialTypes.forEach(type => merged.add(type));
-            volleySpecialTypes = Array.from(merged);
-        }
-        const primaryType = volleySpecialTypes[0] || null;
 
         // Fire projectiles using clean, consistent distribution
         for (let i = 0; i < projectileCount; i++) {
@@ -265,6 +266,15 @@ class PlayerCombat {
             const isCrit = Math.random() < (this.critChance || 0);
             const baseDamage = this.attackDamage * damageMultiplier;
             const damage = isCrit ? baseDamage * (this.critMultiplier || 2) : baseDamage;
+
+            // Determine special effects for THIS projectile (independent roll per projectile)
+            let projectileSpecialTypes = allowBehaviors ? this._determineSpecialTypesForShot() : [];
+            if (forcedSpecialTypes.length > 0) {
+                const merged = new Set(projectileSpecialTypes);
+                forcedSpecialTypes.forEach(type => merged.add(type));
+                projectileSpecialTypes = Array.from(merged);
+            }
+            const primaryType = projectileSpecialTypes[0] || null;
 
             // Debug logging for piercing value tracing
             if (window.debugProjectiles && piercingBase > 0) {
@@ -291,7 +301,7 @@ class PlayerCombat {
                     console.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
                 }
                 if (allowBehaviors || forcedSpecialTypes.length > 0) {
-                    this._configureProjectileFromUpgrades(projectile, volleySpecialTypes, damage, isCrit);
+                    this._configureProjectileFromUpgrades(projectile, projectileSpecialTypes, damage, isCrit);
                 }
 
                 // NOTE: Piercing handled by new BehaviorManager system via setters
@@ -310,17 +320,17 @@ class PlayerCombat {
                     projectile.originalPiercing = 0;
                 }
 
-                // Apply ALL special types as properties (not just primary)
-                if (volleySpecialTypes.includes('chain')) {
+                // Apply ALL special types as properties (not just primary - EACH PROJECTILE ROLLS INDEPENDENTLY)
+                if (projectileSpecialTypes.includes('chain')) {
                     projectile.hasChainLightning = true;
                 }
-                if (volleySpecialTypes.includes('explosive')) {
+                if (projectileSpecialTypes.includes('explosive')) {
                     projectile.hasExplosive = true;
                 }
-                if (volleySpecialTypes.includes('ricochet')) {
+                if (projectileSpecialTypes.includes('ricochet')) {
                     projectile.hasRicochet = true;
                 }
-                if (volleySpecialTypes.includes('homing')) {
+                if (projectileSpecialTypes.includes('homing')) {
                     projectile.hasHoming = true;
                 }
             }

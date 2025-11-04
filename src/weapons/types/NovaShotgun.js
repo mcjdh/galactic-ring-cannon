@@ -131,7 +131,8 @@ class NovaShotgunWeapon {
     }
 
     _emitShot(game, baseAngle) {
-        const projectileCount = Math.max(1, this.baseProjectileCount + this.additionalProjectiles);
+        // Calculate weapon's additional projectiles (base is usually 5-7 for shotgun)
+        const weaponAdditional = Math.max(0, this.baseProjectileCount - 1 + this.additionalProjectiles);
         const spread = Math.max(10, this.baseSpread + this.spreadAdjustment);
         const damageMultiplier = this.baseDamageMultiplier * this.damageModifier;
         const speedMultiplier = this.baseSpeedMultiplier;
@@ -142,7 +143,7 @@ class NovaShotgunWeapon {
         }
 
         this.combat.fireProjectile(game, baseAngle, {
-            projectileCount,
+            additionalProjectiles: weaponAdditional, // Add to player's count instead of replacing
             spreadDegrees: spread,
             damageMultiplier,
             speedMultiplier,

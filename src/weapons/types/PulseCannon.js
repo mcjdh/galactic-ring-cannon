@@ -97,13 +97,21 @@ class PulseCannonWeapon {
             window.audioSystem.playBossBeat();
         }
 
-        this.combat.fireProjectile(game, baseAngle, {
-            projectileCount: this.definition?.projectileTemplate?.count,
+        // Build overrides - use additionalProjectiles if template specifies count
+        const overrides = {
             spreadDegrees: this.definition?.projectileTemplate?.spreadDegrees,
             damageMultiplier: this.definition?.projectileTemplate?.damageMultiplier,
             speedMultiplier: this.definition?.projectileTemplate?.speedMultiplier,
             applyBehaviors: this.definition?.projectileTemplate?.appliesBehaviors !== false
-        });
+        };
+
+        // If template defines projectile count, add it to player's count instead of replacing
+        const templateCount = this.definition?.projectileTemplate?.count;
+        if (templateCount !== undefined && templateCount > 1) {
+            overrides.additionalProjectiles = templateCount - 1;
+        }
+
+        this.combat.fireProjectile(game, baseAngle, overrides);
 
         return true;
     }

@@ -547,10 +547,16 @@ class PlayerAbilities {
 
             case 'explosionSize':
                 this.explosionRadius *= upgrade.multiplier || 1;
+                if (upgrade.chanceBonus) {
+                    this.explosiveChance = Math.min(0.95, (this.explosiveChance || 0.3) + upgrade.chanceBonus);
+                }
                 break;
 
             case 'explosionDamage':
                 this.explosionDamage = upgrade.value || this.explosionDamage;
+                if (upgrade.chanceBonus) {
+                    this.explosiveChance = Math.min(0.95, (this.explosiveChance || 0.3) + upgrade.chanceBonus);
+                }
                 break;
 
             case 'explosionChain':
@@ -570,6 +576,9 @@ class PlayerAbilities {
             case 'ricochetDamage':
                 if (upgrade.value) {
                     this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.value);
+                }
+                if (upgrade.chanceBonus) {
+                    this.ricochetChance = Math.min(0.95, (this.ricochetChance || 0.45) + upgrade.chanceBonus);
                 }
                 break;
         }

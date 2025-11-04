@@ -198,10 +198,10 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'ricochet_1',
         name: 'Ricochet Shot',
-        description: '45% chance for projectiles to bounce to a new target twice',
+        description: '60% chance for projectiles to bounce to a new target twice',
         type: 'special',
         specialType: 'ricochet',
-        ricochetChance: 0.45,
+        ricochetChance: 0.60,
         bounces: 2,
         bounceRange: 260,
         bounceDamage: 0.9,
@@ -214,7 +214,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'ricochet_2',
         name: 'Multi-Bounce',
-        description: 'Projectiles can bounce one additional time with extended range',
+        description: 'Bounce one additional time with extended range and +15% trigger chance',
         type: 'ricochetBounces',
         value: 1,
         rangeBonus: 60,
@@ -228,9 +228,10 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'ricochet_damage',
         name: 'Momentum Transfer',
-        description: 'Ricochets retain 95% of their damage',
+        description: 'Ricochets retain 95% of their damage and +10% trigger chance',
         type: 'ricochetDamage',
         value: 0.95,
+        chanceBonus: 0.10,
         icon: '↩️💥',
         rarity: 'uncommon',
         requires: ['ricochet_1'],
@@ -244,9 +245,10 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_1',
         name: 'Explosive Rounds',
-        description: '30% chance for projectiles to explode on impact, dealing area damage',
+        description: '50% chance for projectiles to explode on impact, dealing area damage',
         type: 'special',
         specialType: 'explosion',
+        explosiveChance: 0.50,  // Added: was missing, defaulted to 0.3
         explosionRadius: 60,
         explosionDamage: 0.5,
         icon: '💥',
@@ -258,9 +260,10 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_2',
         name: 'Bigger Explosions',
-        description: 'Explosion radius increased by 40%',
+        description: 'Explosion radius increased by 40% and +15% trigger chance',
         type: 'explosionSize',
         multiplier: 1.4,
+        chanceBonus: 0.15,  // Added: 50% → 65%
         icon: '💥↔️',
         rarity: 'uncommon',
         requires: ['explosive_shots_1'],
@@ -270,9 +273,10 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_3',
         name: 'Devastating Blasts',
-        description: 'Explosions deal 75% of hit damage (up from 50%)',
+        description: 'Explosions deal 75% of hit damage and +15% trigger chance',
         type: 'explosionDamage',
         value: 0.75,
+        chanceBonus: 0.15,  // Added: 65% → 80%
         icon: '💥💥',
         rarity: 'rare',
         requires: ['explosive_shots_1'],

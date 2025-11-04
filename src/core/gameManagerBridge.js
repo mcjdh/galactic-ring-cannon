@@ -395,6 +395,11 @@ class GameManagerBridge {
             this.enemySpawner.reset();
         }
 
+        // Reset game over flags
+        this.gameOver = false;
+        this.gameWon = false;
+        this.endScreenShown = false;
+
         (window.logger?.log || console.log)('🔄 Game state reset');
     }
 
@@ -506,10 +511,10 @@ class GameManagerBridge {
 
         // Show boss kill text
         if (this.game && this.game.player) {
-            this.showCombatText('BOSS DEFEATED!', 
+            this.showCombatText('BOSS DEFEATED!',
                 this.game.canvas.width / 2, this.game.canvas.height / 2, 'critical', 32);
         }
-        
+
         // Play victory sound if available
         if (window.audioSystem && window.audioSystem.play) {
             window.audioSystem.play('bossKilled', 0.6);
@@ -519,16 +524,36 @@ class GameManagerBridge {
         if (this.uiManager && typeof this.uiManager.removeBoss === 'function') {
             try { this.uiManager.removeBoss(this._lastBossId || null); } catch (_) {}
         }
+    }
 
-        if (!this.gameWon) {
-            this.onGameWon();
+    /**
+     * Handle boss defeat (called with enemy parameter)
+     */
+    onBossDefeated(enemy) {
+        if (!enemy) return;
+
+        (window.logger?.log || console.log)('👑 Boss defeated:', { isMegaBoss: enemy.isMegaBoss });
+
+        // Check if this was a mega boss - show victory screen
+        if (enemy.isMegaBoss) {
+            (window.logger?.log || console.log)('🏆 Mega Boss defeated! Showing victory screen...');
+
+            // Wait a moment for effects to play
+            setTimeout(() => {
+                this.onGameWon();
+            }, 1500);
         }
+        // Regular bosses: game continues (no victory screen)
     }
     
     /**
      * Main update loop - called by GameEngine
      */
     update(deltaTime) {
+        // Always check game conditions first, even if not running
+        // This ensures death is detected immediately
+        this.checkGameConditions();
+
         if (!this.running || this.gameOver || this.isPaused) {
             return;
         }
@@ -595,22 +620,24 @@ class GameManagerBridge {
             comboContainer.style.opacity = comboCount > 0 ? '1' : '0.3';
             comboContainer.style.visibility = 'visible';
         }
-
-        // Check win/lose conditions
-        this.checkGameConditions();
     }
     
     /**
      * Check game win/lose conditions
      */
     checkGameConditions() {
+        // Don't check if already game over
+        if (this.gameOver) return;
+
         const playerEntity = this.game?.player || null;
         const playerState = this.state?.player || null;
 
         const entityDead = !!(playerEntity && playerEntity.isDead);
         const stateDead = !!(playerState && playerState.isAlive === false);
 
-        if ((entityDead || (!playerEntity && stateDead)) && !this.gameOver) {
+        // Check for player death
+        if (entityDead || (!playerEntity && stateDead)) {
+            (window.logger?.log || console.log)('🔍 Player death detected, calling onGameOver()');
             this.onGameOver();
             return;
         }
@@ -620,47 +647,74 @@ class GameManagerBridge {
      * Handle game over
      */
     onGameOver() {
-        (window.logger?.log || console.log)('💀 Game Over');
+        (window.logger?.log || console.log)('💀 Game Over', {
+            gameOver: this.gameOver,
+            running: this.running,
+            endScreenShown: this.endScreenShown
+        });
+
+        // Prevent multiple calls
+        if (this.gameOver) {
+            (window.logger?.warn || console.warn)('⚠️ onGameOver already called, skipping');
+            return;
+        }
+
         this.gameOver = true;
         this.running = false;
-        
+
         // Create death effect
-        if (this.game.player) {
+        if (this.game?.player) {
             this.createExplosion(this.game.player.x, this.game.player.y, 100, '#e74c3c');
             this.addScreenShake(15, 1.5);
         }
 
-        this.showRunSummary({
-            title: 'Defeat',
-            subtitle: `You survived ${this.formatTime(this.gameTime)}.`,
-            outcome: 'defeat',
-            buttons: [
-                { label: 'Retry Run', action: () => this.startGame() },
-                { label: 'Main Menu', action: () => this.returnToMenu() }
-            ]
-        });
+        // Small delay to let death animation play
+        setTimeout(() => {
+            this.showRunSummary({
+                title: 'Defeat',
+                subtitle: `You survived ${this.formatTime(this.gameTime)}.`,
+                outcome: 'defeat',
+                buttons: [
+                    { label: 'Retry Run', action: () => this.startGame() },
+                    { label: 'Main Menu', action: () => this.returnToMenu() }
+                ]
+            });
+        }, 500);
     }
     
     /**
      * Handle game won
      */
     onGameWon() {
-        (window.logger?.log || console.log)('🏆 Victory!');
+        (window.logger?.log || console.log)('🏆 Victory!', {
+            gameWon: this.gameWon,
+            gameOver: this.gameOver,
+            running: this.running,
+            endScreenShown: this.endScreenShown
+        });
+
+        // Prevent multiple calls
+        if (this.gameWon || this.gameOver) {
+            (window.logger?.warn || console.warn)('⚠️ onGameWon already called or game is over, skipping');
+            return;
+        }
+
         this.gameWon = true;
+        this.gameOver = true; // Also set gameOver to stop the game loop
         this.running = false;
 
-        // Award bonus stars
-        this.earnStarTokens(10);
+        // Award bonus stars for mega boss
+        this.earnStarTokens(20); // 20 stars for mega boss (was 10)
 
         // Create victory effect
-        if (this.game.player) {
+        if (this.game?.player) {
             this.createLevelUpEffect(this.game.player.x, this.game.player.y);
-            this.showFloatingText('VICTORY!', this.game.player.x, this.game.player.y - 50, '#f1c40f', 36);
+            this.showFloatingText('MEGA BOSS DEFEATED!', this.game.player.x, this.game.player.y - 50, '#f1c40f', 36);
         }
 
         this.showRunSummary({
             title: 'Victory!',
-            subtitle: `Boss defeated in ${this.formatTime(this.gameTime)}.`,
+            subtitle: `Mega Boss defeated! Total time: ${this.formatTime(this.gameTime)}.`,
             outcome: 'victory',
             buttons: [
                 { label: 'Continue Run', action: () => this.resumeRun() },
@@ -690,12 +744,18 @@ class GameManagerBridge {
     }
 
     showRunSummary({ title, subtitle = '', outcome = 'summary', buttons = [] }) {
-        if (this.endScreenShown) return;
+        (window.logger?.log || console.log)('📊 showRunSummary called:', { title, outcome, endScreenShown: this.endScreenShown });
+
+        if (this.endScreenShown) {
+            (window.logger?.warn || console.warn)('⚠️ endScreenShown is true, returning early');
+            return;
+        }
         this.endScreenShown = true;
 
         const stats = this.getRunSummaryStats();
 
         if (window.resultScreen && typeof window.resultScreen.show === 'function') {
+            (window.logger?.log || console.log)('✅ Showing result screen via window.resultScreen.show()');
             window.resultScreen.show({
                 title,
                 subtitle,
@@ -704,6 +764,7 @@ class GameManagerBridge {
                 buttons
             });
         } else {
+            (window.logger?.warn || console.warn)('⚠️ window.resultScreen not available, using alert()');
             let message = `${title}\n${subtitle}`.trim();
             stats.forEach(stat => {
                 message += `\n${stat.label}: ${stat.value}`;
