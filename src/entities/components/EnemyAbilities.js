@@ -423,7 +423,9 @@ class EnemyAbilities {
         // Show floating text with different styling for summoners
         if (window.gameManager) {
             const isSummoner = this.enemy.enemyType === 'summoner';
-            const textColor = isSummoner ? 'rgba(187, 107, 217, 0.9)' : '#e74c3c';
+            const textColor = isSummoner ? 
+                (window.GAME_CONSTANTS?.COLORS?.SUMMONER_TEXT || 'rgba(187, 107, 217, 0.9)') : 
+                '#e74c3c';
             const message = isSummoner ? 'SUMMONING!' : 'MINIONS SUMMONED!';
             
             window.gameManager.showFloatingText(

@@ -14,6 +14,9 @@ class CosmicBackground {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
 
+        // Configuration constants
+        this.RESIZE_THRESHOLD = 10; // Minimum pixel difference to trigger resize (prevents spurious reinitialization)
+
         // Color palette - Synthwave cosmic theme
         this.colors = {
             deepSpace: '#0a0a1f',      // Deep purple-black
@@ -151,9 +154,9 @@ class CosmicBackground {
         if (!this._lastCanvasWidth) this._lastCanvasWidth = currentWidth;
         if (!this._lastCanvasHeight) this._lastCanvasHeight = currentHeight;
         
-        // Only reinitialize if dimensions actually changed significantly (>10px difference)
-        const widthChanged = Math.abs(currentWidth - this._lastCanvasWidth) > 10;
-        const heightChanged = Math.abs(currentHeight - this._lastCanvasHeight) > 10;
+        // Only reinitialize if dimensions actually changed significantly (>RESIZE_THRESHOLD px difference)
+        const widthChanged = Math.abs(currentWidth - this._lastCanvasWidth) > this.RESIZE_THRESHOLD;
+        const heightChanged = Math.abs(currentHeight - this._lastCanvasHeight) > this.RESIZE_THRESHOLD;
         
         if (widthChanged || heightChanged) {
             this._lastCanvasWidth = currentWidth;
@@ -516,9 +519,6 @@ class CosmicBackground {
                             // Use simple phase value instead of sqrt (faster on ARM)
                             star.cachedTwinkle = phase;
                         }
-
-                        // Use cached twinkle value for alpha
-                        const alpha = brightness * (skipTwinkle ? 0.7 : (0.5 + star.cachedTwinkle * 0.5));
                         
                         // All stars in layer share same alpha - average it
                         // (Trade-off: slightly less variation for much better performance)

@@ -333,7 +333,6 @@
                 // Increase cache lifetime for Pi5
                 const originalConstructor = window.Game.EnemyAI;
                 if (originalConstructor.prototype) {
-                    const originalInit = originalConstructor.prototype.constructor;
                     originalConstructor.prototype._pi5OptimizationApplied = true;
                 }
                 this.log('✅ Enemy AI cache optimizations ready for Pi5');

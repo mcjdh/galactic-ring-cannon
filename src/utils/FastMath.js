@@ -67,6 +67,7 @@ const FastMath = {
      * Fast approximate square root using Newton-Raphson for Pi mode.
      */
     fastSqrt(x) {
+        if (x < 0) return NaN;
         if (!window.isRaspberryPi || x === 0) {
             return Math.sqrt(x);
         }
