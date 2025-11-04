@@ -8,8 +8,8 @@ class SummonerEnemy extends EnemyTypeBase {
         return {
             // Visual - mystical purple/magenta theme
             radius: 18,
-            color: 'rgba(187, 107, 217, 0.85)', // Purple glow
-            glowColor: 'rgba(187, 107, 217, 0.5)', // Mystic purple glow
+            color: window.GAME_CONSTANTS?.COLORS?.SUMMONER || 'rgba(187, 107, 217, 0.85)', // Purple glow
+            glowColor: window.GAME_CONSTANTS?.COLORS?.SUMMONER_GLOW || 'rgba(187, 107, 217, 0.5)', // Mystic purple glow
             
             // Stats - tanky but slow
             health: 45,
@@ -38,7 +38,8 @@ class SummonerEnemy extends EnemyTypeBase {
             // Enable minion spawning
             enemy.abilities.canSpawnMinions = true;
             enemy.abilities.spawnMinionCooldown = 6.0; // Spawn every 6 seconds
-            enemy.abilities.spawnMinionTimer = 2.0; // First spawn after 2 seconds
+            // Countdown timer (in seconds) until next minion spawn. Initialized to 2.0 for an initial 2-second delay before the first spawn. Timer counts down to zero; after each spawn, it resets to the cooldown value.
+            enemy.abilities.spawnMinionTimer = 2.0;
             enemy.abilities.minionCount = 2; // Spawn 2 minions at a time
             enemy.abilities.minionTypes = ['minion']; // Only spawn minion type
             enemy.abilities.maxMinionsAlive = 4; // Don't spam too many

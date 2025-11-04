@@ -118,7 +118,10 @@
             HEAL: '#2ecc71',
             DAMAGE: '#e74c3c',
             LEVEL_UP: '#f39c12',
-            XP_ORB: '#f39c12'
+            XP_ORB: '#f39c12',
+            SUMMONER: 'rgba(187, 107, 217, 0.85)',
+            SUMMONER_GLOW: 'rgba(187, 107, 217, 0.5)',
+            SUMMONER_TEXT: 'rgba(187, 107, 217, 0.9)'
         }
     };
 

@@ -11,10 +11,11 @@
  * @author GitHub Copilot
  */
 class TrigCache {
-    constructor() {
+    constructor(options = {}) {
         // Angle resolution: 1 degree precision (360 entries)
         // Higher resolution = more accuracy but larger memory footprint
-        this.resolution = window.isRaspberryPi ? 360 : 720; // Pi5: 1°, Desktop: 0.5°
+        const isRaspberryPi = options.isRaspberryPi !== undefined ? options.isRaspberryPi : window.isRaspberryPi;
+        this.resolution = options.resolution || (isRaspberryPi ? 360 : 720); // Pi5: 1°, Desktop: 0.5°
         this.angleStep = (Math.PI * 2) / this.resolution;
         
         // Pre-compute sin/cos tables
