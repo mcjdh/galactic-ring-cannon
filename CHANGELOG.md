@@ -6,6 +6,45 @@ All notable changes to Galactic Ring Cannon are documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-11-03 (New Enemy Types: Summoners & Minions!)
+
+#### Gameplay Enhancements 🎮
+- **New Enemy Type: Summoner**
+  - Tanky, slow-moving enemy that periodically spawns minions
+  - Distinct purple/magenta visual theme with mystic glow effect
+  - Spawns 2 minions every 6 seconds (max 4 alive at once)
+  - Higher XP reward (35) - strategic priority target!
+  - Unlocks at 4.5 minutes game time
+  - Prefers to keep distance from player while spawning
+
+- **New Enemy Type: Minion**
+  - Weak, fast enemies spawned by Summoners
+  - Small size (radius 8) with darker purple color
+  - Low health (12) but aggressive AI
+  - Low XP (5) - designed to overwhelm in numbers
+  - Fast movement speed (140) with erratic wobble
+
+#### Technical Improvements
+- Enhanced `EnemyAbilities.spawnMinions()` with smart minion tracking
+  - Tracks max minions alive per summoner to prevent spam
+  - Each minion knows which summoner created it (`summonedBy` property)
+  - Difficulty scaling for summoner minions (50% vs boss 70%)
+  - Prevents overlapping spawns when at minion limit
+
+- Added visual polish to Summoner enemy
+  - Pulsing glow effect similar to bosses but faster
+  - 10% damage reduction for survivability
+  - Elite-style glow without elite status
+
+#### Files Added
+- `src/entities/enemy/types/SummonerEnemy.js` - Summoner enemy configuration
+- `src/entities/enemy/types/MinionEnemy.js` - Minion enemy configuration
+
+#### Files Modified
+- `src/entities/components/EnemyAbilities.js` - Enhanced minion spawning logic
+- `src/entities/enemy/EnemyTypeRegistry.js` - Registered new enemy types
+- `index.html` - Added script tags for new enemy types
+
 ### Added - 2025-10-02 (Code Cleanup & Documentation)
 
 #### Code Quality Improvements

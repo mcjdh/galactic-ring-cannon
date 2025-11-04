@@ -151,7 +151,7 @@ Contributions are welcome! Please feel free to:
 - [ ] Module bundler integration
 - [ ] TypeScript migration
 - [ ] Mobile controls improvement
-- [ ] Additional enemy types
+- [x] ~~Additional enemy types~~ ✅ (Added Summoner & Minion types)
 
 ### Long Term
 - [ ] Multiplayer support

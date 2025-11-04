@@ -206,31 +206,45 @@ class GameEngine {
                 this.cosmicBackground = new CosmicBackground(this.canvas);
                 ((typeof window !== "undefined" && window.logger?.info) || console.log)('Cosmic background initialized');
 
-                // Auto-enable low quality on constrained devices or reduced-motion preference
-                // Default: Start with full quality and let FPS monitoring adjust if needed
-                // Only pre-enable low quality for very constrained devices (≤2 cores or ≤2GB RAM)
-                try {
-                    const prefersReducedMotion = typeof window !== 'undefined'
-                        && typeof window.matchMedia === 'function'
-                        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                // 🍓 Detect Raspberry Pi and low-end devices for auto-optimization
+                const isLowEndDevice = this._detectLowEndDevice();
+                
+                if (isLowEndDevice.isRaspberryPi) {
+                    console.log('🍓 Raspberry Pi detected - enabling optimizations');
+                    window.isRaspberryPi = true;
+                    this.cosmicBackground.enablePi5Mode();
+                    this._autoLowQualityCosmic = true;
+                    this._autoParticleLowQuality = true;
+                } else if (isLowEndDevice.isLowEnd) {
+                    console.log('⚡ Low-end device detected - enabling optimizations');
+                    this.cosmicBackground.setLowQuality(true);
+                    this._autoLowQualityCosmic = true;
+                    this._autoParticleLowQuality = true;
+                } else {
+                    // Auto-enable low quality on constrained devices or reduced-motion preference
+                    try {
+                        const prefersReducedMotion = typeof window !== 'undefined'
+                            && typeof window.matchMedia === 'function'
+                            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-                    const hardwareConcurrency = typeof navigator !== 'undefined'
-                        ? navigator.hardwareConcurrency
-                        : undefined;
-                    const deviceMemory = typeof navigator !== 'undefined'
-                        ? navigator.deviceMemory
-                        : undefined;
+                        const hardwareConcurrency = typeof navigator !== 'undefined'
+                            ? navigator.hardwareConcurrency
+                            : undefined;
+                        const deviceMemory = typeof navigator !== 'undefined'
+                            ? navigator.deviceMemory
+                            : undefined;
 
-                    const lowPowerDevice =
-                        (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 2) ||
-                        (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 2);
+                        const lowPowerDevice =
+                            (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 2) ||
+                            (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 2);
 
-                    const autoLowQuality = prefersReducedMotion || lowPowerDevice;
+                        const autoLowQuality = prefersReducedMotion || lowPowerDevice;
 
-                    this._autoLowQualityCosmic = !!autoLowQuality;
-                    this._autoParticleLowQuality = !!autoLowQuality;
-                } catch (autoQualityError) {
-                    ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Auto quality adjustment failed', autoQualityError);
+                        this._autoLowQualityCosmic = !!autoLowQuality;
+                        this._autoParticleLowQuality = !!autoLowQuality;
+                    } catch (autoQualityError) {
+                        ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Auto quality adjustment failed', autoQualityError);
+                    }
                 }
 
                 this._applyBackgroundQuality();
@@ -240,6 +254,62 @@ class GameEngine {
             ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('CosmicBackground initialization failed', e);
             this.cosmicBackground = null;
         }
+    }
+
+    /**
+     * 🍓 Detect Raspberry Pi and low-end devices for automatic optimization
+     */
+    _detectLowEndDevice() {
+        const result = {
+            isRaspberryPi: false,
+            isLowEnd: false,
+            deviceInfo: ''
+        };
+
+        try {
+            const ua = navigator.userAgent.toLowerCase();
+            const platform = (navigator.platform || '').toLowerCase();
+            
+            // Check for ARM architecture
+            const isARM = /arm|aarch64/.test(platform) || /arm|aarch64/.test(ua);
+            const isLinux = /linux/.test(platform) || /linux/.test(ua);
+            
+            // Check GPU renderer
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            let gpu = '';
+            
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    gpu = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
+                }
+            }
+            
+            // Raspberry Pi detection
+            result.isRaspberryPi = isARM && isLinux && (
+                /mali|videocore|broadcom|v3d/i.test(gpu) || 
+                /raspberry/i.test(ua)
+            );
+            
+            // Other low-end indicators
+            const hasLowMemory = navigator.deviceMemory && navigator.deviceMemory <= 4;
+            const hasLowCores = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+            const hasIntegratedGPU = /intel.*hd|intel.*uhd|mesa|swiftshader/i.test(gpu);
+            
+            result.isLowEnd = !result.isRaspberryPi && (
+                (hasLowMemory && hasLowCores) || 
+                /android/i.test(ua) ||
+                hasIntegratedGPU
+            );
+            
+            result.deviceInfo = `Platform: ${platform}, GPU: ${gpu || 'unknown'}`;
+            
+        } catch (error) {
+            console.warn('Device detection failed:', error);
+        }
+        
+        return result;
     }
 
     _updateParticleQuality() {
@@ -803,6 +873,11 @@ class GameEngine {
     }
     
     gameLoop(timestamp) {
+        // 🍓 Performance profiling for Pi5
+        if (window.performanceProfiler?.enabled) {
+            window.performanceProfiler.frameStart();
+        }
+        
         if (this.lastTime === 0 || !Number.isFinite(this.lastTime)) {
             this.lastTime = timestamp;
         }
@@ -850,6 +925,12 @@ class GameEngine {
         }
 
         this.lastFrameTime = timestamp;
+        
+        // 🍓 End frame profiling
+        if (window.performanceProfiler?.enabled) {
+            window.performanceProfiler.frameEnd();
+        }
+        
         requestAnimationFrame(this._boundGameLoop);
     }
     
@@ -918,12 +999,16 @@ class GameEngine {
 
         // Update optimized particle pool if available
         if (window.optimizedParticles && typeof window.optimizedParticles.update === 'function') {
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.start('particles');
             window.optimizedParticles.update(deltaTime);
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.end('particles', 'particles');
         }
 
         // 🌌 Update cosmic background
         if (this.cosmicBackground && typeof this.cosmicBackground.update === 'function') {
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBackground');
             this.cosmicBackground.update(deltaTime, this.player);
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.end('cosmicBackground', 'cosmicBackground');
         }
 
         // Late-bind unified systems if modules loaded after engine
@@ -1500,7 +1585,9 @@ class GameEngine {
             
             // 🌌 Render cosmic background (replaces canvas clear)
             if (this.cosmicBackground && typeof this.cosmicBackground.render === 'function') {
+                if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBgRender');
                 this.cosmicBackground.render(this.player);
+                if (window.performanceProfiler?.enabled) window.performanceProfiler.end('cosmicBgRender', 'cosmicBackground');
             } else {
                 const ctx = this.ctx;
                 const previousFill = ctx.fillStyle;

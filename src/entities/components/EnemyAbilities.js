@@ -388,42 +388,83 @@ class EnemyAbilities {
     spawnMinions(game) {
         if (!this.canSpawnMinions || !game.addEntity) return;
         
-        for (let i = 0; i < this.minionCount; i++) {
-            const angle = (i / this.minionCount) * Math.PI * 2;
-            const distance = 80 + Math.random() * 40;
-            
-            const x = this.enemy.x + Math.cos(angle) * distance;
-            const y = this.enemy.y + Math.sin(angle) * distance;
-            
-            // Pick random minion type
-            const minionType = this.minionTypes[Math.floor(Math.random() * this.minionTypes.length)];
-            
-            const minion = new Enemy(x, y, minionType);
-            
-            // Scale minion based on boss difficulty
-            if (window.gameManager && window.gameManager.difficultyFactor) {
-                const scaling = window.gameManager.difficultyFactor * 0.7; // Minions are weaker than boss
-                minion.maxHealth = Math.ceil(minion.maxHealth * scaling);
-                minion.health = minion.maxHealth;
-                minion.damage = Math.ceil(minion.damage * scaling);
+        // Check if we have a max minion limit and count current minions
+        if (this.maxMinionsAlive > 0) {
+            // Count how many minions from this summoner are still alive
+            let currentMinions = 0;
+            if (game.enemies && Array.isArray(game.enemies)) {
+                currentMinions = game.enemies.filter(e => 
+                    e.summonedBy === this.enemy && !e.isDead
+                ).length;
             }
             
-            game.addEntity(minion);
+            // Don't spawn if we're at the limit
+            if (currentMinions >= this.maxMinionsAlive) {
+                return;
+            }
+            
+            // Spawn fewer minions if we're close to the limit
+            const spawnCount = Math.min(this.minionCount, this.maxMinionsAlive - currentMinions);
+            if (spawnCount <= 0) return;
+            
+            for (let i = 0; i < spawnCount; i++) {
+                this.spawnSingleMinion(game, i, spawnCount);
+            }
+        } else {
+            // No limit, spawn normally
+            for (let i = 0; i < this.minionCount; i++) {
+                this.spawnSingleMinion(game, i, this.minionCount);
+            }
         }
         
         // Create minion spawn effect
         this.createMinionSpawnEffect();
         
-        // Show floating text
+        // Show floating text with different styling for summoners
         if (window.gameManager) {
+            const isSummoner = this.enemy.enemyType === 'summoner';
+            const textColor = isSummoner ? 'rgba(187, 107, 217, 0.9)' : '#e74c3c';
+            const message = isSummoner ? 'SUMMONING!' : 'MINIONS SUMMONED!';
+            
             window.gameManager.showFloatingText(
-                'MINIONS SUMMONED!',
+                message,
                 this.enemy.x,
                 this.enemy.y - 40,
-                '#e74c3c',
+                textColor,
                 20
             );
         }
+    }
+    
+    /**
+     * Spawn a single minion
+     */
+    spawnSingleMinion(game, index, totalCount) {
+        const angle = (index / totalCount) * Math.PI * 2;
+        const distance = 80 + Math.random() * 40;
+        
+        const x = this.enemy.x + Math.cos(angle) * distance;
+        const y = this.enemy.y + Math.sin(angle) * distance;
+        
+        // Pick random minion type
+        const minionType = this.minionTypes[Math.floor(Math.random() * this.minionTypes.length)];
+        
+        const minion = new Enemy(x, y, minionType);
+        
+        // Track which summoner created this minion
+        minion.summonedBy = this.enemy;
+        
+        // Scale minion based on boss difficulty (or summoner difficulty for non-boss summoners)
+        if (window.gameManager && window.gameManager.difficultyFactor) {
+            const scaling = this.enemy.isBoss 
+                ? window.gameManager.difficultyFactor * 0.7 // Boss minions are weaker
+                : window.gameManager.difficultyFactor * 0.5; // Summoner minions are even weaker
+            minion.maxHealth = Math.ceil(minion.maxHealth * scaling);
+            minion.health = minion.maxHealth;
+            minion.damage = Math.ceil(minion.damage * scaling);
+        }
+        
+        game.addEntity(minion);
     }
     
     /**
@@ -543,7 +584,13 @@ class EnemyAbilities {
     createMinionSpawnEffect() {
         try {
             if (!window.optimizedParticles) return;
-            const count = 12;
+            
+            // Different effect for summoners vs bosses
+            const isSummoner = this.enemy.enemyType === 'summoner';
+            const particleColor = isSummoner ? 'rgba(187, 107, 217, 0.9)' : '#e74c3c';
+            const count = isSummoner ? 20 : 12; // More particles for summoners
+            
+            // Burst effect
             for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
                 const speed = 120 + Math.random() * 60;
@@ -552,11 +599,32 @@ class EnemyAbilities {
                     y: this.enemy.y + Math.sin(angle) * 10,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    size: 2 + Math.random() * 2,
-                    color: '#e74c3c',
-                    life: 0.5,
+                    size: isSummoner ? 3 + Math.random() * 2 : 2 + Math.random() * 2,
+                    color: particleColor,
+                    life: isSummoner ? 0.8 : 0.5,
                     type: 'spark'
                 });
+            }
+            
+            // Add a pulsing ring effect for summoners
+            if (isSummoner) {
+                const ringSegments = 16;
+                const ringRadius = 30;
+                for (let i = 0; i < ringSegments; i++) {
+                    const angle = (i / ringSegments) * Math.PI * 2;
+                    const px = this.enemy.x + Math.cos(angle) * ringRadius;
+                    const py = this.enemy.y + Math.sin(angle) * ringRadius;
+                    window.optimizedParticles.spawnParticle({
+                        x: px,
+                        y: py,
+                        vx: Math.cos(angle) * 40,
+                        vy: Math.sin(angle) * 40,
+                        size: 2,
+                        color: 'rgba(147, 87, 177, 0.7)',
+                        life: 0.6,
+                        type: 'spark'
+                    });
+                }
             }
         } catch (_) { /* no-op */ }
     }

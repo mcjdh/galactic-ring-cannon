@@ -19,6 +19,8 @@ class EnemyTypeRegistry {
         'teleporter': TeleporterEnemy,
         'phantom': PhantomEnemy,
         'shielder': ShielderEnemy,
+        'summoner': SummonerEnemy,
+        'minion': MinionEnemy,
         'boss': BossEnemy
     };
 
