@@ -93,7 +93,7 @@ class EnemySpawner {
      */
     update(deltaTime) {
         this.updatePerformanceMonitoring(deltaTime);
-        this.updateDifficulty(deltaTime);
+        this.updateSpawnRateFromDifficulty(deltaTime);
         this.applyPlayerLevelWeighting();
         this.updateBossSpawning(deltaTime);
         this.updateWaveSpawning(deltaTime);
@@ -178,26 +178,29 @@ class EnemySpawner {
     }
 
     /**
-     * Update difficulty scaling
+     * Update spawn rate based on DifficultyManager
+     * DifficultyManager is the single source of truth for difficulty scaling.
      * @param {number} deltaTime - Time since last update
      */
-    updateDifficulty(deltaTime) {
+    updateSpawnRateFromDifficulty(deltaTime) {
         this.difficultyTimer += deltaTime;
         
         if (this.difficultyTimer >= this.difficultyInterval) {
             this.difficultyTimer = 0;
 
-            // Performance-aware difficulty scaling
+            // Read spawn rate multiplier from DifficultyManager
+            const gameManager = window.gameManager;
+            const spawnRateMultiplier = gameManager?.difficultyManager?.enemySpawnRateMultiplier || 1.0;
+            
+            // Performance-aware spawn rate scaling
             if (!this.performanceMonitor.isLagging) {
-                this.spawnRate = Math.min(4, this.spawnRate * 1.15); // Slower scaling
+                this.spawnRate = Math.min(4, this.baseSpawnRate * spawnRateMultiplier);
                 this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
-                this.maxEnemies = Math.min(150, this.maxEnemies + 8); // Lower cap
+                this.maxEnemies = Math.min(150, this.baseMaxEnemies + (spawnRateMultiplier - 1.0) * 40);
             }
             
             // Unlock new enemy types
             this.unlockNewEnemyTypes();
-            
-            // Difficulty increased
         }
     }
     
@@ -408,35 +411,29 @@ class EnemySpawner {
     
     /**
      * Apply difficulty scaling to enemy
+     * Delegates to DifficultyManager for consistent scaling across the game.
      * @param {Enemy} enemy - Enemy to scale
      */
     applyDifficultyScaling(enemy) {
         const gameManager = window.gameManager;
-        if (!gameManager || !gameManager.difficultyFactor) return;
-        
-        // Health scaling with better balance
-        const healthMultiplier = this.enemyHealthMultiplier || 
-            (1 + ((gameManager.difficultyFactor - 1) * 0.5));
-        
-        // Damage scaling (less aggressive than health)
-        const damageScaling = 1 + ((gameManager.difficultyFactor - 1) * 0.4);
-        
-        // Apply scaling
-        enemy.maxHealth = Math.ceil(enemy.maxHealth * healthMultiplier);
-        enemy.health = enemy.maxHealth;
-        enemy.damage = Math.ceil(enemy.damage * damageScaling);
-        
-        // Scale XP reward appropriately
-        const xpMultiplier = 1 + ((healthMultiplier - 1) * 0.7);
-        enemy.xpValue = Math.ceil(enemy.xpValue * xpMultiplier);
-        
-        // Late game additional scaling
-        const gameMinutes = gameManager.gameTime / 60;
-        if (gameMinutes > 5) {
-            const lateGameFactor = Math.min(1.5, 1 + ((gameMinutes - 5) * 0.05));
-            enemy.maxHealth = Math.ceil(enemy.maxHealth * lateGameFactor);
+        if (!gameManager?.difficultyManager) {
+            // Fallback if DifficultyManager is not available
+            if (!gameManager?.difficultyFactor) return;
+            
+            const healthMultiplier = 1 + ((gameManager.difficultyFactor - 1) * 0.5);
+            const damageScaling = 1 + ((gameManager.difficultyFactor - 1) * 0.4);
+            
+            enemy.maxHealth = Math.ceil(enemy.maxHealth * healthMultiplier);
             enemy.health = enemy.maxHealth;
+            enemy.damage = Math.ceil(enemy.damage * damageScaling);
+            
+            const xpMultiplier = 1 + ((healthMultiplier - 1) * 0.7);
+            enemy.xpValue = Math.ceil(enemy.xpValue * xpMultiplier);
+            return;
         }
+        
+        // Delegate to DifficultyManager for scaling
+        gameManager.difficultyManager.scaleEnemy(enemy);
     }
     
     /**
@@ -524,16 +521,22 @@ class EnemySpawner {
         const spawnPos = this.getSpawnPosition();
         const boss = new Enemy(spawnPos.x, spawnPos.y, 'boss');
 
-        // Apply boss scaling
-        boss.maxHealth = Math.floor(boss.maxHealth * this.bossScaleFactor);
-        boss.health = boss.maxHealth;
-        boss.damage = Math.floor(boss.damage * this.bossScaleFactor);
+        // Delegate boss scaling to DifficultyManager
+        const gameManager = window.gameManager;
+        if (gameManager?.difficultyManager) {
+            gameManager.difficultyManager.scaleBoss(boss);
+        } else {
+            // Fallback if DifficultyManager is not available
+            boss.maxHealth = Math.floor(boss.maxHealth * this.bossScaleFactor);
+            boss.health = boss.maxHealth;
+            boss.damage = Math.floor(boss.damage * this.bossScaleFactor);
+            
+            // Update boss scaling for next boss
+            this.bossScaleFactor += 0.2;
+        }
         
         this.game.addEntity(boss);
         this.activeBossId = boss.id;
-
-        // Update boss scaling for next boss
-        this.bossScaleFactor += 0.2;
 
         // Notify game manager
         if (window.gameManager) {
@@ -641,10 +644,7 @@ class EnemySpawner {
             this.onBossCleared();
         }
 
-        // Update health multiplier for sustained challenge
-        if (this.totalEnemiesSpawned % 50 === 0) {
-            this.enemyHealthMultiplier *= 1.05;
-        }
+        // Note: enemyHealthMultiplier is now managed by DifficultyManager
     }
 
     onBossCleared() {
@@ -661,6 +661,9 @@ class EnemySpawner {
      * @returns {Object} Statistics
      */
     getStats() {
+        const gameManager = window.gameManager;
+        const difficultyManager = gameManager?.difficultyManager;
+        
         return {
             totalEnemiesSpawned: this.totalEnemiesSpawned,
             currentSpawnRate: this.spawnRate,
@@ -669,8 +672,8 @@ class EnemySpawner {
             eliteChance: this.eliteChance,
             waveCount: this.waveCount,
             bossesKilled: this.bossesKilled,
-            bossScaleFactor: this.bossScaleFactor,
-            enemyHealthMultiplier: this.enemyHealthMultiplier
+            bossScaleFactor: difficultyManager?.bossScalingFactor || this.bossScaleFactor,
+            enemyHealthMultiplier: difficultyManager?.enemyHealthMultiplier || this.enemyHealthMultiplier
         };
     }
     

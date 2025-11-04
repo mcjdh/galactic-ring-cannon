@@ -304,6 +304,19 @@ class GameManagerBridge {
                 (window.logger?.warn || console.warn)('⚠️ StatsManager not available');
             }
 
+            // Initialize DifficultyManager to drive game scaling
+            const DifficultyManagerClass = this.resolveNamespace('DifficultyManager');
+            if (typeof DifficultyManagerClass === 'function') {
+                this.difficultyManager = new DifficultyManagerClass(this);
+                if (!window.gameManager) {
+                    window.gameManager = this;
+                }
+                window.gameManager.difficultyManager = this.difficultyManager;
+                (window.logger?.log || console.log)('✅ DifficultyManager initialized');
+            } else {
+                (window.logger?.warn || console.warn)('⚠️ DifficultyManager not available');
+            }
+
             (window.logger?.log || console.log)('✅ Game engine initialized successfully');
             return true;
             
@@ -366,6 +379,9 @@ class GameManagerBridge {
 
         // Reset StatsManager (it will sync with GameState)
         this.statsManager?.resetSession?.();
+
+        // Reset DifficultyManager for new run
+        this.difficultyManager?.reset?.();
 
         // Clear effects
 
@@ -516,6 +532,11 @@ class GameManagerBridge {
         if (!this.running || this.gameOver || this.isPaused) {
             return;
         }
+
+        // Update DifficultyManager before other systems
+        this.difficultyManager?.update?.(deltaTime);
+
+        // (Removed redundant copying of DifficultyManager multipliers to enemy spawner)
 
         // Update StatsManager (it syncs with GameState)
         this.statsManager?.update?.(deltaTime);
