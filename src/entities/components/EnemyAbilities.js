@@ -589,7 +589,9 @@ class EnemyAbilities {
             
             // Different effect for summoners vs bosses
             const isSummoner = this.enemy.enemyType === 'summoner';
-            const particleColor = isSummoner ? 'rgba(187, 107, 217, 0.9)' : '#e74c3c';
+            const particleColor = isSummoner ? 
+                (window.GAME_CONSTANTS?.COLORS?.SUMMONER_TEXT || 'rgba(187, 107, 217, 0.9)') : 
+                '#e74c3c';
             const count = isSummoner ? 20 : 12; // More particles for summoners
             
             // Burst effect
