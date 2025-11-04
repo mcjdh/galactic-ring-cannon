@@ -51,6 +51,8 @@ class CosmicBackground {
             perspectiveDepth: 0.5,
             showUpperGrid: true // Add subtle grid in upper area too
         };
+        this._gridFrameSkip = 1;
+        this._gridFrameCounter = 0;
 
         // Animation time
         this.time = 0;
@@ -108,12 +110,18 @@ class CosmicBackground {
 
         // Generate nebula clouds
         this.nebulaClouds.length = 0;
+        
+        // 🎨 FIX: Use fixed colors in sequence to prevent pop-in when sprites regenerate
+        // Alternate purple and pink for variety but consistency
+        const nebulaColors = [this.colors.nebulaPurple, this.colors.nebulaPink];
+        
         for (let i = 0; i < this.nebulaCount; i++) {
             this.nebulaClouds.push({
                 x: Math.random() * canvasWidth,
                 y: Math.random() * canvasHeight,
                 radius: 100 + Math.random() * 200,
-                color: Math.random() > 0.5 ? this.colors.nebulaPurple : this.colors.nebulaPink,
+                // Use alternating pattern instead of random to ensure consistent sprite cache
+                color: nebulaColors[i % nebulaColors.length],
                 drift: {
                     x: (Math.random() - 0.5) * 0.1,
                     y: (Math.random() - 0.5) * 0.1
@@ -125,11 +133,35 @@ class CosmicBackground {
 
         // Clear sprite cache when reinitializing to ensure fresh rendering
         this._nebulaSpriteCache.clear();
+        
+        // 🎨 FIX: Pre-warm nebula sprite cache to prevent pop-in during gameplay
+        // Generate sprites for all nebula clouds immediately after creation
+        for (const cloud of this.nebulaClouds) {
+            this._getNebulaSprite(cloud.color, cloud.radius);
+        }
     }
 
     resize() {
-        // Redistribute stars when canvas resizes
-        this.initialize();
+        // 🎨 FIX: Only reinitialize if canvas size actually changed
+        // Prevents unnecessary nebula flashing on spurious resize events
+        const currentWidth = this.canvas.width || 0;
+        const currentHeight = this.canvas.height || 0;
+        
+        // Store last known canvas dimensions
+        if (!this._lastCanvasWidth) this._lastCanvasWidth = currentWidth;
+        if (!this._lastCanvasHeight) this._lastCanvasHeight = currentHeight;
+        
+        // Only reinitialize if dimensions actually changed significantly (>10px difference)
+        const widthChanged = Math.abs(currentWidth - this._lastCanvasWidth) > 10;
+        const heightChanged = Math.abs(currentHeight - this._lastCanvasHeight) > 10;
+        
+        if (widthChanged || heightChanged) {
+            this._lastCanvasWidth = currentWidth;
+            this._lastCanvasHeight = currentHeight;
+            // Redistribute stars when canvas resizes
+            this.initialize();
+            console.log(`🌌 CosmicBackground resized (${currentWidth}x${currentHeight})`);
+        }
     }
 
     update(deltaTime, player) {
@@ -310,7 +342,10 @@ class CosmicBackground {
         // 4. Render perspective grid (core visual element)
         // Always render grid - it's part of the synthwave aesthetic!
         if (this.grid.enabled) {
-            this.renderGrid(player);
+            this._gridFrameCounter = (this._gridFrameCounter + 1) % this._gridFrameSkip;
+            if (this._gridFrameCounter === 0) {
+                this.renderGrid(player);
+            }
         }
     }
 
@@ -635,6 +670,25 @@ class CosmicBackground {
         this.setUpdateFrequency(2); // Update every other frame
         this.setCameraThreshold(1.0); // Ignore small camera movements
         this._twinkleUpdateFrequency = 5; // Update twinkle less often
+
+        // Reduce nebula cache aggressively for Pi memory limits
+        this._nebulaCacheLimit = Math.min(this._nebulaCacheLimit, 8);
+        if (this._nebulaSpriteCache && this._nebulaSpriteCache.size > this._nebulaCacheLimit) {
+            while (this._nebulaSpriteCache.size > this._nebulaCacheLimit) {
+                const oldestKey = this._nebulaSpriteCache.keys().next().value;
+                if (typeof oldestKey === 'undefined') {
+                    break;
+                }
+                this._nebulaSpriteCache.delete(oldestKey);
+            }
+        }
+
+        // Thin out grid rendering to cut draw calls
+        this._gridFrameSkip = 2; // render every other frame
+        this.grid.showUpperGrid = false;
+        this.grid.spacing = Math.max(this.grid.spacing, 100);
+        this._gridFrameCounter = 0;
+
         console.log('🍓 CosmicBackground: Pi5 optimization mode enabled');
     }
 
@@ -647,6 +701,11 @@ class CosmicBackground {
         this.setUpdateFrequency(1); // Update every frame
         this.setCameraThreshold(0.5); // Smooth parallax
         this._twinkleUpdateFrequency = 3; // More frequent twinkle updates
+        this._nebulaCacheLimit = 32;
+        this._gridFrameSkip = 1;
+        this.grid.showUpperGrid = true;
+        this.grid.spacing = 80;
+        this._gridFrameCounter = 0;
         console.log('🖥️ CosmicBackground: Desktop quality mode enabled');
     }
 
@@ -669,6 +728,11 @@ class CosmicBackground {
         if (this.lowQuality === enabled) return; // No change needed
 
         this.lowQuality = enabled;
+        
+        // 🎨 FIX: Track if counts actually changed to avoid unnecessary reinitialization
+        // This prevents nebula flashing when _applyBackgroundQuality() is called repeatedly
+        let countsChanged = false;
+        
         if (enabled) {
             // Reduce effects for better performance
             // Grid stays enabled but will render in simplified mode
@@ -680,27 +744,71 @@ class CosmicBackground {
                 this._originalNebulaCount = this.nebulaCount;
             }
             // Reduce draw calls for low-power devices while keeping visual appeal
-            this.starLayers[0].count = Math.max(20, Math.floor(this._originalStarCounts[0] * 0.25));
-            this.starLayers[1].count = Math.max(15, Math.floor(this._originalStarCounts[1] * 0.25));
-            this.starLayers[2].count = Math.max(10, Math.floor(this._originalStarCounts[2] * 0.25));
-            // Keep at least 4 nebulae for visual appeal even in low quality
-            this.nebulaCount = Math.max(4, Math.floor(this._originalNebulaCount * 0.5));
+            const isPi = typeof window !== 'undefined' && window.isRaspberryPi;
+            let newCount0 = Math.max(20, Math.floor(this._originalStarCounts[0] * 0.25));
+            let newCount1 = Math.max(15, Math.floor(this._originalStarCounts[1] * 0.25));
+            let newCount2 = Math.max(10, Math.floor(this._originalStarCounts[2] * 0.25));
+            let newNebulaCount = Math.max(4, Math.floor(this._originalNebulaCount * 0.5));
+
+            if (isPi) {
+                const starScale = 0.6;
+                newCount0 = Math.max(12, Math.floor(newCount0 * starScale));
+                newCount1 = Math.max(9, Math.floor(newCount1 * starScale));
+                newCount2 = Math.max(6, Math.floor(newCount2 * starScale));
+                newNebulaCount = Math.max(3, Math.floor(newNebulaCount * 0.75));
+            }
+            
+            // Check if counts actually changed
+            if (this.starLayers[0].count !== newCount0 || 
+                this.starLayers[1].count !== newCount1 ||
+                this.starLayers[2].count !== newCount2 ||
+                this.nebulaCount !== newNebulaCount) {
+                countsChanged = true;
+                this.starLayers[0].count = newCount0;
+                this.starLayers[1].count = newCount1;
+                this.starLayers[2].count = newCount2;
+                this.nebulaCount = newNebulaCount;
+            }
         } else {
             // Restore quality - grid stays enabled (always on for synthwave aesthetic)
             if (this._originalStarCounts) {
-                this.starLayers[0].count = this._originalStarCounts[0];
-                this.starLayers[1].count = this._originalStarCounts[1];
-                this.starLayers[2].count = this._originalStarCounts[2];
+                const newCount0 = this._originalStarCounts[0];
+                const newCount1 = this._originalStarCounts[1];
+                const newCount2 = this._originalStarCounts[2];
+                
+                // Check if counts actually changed
+                if (this.starLayers[0].count !== newCount0 || 
+                    this.starLayers[1].count !== newCount1 ||
+                    this.starLayers[2].count !== newCount2) {
+                    countsChanged = true;
+                    this.starLayers[0].count = newCount0;
+                    this.starLayers[1].count = newCount1;
+                    this.starLayers[2].count = newCount2;
+                }
             }
             if (typeof this._originalNebulaCount === 'number') {
-                this.nebulaCount = this._originalNebulaCount;
+                if (this.nebulaCount !== this._originalNebulaCount) {
+                    countsChanged = true;
+                    this.nebulaCount = this._originalNebulaCount;
+                }
             }
+
+            this._gridFrameSkip = 1;
+            this.grid.showUpperGrid = true;
+            this.grid.spacing = 80;
         }
-        this._pendingParallaxX = 0;
-        this._pendingParallaxY = 0;
-        this._frameAccumulator = 0;
-        // Reinitialize with new counts
-        this.initialize();
+        
+        // Only reinitialize if counts actually changed
+        // This prevents nebula sprite cache from being cleared and regenerated unnecessarily
+        if (countsChanged) {
+            this._pendingParallaxX = 0;
+            this._pendingParallaxY = 0;
+            this._frameAccumulator = 0;
+            this._gridFrameCounter = 0;
+            // Reinitialize with new counts
+            this.initialize();
+            console.log(`🌌 CosmicBackground reinitialized (quality=${enabled ? 'low' : 'high'})`);
+        }
     }
 }
 

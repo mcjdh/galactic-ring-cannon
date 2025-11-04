@@ -150,19 +150,10 @@ class GPUMemoryManager {
             }
         }
         
-        // Reduce CosmicBackground nebula cache by 30%
-        if (typeof window !== 'undefined' && window.cosmicBackground) {
-            const cache = window.cosmicBackground._nebulaSpriteCache;
-            if (cache) {
-                const targetSize = Math.floor(cache.size * 0.7);
-                while (cache.size > targetSize) {
-                    const oldestKey = cache.keys().next().value;
-                    if (oldestKey) cache.delete(oldestKey);
-                }
-            }
-        }
+        // 🎨 FIX: Don't clean nebula cache - only 8 sprites, essential for background consistency
+        // Nebulae are pre-warmed and should never be cleaned to prevent pop-in
         
-        console.log('🧹 Moderate GPU memory cleanup complete');
+        console.log('🧹 Moderate GPU memory cleanup complete (nebulae protected)');
     }
     
     /**
@@ -180,19 +171,10 @@ class GPUMemoryManager {
             }
         }
         
-        // Reduce CosmicBackground nebula cache by 60%
-        if (typeof window !== 'undefined' && window.cosmicBackground) {
-            const cache = window.cosmicBackground._nebulaSpriteCache;
-            if (cache) {
-                const targetSize = Math.floor(cache.size * 0.4);
-                while (cache.size > targetSize) {
-                    const oldestKey = cache.keys().next().value;
-                    if (oldestKey) cache.delete(oldestKey);
-                }
-            }
-        }
+        // 🎨 FIX: Don't clean nebula cache even in aggressive mode
+        // Only 8 nebula sprites total (~64KB), essential for smooth background
         
-        console.log('🧹 Aggressive GPU memory cleanup complete');
+        console.log('🧹 Aggressive GPU memory cleanup complete (nebulae protected)');
     }
     
     /**

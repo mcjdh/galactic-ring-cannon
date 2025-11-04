@@ -597,8 +597,11 @@ class EnemySpawner {
         // Store timeout IDs for cleanup if needed
         if (!this.waveTimeouts) this.waveTimeouts = [];
 
+        // 🚀 OPTIMIZATION: Longer delays on Pi5 to prevent GC spikes
+        const spawnDelay = window.isRaspberryPi ? 250 : 100; // 250ms on Pi5, 100ms on desktop
+
         for (let i = 0; i < waveSize; i++) {
-            // Delay spawning slightly to spread out the wave
+            // Delay spawning to spread out the wave and reduce instantiation spikes
             const timeoutId = setTimeout(() => {
                 // Clear this timeout from the list
                 const index = this.waveTimeouts.indexOf(timeoutId);
@@ -608,7 +611,7 @@ class EnemySpawner {
                 if (this.game && !this.game.isShuttingDown) {
                     this.spawnEnemy();
                 }
-            }, i * 100);
+            }, i * spawnDelay); // Spread over 250ms intervals on Pi5
 
             this.waveTimeouts.push(timeoutId);
         }

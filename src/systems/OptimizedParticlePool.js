@@ -402,10 +402,11 @@ class OptimizedParticlePool {
         this.lowQuality = enabled;
 
         if (enabled) {
-            this.densityMultiplier = 0.6;
-            this.maxParticles = Math.min(this._defaults.maxParticles, 120);
-            this.batchSize = Math.min(this._defaults.batchSize, 30);
-            this.cleanupInterval = Math.min(this._defaults.cleanupInterval, 500);
+            const isPiDevice = typeof window !== 'undefined' && window.isRaspberryPi;
+            this.densityMultiplier = isPiDevice ? 0.35 : 0.6;
+            this.maxParticles = Math.min(this._defaults.maxParticles, isPiDevice ? 80 : 120);
+            this.batchSize = Math.min(this._defaults.batchSize, isPiDevice ? 20 : 30);
+            this.cleanupInterval = Math.min(this._defaults.cleanupInterval, isPiDevice ? 400 : 500);
             this.cleanup();
         } else {
             this.densityMultiplier = 1;

@@ -357,11 +357,32 @@
                 window.gpuMemoryManager.enable();
                 this.log('✅ GPU Memory Manager enabled for Pi5');
             }
+
+            // 🍓 ProjectileRenderer cache limits (ensure applied after detection)
+            if (typeof ProjectileRenderer !== 'undefined' && typeof ProjectileRenderer.applyPi5GpuLimits === 'function') {
+                ProjectileRenderer.applyPi5GpuLimits();
+                this.log('✅ ProjectileRenderer Pi5 GPU limits enforced');
+            }
+
+            // 🍓 Enable performance profiler now that Pi detection is confirmed
+            if (window.performanceProfiler && typeof window.performanceProfiler.setEnabled === 'function') {
+                window.performanceProfiler.setEnabled(true);
+                if (typeof window.performanceProfiler.setVerbose === 'function' && window.debugMode) {
+                    window.performanceProfiler.setVerbose(true);
+                }
+                this.log('✅ Performance profiler enabled for Pi5 monitoring');
+            }
             
             // 🍓 Trig Cache for fast math on ARM (NEW)
             if (window.initTrigCache && typeof window.initTrigCache === 'function') {
                 window.trigCache = window.initTrigCache();
                 this.log('✅ TrigCache initialized for Pi5 (ARM-optimized math)');
+            }
+
+            // 🍓 Install FastMath global overrides to accelerate existing math calls
+            if (window.FastMath && typeof window.FastMath.installGlobals === 'function') {
+                window.FastMath.installGlobals();
+                this.log('✅ FastMath global overrides installed');
             }
             
             this.log('🍓 All Pi5 optimizations applied! Target: 60 FPS');

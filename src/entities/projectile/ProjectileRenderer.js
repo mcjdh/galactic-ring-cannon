@@ -640,13 +640,8 @@ ProjectileRenderer._BODY_CACHE_LIMIT = 120;
 ProjectileRenderer._GLOW_CACHE_LIMIT = 80;
 ProjectileRenderer._CRIT_CACHE_LIMIT = 40;
 
-// Apply Pi5 aggressive limits if detected (reduce GPU memory by 70%)
-if (typeof window !== 'undefined' && window.isRaspberryPi) {
-    ProjectileRenderer._BODY_CACHE_LIMIT = 30;  // 120 → 30 (75% reduction)
-    ProjectileRenderer._GLOW_CACHE_LIMIT = 20;  // 80 → 20 (75% reduction)
-    ProjectileRenderer._CRIT_CACHE_LIMIT = 10;  // 40 → 10 (75% reduction)
-    console.log('🍓 ProjectileRenderer: Pi5 GPU memory limits applied (60 sprites total)');
-}
+// Track whether Pi-specific limits were already applied
+ProjectileRenderer._piLimitsApplied = false;
 
 /**
  * 🍓 GPU MEMORY: Clear sprite caches to free GPU memory
@@ -677,3 +672,51 @@ ProjectileRenderer.reduceCacheSizes = function(factor = 0.5) {
     
     console.log(`🍓 Reduced sprite caches by ${(1-factor)*100}% to free GPU memory`);
 };
+
+/**
+ * Ensure caches respect the current limit (used when limits change dynamically)
+ */
+ProjectileRenderer._enforceCacheLimits = function() {
+    const trimCache = (cache, limit) => {
+        if (!cache || typeof cache.size !== 'number') {
+            return;
+        }
+        while (cache.size > limit) {
+            const oldestKey = cache.keys().next().value;
+            if (typeof oldestKey === 'undefined') {
+                break;
+            }
+            cache.delete(oldestKey);
+        }
+    };
+
+    trimCache(this._bodySpriteCache, this._BODY_CACHE_LIMIT);
+    trimCache(this._glowSpriteCache, this._GLOW_CACHE_LIMIT);
+    trimCache(this._critGlowCache, this._CRIT_CACHE_LIMIT);
+};
+
+/**
+ * Apply Raspberry Pi GPU limits once detection occurs.
+ * Safe to call multiple times; limits and caches will only adjust once unless forced.
+ */
+ProjectileRenderer.applyPi5GpuLimits = function(force = false) {
+    if (this._piLimitsApplied && !force) {
+        return;
+    }
+
+    this._piLimitsApplied = true;
+    this._BODY_CACHE_LIMIT = Math.min(this._BODY_CACHE_LIMIT, 30);  // 120 → 30 (75% reduction)
+    this._GLOW_CACHE_LIMIT = Math.min(this._GLOW_CACHE_LIMIT, 20);  // 80 → 20 (75% reduction)
+    this._CRIT_CACHE_LIMIT = Math.min(this._CRIT_CACHE_LIMIT, 10);  // 40 → 10 (75% reduction)
+
+    this._enforceCacheLimits();
+
+    if (typeof console !== 'undefined') {
+        console.log('🍓 ProjectileRenderer: Pi5 GPU memory limits applied (60 sprites total)');
+    }
+};
+
+// Apply limits immediately if Pi detection occurred before this script executed
+if (typeof window !== 'undefined' && window.isRaspberryPi) {
+    ProjectileRenderer.applyPi5GpuLimits(true);
+}
