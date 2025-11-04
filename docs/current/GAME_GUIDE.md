@@ -23,7 +23,7 @@ Level up by collecting XP, choose powerful upgrades, and survive continuous boss
 
 ## 👾 ENEMY TYPES
 
-**9 distinct enemy types** unlock as you survive:
+**11 distinct enemy types** unlock as you survive:
 
 - 👾 **Basic**: Standard enemy with balanced stats
 - ⚡ **Fast**: Quicker but weaker enemies (unlocks 30s)
@@ -34,6 +34,14 @@ Level up by collecting XP, choose powerful upgrades, and survive continuous boss
 - ✨ **Teleporter**: Can warp around the battlefield (unlocks 3m)
 - 👻 **Phantom**: Phases through obstacles, unpredictable movement (unlocks 3.5m)
 - 🔰 **Shielder**: Protected by regenerating shield (unlocks 4m)
+- 🔮 **Summoner**: Spawns weak minions periodically - **priority target!** (unlocks 4.5m)
+  - Tanky and slow with mystic purple glow
+  - Spawns 2 minions every 6 seconds (max 4 alive)
+  - Higher XP reward (35) - kill them first!
+- 👥 **Minion**: Small, fast enemies spawned by Summoners
+  - Weak (12 HP) but aggressive and numerous
+  - Fast movement with erratic patterns
+  - Low XP (5) but overwhelming in groups
 
 ### 🔥 ELITE ENEMIES
 - **6% base spawn chance** for any enemy type (increases over time)

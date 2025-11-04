@@ -253,9 +253,155 @@
             if (!window.performanceManager) {
                 window.performanceManager = new PerformanceManager();
                 this.log('✅ PerformanceManager initialized');
+                
+                // 🍓 Detect and optimize for Raspberry Pi 5
+                this.detectAndOptimizeForPi5();
             } else {
                 this.log('ℹ️ PerformanceManager already initialized');
             }
+        }
+        
+        /**
+         * 🍓 RASPBERRY PI 5 AUTO-DETECTION & OPTIMIZATION
+         * Automatically enables performance mode when running on Pi5 or low-end ARM devices
+         */
+        detectAndOptimizeForPi5() {
+            const ua = navigator.userAgent.toLowerCase();
+            const platform = navigator.platform?.toLowerCase() || '';
+            
+            // Check for ARM architecture + Linux
+            const isARM = /arm|aarch64/.test(platform) || /arm|aarch64/.test(ua);
+            const isLinux = /linux/.test(platform) || /linux/.test(ua);
+            
+            // Check GPU renderer
+            let gpu = '';
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        gpu = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+                    }
+                }
+            } catch (e) {
+                // Ignore WebGL errors
+            }
+            
+            // Detect Raspberry Pi indicators
+            const isPi = isARM && isLinux && (
+                /mali|videocore|broadcom/i.test(gpu) || 
+                /raspberry/i.test(ua) ||
+                /rpi/i.test(ua)
+            );
+            
+            if (isPi) {
+                window.isRaspberryPi = true;
+                console.log('🍓 Raspberry Pi detected!');
+                console.log('🚀 Enabling Pi5 performance optimizations...');
+                
+                // Enable performance mode across all systems
+                this.enablePi5Optimizations();
+            } else if (isARM) {
+                // Other ARM devices (mobile, tablets) - use moderate optimizations
+                console.log('📱 ARM device detected - enabling moderate optimizations');
+                window.isLowPowerDevice = true;
+                this.enableModeratePowerOptimizations();
+            }
+        }
+        
+        /**
+         * Enable aggressive optimizations for Raspberry Pi 5
+         */
+        enablePi5Optimizations() {
+            // CosmicBackground optimizations
+            if (window.cosmicBackground && typeof window.cosmicBackground.enablePi5Mode === 'function') {
+                window.cosmicBackground.enablePi5Mode();
+                this.log('✅ CosmicBackground Pi5 mode enabled');
+            }
+            
+            // Particle system optimizations
+            if (window.optimizedParticles) {
+                window.optimizedParticles.setLowQuality(true);
+                window.optimizedParticles.maxParticles = 80; // Reduced for Pi5
+                window.optimizedParticles.densityMultiplier = 0.5;
+                this.log('✅ Particle system optimized for Pi5');
+            }
+            
+            // Enemy AI optimizations (cache lifetime)
+            if (window.Game?.EnemyAI) {
+                // Increase cache lifetime for Pi5
+                const originalConstructor = window.Game.EnemyAI;
+                if (originalConstructor.prototype) {
+                    originalConstructor.prototype._pi5OptimizationApplied = true;
+                }
+                this.log('✅ Enemy AI cache optimizations ready for Pi5');
+            }
+            
+            // GameEngine performance mode
+            if (window.gameEngine && typeof window.gameEngine.enablePerformanceMode === 'function') {
+                window.gameEngine.enablePerformanceMode();
+                this.log('✅ GameEngine performance mode enabled');
+            }
+            
+            // PerformanceManager settings
+            if (window.performanceManager) {
+                window.performanceManager.targetFPS = 60;
+                window.performanceManager.criticalMode = false; // Start optimistic
+                this.log('✅ PerformanceManager configured for Pi5');
+            }
+            
+            // 🍓 GPU Memory Manager (NEW)
+            if (window.gpuMemoryManager && typeof window.gpuMemoryManager.enable === 'function') {
+                window.gpuMemoryManager.enable();
+                this.log('✅ GPU Memory Manager enabled for Pi5');
+            }
+
+            // 🍓 ProjectileRenderer cache limits (ensure applied after detection)
+            if (typeof ProjectileRenderer !== 'undefined' && typeof ProjectileRenderer.applyPi5GpuLimits === 'function') {
+                ProjectileRenderer.applyPi5GpuLimits();
+                this.log('✅ ProjectileRenderer Pi5 GPU limits enforced');
+            }
+
+            // 🍓 Enable performance profiler now that Pi detection is confirmed
+            if (window.performanceProfiler && typeof window.performanceProfiler.setEnabled === 'function') {
+                window.performanceProfiler.setEnabled(true);
+                if (typeof window.performanceProfiler.setVerbose === 'function' && window.debugMode) {
+                    window.performanceProfiler.setVerbose(true);
+                }
+                this.log('✅ Performance profiler enabled for Pi5 monitoring');
+            }
+            
+            // 🍓 Trig Cache for fast math on ARM (NEW)
+            if (window.initTrigCache && typeof window.initTrigCache === 'function') {
+                window.trigCache = window.initTrigCache();
+                this.log('✅ TrigCache initialized for Pi5 (ARM-optimized math)');
+            }
+
+            // 🍓 Install FastMath global overrides to accelerate existing math calls
+            if (window.FastMath && typeof window.FastMath.installGlobals === 'function') {
+                window.FastMath.installGlobals();
+                this.log('✅ FastMath global overrides installed');
+            }
+            
+            this.log('🍓 All Pi5 optimizations applied! Target: 60 FPS');
+        }
+        
+        /**
+         * Enable moderate optimizations for low-power ARM devices
+         */
+        enableModeratePowerOptimizations() {
+            if (window.cosmicBackground && typeof window.cosmicBackground.setLowQuality === 'function') {
+                window.cosmicBackground.setLowQuality(true);
+            }
+            
+            if (window.optimizedParticles) {
+                window.optimizedParticles.setLowQuality(true);
+                window.optimizedParticles.maxParticles = 120;
+                window.optimizedParticles.densityMultiplier = 0.7;
+            }
+            
+            this.log('✅ Moderate optimizations applied for low-power device');
         }
 
         initHUDEventHandlers() {

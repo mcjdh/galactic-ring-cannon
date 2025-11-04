@@ -35,6 +35,11 @@ class EnemySpawner {
             lastFrameTime: 0
         };
         
+        // 🍓 Apply Pi5 optimizations if detected
+        if (window.isRaspberryPi) {
+            this.enablePi5Mode();
+        }
+        
         // Enemy types progression
         // NOTE: Enemy unlock times are hard-coded for game balance
         this.enemyTypes = ['basic'];
@@ -595,8 +600,11 @@ class EnemySpawner {
         // Store timeout IDs for cleanup if needed
         if (!this.waveTimeouts) this.waveTimeouts = [];
 
+        // 🚀 OPTIMIZATION: Longer delays on Pi5 to prevent GC spikes
+        const spawnDelay = window.isRaspberryPi ? 250 : 100; // 250ms on Pi5, 100ms on desktop
+
         for (let i = 0; i < waveSize; i++) {
-            // Delay spawning slightly to spread out the wave
+            // Delay spawning to spread out the wave and reduce instantiation spikes
             const timeoutId = setTimeout(() => {
                 // Clear this timeout from the list
                 const index = this.waveTimeouts.indexOf(timeoutId);
@@ -606,7 +614,7 @@ class EnemySpawner {
                 if (this.game && !this.game.isShuttingDown) {
                     this.spawnEnemy();
                 }
-            }, i * 100);
+            }, i * spawnDelay); // Spread over 250ms intervals on Pi5
 
             this.waveTimeouts.push(timeoutId);
         }
@@ -773,6 +781,33 @@ class EnemySpawner {
             const desiredElite = Math.min(0.35, 0.05 + level * 0.01);
             this.eliteChance = Math.max(this.eliteChance, desiredElite);
         } catch (_) { /* no-op */ }
+    }
+    
+    /**
+     * 🍓 RASPBERRY PI 5 OPTIMIZATION MODE
+     * Applies conservative limits for smooth 60fps gameplay on Pi5
+     */
+    enablePi5Mode() {
+        console.log('🍓 EnemySpawner: Enabling Pi5 optimization mode...');
+        
+        // Conservative enemy limits
+        this.maxEnemies = 35; // Much lower than default 60
+        this.baseMaxEnemies = 35;
+        this.performanceMonitor.adaptiveMaxEnemies = 35;
+        
+        // Slower spawn rate
+        this.spawnRate = Math.min(this.spawnRate, 1.0);
+        this.baseSpawnRate = 1.0;
+        this.spawnCooldown = 1.0;
+        
+        // More aggressive lag threshold (target 40fps minimum instead of 30fps)
+        this.performanceMonitor.lagThreshold = 25; // 40fps
+        
+        // Reduce elite chance slightly
+        this.eliteChance = Math.min(this.eliteChance, 0.08);
+        this.baseEliteChance = 0.03;
+        
+        console.log('✅ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
     }
 }
 

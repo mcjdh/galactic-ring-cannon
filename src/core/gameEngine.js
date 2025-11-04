@@ -204,33 +204,69 @@ class GameEngine {
                 : undefined;
             if (typeof CosmicBackground === 'function') {
                 this.cosmicBackground = new CosmicBackground(this.canvas);
+                if (typeof window !== 'undefined') {
+                    window.cosmicBackground = this.cosmicBackground;
+                }
                 ((typeof window !== "undefined" && window.logger?.info) || console.log)('Cosmic background initialized');
 
-                // Auto-enable low quality on constrained devices or reduced-motion preference
-                // Default: Start with full quality and let FPS monitoring adjust if needed
-                // Only pre-enable low quality for very constrained devices (≤2 cores or ≤2GB RAM)
-                try {
-                    const prefersReducedMotion = typeof window !== 'undefined'
-                        && typeof window.matchMedia === 'function'
-                        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                // 🍓 Detect Raspberry Pi and low-end devices for auto-optimization
+                const isLowEndDevice = this._detectLowEndDevice();
+                
+                if (isLowEndDevice.isRaspberryPi) {
+                    console.log('🍓 Raspberry Pi detected - enabling optimizations');
+                    window.isRaspberryPi = true;
+                    this.cosmicBackground.enablePi5Mode();
+                    this._autoLowQualityCosmic = true;
+                    this._autoParticleLowQuality = true;
+                    this.lowGpuMode = true;
 
-                    const hardwareConcurrency = typeof navigator !== 'undefined'
-                        ? navigator.hardwareConcurrency
-                        : undefined;
-                    const deviceMemory = typeof navigator !== 'undefined'
-                        ? navigator.deviceMemory
-                        : undefined;
+                    // Ensure Pi-specific subsystems activate immediately
+                    if (window.performanceProfiler && typeof window.performanceProfiler.setEnabled === 'function') {
+                        window.performanceProfiler.setEnabled(true);
+                    }
+                    if (typeof ProjectileRenderer !== 'undefined' && typeof ProjectileRenderer.applyPi5GpuLimits === 'function') {
+                        ProjectileRenderer.applyPi5GpuLimits();
+                    }
+                    if (window.gpuMemoryManager && typeof window.gpuMemoryManager.enable === 'function') {
+                        window.gpuMemoryManager.enable();
+                    }
+                    if (typeof window.initTrigCache === 'function') {
+                        window.trigCache = window.trigCache || window.initTrigCache();
+                    }
+                    if (window.FastMath && typeof window.FastMath.installGlobals === 'function') {
+                        window.FastMath.installGlobals();
+                    }
+                } else if (isLowEndDevice.isLowEnd) {
+                    console.log('⚡ Low-end device detected - enabling optimizations');
+                    this.cosmicBackground.setLowQuality(true);
+                    this._autoLowQualityCosmic = true;
+                    this._autoParticleLowQuality = true;
+                    this.lowGpuMode = true;
+                } else {
+                    // Auto-enable low quality on constrained devices or reduced-motion preference
+                    try {
+                        const prefersReducedMotion = typeof window !== 'undefined'
+                            && typeof window.matchMedia === 'function'
+                            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-                    const lowPowerDevice =
-                        (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 2) ||
-                        (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 2);
+                        const hardwareConcurrency = typeof navigator !== 'undefined'
+                            ? navigator.hardwareConcurrency
+                            : undefined;
+                        const deviceMemory = typeof navigator !== 'undefined'
+                            ? navigator.deviceMemory
+                            : undefined;
 
-                    const autoLowQuality = prefersReducedMotion || lowPowerDevice;
+                        const lowPowerDevice =
+                            (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 2) ||
+                            (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 2);
 
-                    this._autoLowQualityCosmic = !!autoLowQuality;
-                    this._autoParticleLowQuality = !!autoLowQuality;
-                } catch (autoQualityError) {
-                    ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Auto quality adjustment failed', autoQualityError);
+                        const autoLowQuality = prefersReducedMotion || lowPowerDevice;
+
+                        this._autoLowQualityCosmic = !!autoLowQuality;
+                        this._autoParticleLowQuality = !!autoLowQuality;
+                    } catch (autoQualityError) {
+                        ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Auto quality adjustment failed', autoQualityError);
+                    }
                 }
 
                 this._applyBackgroundQuality();
@@ -238,8 +274,67 @@ class GameEngine {
             }
         } catch (e) {
             ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('CosmicBackground initialization failed', e);
+            if (typeof window !== 'undefined' && window.cosmicBackground === this.cosmicBackground) {
+                window.cosmicBackground = null;
+            }
             this.cosmicBackground = null;
         }
+    }
+
+    /**
+     * 🍓 Detect Raspberry Pi and low-end devices for automatic optimization
+     */
+    _detectLowEndDevice() {
+        const result = {
+            isRaspberryPi: false,
+            isLowEnd: false,
+            deviceInfo: ''
+        };
+
+        try {
+            const ua = navigator.userAgent.toLowerCase();
+            const platform = (navigator.platform || '').toLowerCase();
+            
+            // Check for ARM architecture
+            const isARM = /arm|aarch64/.test(platform) || /arm|aarch64/.test(ua);
+            const isLinux = /linux/.test(platform) || /linux/.test(ua);
+            
+            // Check GPU renderer
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            let gpu = '';
+            
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    gpu = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
+                }
+            }
+            
+            // Raspberry Pi detection
+            result.isRaspberryPi = isARM && isLinux && (
+                /mali|videocore|broadcom|v3d/i.test(gpu) || 
+                /raspberry/i.test(ua)
+            );
+            
+            // Other low-end indicators
+            const hasLowMemory = navigator.deviceMemory && navigator.deviceMemory <= 4;
+            const hasLowCores = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+            const hasIntegratedGPU = /intel.*hd|intel.*uhd|mesa|swiftshader/i.test(gpu);
+            
+            result.isLowEnd = !result.isRaspberryPi && (
+                (hasLowMemory && hasLowCores) || 
+                /android/i.test(ua) ||
+                hasIntegratedGPU
+            );
+            
+            result.deviceInfo = `Platform: ${platform}, GPU: ${gpu || 'unknown'}`;
+            
+        } catch (error) {
+            console.warn('Device detection failed:', error);
+        }
+        
+        return result;
     }
 
     _updateParticleQuality() {
@@ -279,6 +374,11 @@ class GameEngine {
             shouldUseLowQuality = false;
         } else {
             shouldUseLowQuality = !!(this.lowGpuMode || this._autoLowQualityCosmic);
+        }
+
+        const debugEnabled = this.debugMode || (typeof window !== 'undefined' && window.debugMode);
+        if (debugEnabled) {
+            console.log(`🎨 _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
         }
 
         this.cosmicBackground.setLowQuality(shouldUseLowQuality);
@@ -639,13 +739,26 @@ class GameEngine {
         this.manualPause = false;
         this.autoPaused = false;
         this.contextLost = false;
-        this.performanceMode = false;
-        this.lowPerformanceMode = false;
-        this.lowGpuMode = false;
+        
+        // 🎨 FIX: Preserve auto-detected performance settings between runs
+        // Don't reset lowGpuMode/_autoLowQualityCosmic if auto-detected for low-end devices
+        // Only reset if there's a manual override
         if (this._manualPerformanceOverride === 'on') {
             this.performanceMode = true;
             this.lowGpuMode = true;
+        } else if (this._manualPerformanceOverride === 'off') {
+            this.performanceMode = false;
+            this.lowGpuMode = false;
+        } else {
+            // No manual override - preserve auto-detected settings
+            // Reset performanceMode to false (will be re-enabled by adjustPerformanceMode if FPS drops)
+            // but keep lowGpuMode and _autoLowQualityCosmic unchanged
+            this.performanceMode = false;
+            // Don't touch this.lowGpuMode - keep auto-detected value
+            // Don't touch this._autoLowQualityCosmic - keep auto-detected value
         }
+        
+        this.lowPerformanceMode = false;
         this.isVisible = true;
         this.isMinimized = false;
 
@@ -803,6 +916,11 @@ class GameEngine {
     }
     
     gameLoop(timestamp) {
+        // 🍓 Performance profiling for Pi5
+        if (window.performanceProfiler?.enabled) {
+            window.performanceProfiler.frameStart();
+        }
+        
         if (this.lastTime === 0 || !Number.isFinite(this.lastTime)) {
             this.lastTime = timestamp;
         }
@@ -850,6 +968,12 @@ class GameEngine {
         }
 
         this.lastFrameTime = timestamp;
+        
+        // 🍓 End frame profiling
+        if (window.performanceProfiler?.enabled) {
+            window.performanceProfiler.frameEnd();
+        }
+        
         requestAnimationFrame(this._boundGameLoop);
     }
     
@@ -918,12 +1042,16 @@ class GameEngine {
 
         // Update optimized particle pool if available
         if (window.optimizedParticles && typeof window.optimizedParticles.update === 'function') {
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.start('particles');
             window.optimizedParticles.update(deltaTime);
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.end('particles', 'particles');
         }
 
         // 🌌 Update cosmic background
         if (this.cosmicBackground && typeof this.cosmicBackground.update === 'function') {
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBackground');
             this.cosmicBackground.update(deltaTime, this.player);
+            if (window.performanceProfiler?.enabled) window.performanceProfiler.end('cosmicBackground', 'cosmicBackground');
         }
 
         // Late-bind unified systems if modules loaded after engine
@@ -1080,12 +1208,21 @@ class GameEngine {
         if (normalized === 'normal') {
             this._manualPerformanceOverride = null;
             this.disablePerformanceMode();
-            this._autoLowQualityCosmic = false;
-            this._autoParticleLowQuality = false;
+            // 🎨 FIX: Don't reset auto-detected flags when switching to normal mode
+            // Only reset if they weren't set by auto-detection
+            // This preserves low-quality settings for genuinely low-end devices
+            // (Auto-detected flags should persist regardless of current FPS)
         } else {
             this._manualPerformanceOverride = 'on';
             this.enablePerformanceMode();
-            this._autoLowQualityCosmic = normalized === 'critical';
+            
+            // 🎨 FIX: Don't override _autoLowQualityCosmic if it was auto-detected
+            // Manual performance preference should not wipe device detection
+            // Only set it if it's currently false (not auto-detected)
+            if (!this._autoLowQualityCosmic) {
+                this._autoLowQualityCosmic = normalized === 'critical';
+            }
+            
             this._autoParticleLowQuality = true;
         }
 
@@ -1106,7 +1243,14 @@ class GameEngine {
     enablePerformanceMode() {
         if (this.performanceMode) return;
         this.performanceMode = true;
-        this.lowGpuMode = true;
+        
+        // 🎨 FIX: Only set lowGpuMode if it wasn't auto-detected
+        // If _autoLowQualityCosmic is true, device was detected as low-end,
+        // so lowGpuMode should remain true permanently
+        if (!this._autoLowQualityCosmic) {
+            this.lowGpuMode = true;
+        }
+        
         this._maxSpatialGridPoolSize = 128;
         // Optimize rendering
         if (this.ctx) {
@@ -1125,7 +1269,14 @@ class GameEngine {
     disablePerformanceMode() {
         if (!this.performanceMode) return;
         this.performanceMode = false;
-        this.lowGpuMode = false;
+        
+        // 🎨 FIX: Only reset lowGpuMode if it wasn't auto-detected
+        // If _autoLowQualityCosmic is true, device was detected as low-end,
+        // so lowGpuMode should remain true permanently
+        if (!this._autoLowQualityCosmic) {
+            this.lowGpuMode = false;
+        }
+        
         this._maxSpatialGridPoolSize = 256;
         // Restore rendering quality
         if (this.ctx) {
@@ -1500,7 +1651,9 @@ class GameEngine {
             
             // 🌌 Render cosmic background (replaces canvas clear)
             if (this.cosmicBackground && typeof this.cosmicBackground.render === 'function') {
+                if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBgRender');
                 this.cosmicBackground.render(this.player);
+                if (window.performanceProfiler?.enabled) window.performanceProfiler.end('cosmicBgRender', 'cosmicBackground');
             } else {
                 const ctx = this.ctx;
                 const previousFill = ctx.fillStyle;
@@ -2474,6 +2627,11 @@ class GameEngine {
         // Clear pools
         this.enemyProjectilePool = [];
         this.particlePool = [];
+
+        if (typeof window !== 'undefined' && window.cosmicBackground === this.cosmicBackground) {
+            window.cosmicBackground = null;
+        }
+        this.cosmicBackground = null;
 
         if (typeof window !== 'undefined' && window.__activeGameEngine === this) {
             window.__activeGameEngine = null;
