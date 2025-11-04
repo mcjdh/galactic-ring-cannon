@@ -358,6 +358,12 @@
                 this.log('✅ GPU Memory Manager enabled for Pi5');
             }
             
+            // 🍓 Trig Cache for fast math on ARM (NEW)
+            if (window.initTrigCache && typeof window.initTrigCache === 'function') {
+                window.trigCache = window.initTrigCache();
+                this.log('✅ TrigCache initialized for Pi5 (ARM-optimized math)');
+            }
+            
             this.log('🍓 All Pi5 optimizations applied! Target: 60 FPS');
         }
         
