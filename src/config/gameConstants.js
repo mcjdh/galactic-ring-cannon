@@ -12,6 +12,25 @@
             BASE_CRIT_MULTIPLIER: 2.2,
             BASE_MAGNET_RANGE: 120,
             RADIUS: 20,
+            DAMAGE_INTAKE_MULTIPLIER: 2.0,
+            CLASS_COLORS: {
+                default: {
+                    core: '#00aaff',
+                    glow: '#00ffff'
+                },
+                aegis_vanguard: {
+                    core: '#3cb371',
+                    glow: '#7fffd4'
+                },
+                nova_corsair: {
+                    core: '#ff6347',
+                    glow: '#ffd700'
+                },
+                stormcaller: {
+                    core: '#8a2be2',
+                    glow: '#da70d6'
+                }
+            },
 
             // Combat Scaling & Limits
             AOE_ATTACK_RANGE: 150,
@@ -48,8 +67,8 @@
         ENEMIES: {
             SPAWN_DISTANCE_MIN: 400,
             SPAWN_DISTANCE_MAX: 800,
-            BASE_SPAWN_RATE: 1.1,
-            BASE_MAX_ENEMIES: 50,
+            BASE_SPAWN_RATE: 2.2,
+            BASE_MAX_ENEMIES: 90,
             ELITE_CHANCE_BASE: 0.06,
             ELITE_HEALTH_MULTIPLIER: 2.5,
             ELITE_DAMAGE_MULTIPLIER: 1.5,

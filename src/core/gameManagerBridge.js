@@ -604,13 +604,16 @@ class GameManagerBridge {
      * Check game win/lose conditions
      */
     checkGameConditions() {
-        if (!this.game || !this.game.player) return;
-        
-        // Check lose condition
-        if (this.game.player.isDead && !this.gameOver) {
+        const playerEntity = this.game?.player || null;
+        const playerState = this.state?.player || null;
+
+        const entityDead = !!(playerEntity && playerEntity.isDead);
+        const stateDead = !!(playerState && playerState.isAlive === false);
+
+        if ((entityDead || (!playerEntity && stateDead)) && !this.gameOver) {
             this.onGameOver();
+            return;
         }
-        
     }
     
     /**

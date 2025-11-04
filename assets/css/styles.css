@@ -1500,6 +1500,50 @@ body {
     width: 320px;
 }
 
+#loadout-selector {
+    margin: 30px 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 520px;
+}
+
+#loadout-selector-title {
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: #ff00ff;
+    text-shadow: 0 0 12px rgba(255, 0, 255, 0.6);
+    font-family: 'Lucida Console', 'Courier New', monospace;
+}
+
+#character-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.loadout-option {
+    flex: 1 1 160px;
+    min-width: 140px;
+    max-width: 240px;
+    padding: 14px 18px;
+    justify-content: center;
+}
+
+.loadout-option .button-text {
+    text-align: center;
+    width: 100%;
+}
+
+#loadout-description {
+    min-height: 42px;
+    font-size: 14px;
+    color: #00ffff;
+    font-family: 'Lucida Console', 'Courier New', monospace;
+    line-height: 1.4;
+    text-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
+}
+
 .menu-button {
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.1));
     border: 2px solid #00ffff;

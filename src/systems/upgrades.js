@@ -201,6 +201,13 @@ class UpgradeSystem {
     // Enhanced method to get better quality random upgrades with build path consideration
     getRandomUpgrades(count) {
         // Get all available upgrades that player can select
+        const activeWeaponId = window.gameManager?.game?.player?.combat?.weaponManager?.getActiveWeaponId?.();
+        const weaponDefinitions = typeof window !== 'undefined' ? (window.WEAPON_DEFINITIONS || {}) : {};
+        const activeWeaponDefinition = activeWeaponId ? weaponDefinitions[activeWeaponId] : null;
+        const activeWeaponTags = Array.isArray(activeWeaponDefinition?.upgradeTags)
+            ? activeWeaponDefinition.upgradeTags
+            : [];
+
         const availableUpgrades = this.availableUpgrades.filter(upgrade => {
             // Exclude any non-stackable upgrade already selected
             if (!upgrade.stackable && this.isUpgradeSelected(upgrade.id)) {
@@ -231,6 +238,18 @@ class UpgradeSystem {
             if (upgrade.specialType === 'aoe' && this.isUpgradeSelected('aoe_attack')) {
                 return false;
             }
+
+            if (upgrade.weaponTags && upgrade.weaponTags.length > 0) {
+                if (!activeWeaponDefinition) {
+                    return false;
+                }
+                const matchesTags = upgrade.weaponTags.some(tag =>
+                    activeWeaponTags.includes(tag) || tag === activeWeaponDefinition.id
+                );
+                if (!matchesTags) {
+                    return false;
+                }
+            }
             
             return true;
         });
@@ -255,6 +274,10 @@ class UpgradeSystem {
             if (upgrade.comboEffects && upgrade.comboEffects.some(effect => 
                 this.comboEffects.has(effect))) {
                 weight *= 1.2;
+            }
+
+            if (upgrade.weaponTags && upgrade.weaponTags.length > 0 && activeWeaponDefinition) {
+                weight *= 1.8;
             }
             
             // Add weighted copies to the pool

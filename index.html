@@ -31,6 +31,11 @@
                 <span class="title-cannon">CANNON</span>
             </h1>
             <div id="star-menu-display">⭐ 0</div>
+            <div id="loadout-selector">
+                <p id="loadout-selector-title">CHOOSE YOUR PILOT</p>
+                <div id="character-options"></div>
+                <div id="loadout-description"></div>
+            </div>
             <p id="menu-subtitle">SELECT YOUR MODE</p>
             <div id="menu-buttons">
                 <button id="btn-normal" class="menu-button menu-button-primary">
@@ -174,6 +179,8 @@
     <script defer src="src/config/upgrades.config.js"></script>
     <script defer src="src/config/achievements.config.js"></script>
     <script defer src="src/config/metaUpgrades.config.js"></script>
+    <script defer src="src/config/characters.config.js"></script>
+    <script defer src="src/config/weapons.config.js"></script>
 
     <!-- Configuration and utilities - load in proper order -->
     <script defer src="src/utils/Logger.js"></script>
@@ -243,6 +250,10 @@
     <script defer src="src/entities/enemy/EnemyRenderer.js"></script>
     <script defer src="src/entities/enemy/Enemy.js"></script>
     <!-- Player modular components -->
+    <script defer src="src/weapons/WeaponManager.js"></script>
+    <script defer src="src/weapons/types/PulseCannon.js"></script>
+    <script defer src="src/weapons/types/NovaShotgun.js"></script>
+    <script defer src="src/weapons/types/ArcBurst.js"></script>
     <script defer src="src/entities/player/PlayerStats.js"></script>
     <script defer src="src/entities/player/PlayerMovement.js"></script>
     <script defer src="src/entities/player/PlayerCombat.js"></script>

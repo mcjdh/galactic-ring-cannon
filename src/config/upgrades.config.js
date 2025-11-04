@@ -281,6 +281,48 @@ const UPGRADE_DEFINITIONS = [
     },
 
     // ========================================
+    // SHOTGUN BUILD PATH (Nova Shotgun)
+    // ========================================
+    {
+        id: 'nova_choke',
+        name: 'Focused Choke',
+        description: 'Tighten Nova spread by 10° and boost pellet damage by 20%',
+        type: 'weaponModifier',
+        weaponTags: ['shotgun'],
+        spreadReduction: 10,
+        damageBonus: 1.2,
+        icon: '🎯',
+        rarity: 'uncommon',
+        buildPath: 'shotgun',
+        specialEffect: 'shotgun_focus'
+    },
+    {
+        id: 'nova_scatter_flex',
+        name: 'Scatter Flex',
+        description: 'Add two extra pellets but slightly widen the cone',
+        type: 'weaponModifier',
+        weaponTags: ['shotgun'],
+        additionalProjectiles: 2,
+        spreadIncrease: 5,
+        icon: '🌌',
+        rarity: 'rare',
+        buildPath: 'shotgun',
+        specialEffect: 'shotgun_scatter'
+    },
+    {
+        id: 'nova_frag_rounds',
+        name: 'Frag Rounds',
+        description: 'Pellets detonate on impact but deal 10% less base damage',
+        type: 'weaponModifier',
+        weaponTags: ['shotgun'],
+        damagePenalty: 0.9,
+        icon: '💣',
+        rarity: 'epic',
+        buildPath: 'shotgun',
+        specialEffect: 'shotgun_explosive'
+    },
+
+    // ========================================
     // SUPPORT UPGRADES
     // ========================================
     {

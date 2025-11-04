@@ -589,10 +589,10 @@ class EnemySpawner {
         const playerLevel = window.gameManager?.game?.player?.level || 1;
         window.gameManager?.statsManager?.trackSpecialEvent?.('wave_completed', { 'waveNumber': this.waveCount });
         // Wave size scales with wave index and player level for higher intensity
-        const base = 5 + this.waveCount;
-        const levelBonus = Math.floor(playerLevel * 1.2);
+        const base = 9 + Math.floor(this.waveCount * 1.5);
+        const levelBonus = Math.floor(playerLevel * 1.4);
         // Performance-aware wave sizing
-        const maxWaveSize = this.performanceMonitor.isLagging ? 15 : 25;
+        const maxWaveSize = this.performanceMonitor.isLagging ? 24 : 40;
         const waveSize = Math.min(maxWaveSize, base + levelBonus);
         
         // Wave spawning initiated

@@ -11,6 +11,9 @@
             };
 
             this.state = { visible: false };
+            this.selectedCharacterId = null;
+            this.selectedWeaponId = null;
+            this.characterButtons = new Map();
             this.eventListeners = [];
             this.dynamicListeners = [];
             this.dom = this.captureDomRefs();
@@ -56,6 +59,9 @@
                     achievements: byId('achievements-panel'),
                     pause: byId('pause-menu')
                 },
+                loadoutSelector: byId('loadout-selector'),
+                characterOptions: byId('character-options'),
+                loadoutDescription: byId('loadout-description'),
                 controls: {
                     muteCheckbox: byId('mute-checkbox'),
                     volumeRange: byId('volume-range'),
@@ -138,6 +144,7 @@
             this.hidePanel('pause');
             this.refreshStarDisplay();
             this.loadStoredSettingsIntoUI();
+            this.initializeLoadoutSelector();
             this.state.visible = true;
 
             // Restart background animation
@@ -180,6 +187,8 @@
                 this.logger.log('Starting normal mode');
             }
 
+            this.syncCharacterState(this.selectedCharacterId);
+            this.syncWeaponState(this.selectedWeaponId);
             this.hide();
             this.showGameContainer();
 
@@ -189,6 +198,230 @@
             } else if (this.callbacks.onStartNormalMode) {
                 this.callbacks.onStartNormalMode();
             }
+        }
+
+        getGameState() {
+            return window.gameManager?.state || window.gameManager?.game?.state || null;
+        }
+
+        getCharacterDefinitions() {
+            if (!Array.isArray(window.CHARACTER_DEFINITIONS)) {
+                return [];
+            }
+            return window.CHARACTER_DEFINITIONS.map(def => def);
+        }
+
+        getWeaponDefinition(weaponId) {
+            if (!weaponId || typeof window === 'undefined' || !window.WEAPON_DEFINITIONS) {
+                return null;
+            }
+            return window.WEAPON_DEFINITIONS[weaponId] || null;
+        }
+
+        resolveInitialCharacterId(definitions) {
+            if (!Array.isArray(definitions) || definitions.length === 0) {
+                return null;
+            }
+
+            const state = this.getGameState();
+            const stored =
+                state?.getSelectedCharacter?.() ||
+                state?.flow?.selectedCharacter ||
+                (typeof localStorage !== 'undefined' ? localStorage.getItem('selectedCharacter') : null);
+
+            if (stored && definitions.some(def => def.id === stored)) {
+                return stored;
+            }
+
+            return definitions[0].id;
+        }
+
+        syncCharacterState(characterId) {
+            if (!characterId) return;
+
+            const state = this.getGameState();
+            if (state?.setSelectedCharacter) {
+                state.setSelectedCharacter(characterId);
+            } else if (state) {
+                state.flow = state.flow || {};
+                state.flow.selectedCharacter = characterId;
+            }
+
+            if (typeof localStorage !== 'undefined') {
+                try {
+                    localStorage.setItem('selectedCharacter', characterId);
+                } catch (error) {
+                    if (this.logger && typeof this.logger.warn === 'function') {
+                        this.logger.warn('Failed to persist selected character', error);
+                    }
+                }
+            }
+        }
+
+        syncWeaponState(weaponId) {
+            if (!weaponId) return;
+
+            const state = this.getGameState();
+            if (state?.setSelectedWeapon) {
+                state.setSelectedWeapon(weaponId);
+            } else if (state) {
+                state.flow = state.flow || {};
+                state.flow.selectedWeapon = weaponId;
+            }
+
+            if (typeof localStorage !== 'undefined') {
+                try {
+                    localStorage.setItem('selectedWeapon', weaponId);
+                } catch (error) {
+                    if (this.logger && typeof this.logger.warn === 'function') {
+                        this.logger.warn('Failed to persist selected weapon', error);
+                    }
+                }
+            }
+        }
+
+        initializeLoadoutSelector() {
+            const container = this.dom.characterOptions;
+            if (!container) return;
+
+            const definitions = this.getCharacterDefinitions();
+            if (!definitions.length) {
+                if (this.dom.loadoutSelector) {
+                    this.dom.loadoutSelector.classList.add('hidden');
+                }
+                this.selectedCharacterId = null;
+                this.selectedWeaponId = null;
+                this.characterButtons.clear();
+                if (this.dom.loadoutDescription) {
+                    this.dom.loadoutDescription.textContent = '';
+                }
+                return;
+            }
+
+            if (this.dom.loadoutSelector) {
+                this.dom.loadoutSelector.classList.remove('hidden');
+            }
+
+            const initialCharacterId = this.resolveInitialCharacterId(definitions);
+            const initialDefinition = definitions.find(def => def.id === initialCharacterId) || definitions[0];
+            this.selectedCharacterId = initialDefinition?.id || initialCharacterId;
+            this.selectedWeaponId = initialDefinition?.weaponId || this.selectedWeaponId;
+
+            this.syncCharacterState(this.selectedCharacterId);
+            if (this.selectedWeaponId) {
+                this.syncWeaponState(this.selectedWeaponId);
+            }
+
+            const hasMatchingButtons =
+                container.childElementCount === definitions.length &&
+                definitions.every(def => this.characterButtons.has(def.id));
+
+            if (!hasMatchingButtons) {
+                container.innerHTML = '';
+                this.characterButtons.clear();
+
+                definitions.forEach(def => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'menu-button loadout-option';
+                    button.dataset.characterId = def.id;
+                    const icon = def.icon ? `<span class="button-icon">${def.icon}</span>` : '';
+                    button.innerHTML = `${icon}<span class="button-text">${def.name || def.id}</span>`;
+                    button.title = def.tagline || def.description || def.name || def.id;
+                    this.addListener(button, 'click', () => this.handleCharacterSelect(def.id));
+                    container.appendChild(button);
+                    this.characterButtons.set(def.id, button);
+                });
+            }
+
+            this.highlightSelectedCharacter(this.selectedCharacterId);
+            this.updateLoadoutDescription(this.selectedCharacterId);
+        }
+
+        highlightSelectedCharacter(selectedId) {
+            this.characterButtons.forEach((button, id) => {
+                if (!button) return;
+                const isSelected = id === selectedId;
+                button.classList.toggle('menu-button-primary', isSelected);
+                button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            });
+        }
+
+        updateLoadoutDescription(characterId) {
+            const descriptionEl = this.dom.loadoutDescription;
+            if (!descriptionEl) return;
+
+            const definitions = this.getCharacterDefinitions();
+            const character = definitions.find(item => item.id === characterId);
+
+            if (!character) {
+                descriptionEl.textContent = 'Select a pilot to tailor your run.';
+                return;
+            }
+
+            const detailParts = [];
+            if (character.description) {
+                detailParts.push(character.description);
+            }
+
+            const weaponDef = this.getWeaponDefinition(character.weaponId);
+            if (weaponDef) {
+                const summary = this.formatWeaponSummary(weaponDef);
+                detailParts.push(`Starts with ${weaponDef.name}${summary ? ` (${summary})` : ''}`);
+            }
+
+            const highlights = this.formatCharacterHighlights(character);
+            if (highlights) {
+                detailParts.push(highlights);
+            }
+
+            descriptionEl.textContent = detailParts.join(' — ');
+        }
+
+        formatWeaponSummary(def) {
+            if (!def) return '';
+            const parts = [];
+            if (typeof def.fireRate === 'number') {
+                const rate = def.fireRate % 1 === 0 ? def.fireRate.toFixed(0) : def.fireRate.toFixed(2);
+                parts.push(`${rate.replace(/\.00$/, '')} shots/sec`);
+            }
+            if (def.projectileTemplate?.count) {
+                parts.push(`${def.projectileTemplate.count} proj`);
+            }
+            if (def.archetype) {
+                parts.push(def.archetype.charAt(0).toUpperCase() + def.archetype.slice(1));
+            }
+            return parts.join(' • ');
+        }
+
+        formatCharacterHighlights(character) {
+            if (!character) return '';
+            if (Array.isArray(character.highlights) && character.highlights.length) {
+                return character.highlights.join(' • ');
+            }
+            if (character.tagline) {
+                return character.tagline;
+            }
+            return '';
+        }
+
+        handleCharacterSelect(characterId) {
+            if (!characterId || this.selectedCharacterId === characterId) {
+                return;
+            }
+            const definitions = this.getCharacterDefinitions();
+            const character = definitions.find(def => def.id === characterId);
+
+            this.selectedCharacterId = characterId;
+            this.syncCharacterState(characterId);
+
+            if (character?.weaponId) {
+                this.selectedWeaponId = character.weaponId;
+                this.syncWeaponState(character.weaponId);
+            }
+
+            this.highlightSelectedCharacter(characterId);
+            this.updateLoadoutDescription(characterId);
         }
 
         handleResumeFromPause() {

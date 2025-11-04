@@ -10,7 +10,53 @@ class Player {
         const COLORS = window.GAME_CONSTANTS?.COLORS || {};
 
         this.radius = PLAYER_CONSTANTS.RADIUS || 20;
-        this.color = COLORS.PLAYER || '#3498db';
+        const defaultColor = COLORS.PLAYER || '#3498db';
+        this.color = defaultColor;
+        this.glowColor = '#00ffff';
+        this.trailColor = this.glowColor;
+
+        const activeGameState =
+            window.gameManager?.state ||
+            window.gameManager?.game?.state ||
+            null;
+        this.gameState = activeGameState || null;
+
+        const characterDefinitions = Array.isArray(window.CHARACTER_DEFINITIONS)
+            ? window.CHARACTER_DEFINITIONS
+            : [];
+        const defaultCharacterId = characterDefinitions[0]?.id || 'aegis_vanguard';
+
+        const selectedCharacterId =
+            (activeGameState?.getSelectedCharacter?.() ||
+            activeGameState?.flow?.selectedCharacter ||
+            defaultCharacterId);
+
+        const resolvedCharacter = this.resolveCharacterDefinition(selectedCharacterId);
+        const characterId = resolvedCharacter?.id || defaultCharacterId;
+
+        const defaultWeaponId = 'pulse_cannon';
+        let selectedWeaponId =
+            resolvedCharacter?.weaponId ||
+            activeGameState?.getSelectedWeapon?.() ||
+            activeGameState?.flow?.selectedWeapon ||
+            defaultWeaponId;
+
+        if (resolvedCharacter?.weaponId) {
+            selectedWeaponId = resolvedCharacter.weaponId;
+        }
+
+        activeGameState?.setSelectedCharacter?.(characterId);
+        activeGameState?.setSelectedWeapon?.(selectedWeaponId);
+
+        this.characterId = characterId;
+        this.characterDefinition = resolvedCharacter || null;
+        this.startingWeapon = selectedWeaponId;
+
+        const classColorsTable = window.GAME_CONSTANTS?.PLAYER?.CLASS_COLORS || {};
+        const palette = classColorsTable[this.characterId] || classColorsTable.default || { core: defaultColor, glow: '#00ffff' };
+        this.color = palette.core || defaultColor;
+        this.glowColor = palette.glow || '#00ffff';
+        this.trailColor = palette.glow || this.color;
 
         // Initialize modular systems
         this.stats = new PlayerStats(this);
@@ -21,6 +67,10 @@ class Player {
 
         // Upgrade tracking
         this.upgrades = [];
+
+        if (this.characterDefinition) {
+            this.applyCharacterDefinition(this.characterDefinition);
+        }
 
         // Apply meta upgrades from Star Vendor
         this.applyMetaUpgrades();
@@ -71,6 +121,126 @@ class Player {
         if (chainLevel > 0 && this.abilities) {
             this.abilities.maxChains = Math.max(this.abilities.maxChains || 2, 2 + Math.min(chainLevel, 5)); // Cap at +5 chains
         }
+    }
+
+    resolveCharacterDefinition(characterId) {
+        const definitions = Array.isArray(window.CHARACTER_DEFINITIONS)
+            ? window.CHARACTER_DEFINITIONS
+            : [];
+        if (!definitions.length) return null;
+
+        const cloneDefinition = (def) => {
+            if (!def) return null;
+            return {
+                ...def,
+                highlights: Array.isArray(def.highlights) ? [...def.highlights] : undefined,
+                modifiers: def.modifiers ? JSON.parse(JSON.stringify(def.modifiers)) : undefined
+            };
+        };
+
+        if (characterId) {
+            const match = definitions.find(def => def.id === characterId);
+            if (match) {
+                return cloneDefinition(match);
+            }
+        }
+
+        return cloneDefinition(definitions[0]);
+    }
+
+    applyCharacterDefinition(definition) {
+        if (!definition) return;
+        const mods = definition.modifiers || {};
+
+        const statsMods = mods.stats || {};
+        if (this.stats) {
+            if (typeof statsMods.healthMultiplier === 'number' && statsMods.healthMultiplier > 0) {
+                this.stats.maxHealth *= statsMods.healthMultiplier;
+            }
+            if (typeof statsMods.flatHealth === 'number') {
+                this.stats.maxHealth += statsMods.flatHealth;
+            }
+            if (typeof this.stats.maxHealth === 'number') {
+                this.stats.maxHealth = Math.max(1, this.stats.maxHealth);
+                this.stats.health = this.stats.maxHealth;
+            }
+            if (typeof statsMods.regeneration === 'number') {
+                this.stats.regeneration += statsMods.regeneration;
+            }
+            if (typeof statsMods.damageReduction === 'number') {
+                const newReduction = (this.stats.damageReduction || 0) + statsMods.damageReduction;
+                this.stats.damageReduction = Math.min(0.8, Math.max(0, newReduction));
+            }
+            if (typeof statsMods.lifesteal === 'number') {
+                this.stats.lifestealAmount += statsMods.lifesteal;
+            }
+        }
+
+        const combatMods = mods.combat || {};
+        if (this.combat) {
+            if (typeof combatMods.attackSpeedMultiplier === 'number' && combatMods.attackSpeedMultiplier > 0) {
+                this.combat.attackSpeed *= combatMods.attackSpeedMultiplier;
+            }
+            if (typeof combatMods.attackDamageMultiplier === 'number' && combatMods.attackDamageMultiplier > 0) {
+                this.combat.attackDamage *= combatMods.attackDamageMultiplier;
+            }
+            if (typeof combatMods.projectileSpeedMultiplier === 'number' && combatMods.projectileSpeedMultiplier > 0) {
+                this.combat.projectileSpeed *= combatMods.projectileSpeedMultiplier;
+            }
+            if (typeof combatMods.piercing === 'number') {
+                this.combat.piercing = Math.max(this.combat.piercing || 0, combatMods.piercing);
+            }
+            if (typeof combatMods.critChanceBonus === 'number') {
+                const newCrit = (this.combat.critChance || 0) + combatMods.critChanceBonus;
+                this.combat.critChance = Math.min(0.95, Math.max(0, newCrit));
+            }
+        }
+
+        const movementMods = mods.movement || {};
+        if (this.movement) {
+            if (typeof movementMods.speedMultiplier === 'number' && movementMods.speedMultiplier > 0) {
+                this.movement.speed *= movementMods.speedMultiplier;
+            }
+            if (typeof movementMods.dodgeCooldownMultiplier === 'number' && movementMods.dodgeCooldownMultiplier > 0) {
+                this.movement.dodgeCooldown *= movementMods.dodgeCooldownMultiplier;
+                this.movement.dodgeCooldown = Math.max(0.4, this.movement.dodgeCooldown);
+            }
+            if (typeof movementMods.magnetRangeBonus === 'number') {
+                this.movement.magnetRange += movementMods.magnetRangeBonus;
+                this.movement.magnetRange = Math.max(40, this.movement.magnetRange);
+            }
+        }
+
+        const abilityMods = mods.abilities || {};
+        if (this.abilities) {
+            if (abilityMods.chainLightning) {
+                const chain = abilityMods.chainLightning;
+                this.abilities.hasChainLightning = true;
+                if (typeof chain.baseChance === 'number') {
+                    this.abilities.chainChance = Math.max(this.abilities.chainChance || 0, chain.baseChance);
+                }
+                if (typeof chain.damageMultiplier === 'number') {
+                    this.abilities.chainDamage = Math.max(this.abilities.chainDamage || 0, chain.damageMultiplier);
+                }
+                if (typeof chain.range === 'number') {
+                    this.abilities.chainRange = Math.max(this.abilities.chainRange || 0, chain.range);
+                }
+                if (typeof chain.maxChains === 'number') {
+                    this.abilities.maxChains = Math.max(this.abilities.maxChains || 0, chain.maxChains);
+                }
+            }
+        }
+
+        this.characterHighlights = Array.isArray(definition.highlights)
+            ? [...definition.highlights]
+            : [];
+
+        if (typeof this.stats._updateHealthBarUI === 'function') {
+            this.stats._updateHealthBarUI();
+        }
+        this.stats.updateXPBar();
+        this.combat.updateAttackCooldown?.();
+        this.combat.weaponManager?.notifyCombatStatChange();
     }
 
     // Main update method coordinates all systems
@@ -296,6 +466,10 @@ class Player {
             case 'ricochetDamage':
                 this.abilities.applyAbilityUpgrade(upgrade);
                 break;
+        }
+
+        if (this.combat.weaponManager) {
+            this.combat.weaponManager.applyUpgrade(upgrade);
         }
 
         // Show upgrade feedback
