@@ -158,13 +158,20 @@ class UpgradeSystem {
         // Add to selected upgrades
         this.selectedUpgrades.push(upgradeInstance);
 
+        // Validate player exists before applying upgrade
+        const player = window.gameManager?.game?.player;
+        if (!player) {
+            (window.logger?.warn || console.warn)('Cannot apply upgrade: player not found');
+            return;
+        }
+
         // Apply upgrade to player using clean delegation
         const playerUpgrades = window.Game?.PlayerUpgrades;
         if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
-            playerUpgrades.apply(window.gameManager.game.player, upgradeInstance);
+            playerUpgrades.apply(player, upgradeInstance);
         } else {
             // Fallback to player method if PlayerUpgrades not available
-            window.gameManager.game.player.applyUpgrade(upgradeInstance);
+            player.applyUpgrade(upgradeInstance);
         }
 
         // Handle special effects

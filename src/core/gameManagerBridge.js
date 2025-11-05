@@ -39,6 +39,9 @@ class GameManagerBridge {
         this.performanceMode = 'normal';
         this._minimapRetryHandle = null;
 
+        // Boss countdown tracking
+        this._lastBossDebugSecond = -1;
+
         (window.logger?.log || console.log)('🌊 GameManager Bridge ready');
 
         this._uiRefs = new Map();
@@ -494,7 +497,7 @@ class GameManagerBridge {
             if (this.currentCombo >= 5) {
                 const textTargetY = this.game?.player?.y ? this.game.player.y - 50 : 0;
                 if (this.game?.unifiedUI?.addComboText) {
-                    this.game.unifiedUI.addComboText(this.currentCombo, this.game.player.x, textTargetY);
+                    this.game.unifiedUI.addComboText(this.currentCombo, this.game.player?.x ?? 0, textTargetY);
                 } else {
                     this.showCombatText(`${this.currentCombo}x COMBO!`, this.game.player?.x ?? 0, textTargetY, 'combo', 18);
                 }
@@ -1131,7 +1134,7 @@ class GameManagerBridge {
     }
 
     /**
-     * Update boss spawn countdown
+     * Update boss spawn countdown with progress bar
      */
     updateBossCountdown() {
         if (!this.enemySpawner) {
@@ -1139,58 +1142,96 @@ class GameManagerBridge {
         }
 
         const bossCountdownElement = this._getUiRef('bossCountdown', 'boss-countdown');
+        const bossCountdownBar = this._getUiRef('bossCountdownBar', 'boss-countdown-bar');
+        const bossCountdownText = this._getUiRef('bossCountdownText', 'boss-countdown-text');
+        const bossCountdownContainer = this._getUiRef('bossCountdownContainer', 'boss-countdown-container');
 
-        if (bossCountdownElement) {
-            if (typeof this.enemySpawner.isBossAlive === 'function' && this.enemySpawner.isBossAlive()) {
-                bossCountdownElement.classList.remove('hidden');
-                bossCountdownElement.style.color = '#f1c40f';
-                bossCountdownElement.style.animation = 'pulse 1.5s infinite';
-                bossCountdownElement.textContent = 'Boss active!';
-                return;
+        if (!bossCountdownElement || !bossCountdownBar || !bossCountdownText) {
+            return;
+        }
+
+        // Check if boss is currently active
+        if (typeof this.enemySpawner.isBossAlive === 'function' && this.enemySpawner.isBossAlive()) {
+            bossCountdownElement.classList.remove('hidden');
+            bossCountdownBar.style.transform = 'scaleX(1) translateZ(0)';
+            bossCountdownBar.className = 'active'; // Replace all classes with 'active' state
+            bossCountdownText.textContent = '⚔️ Boss Active!';
+            if (bossCountdownContainer) {
+                bossCountdownContainer.style.animation = 'pulse 1.5s infinite';
             }
+            return;
+        }
 
-            const timeUntilBoss = this.enemySpawner.bossInterval - this.enemySpawner.bossTimer;
+        const timeUntilBoss = this.enemySpawner.bossInterval - this.enemySpawner.bossTimer;
+        const bossInterval = this.enemySpawner.bossInterval;
 
-            // Debug once per second
-            const currentSecond = Math.floor(this.gameTime);
-            if (currentSecond !== this._lastBossDebugSecond) {
-                this._lastBossDebugSecond = currentSecond;
+        // Validate boss interval to prevent division by zero
+        if (!Number.isFinite(bossInterval) || bossInterval <= 0) {
+            // Invalid boss interval - hide countdown
+            bossCountdownElement.classList.add('hidden');
+            return;
+        }
+
+        // Debug once per second
+        const currentSecond = Math.floor(this.gameTime);
+        if (currentSecond !== this._lastBossDebugSecond) {
+            this._lastBossDebugSecond = currentSecond;
             if (window.debugManager?.enabled) {
-                (window.logger?.log || (() => {}))(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${this.enemySpawner.bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
+                (window.logger?.log || (() => {}))(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
             }
-            }
+        }
 
-            // Show different messages based on time until boss
-            if (timeUntilBoss > 0) {
-                bossCountdownElement.classList.remove('hidden');
+        // Update progress bar based on time remaining
+        if (timeUntilBoss > 0) {
+            bossCountdownElement.classList.remove('hidden');
 
-                if (timeUntilBoss <= 10) {
-                    // Urgent countdown - red pulsing
-                    bossCountdownElement.style.color = '#e74c3c';
-                    bossCountdownElement.style.animation = 'pulse 1s infinite';
-                    bossCountdownElement.textContent = `Boss in: ${Math.ceil(timeUntilBoss)}s`;
-                } else if (timeUntilBoss <= 30) {
-                    // Warning - orange, no animation
-                    bossCountdownElement.style.color = '#f39c12';
-                    bossCountdownElement.style.animation = 'none';
-                    bossCountdownElement.textContent = `Boss approaching: ${Math.ceil(timeUntilBoss)}s`;
-                } else {
-                    // Info - white, no animation
-                    bossCountdownElement.style.color = '#ecf0f1';
-                    bossCountdownElement.style.animation = 'none';
-                    const minutes = Math.floor(timeUntilBoss / 60);
-                    const seconds = Math.floor(timeUntilBoss % 60);
-                    if (minutes > 0) {
-                        bossCountdownElement.textContent = `Next boss: ${minutes}m ${seconds}s`;
-                    } else {
-                        bossCountdownElement.textContent = `Next boss: ${seconds}s`;
-                    }
-                }
+            // Calculate scale factor (0.0 to 1.0) for GPU-accelerated transform
+            // Keep translateZ(0) to maintain GPU compositing layer
+            const scaleX = Math.max(0, Math.min(1, timeUntilBoss / bossInterval));
+            bossCountdownBar.style.transform = `scaleX(${scaleX}) translateZ(0)`;
+
+            let textLabel = '';
+            let barClass = 'normal';
+            let shouldPulse = false;
+
+            if (timeUntilBoss <= 10) {
+                // Urgent countdown - red pulsing bar
+                barClass = 'urgent';
+                shouldPulse = true;
+                textLabel = `⚠️ Boss in ${Math.ceil(timeUntilBoss)}s`;
+            } else if (timeUntilBoss <= 30) {
+                // Warning - orange bar
+                barClass = 'warning';
+                textLabel = `Boss approaching: ${Math.ceil(timeUntilBoss)}s`;
             } else {
-                bossCountdownElement.classList.add('hidden');
+                // Normal - blue-white bar
+                barClass = 'normal';
+                const minutes = Math.floor(timeUntilBoss / 60);
+                const seconds = Math.floor(timeUntilBoss % 60);
+                if (minutes > 0) {
+                    textLabel = `Next boss: ${minutes}m ${seconds}s`;
+                } else {
+                    textLabel = `Next boss: ${seconds}s`;
+                }
+            }
+
+            // Update bar color class (replaces all classes with state class)
+            bossCountdownBar.className = barClass;
+
+            // Update text
+            bossCountdownText.textContent = textLabel;
+
+            // Apply pulse animation to container for urgent state only
+            if (bossCountdownContainer) {
+                if (shouldPulse) {
+                    bossCountdownContainer.style.animation = 'pulse 1s infinite';
+                } else {
+                    bossCountdownContainer.style.animation = 'none';
+                }
             }
         } else {
-            (window.logger?.warn || console.warn)('[GameManagerBridge] Boss countdown element not found');
+            // Time until boss is zero or negative - hide countdown
+            bossCountdownElement.classList.add('hidden');
         }
     }
 
@@ -1303,7 +1344,7 @@ class GameManagerBridge {
     onDodge(wasPerfect) {
         this.statsManager?.trackSpecialEvent?.('dodge');
 
-        if (wasPerfect) {
+        if (wasPerfect && this.game?.player) {
             this.statsManager?.trackSpecialEvent?.('perfect_dodge');
             this.showFloatingText('PERFECT DODGE!', this.game.player.x, this.game.player.y - 30, '#3498db', 18);
         }
@@ -1311,14 +1352,14 @@ class GameManagerBridge {
 
     onChainLightningHit(chainCount) {
         this.statsManager?.recordChainLightningHit?.(chainCount);
-        if (chainCount >= 3) {
+        if (chainCount >= 3 && this.game?.player) {
             this.showFloatingText(`${chainCount} CHAIN!`, this.game.player.x, this.game.player.y - 40, '#74b9ff', 16);
         }
     }
 
     onRicochetHit(bounceCount) {
         this.statsManager?.recordRicochetHit?.(bounceCount);
-        if (bounceCount >= 2) {
+        if (bounceCount >= 2 && this.game?.player) {
             this.showFloatingText(`${bounceCount} BOUNCES!`, this.game.player.x, this.game.player.y - 40, '#f39c12', 16);
         }
     }

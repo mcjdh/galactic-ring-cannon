@@ -211,7 +211,7 @@ class InputManager {
         
         // Performance mode toggle
         if (key === 'o' || key === 'O') {
-            if (window.gameManager && window.gameManager.game) {
+            if (window.gameManager?.game && typeof window.gameManager.game.togglePerformanceMode === 'function') {
                 window.gameManager.game.togglePerformanceMode();
             }
         }

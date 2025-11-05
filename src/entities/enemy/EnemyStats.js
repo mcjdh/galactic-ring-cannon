@@ -233,7 +233,8 @@ class EnemyStats {
             xpOrb.x += (Math.random() - 0.5) * 20;
             xpOrb.y += (Math.random() - 0.5) * 20;
 
-            window.gameManager.game.addEntity(xpOrb);
+            // Use optional chaining for defensive programming even though protected by if above
+            window.gameManager?.game?.addEntity?.(xpOrb);
         }
     }
 

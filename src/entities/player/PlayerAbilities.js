@@ -54,6 +54,12 @@ class PlayerAbilities {
     updateOrbitalAttacks(deltaTime, game) {
         if (!this.hasOrbitalAttack || this.orbitCount <= 0) return;
 
+        // Validate required modules exist
+        if (!this.player?.combat || !this.player?.stats) {
+            (window.logger?.warn || (() => {}))('Player combat or stats module not initialized');
+            return;
+        }
+
         // Update orbit angle based on orbit speed
         this.orbitAngle += this.orbitSpeed * deltaTime;
         if (this.orbitAngle >= Math.PI * 2) {
@@ -169,6 +175,12 @@ class PlayerAbilities {
         // Enhanced safety checks to prevent infinite loops
         if (chainsLeft <= 0 || !startEnemy || hitEnemies.size > 20) return;
 
+        // Validate required modules exist
+        if (!this.player?.combat || !this.player?.stats) {
+            (window.logger?.warn || (() => {}))('Player combat or stats module not initialized');
+            return;
+        }
+
         // Add recursion depth limit as backup safety
         this._chainDepth++;
         if (this._chainDepth > 10) {
@@ -259,6 +271,12 @@ class PlayerAbilities {
 
     processRicochet(sourceX, sourceY, damage, bouncesLeft, hitEnemies = new Set()) {
         if (bouncesLeft <= 0 || hitEnemies.size > 15) return;
+
+        // Validate required modules exist
+        if (!this.player?.combat || !this.player?.stats) {
+            (window.logger?.warn || (() => {}))('Player combat or stats module not initialized');
+            return;
+        }
 
         // Safety checks for parameters
         if (typeof sourceX !== 'number' || typeof sourceY !== 'number' ||
@@ -499,9 +517,14 @@ class PlayerAbilities {
                     this.ricochetRange = Math.max(this.ricochetRange, upgrade.bounceRange || 260);
                     this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.bounceDamage || 0.85);
                 } else if (upgrade.specialType === 'aoe') {
-                    this.player.combat.hasAOEAttack = true;
-                    this.player.combat.aoeAttackRange = Math.max(150, this.player.combat.aoeAttackRange);
-                    this.player.combat.aoeAttackTimer = this.player.combat.aoeAttackCooldown;
+                    // Validate combat module exists before modifying
+                    if (this.player?.combat) {
+                        this.player.combat.hasAOEAttack = true;
+                        this.player.combat.aoeAttackRange = Math.max(150, this.player.combat.aoeAttackRange);
+                        this.player.combat.aoeAttackTimer = this.player.combat.aoeAttackCooldown;
+                    } else {
+                        (window.logger?.warn || (() => {}))('Cannot apply AOE upgrade: player combat module not initialized');
+                    }
                 }
                 break;
 

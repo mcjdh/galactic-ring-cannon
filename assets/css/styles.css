@@ -125,15 +125,84 @@ body {
 }
 
 #boss-countdown {
-    font-size: 16px;
-    font-weight: bold;
-    color: #ecf0f1;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    transition: color 0.3s ease;
+    width: 300px;
+    margin: 0 auto;
+    margin-top: 8px;
 }
 
 #boss-countdown.hidden {
     display: none;
+}
+
+#boss-countdown-container {
+    position: relative;
+    width: 100%;
+    height: 24px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(236, 240, 241, 0.3);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    /* GPU optimization hints */
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+#boss-countdown-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, rgba(236, 240, 241, 0.6), rgba(236, 240, 241, 0.4));
+    transform-origin: left center;
+    transition: transform 0.3s ease, background 0.3s ease;
+    will-change: transform;
+    border-radius: 10px;
+    /* GPU compositing layer promotion */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Urgent state - red with pulse */
+#boss-countdown-bar.urgent {
+    background: linear-gradient(90deg, rgba(231, 76, 60, 0.8), rgba(192, 57, 43, 0.6));
+}
+
+/* Warning state - orange */
+#boss-countdown-bar.warning {
+    background: linear-gradient(90deg, rgba(243, 156, 18, 0.8), rgba(211, 84, 0, 0.6));
+}
+
+/* Normal state - blue-white */
+#boss-countdown-bar.normal {
+    background: linear-gradient(90deg, rgba(236, 240, 241, 0.6), rgba(189, 195, 199, 0.4));
+}
+
+/* Active boss state - gold pulse */
+#boss-countdown-bar.active {
+    background: linear-gradient(90deg, rgba(241, 196, 15, 0.9), rgba(243, 156, 18, 0.7));
+}
+
+#boss-countdown-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) translateZ(0);
+    font-size: 14px;
+    font-weight: bold;
+    color: #ecf0f1;
+    text-shadow:
+        1px 1px 3px rgba(0, 0, 0, 0.9),
+        -1px -1px 3px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+    z-index: 1;
+    pointer-events: none;
+    /* GPU optimization for text rendering */
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 @keyframes pulse {
