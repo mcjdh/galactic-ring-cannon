@@ -233,6 +233,9 @@ class GameEngine {
                     this._autoParticleLowQuality = true;
                     this.lowGpuMode = true;
 
+                    // OPTIMIZED: Apply low-end CSS class for UI performance gains
+                    document.documentElement.classList.add('low-end-device');
+
                     // Ensure Pi-specific subsystems activate immediately
                     if (window.performanceProfiler && typeof window.performanceProfiler.setEnabled === 'function') {
                         window.performanceProfiler.setEnabled(true);
@@ -255,6 +258,9 @@ class GameEngine {
                     this._autoLowQualityCosmic = true;
                     this._autoParticleLowQuality = true;
                     this.lowGpuMode = true;
+
+                    // OPTIMIZED: Apply low-end CSS class for UI performance gains
+                    document.documentElement.classList.add('low-end-device');
                 } else {
                     // Auto-enable low quality on constrained devices or reduced-motion preference
                     try {
