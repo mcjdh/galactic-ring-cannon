@@ -36,6 +36,8 @@ class PerformanceCache {
         // Random value pools (avoid Math.random() overhead)
         this._randomPool = new Float32Array(1000);
         this._randomIndex = 0;
+        this._randomRefillIndex = 0; // OPTIMIZATION: Track gradual refill progress
+        this._randomRefillBatchSize = 20; // Refill 20 values per frame to avoid jank
         this._refillRandomPool();
         
         // Normalized vector cache (common directions)
@@ -218,28 +220,44 @@ class PerformanceCache {
         if (!this || typeof this.enabled === 'undefined') {
             return Math.random();
         }
-        
+
         if (!this.enabled) return Math.random();
-        
+
         const value = this._randomPool[this._randomIndex];
         this._randomIndex = (this._randomIndex + 1) % this._randomPool.length;
-        
-        // Refill pool when we loop back
+
+        // OPTIMIZED: Gradual refill (spread over frames to prevent jank)
+        // Refill a small batch each time we wrap around
         if (this._randomIndex === 0) {
-            this._refillRandomPool();
+            this._randomRefillIndex = 0; // Start gradual refill
         }
-        
+
+        // Incrementally refill pool in small batches (20 values per call)
+        if (this._randomRefillIndex < this._randomPool.length) {
+            const batchEnd = Math.min(
+                this._randomRefillIndex + this._randomRefillBatchSize,
+                this._randomPool.length
+            );
+            for (let i = this._randomRefillIndex; i < batchEnd; i++) {
+                this._randomPool[i] = Math.random();
+            }
+            this._randomRefillIndex = batchEnd;
+        }
+
         return value;
     }
     
     /**
-     * Refill random value pool
+     * Refill random value pool (initial fill only)
+     * OPTIMIZED: Incremental refills now happen in random() to prevent frame spikes
      * @private
      */
     _refillRandomPool() {
+        // Only used for initial fill at construction
         for (let i = 0; i < this._randomPool.length; i++) {
             this._randomPool[i] = Math.random();
         }
+        this._randomRefillIndex = this._randomPool.length; // Mark as fully filled
     }
     
     /**

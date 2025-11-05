@@ -45,7 +45,12 @@
             this._lastGridSampleCount = 0;
             this._lastGridSampleTime = performance.now();
             this._gridRecalcIntervalMs = 250;
-            
+
+            // OPTIMIZATION: Dirty tracking to skip unnecessary grid rebuilds
+            this._gridDirty = true; // Force rebuild on first frame
+            this._lastEntityCount = 0;
+            this._entityGridPositions = new WeakMap(); // Track entity -> {gridX, gridY}
+
             // Performance optimization: reusable objects
             this.tempVector = { x: 0, y: 0 };
             // Note: Cell pooling disabled due to correctness issues
@@ -58,23 +63,11 @@
                 engine._spatialGridCellPool = [];
             }
 
-            const grid = engine.spatialGrid;
-            const cellPool = engine._spatialGridCellPool;
-
-            for (const [, cell] of grid) {
-                if (cell && cell.length) {
-                    cell.length = 0;
-                }
-                cellPool.push(cell);
-            }
-            grid.clear();
-            
             const list = engine.entities || [];
-            this.stats.cellsProcessed = 0;
-            let totalEntitiesInCells = 0;
-
-            const now = performance.now();
             const entityCount = list.length;
+
+            // OPTIMIZATION: Check if grid needs rebuilding (dirty tracking)
+            const now = performance.now();
             let gridSize = this._cachedGridSize;
             let shouldRecalculate = false;
 
@@ -89,6 +82,7 @@
                 if (adaptiveGridSize && adaptiveGridSize !== this._cachedGridSize) {
                     gridSize = adaptiveGridSize;
                     this._cachedGridSize = adaptiveGridSize;
+                    this._gridDirty = true; // Grid size changed, force rebuild
                 } else {
                     gridSize = this._cachedGridSize;
                 }
@@ -97,25 +91,71 @@
             }
 
             engine.gridSize = gridSize;
+
+            // Check if any entity moved to a different cell (dirty check)
+            if (!this._gridDirty && entityCount === this._lastEntityCount) {
+                let anyEntityMoved = false;
+                for (const entity of list) {
+                    if (!entity || entity.isDead) {
+                        anyEntityMoved = true; // Dead entity, need to rebuild
+                        break;
+                    }
+                    const gridX = Math.floor(entity.x / gridSize);
+                    const gridY = Math.floor(entity.y / gridSize);
+                    const lastPos = this._entityGridPositions.get(entity);
+
+                    if (!lastPos || lastPos.gridX !== gridX || lastPos.gridY !== gridY) {
+                        anyEntityMoved = true;
+                        break;
+                    }
+                }
+
+                // Skip rebuild if nothing moved
+                if (!anyEntityMoved) {
+                    return; // EARLY EXIT - grid is still valid!
+                }
+            }
+
+            // Grid needs rebuilding - clear and reconstruct
+            const grid = engine.spatialGrid;
+            const cellPool = engine._spatialGridCellPool;
+
+            for (const [, cell] of grid) {
+                if (cell && cell.length) {
+                    cell.length = 0;
+                }
+                cellPool.push(cell);
+            }
+            grid.clear();
+
+            this.stats.cellsProcessed = 0;
+            let totalEntitiesInCells = 0;
             
             // + OBJECT POOLING for grid cells to reduce allocations
             for (const entity of list) {
                 if (!entity || entity.isDead) continue;
-                
+
                 const gridX = Math.floor(entity.x / gridSize);
                 const gridY = Math.floor(entity.y / gridSize);
                 const key = engine.encodeGridKey(gridX, gridY);
-                
+
                 let cell = grid.get(key);
                 if (!cell) {
                     cell = cellPool.length > 0 ? cellPool.pop() : [];
                     grid.set(key, cell);
                     this.stats.cellsProcessed++;
                 }
-                
+
                 cell.push(entity);
                 totalEntitiesInCells++;
+
+                // OPTIMIZATION: Track entity's current grid position for next frame's dirty check
+                this._entityGridPositions.set(entity, { gridX, gridY });
             }
+
+            // Reset dirty flag and update entity count
+            this._gridDirty = false;
+            this._lastEntityCount = entityCount;
             
             // Update performance statistics
             this.stats.avgEntitiesPerCell = this.stats.cellsProcessed > 0 ? 

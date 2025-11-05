@@ -168,19 +168,19 @@ class EnemyAI {
             this.changeState('idle');
             return;
         }
-        
-        const distance = this.getDistanceToTarget(this.target);
-        
+
+        // OPTIMIZED: Get both distance and direction with single sqrt calculation
+        const { distance, direction } = this.getDistanceAndDirection(this.target);
+
         // Switch to attacking if close enough
         if (distance <= this.getAttackRange()) {
             this.changeState('attacking');
             return;
         }
-        
-        // Calculate pursuit direction
-        const direction = this.getDirectionToTarget(this.target);
+
+        // Set pursuit direction
         this.enemy.targetDirection = direction;
-        
+
         // Check for special ability usage while pursuing
         if (this.canUseSpecialAbilities && this.shouldUseSpecialAbility(distance)) {
             this.changeState('special');
@@ -195,35 +195,34 @@ class EnemyAI {
             this.changeState('idle');
             return;
         }
-        
-        const distance = this.getDistanceToTarget(this.target);
-        
+
+        // OPTIMIZED: Get both distance and direction with single sqrt calculation
+        const { distance, direction } = this.getDistanceAndDirection(this.target);
+
         // If target moved out of range, pursue again
         if (distance > this.getAttackRange() * 1.2) {
             this.changeState('pursuing');
             return;
         }
-        
+
         // Attempt to attack if cooldown is ready
         if (this.canAttackPlayer && this.attackTimer >= this.attackCooldown) {
             this.performAttack(game);
             this.attackTimer = 0;
         }
-        
+
         // Slight movement to maintain optimal attack distance (with hysteresis to prevent jittering)
         const optimalDistance = this.getAttackRange() * 0.8;
         const hysteresisRange = optimalDistance * 0.2; // 20% buffer zone
 
         if (distance < optimalDistance - hysteresisRange) {
             // Too close, back away
-            const direction = this.getDirectionToTarget(this.target);
             this.enemy.targetDirection = {
                 x: -direction.x * 0.2,
                 y: -direction.y * 0.2
             };
         } else if (distance > optimalDistance + hysteresisRange) {
             // Too far, move closer
-            const direction = this.getDirectionToTarget(this.target);
             this.enemy.targetDirection = {
                 x: direction.x * 0.15,
                 y: direction.y * 0.15
@@ -365,9 +364,10 @@ class EnemyAI {
             case 2:
                 // More aggressive movement
                 if (this.target) {
-                    const distance = this.getDistanceToTarget(this.target);
+                    // OPTIMIZED: Get both distance and direction with single sqrt calculation
+                    const { distance, direction } = this.getDistanceAndDirection(this.target);
                     if (distance > 150) {
-                        this.enemy.targetDirection = this.getDirectionToTarget(this.target);
+                        this.enemy.targetDirection = direction;
                     }
                 }
                 break;
@@ -429,11 +429,13 @@ class EnemyAI {
                 
                 // > Cache neighbor for future frames
                 this._cachedNeighbors.push({ other, distSq });
-                
-                const distance = Math.sqrt(distSq);
+
+                // OPTIMIZED: Use inverse sqrt (faster than division on ARM)
+                const invDistance = window.FastMath ? window.FastMath.invSqrt(distSq) : (1 / Math.sqrt(distSq));
+                const distance = distSq * invDistance;
                 const force = (separationRadius - distance) / separationRadius;
-                avoidance.x += (dx / distance) * force;
-                avoidance.y += (dy / distance) * force;
+                avoidance.x += dx * invDistance * force;
+                avoidance.y += dy * invDistance * force;
                 neighborCount++;
                 if (neighborCount >= 8) break;
             }
@@ -462,11 +464,13 @@ class EnemyAI {
 
                         // > Cache neighbor for future frames
                         this._cachedNeighbors.push({ other, distSq });
-                        
-                        const distance = Math.sqrt(distSq);
+
+                        // OPTIMIZED: Use inverse sqrt (faster than division on ARM)
+                        const invDistance = window.FastMath ? window.FastMath.invSqrt(distSq) : (1 / Math.sqrt(distSq));
+                        const distance = distSq * invDistance;
                         const force = (separationRadius - distance) / separationRadius;
-                        avoidance.x += (dx / distance) * force;
-                        avoidance.y += (dy / distance) * force;
+                        avoidance.x += dx * invDistance * force;
+                        avoidance.y += dy * invDistance * force;
                         neighborCount++;
 
                         if (neighborCount >= 8) {
@@ -484,11 +488,13 @@ class EnemyAI {
             this.enemy.targetDirection.x += avoidance.x * 0.5;
             this.enemy.targetDirection.y += avoidance.y * 0.5;
 
+            // OPTIMIZED: Normalize using inverse sqrt
             const dir = this.enemy.targetDirection;
-            const magnitude = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
-            if (magnitude > 0) {
-                dir.x /= magnitude;
-                dir.y /= magnitude;
+            const magnitudeSq = dir.x * dir.x + dir.y * dir.y;
+            if (magnitudeSq > 0) {
+                const invMagnitude = window.FastMath ? window.FastMath.invSqrt(magnitudeSq) : (1 / Math.sqrt(magnitudeSq));
+                dir.x *= invMagnitude;
+                dir.y *= invMagnitude;
             }
         }
 
@@ -523,10 +529,12 @@ class EnemyAI {
             const distSq = dx * dx + dy * dy;
             if (distSq === 0 || distSq > separationRadiusSq) continue;
 
-            const distance = Math.sqrt(distSq);
+            // OPTIMIZED: Use inverse sqrt (faster than division on ARM)
+            const invDistance = window.FastMath ? window.FastMath.invSqrt(distSq) : (1 / Math.sqrt(distSq));
+            const distance = distSq * invDistance;
             const force = (separationRadius - distance) / separationRadius;
-            avoidance.x += (dx / distance) * force;
-            avoidance.y += (dy / distance) * force;
+            avoidance.x += dx * invDistance * force;
+            avoidance.y += dy * invDistance * force;
             neighborCount++;
 
             if (neighborCount >= 8) break;
@@ -539,11 +547,13 @@ class EnemyAI {
             this.enemy.targetDirection.x += avoidance.x * 0.5;
             this.enemy.targetDirection.y += avoidance.y * 0.5;
 
+            // OPTIMIZED: Normalize using inverse sqrt
             const dir = this.enemy.targetDirection;
-            const magnitude = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
-            if (magnitude > 0) {
-                dir.x /= magnitude;
-                dir.y /= magnitude;
+            const magnitudeSq = dir.x * dir.x + dir.y * dir.y;
+            if (magnitudeSq > 0) {
+                const invMagnitude = window.FastMath ? window.FastMath.invSqrt(magnitudeSq) : (1 / Math.sqrt(magnitudeSq));
+                dir.x *= invMagnitude;
+                dir.y *= invMagnitude;
             }
         }
 
@@ -625,19 +635,48 @@ class EnemyAI {
      */
     getDirectionToTarget(target) {
         if (!target) return { x: 0, y: 0 };
-        
+
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (distance === 0) return { x: 0, y: 0 };
-        
+
         return {
             x: dx / distance,
             y: dy / distance
         };
     }
-    
+
+    /**
+     * Get both distance and direction to target in a single calculation (OPTIMIZED)
+     * Avoids redundant sqrt calculations when both values are needed
+     * @returns {Object} { distance: number, direction: {x: number, y: number} }
+     */
+    getDistanceAndDirection(target) {
+        if (!target) return {
+            distance: Infinity,
+            direction: { x: 0, y: 0 }
+        };
+
+        const dx = target.x - this.enemy.x;
+        const dy = target.y - this.enemy.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance === 0) return {
+            distance: 0,
+            direction: { x: 0, y: 0 }
+        };
+
+        return {
+            distance,
+            direction: {
+                x: dx / distance,
+                y: dy / distance
+            }
+        };
+    }
+
     /**
      * Get attack range based on enemy type
      */

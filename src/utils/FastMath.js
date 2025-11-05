@@ -63,22 +63,6 @@ const FastMath = {
         };
     },
 
-    /**
-     * Fast approximate square root using Newton-Raphson for Pi mode.
-     */
-    fastSqrt(x) {
-        if (x < 0) return NaN;
-        if (!window.isRaspberryPi || x === 0) {
-            return Math.sqrt(x);
-        }
-
-        const i = new Float32Array([x]);
-        const j = new Int32Array(i.buffer);
-        j[0] = 0x5f3759df - (j[0] >> 1);
-        const y = i[0];
-        return x * y * (1.5 - 0.5 * x * y * y);
-    },
-
     distance(x1, y1, x2, y2) {
         const dx = x2 - x1;
         const dy = y2 - y1;
@@ -114,8 +98,15 @@ const FastMath = {
     },
 
     normalizeAngle(angle) {
-        while (angle > Math.PI) angle -= Math.PI * 2;
-        while (angle < -Math.PI) angle += Math.PI * 2;
+        // OPTIMIZED: Use modulo instead of while loops (handles large angles efficiently)
+        const twoPi = Math.PI * 2;
+        // Normalize to [-π, π] range
+        angle = angle % twoPi;
+        if (angle > Math.PI) {
+            angle -= twoPi;
+        } else if (angle < -Math.PI) {
+            angle += twoPi;
+        }
         return angle;
     },
 
@@ -253,18 +244,27 @@ const FastMath = {
      * @returns {number} Random angle in radians
      */
     randomAngle() {
-        // Initialize cache on first use
+        // OPTIMIZED: Pre-initialize cache (moved from lazy init to avoid first-call stutter)
         if (!this._randomAngleCache) {
-            this._randomAngleCache = new Float32Array(this._randomAngleCacheSize);
-            for (let i = 0; i < this._randomAngleCacheSize; i++) {
-                this._randomAngleCache[i] = Math.random() * Math.PI * 2;
-            }
+            this._initRandomAngleCache();
         }
 
         // Cycle through pre-generated random angles
         const angle = this._randomAngleCache[this._randomAngleIndex];
         this._randomAngleIndex = (this._randomAngleIndex + 1) % this._randomAngleCacheSize;
         return angle;
+    },
+
+    /**
+     * Initialize random angle cache
+     * Called during setup to avoid first-call allocation
+     * @private
+     */
+    _initRandomAngleCache() {
+        this._randomAngleCache = new Float32Array(this._randomAngleCacheSize);
+        for (let i = 0; i < this._randomAngleCacheSize; i++) {
+            this._randomAngleCache[i] = Math.random() * Math.PI * 2;
+        }
     },
 
     /**
@@ -304,6 +304,9 @@ const FastMath = {
         if (typeof window !== 'undefined' && typeof window.initTrigCache === 'function' && !window.trigCache) {
             window.trigCache = window.initTrigCache();
         }
+
+        // OPTIMIZED: Pre-warm random angle cache to avoid first-call allocation
+        this._initRandomAngleCache();
 
         Math.sin = this.sin.bind(this);
         Math.cos = this.cos.bind(this);

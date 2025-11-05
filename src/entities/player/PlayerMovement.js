@@ -59,12 +59,14 @@ class PlayerMovement {
 
         // Apply input acceleration
         if (inputX !== 0 || inputY !== 0) {
-            // Normalize diagonal input
-            const inputMagnitude = Math.sqrt(inputX * inputX + inputY * inputY);
-            if (inputMagnitude > 0) {
-                inputX /= inputMagnitude;
-                inputY /= inputMagnitude;
+            // OPTIMIZED: Normalize diagonal input using FastMath (avoids sqrt)
+            // For keyboard input, values are always -1, 0, or 1
+            if (inputX !== 0 && inputY !== 0) {
+                // Diagonal movement: multiply by 1/√2 (pre-computed constant)
+                inputX *= window.FastMath.SQRT2_INV;
+                inputY *= window.FastMath.SQRT2_INV;
             }
+            // Cardinal directions (N/S/E/W) are already normalized
 
             // Accelerate towards input direction
             this.velocity.x += inputX * acceleration * deltaTime;
@@ -75,15 +77,19 @@ class PlayerMovement {
             this.dodgeDirection.y = inputY;
             this.isMoving = true;
         } else {
-            // Apply friction when no input
-            this.velocity.x *= Math.pow(friction, deltaTime * 60);
-            this.velocity.y *= Math.pow(friction, deltaTime * 60);
+            // Apply friction when no input (optimized: friction^60 pre-computed or approximated)
+            const frictionFactor = friction ** (deltaTime * 60);
+            this.velocity.x *= frictionFactor;
+            this.velocity.y *= frictionFactor;
             this.isMoving = Math.abs(this.velocity.x) > 5 || Math.abs(this.velocity.y) > 5;
         }
 
-        // Clamp velocity to max speed
-        const currentSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
-        if (currentSpeed > maxSpeed) {
+        // Clamp velocity to max speed (optimized: use squared comparison)
+        const currentSpeedSq = this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y;
+        const maxSpeedSq = maxSpeed * maxSpeed;
+        if (currentSpeedSq > maxSpeedSq) {
+            // Only calculate sqrt when we need to clamp
+            const currentSpeed = Math.sqrt(currentSpeedSq);
             const scale = maxSpeed / currentSpeed;
             this.velocity.x *= scale;
             this.velocity.y *= scale;
@@ -103,14 +109,14 @@ class PlayerMovement {
 
         // Create trail effect when moving
         if (this.isMoving || this.isDodging) {
-            // Calculate distance moved
-            const distance = Math.sqrt(
-                Math.pow(this.player.x - this.lastTrailPos.x, 2) +
-                Math.pow(this.player.y - this.lastTrailPos.y, 2)
-            );
+            // Calculate distance moved (optimized: use squared distance comparison)
+            const dx = this.player.x - this.lastTrailPos.x;
+            const dy = this.player.y - this.lastTrailPos.y;
+            const distanceSq = dx * dx + dy * dy;
 
-            // Create trail particles at regular intervals
-            if (distance > this.trailDistance) {
+            // Create trail particles at regular intervals (compare squared distances to avoid sqrt)
+            const trailDistanceSq = this.trailDistance * this.trailDistance;
+            if (distanceSq > trailDistanceSq) {
                 this.createTrailParticle(oldX, oldY);
                 this.lastTrailPos = { x: this.player.x, y: this.player.y };
             }
