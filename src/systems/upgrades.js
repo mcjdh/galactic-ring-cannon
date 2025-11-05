@@ -17,8 +17,13 @@ class UpgradeSystem {
         this.comboEffects = new Set();
 
         // Auto-level feature: load from localStorage
-        const savedAutoLevel = localStorage.getItem('autoLevelEnabled');
-        this.autoLevelEnabled = savedAutoLevel === 'true';
+        try {
+            const savedAutoLevel = localStorage.getItem('autoLevelEnabled');
+            this.autoLevelEnabled = savedAutoLevel === 'true';
+        } catch (error) {
+            console.warn('Failed to load auto-level setting:', error);
+            this.autoLevelEnabled = false;
+        }
     }
 
     resetForNewRun() {
@@ -83,13 +88,31 @@ class UpgradeSystem {
             option.dataset.rarity = upgrade.rarity || 'common';
             option.dataset.index = index + 1; // Store numeric index
 
-            option.innerHTML = `
-                <div class="shortcut-key">${index + 1}</div>
-                <div class="upgrade-icon">${upgrade.icon}</div>
-                <h3>${upgrade.name}</h3>
-                <p>${upgrade.description}</p>
-                <div class="upgrade-rarity">${upgrade.rarity || 'common'}</div>
-            `;
+            // Create elements safely to prevent XSS
+            const shortcutKey = document.createElement('div');
+            shortcutKey.className = 'shortcut-key';
+            shortcutKey.textContent = (index + 1).toString();
+
+            const upgradeIcon = document.createElement('div');
+            upgradeIcon.className = 'upgrade-icon';
+            upgradeIcon.textContent = upgrade.icon || '';
+
+            const upgradeName = document.createElement('h3');
+            upgradeName.textContent = upgrade.name || '';
+
+            const upgradeDesc = document.createElement('p');
+            upgradeDesc.textContent = upgrade.description || '';
+
+            const upgradeRarity = document.createElement('div');
+            upgradeRarity.className = 'upgrade-rarity';
+            upgradeRarity.textContent = upgrade.rarity || 'common';
+
+            // Append all elements
+            option.appendChild(shortcutKey);
+            option.appendChild(upgradeIcon);
+            option.appendChild(upgradeName);
+            option.appendChild(upgradeDesc);
+            option.appendChild(upgradeRarity);
 
             option.addEventListener('click', () => {
                 this.selectUpgrade(upgrade);
@@ -213,7 +236,11 @@ class UpgradeSystem {
 
     setAutoLevel(enabled) {
         this.autoLevelEnabled = !!enabled;
-        localStorage.setItem('autoLevelEnabled', this.autoLevelEnabled);
+        try {
+            localStorage.setItem('autoLevelEnabled', this.autoLevelEnabled);
+        } catch (error) {
+            console.warn('Failed to save auto-level setting:', error);
+        }
     }
     
     // Enhanced method to get better quality random upgrades with build path consideration

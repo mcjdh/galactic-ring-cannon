@@ -169,7 +169,11 @@ class InputManager {
         if (key === 'l' || key === 'L') {
             if (window.gameManager) {
                 window.gameManager.lowQuality = !window.gameManager.lowQuality;
-                localStorage.setItem('lowQuality', window.gameManager.lowQuality);
+                try {
+                    localStorage.setItem('lowQuality', window.gameManager.lowQuality);
+                } catch (error) {
+                    console.warn('Failed to save low quality setting:', error);
+                }
                 // Low quality mode toggled
             }
         }

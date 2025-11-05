@@ -770,8 +770,13 @@
             if (typeof window.gameManagerBridge?.metaStars === 'number') {
                 return window.gameManagerBridge.metaStars;
             }
-            const stored = parseInt(localStorage.getItem('starTokens') || '0', 10);
-            return Number.isFinite(stored) ? stored : 0;
+            try {
+                const stored = parseInt(localStorage.getItem('starTokens') || '0', 10);
+                return Number.isFinite(stored) ? stored : 0;
+            } catch (error) {
+                console.warn('Failed to load star token balance:', error);
+                return 0;
+            }
         }
 
         initMenuBackground() {

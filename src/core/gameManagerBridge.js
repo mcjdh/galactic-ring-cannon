@@ -297,6 +297,8 @@ class GameManagerBridge {
                 if (!window.statsManager) {
                     window.statsManager = this.statsManager;
                 }
+                // StatsManager now loads from GameState, so they should already be in sync
+                // Keep this sync for defensive programming and backward compatibility
                 this.metaStars = this.statsManager.starTokens;
                 (window.logger?.log || console.log)('✅ StatsManager initialized');
                 this.updateStarDisplay();
@@ -630,14 +632,17 @@ class GameManagerBridge {
         if (this.gameOver) return;
 
         const playerEntity = this.game?.player || null;
-        const playerState = this.state?.player || null;
 
-        const entityDead = !!(playerEntity && playerEntity.isDead);
-        const stateDead = !!(playerState && playerState.isAlive === false);
-
-        // Check for player death
-        if (entityDead || (!playerEntity && stateDead)) {
+        // Player entity is the single source of truth for death status
+        // Check if player entity exists and is dead
+        if (playerEntity && playerEntity.isDead) {
             (window.logger?.log || console.log)('🔍 Player death detected, calling onGameOver()');
+
+            // Immediately sync state before calling onGameOver to prevent race conditions
+            if (this.state && this.state.player) {
+                this.state.player.isAlive = false;
+            }
+
             this.onGameOver();
             return;
         }
