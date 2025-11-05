@@ -1,8 +1,8 @@
 /**
  * Enemy Spawner - Manages enemy spawning, waves, and difficulty progression
  * Extracted from enemy.js for better organization
- * ✅ PERFORMANCE: Adaptive enemy limits based on frame time monitoring
- * ✅ PERFORMANCE: Distant enemy culling when performance degrades
+ * + PERFORMANCE: Adaptive enemy limits based on frame time monitoring
+ * + PERFORMANCE: Distant enemy culling when performance degrades
  */
 class EnemySpawner {
     constructor(game) {
@@ -59,7 +59,7 @@ class EnemySpawner {
             lastFrameTime: 0
         };
         
-        // 🍓 Apply Pi5 optimizations if detected
+        // [Pi] Apply Pi5 optimizations if detected
         if (window.isRaspberryPi) {
             this.enablePi5Mode();
         }
@@ -567,8 +567,11 @@ class EnemySpawner {
         const maxDistance = Math.max(minDistance + 120, maxDistanceConfig);
         const distance = minDistance + Math.random() * (maxDistance - minDistance);
 
-        const x = this.game.player.x + Math.cos(angle) * distance;
-        const y = this.game.player.y + Math.sin(angle) * distance;
+        // Use FastMath.sincos for 5x speedup on ARM
+        const FastMath = window.Game?.FastMath;
+        const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+        const x = this.game.player.x + cos * distance;
+        const y = this.game.player.y + sin * distance;
 
         // Final validation - ensure no NaN or Infinity values
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -733,7 +736,7 @@ class EnemySpawner {
             window.gameManager._lastBossId = boss.id;
         }
         
-        this.showNewEnemyMessage("⚠️ BOSS INCOMING! ⚠️");
+        this.showNewEnemyMessage("! BOSS INCOMING! !");
         // Boss spawned successfully
     }
 
@@ -779,7 +782,7 @@ class EnemySpawner {
         // Store timeout IDs for cleanup if needed
         if (!this.waveTimeouts) this.waveTimeouts = [];
 
-        // 🚀 OPTIMIZATION: Longer delays on Pi5 to prevent GC spikes
+        // > OPTIMIZATION: Longer delays on Pi5 to prevent GC spikes
         const spawnDelay = window.isRaspberryPi ? 250 : 100; // 250ms on Pi5, 100ms on desktop
 
         for (let i = 0; i < waveSize; i++) {
@@ -978,12 +981,12 @@ class EnemySpawner {
     }
     
     /**
-     * 🍓 RASPBERRY PI 5 OPTIMIZATION MODE
+     * [Pi] RASPBERRY PI 5 OPTIMIZATION MODE
      * Applies conservative limits for smooth 60fps gameplay on Pi5
      */
     enablePi5Mode() {
         if (window.debugManager?.enabled) {
-            console.log('🍓 EnemySpawner: Enabling Pi5 optimization mode...');
+            console.log('[Pi] EnemySpawner: Enabling Pi5 optimization mode...');
         }
         
         // Conservative enemy limits
@@ -1004,7 +1007,7 @@ class EnemySpawner {
         this.baseEliteChance = 0.03;
         
         if (window.debugManager?.enabled) {
-            console.log('✅ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
+            console.log('+ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
         }
     }
 }

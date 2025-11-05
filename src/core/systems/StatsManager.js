@@ -1,6 +1,6 @@
 /**
  * 🌊 UNIFIED STATS MANAGER - Resonant Multi-Agent Architecture
- * 🤖 RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
+ * [A] RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
  * Handles all statistics tracking, achievements, combos, and progression
  * 
  * Single responsibility: Track and manage all game statistics and progression

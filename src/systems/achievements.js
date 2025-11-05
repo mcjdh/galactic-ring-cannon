@@ -5,7 +5,7 @@ class AchievementSystem {
         if (window.ACHIEVEMENT_DEFINITIONS) {
             this.achievements = JSON.parse(JSON.stringify(window.ACHIEVEMENT_DEFINITIONS));
         } else {
-            console.warn('⚠️ ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
+            console.warn('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
             this.achievements = {};
         }
 

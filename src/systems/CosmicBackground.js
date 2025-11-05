@@ -1,5 +1,5 @@
 /**
- * 🌌 COSMIC BACKGROUND SYSTEM
+ * [C] COSMIC BACKGROUND SYSTEM
  * Synthwave-inspired animated starfield and space background
  *
  * Features:
@@ -77,7 +77,7 @@ class CosmicBackground {
         this._cachedRgbaStrings = new Map();
         this._nebulaSpriteCache = new Map();
         
-        // 🍓 GPU Memory Optimization: Reduce nebula sprite cache for Pi5
+        // [Pi] GPU Memory Optimization: Reduce nebula sprite cache for Pi5
         this._nebulaCacheLimit = window.isRaspberryPi ? 8 : 32;  // 32 → 8 (75% reduction)
 
         // Initialize
@@ -114,7 +114,7 @@ class CosmicBackground {
         // Generate nebula clouds
         this.nebulaClouds.length = 0;
         
-        // 🎨 FIX: Use fixed colors in sequence to prevent pop-in when sprites regenerate
+        // [R] FIX: Use fixed colors in sequence to prevent pop-in when sprites regenerate
         // Alternate purple and pink for variety but consistency
         const nebulaColors = [this.colors.nebulaPurple, this.colors.nebulaPink];
         
@@ -137,7 +137,7 @@ class CosmicBackground {
         // Clear sprite cache when reinitializing to ensure fresh rendering
         this._nebulaSpriteCache.clear();
         
-        // 🎨 FIX: Pre-warm nebula sprite cache to prevent pop-in during gameplay
+        // [R] FIX: Pre-warm nebula sprite cache to prevent pop-in during gameplay
         // Generate sprites for all nebula clouds immediately after creation
         for (const cloud of this.nebulaClouds) {
             this._getNebulaSprite(cloud.color, cloud.radius);
@@ -145,7 +145,7 @@ class CosmicBackground {
     }
 
     resize() {
-        // 🎨 FIX: Only reinitialize if canvas size actually changed
+        // [R] FIX: Only reinitialize if canvas size actually changed
         // Prevents unnecessary nebula flashing on spurious resize events
         const currentWidth = this.canvas.width || 0;
         const currentHeight = this.canvas.height || 0;
@@ -164,7 +164,7 @@ class CosmicBackground {
             // Redistribute stars when canvas resizes
             this.initialize();
             if (window.debugManager?.enabled) {
-                console.log(`🌌 CosmicBackground resized (${currentWidth}x${currentHeight})`);
+                console.log(`[C] CosmicBackground resized (${currentWidth}x${currentHeight})`);
             }
         }
     }
@@ -478,7 +478,7 @@ class CosmicBackground {
             const size = layer.size;
             const brightness = layer.brightness;
 
-            // 🚀 OPTIMIZATION 1: Use fillRect for small stars (much faster than arc)
+            // > OPTIMIZATION 1: Use fillRect for small stars (much faster than arc)
             if (size < 2) {
                 ctx.fillStyle = '#ffffff';
                 const baseAlpha = brightness * (skipTwinkle ? 0.7 : 0.8);
@@ -498,7 +498,7 @@ class CosmicBackground {
                     }
                 }
             } else {
-                // 🚀 OPTIMIZATION 2: Batch all arcs in single path for larger stars
+                // > OPTIMIZATION 2: Batch all arcs in single path for larger stars
                 ctx.fillStyle = '#ffffff';
                 ctx.beginPath(); // Only ONE beginPath for entire layer
 
@@ -557,7 +557,7 @@ class CosmicBackground {
         const offsetX = player ? (-player.x * 0.3) % spacing : 0;
         const offsetY = player ? (-player.y * 0.3) % spacing : 0;
 
-        // 🚀 OPTIMIZATION: Batch all grid lines into single path
+        // > OPTIMIZATION: Batch all grid lines into single path
         ctx.beginPath(); // Only ONE beginPath for entire grid
 
         // === UPPER GRID (subtle, integrates with stars) ===
@@ -618,7 +618,7 @@ class CosmicBackground {
             ctx.lineTo(x + perspectiveAngle, h);
         }
 
-        // 🚀 OPTIMIZATION: Single stroke for ALL grid lines (80% faster)
+        // > OPTIMIZATION: Single stroke for ALL grid lines (80% faster)
         ctx.globalAlpha = 0.15; // Unified alpha for grid
         ctx.stroke();
         ctx.restore();
@@ -664,7 +664,7 @@ class CosmicBackground {
     }
 
     /**
-     * 🚀 PERFORMANCE PRESET: Raspberry Pi 5 & Low-End Devices
+     * > PERFORMANCE PRESET: Raspberry Pi 5 & Low-End Devices
      * Applies optimized settings for smooth 60fps on ARM/integrated GPUs
      */
     enablePi5Mode() {
@@ -692,12 +692,12 @@ class CosmicBackground {
         this._gridFrameCounter = 0;
 
         if (window.debugManager?.enabled) {
-            console.log('🍓 CosmicBackground: Pi5 optimization mode enabled');
+            console.log('[Pi] CosmicBackground: Pi5 optimization mode enabled');
         }
     }
 
     /**
-     * 🚀 PERFORMANCE PRESET: High-End Desktop
+     * > PERFORMANCE PRESET: High-End Desktop
      * Maximum visual quality for modern GPUs
      */
     enableDesktopMode() {
@@ -711,7 +711,7 @@ class CosmicBackground {
         this.grid.spacing = 80;
         this._gridFrameCounter = 0;
         if (window.debugManager?.enabled) {
-            console.log('🖥️ CosmicBackground: Desktop quality mode enabled');
+            console.log('[D] CosmicBackground: Desktop quality mode enabled');
         }
     }
 
@@ -735,7 +735,7 @@ class CosmicBackground {
 
         this.lowQuality = enabled;
         
-        // 🎨 FIX: Track if counts actually changed to avoid unnecessary reinitialization
+        // [R] FIX: Track if counts actually changed to avoid unnecessary reinitialization
         // This prevents nebula flashing when _applyBackgroundQuality() is called repeatedly
         let countsChanged = false;
         
@@ -814,7 +814,7 @@ class CosmicBackground {
             // Reinitialize with new counts
             this.initialize();
             if (window.debugManager?.enabled) {
-                console.log(`🌌 CosmicBackground reinitialized (quality=${enabled ? 'low' : 'high'})`);
+                console.log(`[C] CosmicBackground reinitialized (quality=${enabled ? 'low' : 'high'})`);
             }
         }
     }

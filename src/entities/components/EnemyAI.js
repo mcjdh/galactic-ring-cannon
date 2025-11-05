@@ -1,6 +1,6 @@
 /**
  * EnemyAI Component
- * 🤖 RESONANT NOTE: Extracted from massive Enemy.js to improve maintainability
+ * [A] RESONANT NOTE: Extracted from massive Enemy.js to improve maintainability
  * Handles all AI behaviors, targeting, attack patterns, and decision making
  */
 
@@ -38,7 +38,7 @@ class EnemyAI {
         this._avoidanceFrameGroup = EnemyAI._nextAvoidanceAssignment;
         EnemyAI._nextAvoidanceAssignment = (EnemyAI._nextAvoidanceAssignment + 1) % EnemyAI._avoidanceBuckets;
         
-        // 🚀 OPTIMIZATION: Neighbor cache for Pi5 performance (70% reduction in spatial queries)
+        // > OPTIMIZATION: Neighbor cache for Pi5 performance (70% reduction in spatial queries)
         this._cachedNeighbors = [];
         this._neighborCacheFrame = -999;
         this._neighborCacheLifetime = 4; // Cache for 4 frames on Pi5
@@ -393,12 +393,12 @@ class EnemyAI {
     
     /**
      * Calculate collision avoidance with other enemies
-     * 🚀 OPTIMIZATION: Uses neighbor caching to reduce spatial queries by 70%
+     * > OPTIMIZATION: Uses neighbor caching to reduce spatial queries by 70%
      */
     calculateAvoidance(game) {
         const currentFrame = game?.frameCount ?? 0;
         
-        // 🚀 Check if we can use cached neighbors (massive performance gain on Pi5)
+        // > Check if we can use cached neighbors (massive performance gain on Pi5)
         if (currentFrame - this._neighborCacheFrame < this._neighborCacheLifetime) {
             return this._calculateAvoidanceFromCache();
         }
@@ -427,7 +427,7 @@ class EnemyAI {
                 const distSq = dx * dx + dy * dy;
                 if (distSq === 0 || distSq > separationRadiusSq) continue;
                 
-                // 🚀 Cache neighbor for future frames
+                // > Cache neighbor for future frames
                 this._cachedNeighbors.push({ other, distSq });
                 
                 const distance = Math.sqrt(distSq);
@@ -460,7 +460,7 @@ class EnemyAI {
                         const distSq = dx * dx + dy * dy;
                         if (distSq === 0 || distSq > separationRadiusSq) continue;
 
-                        // 🚀 Cache neighbor for future frames
+                        // > Cache neighbor for future frames
                         this._cachedNeighbors.push({ other, distSq });
                         
                         const distance = Math.sqrt(distSq);
@@ -496,7 +496,7 @@ class EnemyAI {
     }
     
     /**
-     * 🚀 OPTIMIZATION: Calculate avoidance from cached neighbors (avoids spatial queries)
+     * > OPTIMIZATION: Calculate avoidance from cached neighbors (avoids spatial queries)
      */
     _calculateAvoidanceFromCache() {
         const avoidance = this.avoidanceVector;

@@ -1,6 +1,6 @@
 /**
  * 🌊 UNIFIED UI MANAGER - Next-Generation Architecture
- * 🤖 RESONANT NOTE: Designed to handle multiple unit types, projectiles, and complex scenarios
+ * [A] RESONANT NOTE: Designed to handle multiple unit types, projectiles, and complex scenarios
  * 
  * Features:
  * - Proper world-space vs screen-space coordinate handling

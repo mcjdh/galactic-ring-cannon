@@ -1,6 +1,6 @@
 /**
  * 🌊 UNIFIED DIFFICULTY MANAGER - Resonant Multi-Agent Architecture
- * 🤖 RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
+ * [A] RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
  * Handles all difficulty scaling, progression curves, and adaptive balancing
  * 
  * Single responsibility: Manage game difficulty progression and scaling
@@ -494,7 +494,7 @@ class DifficultyManager {
             // Show mega boss warning
             if (this.gameManager.effectsManager) {
                 this.gameManager.effectsManager.showCombatText(
-                    '⚠️ MEGA BOSS APPROACHING! ⚠️',
+                    '! MEGA BOSS APPROACHING! !',
                     player ? player.x : 0,
                     player ? player.y - 100 : 0,
                     'critical',

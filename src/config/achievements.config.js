@@ -26,7 +26,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'first_kill': {
         name: 'First Blood',
         description: 'Defeat your first enemy',
-        icon: '⚔️',
+        icon: '+',
         progress: 0,
         target: 1,
         unlocked: false
@@ -34,7 +34,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'combo_master': {
         name: 'Combo Master',
         description: 'Reach a 10x combo',
-        icon: '🔥',
+        icon: '^',
         progress: 0,
         target: 10,
         unlocked: false
@@ -42,7 +42,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'boss_slayer': {
         name: 'Boss Slayer',
         description: 'Defeat 5 bosses',
-        icon: '👑',
+        icon: 'W',
         progress: 0,
         target: 5,
         unlocked: false,
@@ -51,7 +51,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'mega_boss_slayer': {
         name: 'Mega Boss Slayer',
         description: 'Defeat the Mega Boss',
-        icon: '🌟',
+        icon: '*',
         progress: 0,
         target: 1,
         unlocked: false,
@@ -60,7 +60,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'kill_streak': {
         name: 'Kill Streak',
         description: 'Kill 50 enemies in 10 seconds',
-        icon: '⚡',
+        icon: '*',
         progress: 0,
         target: 50,
         unlocked: false
@@ -72,7 +72,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'level_up': {
         name: 'Level Up!',
         description: 'Reach level 10',
-        icon: '⭐',
+        icon: '*',
         progress: 0,
         target: 10,
         unlocked: false
@@ -80,7 +80,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'star_collector': {
         name: 'Star Collector',
         description: 'Collect 1000 XP orbs',
-        icon: '✨',
+        icon: '+',
         progress: 0,
         target: 1000,
         unlocked: false
@@ -88,7 +88,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'meta_star_collector': {
         name: 'Meta Star Collector',
         description: 'Earn 100 meta stars',
-        icon: '⭐',
+        icon: '*',
         progress: 0,
         target: 100,
         unlocked: false
@@ -96,7 +96,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'max_upgrade': {
         name: 'Fully Upgraded',
         description: 'Max out any Star Vendor upgrade',
-        icon: '🌈',
+        icon: '=',
         progress: 0,
         target: 1,
         unlocked: false
@@ -108,7 +108,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'dodge_master': {
         name: 'Dodge Master',
         description: 'Successfully dodge 50 times',
-        icon: '💨',
+        icon: '>>',
         progress: 0,
         target: 50,
         unlocked: false
@@ -116,7 +116,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'perfect_dodge': {
         name: 'Perfect Dodge',
         description: 'Dodge an attack at the last moment',
-        icon: '🎯',
+        icon: 'o',
         progress: 0,
         target: 1,
         unlocked: false
@@ -124,7 +124,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'untouchable': {
         name: 'Untouchable',
         description: 'Survive for 60 seconds without taking damage',
-        icon: '🛡️',
+        icon: '#',
         progress: 0,
         target: 60,
         unlocked: false
@@ -136,7 +136,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'survivor': {
         name: 'Survivor',
         description: 'Survive for 10 minutes',
-        icon: '⏱️',
+        icon: 'T',
         progress: 0,
         target: 600, // 10 minutes in seconds
         unlocked: false
@@ -144,7 +144,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'elite_hunter': {
         name: 'Elite Hunter',
         description: 'Defeat 10 elite enemies',
-        icon: '🎖️',
+        icon: 'M',
         progress: 0,
         target: 10,
         unlocked: false
@@ -152,7 +152,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'wave_master': {
         name: 'Wave Master',
         description: 'Survive 10 waves',
-        icon: '🌊',
+        icon: '~',
         progress: 0,
         target: 10,
         unlocked: false
@@ -164,7 +164,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'critical_master': {
         name: 'Critical Master',
         description: 'Land 50 critical hits',
-        icon: '💥',
+        icon: 'X',
         progress: 0,
         target: 50,
         unlocked: false
@@ -172,7 +172,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'chain_reaction': {
         name: 'Chain Reaction',
         description: 'Hit 5 enemies with a single chain lightning',
-        icon: '⚡',
+        icon: '*',
         progress: 0,
         target: 5,
         unlocked: false
@@ -180,7 +180,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'ricochet_master': {
         name: 'Ricochet Master',
         description: 'Hit 3 enemies with a single ricochet',
-        icon: '↪️',
+        icon: '<',
         progress: 0,
         target: 3,
         unlocked: false
@@ -188,7 +188,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     'orbital_master': {
         name: 'Orbital Master',
         description: 'Have 5 orbital projectiles at once',
-        icon: '🌠',
+        icon: 'o-',
         progress: 0,
         target: 5,
         unlocked: false

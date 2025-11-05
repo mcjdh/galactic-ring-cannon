@@ -1,6 +1,6 @@
 /**
  * Particle Helpers - Centralized particle creation utilities
- * 🤖 RESONANT NOTE: Uses pooled particles instead of direct instantiation
+ * [A] RESONANT NOTE: Uses pooled particles instead of direct instantiation
  * Replaces scattered `new Particle()` calls with pooled alternatives
  */
 
@@ -218,7 +218,7 @@ class ParticleHelpers {
             const angle = Math.random() * Math.PI * 2;
             const speed = 30 + Math.random() * 70;
             
-            // 🤖 RESONANT NOTE: Using pooled particles for better performance
+            // [A] RESONANT NOTE: Using pooled particles for better performance
             if (window.optimizedParticles) {
                 window.optimizedParticles.spawnParticle({
                     x, y,
@@ -242,7 +242,7 @@ class ParticleHelpers {
     static createBasicExplosion(x, y, radius, color) {
         const count = Math.min(15, Math.floor(radius / 4));
         
-        // 🤖 RESONANT NOTE: Prefer pooled particles for explosions
+        // [A] RESONANT NOTE: Prefer pooled particles for explosions
         if (window.optimizedParticles) {
             for (let i = 0; i < count; i++) {
                 const angle = Math.random() * Math.PI * 2;
@@ -273,7 +273,7 @@ class ParticleHelpers {
     }
     
     static createBasicTrail(x, y, vx, vy, color) {
-        // 🤖 RESONANT NOTE: Trail particles using pooled system
+        // [A] RESONANT NOTE: Trail particles using pooled system
         if (window.optimizedParticles) {
             window.optimizedParticles.spawnParticle({
                 x: x + (Math.random() - 0.5) * 5,

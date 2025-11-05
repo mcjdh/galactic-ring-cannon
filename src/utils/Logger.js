@@ -55,18 +55,18 @@ class Logger {
 
     warn(message, ...args) {
         // Warnings always visible (important for debugging issues)
-        console.warn(`[WARN] ${message}`, ...args);
+        console.warn(`! ${message}`, ...args);
     }
 
     error(message, ...args) {
         // Errors always visible (critical for debugging)
-        console.error(`[ERROR] ${message}`, ...args);
+        console.error(`! ${message}`, ...args);
     }
 
     info(message, ...args) {
         // Info logs only in debug mode (similar to log)
         if (this.debug) {
-            console.info(`[INFO] ${message}`, ...args);
+            console.info(`i ${message}`, ...args);
         }
     }
 
@@ -84,7 +84,7 @@ class Logger {
         } catch (e) {
             // Ignore localStorage errors
         }
-        console.log(`🔧 Debug mode ${enabled ? 'enabled' : 'disabled'}`);
+        console.log(`# Debug mode ${enabled ? 'enabled' : 'disabled'}`);
     }
 }
 
@@ -106,10 +106,10 @@ if (typeof window !== 'undefined') {
 
     // Log initial state and helpful hints
     if (logger.debug) {
-        console.log('🔧 Debug mode is ENABLED. Use window.toggleDebug() to disable or localStorage.removeItem("debug")');
+        console.log('# Debug mode is ENABLED. Use window.toggleDebug() to disable or localStorage.removeItem("debug")');
     } else {
         // Show helpful hint for users who open console
-        console.log('%c💡 Debug Mode Available', 'color: #3498db; font-size: 14px; font-weight: bold;');
+        console.log('%c? Debug Mode Available', 'color: #3498db; font-size: 14px; font-weight: bold;');
         console.log('%cEnable verbose logging with any of these methods:', 'color: #95a5a6; font-size: 12px;');
         console.log('%c  • window.toggleDebug()%c           - Toggle on/off', 'color: #2ecc71; font-weight: bold;', 'color: #7f8c8d;');
         console.log('%c  • ?debug=true%c                    - Add to URL', 'color: #2ecc71; font-weight: bold;', 'color: #7f8c8d;');

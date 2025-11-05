@@ -1,5 +1,5 @@
 /**
- * 🌊 GAME STATE - Single Source of Truth
+ * [GAME STATE] - Single Source of Truth
  * Central state management for the entire game
  *
  * Architecture Pattern: Single Source of Truth
@@ -317,10 +317,9 @@ class GameState {
             this._notifyObservers('levelUp', { level: this.player.level });
         }
 
-        // Check for death
-        if (!this.player.isAlive && !this.flow.isGameOver) {
-            this.gameOver();
-        }
+        // NOTE: Death detection removed from here - handled by GameManagerBridge.checkGameConditions()
+        // This prevents race condition where gameOver is set before the loss screen can be shown
+        // See: gameManagerBridge.js checkGameConditions() for proper death handling
     }
 
     // ===== PROGRESSION METHODS =====
@@ -633,7 +632,7 @@ class GameState {
                             this.meta.achievements = new Set(unlockedIds);
                             // Save in new format
                             this._saveMetaState();
-                            console.log(`✅ Migrated ${unlockedIds.length} achievements from AchievementSystem`);
+                            console.log(`+ Migrated ${unlockedIds.length} achievements from AchievementSystem`);
                         }
                     } catch (error) {
                         console.warn('Failed to migrate old achievements:', error);

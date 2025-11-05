@@ -55,7 +55,7 @@ class GameEngine {
             ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error initializing canvas:', error);
         }
         
-        // 🌊 GAME STATE - Single Source of Truth
+        // [GAME STATE] - Single Source of Truth
         // Initialize centralized state management
         this.state = new GameState();
 
@@ -108,7 +108,7 @@ class GameEngine {
         this.autoPaused = false;
         
     // Object pools - partially implemented for projectiles and particles
-    // 🤖 RESONANT NOTE FOR ALL CODING AGENTS:
+    // [AI NOTE] FOR ALL CODING AGENTS:
     // Object pooling (simplified) - projectile pooling removed due to state corruption bugs
     // Current pools: particlePool, enemyProjectilePool
     this.enemyProjectilePool = [];
@@ -192,7 +192,7 @@ class GameEngine {
         this._boundGameLoop = this.gameLoop.bind(this);
 
 
-        // 🌌 Initialize Cosmic Background
+        // [C] Initialize Cosmic Background
         this.cosmicBackground = null;
         this._initializeCosmicBackground();
     }
@@ -209,11 +209,11 @@ class GameEngine {
                 }
                 ((typeof window !== "undefined" && window.logger?.info) || console.log)('Cosmic background initialized');
 
-                // 🍓 Detect Raspberry Pi and low-end devices for auto-optimization
+                // [Pi] Detect Raspberry Pi and low-end devices for auto-optimization
                 const isLowEndDevice = this._detectLowEndDevice();
                 
                 if (isLowEndDevice.isRaspberryPi) {
-                    (window.logger?.log || (() => {}))('🍓 Raspberry Pi detected - enabling optimizations');
+                    (window.logger?.log || (() => {}))('[Pi] Raspberry Pi detected - enabling optimizations');
                     window.isRaspberryPi = true;
                     this.cosmicBackground.enablePi5Mode();
                     this._autoLowQualityCosmic = true;
@@ -237,7 +237,7 @@ class GameEngine {
                         window.FastMath.installGlobals();
                     }
                 } else if (isLowEndDevice.isLowEnd) {
-                    (window.logger?.log || (() => {}))('⚡ Low-end device detected - enabling optimizations');
+                    (window.logger?.log || (() => {}))('[P] Low-end device detected - enabling optimizations');
                     this.cosmicBackground.setLowQuality(true);
                     this._autoLowQualityCosmic = true;
                     this._autoParticleLowQuality = true;
@@ -282,7 +282,7 @@ class GameEngine {
     }
 
     /**
-     * 🍓 Detect Raspberry Pi and low-end devices for automatic optimization
+     * [Pi] Detect Raspberry Pi and low-end devices for automatic optimization
      */
     _detectLowEndDevice() {
         const result = {
@@ -378,7 +378,7 @@ class GameEngine {
 
         const debugEnabled = this.debugMode || (typeof window !== 'undefined' && window.debugMode);
         if (debugEnabled) {
-            (window.logger?.log || (() => {}))(`🎨 _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
+            (window.logger?.log || (() => {}))(`[R] _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
         }
 
         this.cosmicBackground.setLowQuality(shouldUseLowQuality);
@@ -719,7 +719,7 @@ class GameEngine {
             return;
         }
 
-        ((typeof window !== "undefined" && window.logger?.log) || console.log)('🔄 Preparing game engine for new run');
+        ((typeof window !== "undefined" && window.logger?.log) || console.log)('@ Preparing game engine for new run');
 
         this._initializeEntityManager();
 
@@ -740,7 +740,7 @@ class GameEngine {
         this.autoPaused = false;
         this.contextLost = false;
         
-        // 🎨 FIX: Preserve auto-detected performance settings between runs
+        // [R] FIX: Preserve auto-detected performance settings between runs
         // Don't reset lowGpuMode/_autoLowQualityCosmic if auto-detected for low-end devices
         // Only reset if there's a manual override
         if (this._manualPerformanceOverride === 'on') {
@@ -882,7 +882,7 @@ class GameEngine {
             this.ctx.imageSmoothingQuality = 'low'; // Better performance
             this.ctx.globalCompositeOperation = 'source-over'; // Optimize blending
 
-            // 🌌 Notify cosmic background of resize
+            // [C] Notify cosmic background of resize
             if (this.cosmicBackground && typeof this.cosmicBackground.resize === 'function') {
                 this.cosmicBackground.resize();
             }
@@ -892,7 +892,7 @@ class GameEngine {
     }
     
     start() {
-        ((typeof window !== "undefined" && window.logger?.log) || console.log)('🚀 GameEngine starting...');
+        ((typeof window !== "undefined" && window.logger?.log) || console.log)('> GameEngine starting...');
 
         // 🌊 START GAME STATE
         this.state.start();
@@ -909,14 +909,14 @@ class GameEngine {
         if (!this._loopInitialized) {
             this._loopInitialized = true;
             this.gameLoop(now);
-            ((typeof window !== "undefined" && window.logger?.log) || console.log)('✅ Game loop started');
+            ((typeof window !== "undefined" && window.logger?.log) || console.log)('+ Game loop started');
         } else {
-            ((typeof window !== "undefined" && window.logger?.log) || console.log)('🔁 Game loop already active - refreshed run state');
+            ((typeof window !== "undefined" && window.logger?.log) || console.log)('@ Game loop already active - refreshed run state');
         }
     }
     
     gameLoop(timestamp) {
-        // 🍓 Performance profiling for Pi5
+        // [Pi] Performance profiling for Pi5
         if (window.performanceProfiler?.enabled) {
             window.performanceProfiler.frameStart();
         }
@@ -969,7 +969,7 @@ class GameEngine {
 
         this.lastFrameTime = timestamp;
         
-        // 🍓 End frame profiling
+        // [Pi] End frame profiling
         if (window.performanceProfiler?.enabled) {
             window.performanceProfiler.frameEnd();
         }
@@ -980,7 +980,7 @@ class GameEngine {
     update(deltaTime) {
         // Validate and smooth deltaTime to prevent jitter
         if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > 1) {
-            // 🤖 RESONANT NOTE: Reduced console spam - only log critical deltaTime issues
+            // [AI NOTE]: Reduced console spam - only log critical deltaTime issues
             if (deltaTime > 0.1 && window.debugManager?.enabled) {
                 ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Invalid deltaTime:', deltaTime);
             }
@@ -1047,7 +1047,7 @@ class GameEngine {
             if (window.performanceProfiler?.enabled) window.performanceProfiler.end('particles', 'particles');
         }
 
-        // 🌌 Update cosmic background
+        // [C] Update cosmic background
         if (this.cosmicBackground && typeof this.cosmicBackground.update === 'function') {
             if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBackground');
             this.cosmicBackground.update(deltaTime, this.player);
@@ -1208,7 +1208,7 @@ class GameEngine {
         if (normalized === 'normal') {
             this._manualPerformanceOverride = null;
             this.disablePerformanceMode();
-            // 🎨 FIX: Don't reset auto-detected flags when switching to normal mode
+            // [R] FIX: Don't reset auto-detected flags when switching to normal mode
             // Only reset if they weren't set by auto-detection
             // This preserves low-quality settings for genuinely low-end devices
             // (Auto-detected flags should persist regardless of current FPS)
@@ -1216,7 +1216,7 @@ class GameEngine {
             this._manualPerformanceOverride = 'on';
             this.enablePerformanceMode();
             
-            // 🎨 FIX: Don't override _autoLowQualityCosmic if it was auto-detected
+            // [R] FIX: Don't override _autoLowQualityCosmic if it was auto-detected
             // Manual performance preference should not wipe device detection
             // Only set it if it's currently false (not auto-detected)
             if (!this._autoLowQualityCosmic) {
@@ -1244,7 +1244,7 @@ class GameEngine {
         if (this.performanceMode) return;
         this.performanceMode = true;
         
-        // 🎨 FIX: Only set lowGpuMode if it wasn't auto-detected
+        // [R] FIX: Only set lowGpuMode if it wasn't auto-detected
         // If _autoLowQualityCosmic is true, device was detected as low-end,
         // so lowGpuMode should remain true permanently
         if (!this._autoLowQualityCosmic) {
@@ -1270,7 +1270,7 @@ class GameEngine {
         if (!this.performanceMode) return;
         this.performanceMode = false;
         
-        // 🎨 FIX: Only reset lowGpuMode if it wasn't auto-detected
+        // [R] FIX: Only reset lowGpuMode if it wasn't auto-detected
         // If _autoLowQualityCosmic is true, device was detected as low-end,
         // so lowGpuMode should remain true permanently
         if (!this._autoLowQualityCosmic) {
@@ -1649,7 +1649,7 @@ class GameEngine {
                 return;
             }
             
-            // 🌌 Render cosmic background (replaces canvas clear)
+            // [C] Render cosmic background (replaces canvas clear)
             if (this.cosmicBackground && typeof this.cosmicBackground.render === 'function') {
                 if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBgRender');
                 this.cosmicBackground.render(this.player);
@@ -1910,12 +1910,20 @@ class GameEngine {
                 this._releaseEnemyProjectile(entity);
             }
 
-            if (entity.type === 'player' && this.player === entity) {
-                this.player = null;
-            }
+            // NEVER remove the player entity reference here
+            // Player death is handled by GameManagerBridge.onGameOver()
+            // Removing player here causes race condition where checkGameConditions can't detect death
+            // if (entity.type === 'player' && this.player === entity) {
+            //     this.player = null;
+            // }
         };
 
-        const shouldCull = (entity) => !entity || entity.isDead || typeof entity !== 'object';
+        // Don't cull the player entity even if dead - let game manager handle it
+        const shouldCull = (entity) => {
+            if (!entity || typeof entity !== 'object') return true;
+            if (entity.type === 'player') return false; // Never auto-remove player
+            return entity.isDead;
+        };
 
         this.entityManager.prune(shouldCull, handleRemoval);
 
@@ -1954,7 +1962,11 @@ class GameEngine {
             // Clean main entities array using write-back approach for better performance
             for (let i = 0; i < this.entities.length; i++) {
                 const entity = this.entities[i];
-                if (entity && !entity.isDead && typeof entity === 'object') {
+                // NEVER remove player entity here - causes race condition with death detection
+                const isPlayer = entity && entity.type === 'player';
+                const shouldKeep = entity && (!entity.isDead || isPlayer) && typeof entity === 'object';
+                
+                if (shouldKeep) {
                     if (entityIndex !== i) {
                         this.entities[entityIndex] = entity;
                     }

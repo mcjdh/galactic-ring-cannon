@@ -31,7 +31,7 @@ const CHARACTER_DEFINITIONS = [
     {
         id: 'aegis_vanguard',
         name: 'Aegis Vanguard',
-        icon: '🛡️',
+        icon: '#',
         tagline: 'Bulwark Pilot',
         description: 'Frontline defender whose reinforced hull shrugs off punishment. Prefers the dependable Pulse Cannon.',
         difficulty: 'balanced',
@@ -59,7 +59,7 @@ const CHARACTER_DEFINITIONS = [
     {
         id: 'nova_corsair',
         name: 'Nova Corsair',
-        icon: '🔥',
+        icon: '^',
         tagline: 'Close-Range Raider',
         description: 'Dives into the swarm with a volatile Nova Shotgun. Lives fast, dodges often, never stops moving.',
         difficulty: 'aggressive',
@@ -89,7 +89,7 @@ const CHARACTER_DEFINITIONS = [
     {
         id: 'stormcaller',
         name: 'Stormcaller Adept',
-        icon: '⚡',
+        icon: '*',
         tagline: 'Arc Lance Savant',
         description: 'Channels chaining arc bursts that dance between enemies. Excels at crowd disruption.',
         difficulty: 'control',

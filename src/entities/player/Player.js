@@ -245,6 +245,9 @@ class Player {
 
     // Main update method coordinates all systems
     update(deltaTime, game) {
+        // Don't update anything if player is dead
+        if (this.isDead) return;
+        
         this.stats.update(deltaTime);
         this.movement.update(deltaTime, game);
         this.combat.update(deltaTime, game);

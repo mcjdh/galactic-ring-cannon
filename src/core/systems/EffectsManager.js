@@ -1,6 +1,6 @@
 /**
  * 🌊 UNIFIED EFFECTS MANAGER - Resonant Multi-Agent Architecture
- * 🤖 RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
+ * [A] RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
  * Handles all visual effects, particles, screen shake, and floating text
  * 
  * Single responsibility: Coordinate all visual feedback and effects

@@ -1,14 +1,14 @@
 // CollisionSystem: handles spatial grid updates and collision processing
 // Depends on engine entities and classes already present globally
-// ✅ PERFORMANCE: Adaptive grid sizing based on entity density
-// ✅ OPTIMIZATION: Broad-phase filtering to skip impossible collisions
-// ✅ OPTIMIZATION: Collision layer system to reduce unnecessary checks
+// + PERFORMANCE: Adaptive grid sizing based on entity density
+// + OPTIMIZATION: Broad-phase filtering to skip impossible collisions
+// + OPTIMIZATION: Collision layer system to reduce unnecessary checks
 (function () {
     class CollisionSystem {
         constructor(engine) {
             this.engine = engine;
             
-            // ✅ COLLISION STATISTICS for performance monitoring
+            // + COLLISION STATISTICS for performance monitoring
             this.stats = {
                 cellsProcessed: 0,
                 collisionsChecked: 0,
@@ -17,7 +17,7 @@
                 lastResetTime: performance.now()
             };
             
-            // ✅ COLLISION LAYERS for better filtering
+            // + COLLISION LAYERS for better filtering
             this.collisionLayers = {
                 PLAYER: 1,
                 ENEMY: 2,
@@ -98,7 +98,7 @@
 
             engine.gridSize = gridSize;
             
-            // ✅ OBJECT POOLING for grid cells to reduce allocations
+            // + OBJECT POOLING for grid cells to reduce allocations
             for (const entity of list) {
                 if (!entity || entity.isDead) continue;
                 
@@ -128,7 +128,7 @@
             }
         }
         
-        // ✅ CALCULATE OPTIMAL GRID SIZE based on entity density - improved stability
+        // + CALCULATE OPTIMAL GRID SIZE based on entity density - improved stability
         calculateOptimalGridSize(entityCount) {
             // Use larger grid cells to reduce boundary crossing jitter
             if (entityCount < 50) return 160;      // Larger cells for few entities
@@ -143,14 +143,14 @@
                 return; // Skip collision checking if engine state is invalid
             }
             
-            // ✅ RESET COLLISION STATISTICS
+            // + RESET COLLISION STATISTICS
             this.stats.collisionsChecked = 0;
             this.stats.collisionsDetected = 0;
             const startTime = performance.now();
             
             try {
                 for (const [key, entities] of engine.spatialGrid) {
-                    // ✅ EARLY EXIT STRATEGY for empty regions
+                    // + EARLY EXIT STRATEGY for empty regions
                     if (!entities || entities.length === 0) continue;
                     const [gridX, gridY] = engine.decodeGridKey(key);
 
@@ -186,7 +186,7 @@
                     }
                 }
 
-                // ✅ LOG PERFORMANCE STATISTICS periodically
+                // + LOG PERFORMANCE STATISTICS periodically
                 if (window.debugManager?.enabled && startTime - this.stats.lastResetTime > 5000) {
                     this.logPerformanceStats(performance.now() - startTime);
                     this.stats.lastResetTime = startTime;
@@ -197,7 +197,7 @@
             }
         }
         
-        // ✅ PERFORMANCE STATISTICS LOGGING
+        // + PERFORMANCE STATISTICS LOGGING
         logPerformanceStats(processingTime) {
             const stats = this.stats;
             ((typeof window !== "undefined" && window.logger?.debug) || console.debug)(`Collision Performance:
@@ -207,10 +207,10 @@
         }
 
         checkCollisionsInCell(entities) {
-            // ✅ EARLY EXIT for small cells (already optimized)
+            // + EARLY EXIT for small cells (already optimized)
             if (entities.length < 2) return;
             
-            // ✅ COLLISION LAYER FILTERING - skip impossible collisions
+            // + COLLISION LAYER FILTERING - skip impossible collisions
             for (let i = 0; i < entities.length - 1; i++) {
                 const entity1 = entities[i];
                 if (!entity1 || entity1.isDead) continue; // Skip dead entities
@@ -225,7 +225,7 @@
                     const type2 = entity2.type;
                     const rulesForEntity2 = this.collisionRules[type2];
                     
-                    // ✅ BROAD-PHASE: Skip impossible collision combinations
+                    // + BROAD-PHASE: Skip impossible collision combinations
                     if (
                         !(
                             (rulesForEntity1 && rulesForEntity1.has(type2)) ||
@@ -248,7 +248,7 @@
             }
         }
         
-        // ✅ COLLISION LAYER SYSTEM - determine if two entities can collide
+        // + COLLISION LAYER SYSTEM - determine if two entities can collide
         canCollide(entity1, entity2) {
             if (!entity1 || !entity2) return false;
             return this._canCollideTypes(entity1.type, entity2.type);
@@ -574,7 +574,7 @@
             }
         }
         
-        // ✅ CELL POOL MANAGEMENT - prevent memory leaks
+        // + CELL POOL MANAGEMENT - prevent memory leaks
         cleanupCellPool() {
             // Initialize cellPool if it doesn't exist
             if (!this.cellPool) {
@@ -600,7 +600,7 @@
             }
         }
         
-        // ✅ PERFORMANCE OPTIMIZATION ENTRY POINT
+        // + PERFORMANCE OPTIMIZATION ENTRY POINT
         getPerformanceStats() {
             return {
                 ...this.stats,

@@ -1,5 +1,5 @@
 // Collision detection utilities
-// 🤖 RESONANT NOTE FOR ALL CODING AGENTS: 
+// [A] RESONANT NOTE FOR ALL CODING AGENTS: 
 // This utility has been optimized to use MathUtils.clamp() instead of nested Math.max/min
 // Please maintain this pattern and avoid reintroducing complex math chains
 

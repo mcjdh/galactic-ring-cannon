@@ -1,5 +1,5 @@
 /**
- * 🍓 Performance Profiler for Raspberry Pi 5 Testing
+ * [Pi] Performance Profiler for Raspberry Pi 5 Testing
  * Provides detailed performance metrics and profiling for optimization work
  */
 
@@ -54,7 +54,7 @@ class PerformanceProfiler {
     setEnabled(enabled) {
         this.enabled = enabled;
         if (enabled) {
-            console.log('🔍 Performance Profiler enabled');
+            console.log('[I] Performance Profiler enabled');
         }
     }
     
@@ -98,7 +98,7 @@ class PerformanceProfiler {
         // Log if verbose or if exceeds target
         const target = this.targets[category];
         if (this.verbose || (target && duration > target)) {
-            const status = target && duration > target ? '⚠️' : '✅';
+            const status = target && duration > target ? '!' : '+';
             console.log(`${status} ${label}: ${duration.toFixed(2)}ms${target ? ` (target: ${target}ms)` : ''}`);
         }
         
@@ -155,20 +155,20 @@ class PerformanceProfiler {
     report() {
         if (!this.enabled) return;
         
-        console.log('📊 ═══════════════════════════════════════════════════');
-        console.log('📊 PERFORMANCE REPORT (Pi5 Optimization)');
-        console.log('📊 ═══════════════════════════════════════════════════');
+        console.log('[S] ═══════════════════════════════════════════════════');
+        console.log('[S] PERFORMANCE REPORT (Pi5 Optimization)');
+        console.log('[S] ═══════════════════════════════════════════════════');
         
         // Overall stats
         const fps = 1000 / this.stats.avgFrameTime;
         const dropRate = (this.stats.droppedFrames / this.stats.totalFrames * 100).toFixed(1);
-        console.log(`📊 Overall:`);
+        console.log(`[S] Overall:`);
         console.log(`   FPS: ${fps.toFixed(1)} (avg: ${this.stats.avgFrameTime.toFixed(2)}ms)`);
         console.log(`   Min/Max: ${this.stats.minFrameTime.toFixed(2)}ms / ${this.stats.maxFrameTime.toFixed(2)}ms`);
         console.log(`   Dropped: ${this.stats.droppedFrames} / ${this.stats.totalFrames} (${dropRate}%)`);
         
         // System timings
-        console.log(`\n📊 System Timings (avg over last 60 frames):`);
+        console.log(`\n[S] System Timings (avg over last 60 frames):`);
         
         for (const [system, timings] of Object.entries(this.systemTimings)) {
             if (timings.length === 0) continue;
@@ -176,24 +176,24 @@ class PerformanceProfiler {
             const avg = timings.reduce((a, b) => a + b, 0) / timings.length;
             const max = Math.max(...timings);
             const target = this.targets[system];
-            const status = target && avg > target ? '⚠️' : '✅';
+            const status = target && avg > target ? '!' : '+';
             
             console.log(`   ${status} ${system}: ${avg.toFixed(2)}ms (max: ${max.toFixed(2)}ms)${target ? ` [target: ${target}ms]` : ''}`);
         }
         
         // Performance grade
-        console.log(`\n📊 Performance Grade:`);
+        console.log(`\n[S] Performance Grade:`);
         if (fps >= 55) {
-            console.log(`   🟢 EXCELLENT - Smooth 60fps gameplay!`);
+            console.log(`   + EXCELLENT - Smooth 60fps gameplay!`);
         } else if (fps >= 45) {
             console.log(`   🟡 GOOD - Minor frame drops, playable`);
         } else if (fps >= 30) {
-            console.log(`   🟠 FAIR - Noticeable lag, needs optimization`);
+            console.log(`   ! FAIR - Noticeable lag, needs optimization`);
         } else {
-            console.log(`   🔴 POOR - Severe lag, unplayable`);
+            console.log(`   !! POOR - Severe lag, unplayable`);
         }
         
-        console.log('📊 ═══════════════════════════════════════════════════\n');
+        console.log('[S] ═══════════════════════════════════════════════════\n');
     }
     
     /**
@@ -229,7 +229,7 @@ class PerformanceProfiler {
             this.systemTimings[key] = [];
         }
         
-        console.log('🔄 Performance profiler reset');
+        console.log('@ Performance profiler reset');
     }
 }
 
@@ -245,12 +245,12 @@ if (typeof window !== 'undefined') {
     window.profileOn = () => {
         window.performanceProfiler.setEnabled(true);
         window.performanceProfiler.setVerbose(true);
-        console.log('🔍 Performance profiling enabled (verbose mode)');
+        console.log('[I] Performance profiling enabled (verbose mode)');
     };
     
     window.profileOff = () => {
         window.performanceProfiler.setEnabled(false);
-        console.log('🔍 Performance profiling disabled');
+        console.log('[I] Performance profiling disabled');
     };
     
     window.profileReport = () => {

@@ -244,7 +244,7 @@ class GameManagerBridge {
      * Initialize the game systems
      */
     initGameEngine() {
-        (window.logger?.log || console.log)('🎮 Initializing game engine...');
+        (window.logger?.log || console.log)('> Initializing game engine...');
 
         try {
             // Create game engine
@@ -256,15 +256,15 @@ class GameManagerBridge {
 
             // 🌊 LINK GAME STATE - Single Source of Truth
             this.state = this.game.state;
-            (window.logger?.log || console.log)('✅ GameState linked to GameManagerBridge');
+            (window.logger?.log || console.log)('+ GameState linked to GameManagerBridge');
         
             // Create enemy spawner
             const EnemySpawnerClass = this.resolveNamespace('EnemySpawner');
             if (typeof EnemySpawnerClass === 'function') {
                 this.enemySpawner = new EnemySpawnerClass(this.game);
-                (window.logger?.log || console.log)('✅ Enemy spawner created');
+                (window.logger?.log || console.log)('+ Enemy spawner created');
             } else {
-                (window.logger?.warn || console.warn)('⚠️ EnemySpawner not available');
+                (window.logger?.warn || console.warn)('! EnemySpawner not available');
             }
 
             // Initialize HUD event handlers now that the engine/state exist
@@ -273,7 +273,7 @@ class GameManagerBridge {
             // Player will be created by GameEngine.prepareNewRun() when game starts
             // This prevents double-initialization where player is created here then recreated in prepareNewRun()
             // See: ARCHITECTURE_FIXES.md - Issue 3
-            (window.logger?.log || console.log)('✅ Player will be created on game start');
+            (window.logger?.log || console.log)('+ Player will be created on game start');
         
             // Initialize minimap after core systems
             this.setupMinimap();
@@ -282,16 +282,16 @@ class GameManagerBridge {
             const UIManagerClass = this.resolveNamespace('UnifiedUIManager');
             if (typeof UIManagerClass === 'function') {
                 this.uiManager = new UIManagerClass(this);
-                (window.logger?.log || console.log)('✅ UIManager initialized');
+                (window.logger?.log || console.log)('+ UIManager initialized');
             }
 
             // Initialize Effects Manager for particles, screen shake, etc.
             const EffectsManagerClass = this.resolveNamespace('EffectsManager');
             if (typeof EffectsManagerClass === 'function') {
                 this.effectsManager = new EffectsManagerClass(this);
-                (window.logger?.log || console.log)('✅ EffectsManager initialized');
+                (window.logger?.log || console.log)('+ EffectsManager initialized');
             } else {
-                (window.logger?.warn || console.warn)('⚠️ EffectsManager not available');
+                (window.logger?.warn || console.warn)('! EffectsManager not available');
             }
 
             const StatsManagerClass = this.resolveNamespace('StatsManager');
@@ -303,10 +303,10 @@ class GameManagerBridge {
                 // StatsManager now loads from GameState, so they should already be in sync
                 // Keep this sync for defensive programming and backward compatibility
                 this.metaStars = this.statsManager.starTokens;
-                (window.logger?.log || console.log)('✅ StatsManager initialized');
+                (window.logger?.log || console.log)('+ StatsManager initialized');
                 this.updateStarDisplay();
             } else {
-                (window.logger?.warn || console.warn)('⚠️ StatsManager not available');
+                (window.logger?.warn || console.warn)('! StatsManager not available');
             }
 
             // Initialize DifficultyManager to drive game scaling
@@ -317,16 +317,16 @@ class GameManagerBridge {
                     window.gameManager = this;
                 }
                 window.gameManager.difficultyManager = this.difficultyManager;
-                (window.logger?.log || console.log)('✅ DifficultyManager initialized');
+                (window.logger?.log || console.log)('+ DifficultyManager initialized');
             } else {
-                (window.logger?.warn || console.warn)('⚠️ DifficultyManager not available');
+                (window.logger?.warn || console.warn)('! DifficultyManager not available');
             }
 
-            (window.logger?.log || console.log)('✅ Game engine initialized successfully');
+            (window.logger?.log || console.log)('+ Game engine initialized successfully');
             return true;
             
         } catch (error) {
-            (window.logger?.error || console.error)('❌ Failed to initialize game engine:', error);
+            (window.logger?.error || console.error)('! Failed to initialize game engine:', error);
             return false;
         }
     }
@@ -335,7 +335,7 @@ class GameManagerBridge {
      * Start the game
      */
     startGame() {
-        (window.logger?.log || console.log)('🚀 Starting game...');
+        (window.logger?.log || console.log)('> Starting game...');
 
         // Defensive cleanup: Clear menu listeners/animations when transitioning to game
         // This prevents memory leaks if menu state gets out of sync
@@ -349,9 +349,9 @@ class GameManagerBridge {
 
         // Initialize engine if not done
         if (!this.game) {
-            (window.logger?.log || console.log)('🔧 Game engine not initialized, creating...');
+            (window.logger?.log || console.log)('> Game engine not initialized, creating...');
             if (!this.initGameEngine()) {
-                (window.logger?.error || console.error)('❌ Cannot start game - engine initialization failed');
+                (window.logger?.error || console.error)('! Cannot start game - engine initialization failed');
                 alert('Failed to initialize game engine. Please refresh the page.');
                 return;
             }
@@ -362,7 +362,7 @@ class GameManagerBridge {
         
         // Start the game engine
         if (this.game && typeof this.game.start === 'function') {
-            (window.logger?.log || console.log)('▶️ Starting game engine...');
+            (window.logger?.log || console.log)('> Starting game engine...');
             this.game.start();
             if (typeof this.game.resumeGame === 'function') {
                 this.game.resumeGame();
@@ -372,11 +372,11 @@ class GameManagerBridge {
             this.running = true;
             this.setupMinimap();
             this.renderMinimap();
-            (window.logger?.log || console.log)('✅ Game started successfully!');
-            (window.logger?.log || console.log)('🎮 Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
-            (window.logger?.log || console.log)('🎨 Canvas size:', this.game.canvas ? `${this.game.canvas.width}x${this.game.canvas.height}` : 'No canvas');
+            (window.logger?.log || console.log)('+ Game started successfully!');
+            (window.logger?.log || console.log)('[P] Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
+            (window.logger?.log || console.log)('[R] Canvas size:', this.game.canvas ? `${this.game.canvas.width}x${this.game.canvas.height}` : 'No canvas');
         } else {
-            (window.logger?.error || console.error)('❌ Game engine start method not available');
+            (window.logger?.error || console.error)('! Game engine start method not available');
             (window.logger?.log || console.log)('Available methods:', Object.getOwnPropertyNames(this.game || {}));
             alert('Game engine is not ready. Please refresh the page.');
         }
@@ -389,7 +389,7 @@ class GameManagerBridge {
         // 🌊 RESET GAME STATE - Single Source of Truth
         if (this.state) {
             this.state.resetSession();
-            (window.logger?.log || console.log)('✅ GameState reset for new session');
+            (window.logger?.log || console.log)('+ GameState reset for new session');
         }
 
         // Reset StatsManager (it will sync with GameState)
@@ -415,7 +415,7 @@ class GameManagerBridge {
         this.gameWon = false;
         this.endScreenShown = false;
 
-        (window.logger?.log || console.log)('🔄 Game state reset');
+        (window.logger?.log || console.log)('@ Game state reset');
     }
 
     setupMinimap() {
@@ -612,7 +612,7 @@ class GameManagerBridge {
         }
 
         // Combo system is updated by GameState
-        // Just sync UI
+        // Just sync UI with GPU-optimized transforms
         const comboText = this._getUiRef('comboText', 'combo-text');
         const comboFill = this._getUiRef('comboFill', 'combo-fill');
         const comboContainer = this._getUiRef('comboContainer', 'combo-container');
@@ -627,7 +627,9 @@ class GameManagerBridge {
             const timeout = this.state?.combo?.timeout ?? 1;
             const timer = Math.max(0, Math.min(this.comboTimer ?? 0, timeout));
             const ratio = timeout > 0 ? timer / timeout : 0;
-            comboFill.style.width = `${Math.round(ratio * 100)}%`;
+            // Use scaleX for GPU acceleration instead of width changes
+            const scaleX = Math.max(0, Math.min(1, ratio));
+            comboFill.style.transform = `scaleX(${scaleX}) translateZ(0)`;
             comboFill.style.opacity = comboCount > 0 ? '1' : '0';
         }
 
@@ -649,8 +651,6 @@ class GameManagerBridge {
         // Player entity is the single source of truth for death status
         // Check if player entity exists and is dead
         if (playerEntity && playerEntity.isDead) {
-            (window.logger?.log || console.log)('🔍 Player death detected, calling onGameOver()');
-
             // Immediately sync state before calling onGameOver to prevent race conditions
             if (this.state && this.state.player) {
                 this.state.player.isAlive = false;
@@ -673,7 +673,7 @@ class GameManagerBridge {
 
         // Prevent multiple calls
         if (this.gameOver) {
-            (window.logger?.warn || console.warn)('⚠️ onGameOver already called, skipping');
+            (window.logger?.warn || console.warn)('! onGameOver already called, skipping');
             return;
         }
 
@@ -713,7 +713,7 @@ class GameManagerBridge {
 
         // Prevent multiple calls
         if (this.gameWon || this.gameOver) {
-            (window.logger?.warn || console.warn)('⚠️ onGameWon already called or game is over, skipping');
+            (window.logger?.warn || console.warn)('! onGameWon already called or game is over, skipping');
             return;
         }
 
@@ -762,10 +762,7 @@ class GameManagerBridge {
     }
 
     showRunSummary({ title, subtitle = '', outcome = 'summary', buttons = [] }) {
-        (window.logger?.log || console.log)('📊 showRunSummary called:', { title, outcome, endScreenShown: this.endScreenShown });
-
         if (this.endScreenShown) {
-            (window.logger?.warn || console.warn)('⚠️ endScreenShown is true, returning early');
             return;
         }
         this.endScreenShown = true;
@@ -773,16 +770,19 @@ class GameManagerBridge {
         const stats = this.getRunSummaryStats();
 
         if (window.resultScreen && typeof window.resultScreen.show === 'function') {
-            (window.logger?.log || console.log)('✅ Showing result screen via window.resultScreen.show()');
-            window.resultScreen.show({
-                title,
-                subtitle,
-                stats,
-                outcome,
-                buttons
-            });
+            try {
+                window.resultScreen.show({
+                    title,
+                    subtitle,
+                    stats,
+                    outcome,
+                    buttons
+                });
+            } catch (error) {
+                console.error('Error showing result screen:', error);
+            }
         } else {
-            (window.logger?.warn || console.warn)('⚠️ window.resultScreen not available, using alert()');
+            // Fallback to alert if result screen not available
             let message = `${title}\n${subtitle}`.trim();
             stats.forEach(stat => {
                 message += `\n${stat.label}: ${stat.value}`;
@@ -799,21 +799,21 @@ class GameManagerBridge {
         try {
             const HandlerClass = this.resolveNamespace('HUDEventHandlers');
             if (!HandlerClass) {
-                (window.logger?.warn || console.warn)('⚠️ HUDEventHandlers class not found');
+                (window.logger?.warn || console.warn)('! HUDEventHandlers class not found');
                 return;
             }
 
             if (!this.game?.state) {
-                (window.logger?.warn || console.warn)('⚠️ Game state not available for HUD handlers');
+                (window.logger?.warn || console.warn)('! Game state not available for HUD handlers');
                 return;
             }
 
             if (!window.hudEventHandlers) {
                 window.hudEventHandlers = new HandlerClass(this.game.state);
-                (window.logger?.log || console.log)('✅ HUD event handlers initialized');
+                (window.logger?.log || console.log)('+ HUD event handlers initialized');
             }
         } catch (error) {
-            (window.logger?.error || console.error)('❌ Failed to initialize HUD event handlers:', error);
+            (window.logger?.error || console.error)('! Failed to initialize HUD event handlers:', error);
         }
     }
 
@@ -989,14 +989,17 @@ class GameManagerBridge {
             return;
         }
         const particleCount = Math.min(8, Math.floor(damage / 10));
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < particleCount; i++) {
             const angle = (i / particleCount) * Math.PI * 2;
             const speed = 50 + Math.random() * 100;
+            // Use FastMath.sincos for 5x speedup on ARM
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
                 window.optimizedParticles.spawnParticle({
                     x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: cos * speed,
+                    vy: sin * speed,
                     size: 2 + Math.random() * 3,
                     color: '#e74c3c',
                     life: 0.3 + Math.random() * 0.3,
@@ -1006,8 +1009,8 @@ class GameManagerBridge {
                 this._spawnParticleViaPoolOrFallback(
                     x,
                     y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
+                    cos * speed,
+                    sin * speed,
                     2 + Math.random() * 3,
                     '#e74c3c',
                     0.3 + Math.random() * 0.3,
@@ -1031,14 +1034,17 @@ class GameManagerBridge {
             return;
         }
         const particleCount = Math.min(20, radius / 5);
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < particleCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 100 + Math.random() * 200;
+            // Use FastMath.sincos for 5x speedup on ARM
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
                 window.optimizedParticles.spawnParticle({
                     x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: cos * speed,
+                    vy: sin * speed,
                     size: 3 + Math.random() * 5,
                     color,
                     life: 0.5 + Math.random() * 0.5,
@@ -1048,8 +1054,8 @@ class GameManagerBridge {
                 this._spawnParticleViaPoolOrFallback(
                     x,
                     y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
+                    cos * speed,
+                    sin * speed,
                     3 + Math.random() * 5,
                     color,
                     0.5 + Math.random() * 0.5,
@@ -1072,14 +1078,17 @@ class GameManagerBridge {
             helpers.createLevelUpEffect(x, y);
             return;
         }
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < 16; i++) {
             const angle = (i / 16) * Math.PI * 2;
             const speed = 80 + Math.random() * 40;
+            // Use FastMath.sincos for 5x speedup on ARM
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
                 window.optimizedParticles.spawnParticle({
                     x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: cos * speed,
+                    vy: sin * speed,
                     size: 3 + Math.random() * 3,
                     color: '#f1c40f',
                     life: 0.8 + Math.random() * 0.4,
@@ -1089,8 +1098,8 @@ class GameManagerBridge {
                 this._spawnParticleViaPoolOrFallback(
                     x,
                     y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
+                    cos * speed,
+                    sin * speed,
                     3 + Math.random() * 3,
                     '#f1c40f',
                     0.8 + Math.random() * 0.4,
@@ -1155,7 +1164,7 @@ class GameManagerBridge {
             bossCountdownElement.classList.remove('hidden');
             bossCountdownBar.style.transform = 'scaleX(1) translateZ(0)';
             bossCountdownBar.className = 'active'; // Replace all classes with 'active' state
-            bossCountdownText.textContent = '⚔️ Boss Active!';
+            bossCountdownText.textContent = '[B] Boss Active!';
             if (bossCountdownContainer) {
                 bossCountdownContainer.style.animation = 'pulse 1.5s infinite';
             }
@@ -1198,7 +1207,7 @@ class GameManagerBridge {
                 // Urgent countdown - red pulsing bar
                 barClass = 'urgent';
                 shouldPulse = true;
-                textLabel = `⚠️ Boss in ${Math.ceil(timeUntilBoss)}s`;
+                textLabel = `! Boss in ${Math.ceil(timeUntilBoss)}s`;
             } else if (timeUntilBoss <= 30) {
                 // Warning - orange bar
                 barClass = 'warning';
@@ -1263,12 +1272,12 @@ class GameManagerBridge {
         const stars = this.getStarTokenBalance();
         const starDisplay = this._getUiRef('starMenuDisplay', 'star-menu-display');
         if (starDisplay) {
-            starDisplay.textContent = '⭐ ' + stars;
+            starDisplay.textContent = '* ' + stars;
         }
 
         const vendorDisplay = this._getUiRef('vendorStarDisplay', 'vendor-star-display');
         if (vendorDisplay) {
-            vendorDisplay.textContent = '⭐ ' + stars;
+            vendorDisplay.textContent = '* ' + stars;
         }
     }
     

@@ -6,7 +6,7 @@ class UpgradeSystem {
 
         // Warn if config not loaded
         if (!window.UPGRADE_DEFINITIONS) {
-            console.warn('⚠️ UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
+            console.warn('! UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
         }
 
         this.selectedUpgrades = [];
@@ -433,15 +433,18 @@ class UpgradeSystem {
                 // Create lightning effect at player position
                 effectsManager?.createSpecialEffect?.('lightning', player.x, player.y, upgrade.chainRange || 175, '#74b9ff');
                 break;
-            case 'orbit_visual':
-                // Create orbit effect
+            case 'orbit_visual': {
+                // Create orbit effect with FastMath optimization
+                const FastMath = window.Game?.FastMath;
                 for (let i = 0; i < 8; i++) {
                     const angle = (i / 8) * Math.PI * 2;
-                    const x = player.x + Math.cos(angle) * (upgrade.orbitRadius || 100);
-                    const y = player.y + Math.sin(angle) * (upgrade.orbitRadius || 100);
+                    const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                    const x = player.x + cos * (upgrade.orbitRadius || 100);
+                    const y = player.y + sin * (upgrade.orbitRadius || 100);
                     effectsManager?.createSpecialEffect?.('circle', x, y, 20, '#9b59b6');
                 }
                 break;
+            }
             case 'ricochet_visual':
                 // Create ricochet effect
                 effectsManager?.createSpecialEffect?.('ricochet', player.x, player.y, upgrade.bounceRange || 180, '#f39c12');
@@ -450,15 +453,18 @@ class UpgradeSystem {
                 // Create explosion effect
                 effectsManager?.createSpecialEffect?.('bossPhase', player.x, player.y, upgrade.explosionRadius || 60, '#e74c3c');
                 break;
-            case 'magnet_visual':
-                // Create magnet field effect
+            case 'magnet_visual': {
+                // Create magnet field effect with FastMath optimization
+                const FastMath = window.Game?.FastMath;
                 for (let i = 0; i < 12; i++) {
                     const angle = (i / 12) * Math.PI * 2;
-                    const x = player.x + Math.cos(angle) * (upgrade.value || 75);
-                    const y = player.y + Math.sin(angle) * (upgrade.value || 75);
+                    const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                    const x = player.x + cos * (upgrade.value || 75);
+                    const y = player.y + sin * (upgrade.value || 75);
                     effectsManager?.createSpecialEffect?.('circle', x, y, 15, '#3498db');
                 }
                 break;
+            }
             case 'heal_visual':
                 // Create healing effect
                 effectsManager?.createSpecialEffect?.('random', player.x, player.y, 40, '#2ecc71');
@@ -503,7 +509,7 @@ class UpgradeSystem {
     }
 }
 
-// ✅ ARCHITECTURE: Clean delegation pattern implemented
+// + ARCHITECTURE: Clean delegation pattern implemented
 // UpgradeSystem -> PlayerUpgrades.apply() -> Player methods
 // This eliminates global state dependencies and improves testability
 // Previous prototype monkey patching removed in favor of composition
@@ -514,4 +520,4 @@ if (typeof window !== 'undefined') {
     window.Game.UpgradeSystem = UpgradeSystem;
 }
 
-// 🤖 RESONANT NOTE: XP bonus logic should be moved to XP orb collection logic
+// [A] RESONANT NOTE: XP bonus logic should be moved to XP orb collection logic

@@ -634,7 +634,7 @@ ProjectileRenderer._bodySpriteCache = new Map();
 ProjectileRenderer._glowSpriteCache = new Map();
 ProjectileRenderer._critGlowCache = new Map();
 
-// 🍓 GPU Memory Optimization: Adaptive cache limits for Pi5 (256MB GPU memory)
+// [Pi] GPU Memory Optimization: Adaptive cache limits for Pi5 (256MB GPU memory)
 // Default limits for desktop: ~5-10MB GPU memory
 ProjectileRenderer._BODY_CACHE_LIMIT = 120;
 ProjectileRenderer._GLOW_CACHE_LIMIT = 80;
@@ -644,7 +644,7 @@ ProjectileRenderer._CRIT_CACHE_LIMIT = 40;
 ProjectileRenderer._piLimitsApplied = false;
 
 /**
- * 🍓 GPU MEMORY: Clear sprite caches to free GPU memory
+ * [Pi] GPU MEMORY: Clear sprite caches to free GPU memory
  * Call this when performance degrades or between game sessions
  */
 ProjectileRenderer.clearSpriteCache = function() {
@@ -656,7 +656,7 @@ ProjectileRenderer.clearSpriteCache = function() {
 };
 
 /**
- * 🍓 GPU MEMORY: Reduce cache sizes dynamically during gameplay
+ * [Pi] GPU MEMORY: Reduce cache sizes dynamically during gameplay
  */
 ProjectileRenderer.reduceCacheSizes = function(factor = 0.5) {
     const reduceCache = (cache, newLimit) => {
@@ -670,7 +670,7 @@ ProjectileRenderer.reduceCacheSizes = function(factor = 0.5) {
     reduceCache(this._glowSpriteCache, Math.floor(this._GLOW_CACHE_LIMIT * factor));
     reduceCache(this._critGlowCache, Math.floor(this._CRIT_CACHE_LIMIT * factor));
     
-    console.log(`🍓 Reduced sprite caches by ${(1-factor)*100}% to free GPU memory`);
+    console.log(`[Pi] Reduced sprite caches by ${(1-factor)*100}% to free GPU memory`);
 };
 
 /**
@@ -712,7 +712,7 @@ ProjectileRenderer.applyPi5GpuLimits = function(force = false) {
     this._enforceCacheLimits();
 
     if (typeof console !== 'undefined') {
-        console.log('🍓 ProjectileRenderer: Pi5 GPU memory limits applied (60 sprites total)');
+        console.log('[Pi] ProjectileRenderer: Pi5 GPU memory limits applied (60 sprites total)');
     }
 };
 

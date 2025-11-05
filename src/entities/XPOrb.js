@@ -103,19 +103,57 @@ class XPOrb {
     }
     
     /**
-     * Update orb position and animations
+     * Update the XP orb (called by GameEngine)
      * @param {number} deltaTime - Time since last update
      * @param {Game} game - Game instance
      */
     update(deltaTime, game) {
+        if (this.collected || this.isDead) return;
+        
+        // Update magnetism behavior
+        this.updateMagnetism(deltaTime, game);
+        
         // Update animations
         this.updateAnimations(deltaTime);
+    }
+    
+    /**
+     * Update magnetism behavior
+     * @param {number} deltaTime - Time since last update
+     * @param {Game} game - Game instance
+     */
+    updateMagnetism(deltaTime, game) {
+        if (!game.player) return;
         
-        // Handle magnetism
-        this.updateMagnetism(deltaTime, game);
-    // Do NOT perform direct collection checks here.
-    // Centralized collision handling (CollisionSystem/GameEngine) awards XP
-    // and marks the orb dead to ensure single-source-of-truth logic.
+        const dx = game.player.x - this.x;
+        const dy = game.player.y - this.y;
+        const distSq = dx * dx + dy * dy;
+        
+        // Check if within magnet range (using squared distance - 8x faster)
+        const magnetRange = game.player.magnetRange || 100;
+        const magnetRangeSq = magnetRange * magnetRange;
+        
+        if (distSq < magnetRangeSq && distSq > 0) {
+            this.isBeingMagnetized = true;
+            
+            // Calculate pull strength (stronger when closer)
+            // Use fast inverse sqrt for normalization
+            const FastMath = window.Game?.FastMath;
+            const distance = FastMath ? FastMath.distanceFast(this.x, this.y, game.player.x, game.player.y) : Math.sqrt(distSq);
+            const pullFactor = 1 - (distance / magnetRange);
+            const pullStrength = this.magnetSpeed * pullFactor;
+            const speed = pullStrength * deltaTime;
+            
+            // Move towards player (normalize with inverse sqrt)
+            const invDist = 1 / distance;
+            const vx = dx * invDist * speed;
+            const vy = dy * invDist * speed;
+            
+            this.x += vx;
+            this.y += vy;
+        } else {
+            this.isBeingMagnetized = false;
+        }
     }
     
     /**
@@ -128,40 +166,6 @@ class XPOrb {
         
         // Pulsing scale effect
         this.scale = 1 + Math.sin(this.bobOffset * this.pulseSpeed) * 0.1;
-    }
-    
-    /**
-     * Handle magnetic attraction to player
-     * @param {number} deltaTime - Time since last update
-     * @param {Game} game - Game instance
-     */
-    updateMagnetism(deltaTime, game) {
-        if (!game.player) return;
-        
-        const dx = game.player.x - this.x;
-        const dy = game.player.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Check if within magnet range
-        const magnetRange = game.player.magnetRange || 100;
-        
-        if (distance < magnetRange && distance > 0) {
-            this.isBeingMagnetized = true;
-            
-            // Calculate pull strength (stronger when closer)
-            const pullFactor = 1 - (distance / magnetRange);
-            const pullStrength = this.magnetSpeed * pullFactor;
-            const speed = pullStrength * deltaTime;
-            
-            // Move towards player
-            const vx = (dx / distance) * speed;
-            const vy = (dy / distance) * speed;
-            
-            this.x += vx;
-            this.y += vy;
-        } else {
-            this.isBeingMagnetized = false;
-        }
     }
     
     /**

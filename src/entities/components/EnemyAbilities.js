@@ -1,6 +1,6 @@
 /**
  * EnemyAbilities Component
- * 🤖 RESONANT NOTE: Extracted from massive Enemy.js to improve maintainability
+ * [A] RESONANT NOTE: Extracted from massive Enemy.js to improve maintainability
  * Handles all special abilities: dash, teleport, phase, range attacks, boss abilities, etc.
  */
 

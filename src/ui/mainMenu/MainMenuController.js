@@ -375,7 +375,7 @@
                 detailParts.push(highlights);
             }
 
-            descriptionEl.textContent = detailParts.join(' — ');
+            descriptionEl.textContent = detailParts.join(' - ');
         }
 
         formatWeaponSummary(def) {
@@ -391,13 +391,13 @@
             if (def.archetype) {
                 parts.push(def.archetype.charAt(0).toUpperCase() + def.archetype.slice(1));
             }
-            return parts.join(' • ');
+            return parts.join(' | ');
         }
 
         formatCharacterHighlights(character) {
             if (!character) return '';
             if (Array.isArray(character.highlights) && character.highlights.length) {
-                return character.highlights.join(' • ');
+                return character.highlights.join(' | ');
             }
             if (character.tagline) {
                 return character.tagline;
