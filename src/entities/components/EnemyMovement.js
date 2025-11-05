@@ -1,6 +1,6 @@
 /**
  * EnemyMovement Component
- * 🤖 RESONANT NOTE: Extracted from massive Enemy.js to improve maintainability
+ * [A] RESONANT NOTE: Extracted from massive Enemy.js to improve maintainability
  * Handles all movement patterns, physics, collision detection, and pathfinding
  */
 

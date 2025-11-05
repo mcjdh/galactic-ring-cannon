@@ -1,4 +1,4 @@
-// 🤖 RESONANT NOTE: This DebugManager is being simplified since Logger.js handles logging
+// [A] RESONANT NOTE: This DebugManager is being simplified since Logger.js handles logging
 // Keeping only essential debug/cheat functionality, removing redundant logging features
 
 /**
@@ -225,9 +225,9 @@ Commands:
         const player = window.gameManager?.game?.player;
         if (player && typeof player.addExperience === 'function') {
             player.addExperience(amount);
-            (window.logger?.log || (() => {}))(`✨ Gave ${amount} XP to player`);
+            (window.logger?.log || (() => {}))(`[*] Gave ${amount} XP to player`);
         } else {
-            (window.logger?.warn || (() => {}))('⚠️ Player not found or addExperience method not available');
+            (window.logger?.warn || (() => {}))('! Player not found or addExperience method not available');
         }
     }
     
@@ -235,9 +235,9 @@ Commands:
         const gameManager = window.gameManager;
         if (gameManager && typeof gameManager.earnStarTokens === 'function') {
             gameManager.earnStarTokens(amount);
-            (window.logger?.log || (() => {}))(`⭐ Gave ${amount} star tokens`);
+            (window.logger?.log || (() => {}))(`[*] Gave ${amount} star tokens`);
         } else {
-            (window.logger?.warn || (() => {}))('⚠️ GameManager not found or earnStarTokens method not available');
+            (window.logger?.warn || (() => {}))('! GameManager not found or earnStarTokens method not available');
         }
     }
     
@@ -251,9 +251,9 @@ Commands:
                     killed++;
                 }
             });
-            (window.logger?.log || (() => {}))(`🗡️ Killed ${killed} enemies`);
+            (window.logger?.log || (() => {}))(`[SWORD] Killed ${killed} enemies`);
         } else {
-            (window.logger?.warn || (() => {}))('⚠️ No enemies found or enemies array not available');
+            (window.logger?.warn || (() => {}))('! No enemies found or enemies array not available');
         }
     }
     

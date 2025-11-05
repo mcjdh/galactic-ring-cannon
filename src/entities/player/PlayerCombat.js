@@ -10,6 +10,7 @@ class PlayerCombat {
         this.attackRange = PLAYER_CONSTANTS.BASE_ATTACK_RANGE || 300;
         this.attackTimer = 0;
         this.attackCooldown = this.attackSpeed > 0 ? 1 / this.attackSpeed : 1;
+        this.baseAttackSpeed = this.attackSpeed;
 
         // Attack type flags
         this.hasBasicAttack = true;
@@ -42,12 +43,23 @@ class PlayerCombat {
             HIGH_STACK_THRESHOLD: 5,     // After 5 stacks, apply stronger diminishing
             EXTREME_STACK_THRESHOLD: 10, // After 10 stacks, cap further scaling
         };
+
+        const WeaponManagerClass = (typeof window !== 'undefined' && window.Game?.WeaponManager) || null;
+        this.weaponManager = WeaponManagerClass ? new WeaponManagerClass(player, this) : null;
+        if (!this.weaponManager && window.debugManager?.debugMode) {
+            console.warn('[PlayerCombat] WeaponManager not available. Using legacy combat loop.');
+        }
     }
 
     update(deltaTime, game) {
-        // Update attack cooldown dynamically in case attack speed changed
-        this.updateAttackCooldown();
-        this.handleAttacks(deltaTime, game);
+        if (this.weaponManager) {
+            this.weaponManager.update(deltaTime, game);
+        } else {
+            this.updateAttackCooldown();
+            this._legacyHandlePrimaryAttack(deltaTime, game);
+        }
+
+        this._updateAOEAttack(deltaTime, game);
     }
 
     updateAttackCooldown() {
@@ -65,7 +77,7 @@ class PlayerCombat {
         }
     }
 
-    handleAttacks(deltaTime, game) {
+    _legacyHandlePrimaryAttack(deltaTime, game) {
         this.attackTimer += deltaTime;
         if (this.attackTimer >= this.attackCooldown) {
             this.attackTimer = 0;
@@ -74,8 +86,9 @@ class PlayerCombat {
             }
             this.attack(game);
         }
+    }
 
-        // Handle AOE attack cooldown
+    _updateAOEAttack(deltaTime, game) {
         if (this.hasAOEAttack) {
             this.aoeAttackTimer += deltaTime;
             if (this.aoeAttackTimer >= this.aoeAttackCooldown) {
@@ -86,6 +99,13 @@ class PlayerCombat {
     }
 
     attack(game) {
+        if (this.weaponManager) {
+            return this.weaponManager.fireImmediate(game);
+        }
+        return this._legacyAttack(game);
+    }
+
+    _legacyAttack(game) {
         if (!game) return;
 
         const nearestEnemy = game.findClosestEnemy?.(
@@ -124,8 +144,9 @@ class PlayerCombat {
         // Create visual effect for AOE attack
         this.createAOEEffect();
 
-        // Create AOE damage around player
-        enemies.forEach(enemy => {
+        // Create AOE damage around player (optimized for loop)
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
             const isCrit = Math.random() < this.critChance;
             const baseDamage = this.attackDamage * this.aoeDamageMultiplier;
             const damage = isCrit ? baseDamage * this.critMultiplier : baseDamage;
@@ -139,7 +160,7 @@ class PlayerCombat {
                     gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
                 }
             }
-        });
+        }
 
         // Play AOE attack sound
         if (window.audioSystem?.play) {
@@ -158,16 +179,19 @@ class PlayerCombat {
 
         if (particleCount <= 0) return;
         const radius = this.aoeAttackRange;
+        const FastMath = window.Game?.FastMath;
 
         for (let i = 0; i < particleCount; i++) {
             const angle = (i / particleCount) * Math.PI * 2;
-            const x = this.player.x + Math.cos(angle) * radius;
-            const y = this.player.y + Math.sin(angle) * radius;
+            // Use FastMath.sincos for 5x speedup on ARM (called multiple times per attack)
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+            const x = this.player.x + cos * radius;
+            const y = this.player.y + sin * radius;
             this.player.spawnParticle(
                 this.player.x,
                 this.player.y,
-                Math.cos(angle) * 300,
-                Math.sin(angle) * 300,
+                cos * 300,
+                sin * 300,
                 3 + Math.random() * 3,
                 '#3498db',
                 0.3,
@@ -189,29 +213,52 @@ class PlayerCombat {
         ) ?? null;
     }
 
-    fireProjectile(game, angle) {
+    fireProjectile(game, angle, overrides = {}) {
         // Clean split shot implementation - consistent math for any projectile count
-        const projectileCount = Math.max(1, Math.floor(this.projectileCount || 1));
-        const baseSpeed = Math.max(50, this.projectileSpeed || 450);
+        let projectileCount;
+        if (overrides.projectileCount !== undefined) {
+            // Legacy: Direct override (replaces player's count)
+            projectileCount = Math.max(1, Math.floor(overrides.projectileCount));
+        } else if (overrides.additionalProjectiles !== undefined) {
+            // New: Add to player's count (weapons should use this)
+            const baseCount = Math.max(1, Math.floor(this.projectileCount || 1));
+            projectileCount = baseCount + Math.max(0, Math.floor(overrides.additionalProjectiles));
+        } else {
+            // Default: Use player's projectile count
+            projectileCount = Math.max(1, Math.floor(this.projectileCount || 1));
+        }
+
+        const speedMultiplier = overrides.speedMultiplier !== undefined ? overrides.speedMultiplier : 1;
+        const baseSpeedStat = this.projectileSpeed || 450;
+        const baseSpeed = Math.max(50, baseSpeedStat * speedMultiplier);
 
         // Calculate total spread arc - default based on projectile count for good visuals
         let totalSpreadRadians = 0;
-        if (projectileCount > 1) {
-            // Use explicitly set spread if available, otherwise calculate smart default
-            let spreadDegrees;
-            if (this.projectileSpread > 0) {
-                // Use the explicitly set spread (from upgrades like "Wide Spread")
-                spreadDegrees = this.projectileSpread;
-            } else {
+        let spreadDegrees = overrides.spreadDegrees;
+        if (spreadDegrees === undefined) {
+            if (projectileCount > 1) {
                 // Calculate smart default: more projectiles = wider spread
                 spreadDegrees = Math.min(60, 20 + (projectileCount * 8));
+            } else {
+                spreadDegrees = 0;
             }
+        }
+        // Add player's spread upgrades to the base spread (always additive, never replaces)
+        if (this.projectileSpread > 0) {
+            spreadDegrees += this.projectileSpread;
+        }
+        if (projectileCount > 1 && spreadDegrees > 0) {
             totalSpreadRadians = (spreadDegrees * Math.PI) / 180;
         }
 
-        // Determine special effects ONCE per volley for consistency
-        const volleySpecialTypes = this._determineSpecialTypesForShot();
-        const primaryType = volleySpecialTypes[0] || null;
+        const damageMultiplier = overrides.damageMultiplier !== undefined ? overrides.damageMultiplier : 1;
+        const piercingBase = overrides.piercingOverride !== undefined
+            ? overrides.piercingOverride
+            : this.piercing || 0;
+
+        // Setup special effects configuration (each projectile rolls independently)
+        const allowBehaviors = overrides.applyBehaviors !== undefined ? overrides.applyBehaviors : true;
+        const forcedSpecialTypes = Array.isArray(overrides.forcedSpecialTypes) ? overrides.forcedSpecialTypes : [];
 
         // Fire projectiles using clean, consistent distribution
         for (let i = 0; i < projectileCount; i++) {
@@ -221,16 +268,33 @@ class PlayerCombat {
 
             // Calculate damage and crit for this projectile (each projectile can crit independently)
             const isCrit = Math.random() < (this.critChance || 0);
-            const damage = isCrit ? this.attackDamage * (this.critMultiplier || 2) : this.attackDamage;
+            const baseDamage = this.attackDamage * damageMultiplier;
+            const damage = isCrit ? baseDamage * (this.critMultiplier || 2) : baseDamage;
+
+            // Determine special effects for THIS projectile (independent roll per projectile)
+            let projectileSpecialTypes = allowBehaviors ? this._determineSpecialTypesForShot() : [];
+            if (forcedSpecialTypes.length > 0) {
+                const merged = new Set(projectileSpecialTypes);
+                forcedSpecialTypes.forEach(type => merged.add(type));
+                projectileSpecialTypes = Array.from(merged);
+            }
+            const primaryType = projectileSpecialTypes[0] || null;
 
             // Debug logging for piercing value tracing
-            if (window.debugProjectiles && this.piercing > 0) {
-                console.log(`[PlayerCombat] Spawning projectile with piercing. this.piercing = ${this.piercing}`);
+            if (window.debugProjectiles && piercingBase > 0) {
+                console.log(`[PlayerCombat] Spawning projectile with piercing. base = ${piercingBase}`);
             }
 
             // Spawn the projectile - robust by design, no fallbacks needed
             const projectile = game.spawnProjectile(
-                this.player.x, this.player.y, vx, vy, damage, this.piercing || 0, isCrit, primaryType
+                this.player.x,
+                this.player.y,
+                vx,
+                vy,
+                damage,
+                piercingBase,
+                isCrit,
+                primaryType
             );
 
             if (projectile) {
@@ -240,11 +304,13 @@ class PlayerCombat {
                 if (window.debugProjectiles) {
                     console.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
                 }
-                this._configureProjectileFromUpgrades(projectile, volleySpecialTypes, damage, isCrit);
+                if (allowBehaviors || forcedSpecialTypes.length > 0) {
+                    this._configureProjectileFromUpgrades(projectile, projectileSpecialTypes, damage, isCrit);
+                }
 
                 // NOTE: Piercing handled by new BehaviorManager system via setters
                 // Old piercing normalization code kept for backwards compatibility
-                const basePiercing = Number.isFinite(this.piercing) ? Math.max(0, this.piercing) : 0;
+                const basePiercing = Number.isFinite(piercingBase) ? Math.max(0, piercingBase) : 0;
                 if (projectile.piercing !== basePiercing) {
                     if (window.debugProjectiles) {
                         console.log(`[PlayerCombat] Normalizing projectile ${projectile.id} piercing: ${projectile.piercing} -> ${basePiercing}`);
@@ -258,25 +324,27 @@ class PlayerCombat {
                     projectile.originalPiercing = 0;
                 }
 
-                // Apply ALL special types as properties (not just primary)
-                if (volleySpecialTypes.includes('chain')) {
+                // Apply ALL special types as properties (not just primary - EACH PROJECTILE ROLLS INDEPENDENTLY)
+                if (projectileSpecialTypes.includes('chain')) {
                     projectile.hasChainLightning = true;
                 }
-                if (volleySpecialTypes.includes('explosive')) {
+                if (projectileSpecialTypes.includes('explosive')) {
                     projectile.hasExplosive = true;
                 }
-                if (volleySpecialTypes.includes('ricochet')) {
+                if (projectileSpecialTypes.includes('ricochet')) {
                     projectile.hasRicochet = true;
                 }
-                if (volleySpecialTypes.includes('homing')) {
+                if (projectileSpecialTypes.includes('homing')) {
                     projectile.hasHoming = true;
                 }
             }
         }
 
         // Single sound effect per volley
-        if (window.audioSystem?.play) {
-            window.audioSystem.play('shoot', 0.3);
+        const soundKey = overrides.soundKey !== undefined ? overrides.soundKey : 'shoot';
+        const soundVolume = overrides.soundVolume !== undefined ? overrides.soundVolume : 0.3;
+        if (soundKey && window.audioSystem?.play) {
+            window.audioSystem.play(soundKey, soundVolume);
         }
     }
 
@@ -514,6 +582,10 @@ class PlayerCombat {
                 this.critMultiplier += scaledCritIncrease;
                 break;
         }
+
+        if (this.weaponManager) {
+            this.weaponManager.notifyCombatStatChange();
+        }
     }
 
     // Render AOE attack range indicator
@@ -541,7 +613,8 @@ class PlayerCombat {
             // Balance information
             speedScaling: `${(this.projectileSpeed / (window.GAME_CONSTANTS?.PLAYER?.BASE_PROJECTILE_SPEED || 450) * 100).toFixed(0)}%`,
             critCapUtilization: `${(this.critChance / this.BALANCE.CRIT_SOFT_CAP * 100).toFixed(0)}%`,
-            attackCooldown: this.attackCooldown.toFixed(3)
+            attackCooldown: this.attackCooldown.toFixed(3),
+            activeWeapon: this.weaponManager?.getActiveWeaponId?.() || 'legacy'
         };
     }
 }

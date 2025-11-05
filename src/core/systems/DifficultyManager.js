@@ -1,6 +1,6 @@
 /**
  * 🌊 UNIFIED DIFFICULTY MANAGER - Resonant Multi-Agent Architecture
- * 🤖 RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
+ * [A] RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
  * Handles all difficulty scaling, progression curves, and adaptive balancing
  * 
  * Single responsibility: Manage game difficulty progression and scaling
@@ -36,14 +36,14 @@ class DifficultyManager {
         // Boss scaling parameters
         this.bossScalingFactor = 1.0;
         this.bossCount = 0;
-        this.megaBossThreshold = 3; // 3rd boss becomes mega boss
+        // Note: Mega boss interval is now configured in GAME_CONSTANTS.BOSSES
         
-        // Curve parameters for smooth scaling
+        // Curve parameters for smooth scaling (balanced for 1-3 minute runs)
         this.scalingCurves = {
-            health: { base: 1.0, growth: 0.5, cap: 3.0 },
-            damage: { base: 1.0, growth: 0.4, cap: 2.5 },
-            speed: { base: 1.0, growth: 0.2, cap: 1.5 },
-            spawnRate: { base: 1.0, growth: 0.6, cap: 2.0 }
+            health: { base: 1.0, growth: 0.35, cap: 2.5 },     // Reduced from 0.5 to 0.35
+            damage: { base: 1.0, growth: 0.30, cap: 2.0 },     // Reduced from 0.4 to 0.30
+            speed: { base: 1.0, growth: 0.15, cap: 1.4 },      // Reduced from 0.2 to 0.15
+            spawnRate: { base: 1.0, growth: 0.30, cap: 1.5 }   // Reduced from 0.4 to 0.30
         };
         
         // Performance tracking
@@ -286,48 +286,228 @@ class DifficultyManager {
     }
     
     /**
+     * Calculate realistic player DPS accounting for special abilities
+     * @private
+     */
+    _calculateRealisticPlayerDPS(player) {
+        if (!player) return 30; // Safe fallback
+
+        // Get boss constants
+        const BOSS_CONST = window.GAME_CONSTANTS?.BOSSES || {};
+        const DPS_EFFICIENCY = BOSS_CONST.DPS_EFFICIENCY || 0.70;
+        const ABILITY_MULTS = BOSS_CONST.ABILITY_MULTIPLIERS || {};
+
+        // Base damage with validation
+        const baseDamage = Math.max(1,
+            player.combat?.attackDamage ||
+            player.attackDamage ||
+            25
+        );
+
+        // Attack speed with validation (prevent divide by zero)
+        const attackSpeed = Math.max(0.1, Math.min(10.0,
+            player.combat?.attackSpeed ||
+            player.attackSpeed ||
+            1.2
+        ));
+
+        // Base theoretical DPS
+        const baseDPS = baseDamage * attackSpeed;
+
+        // Account for special abilities that multiply effective damage
+        let abilityMultiplier = 1.0;
+
+        // Chain lightning hits multiple targets
+        if (player.hasChainLightning || player.abilities?.hasChainLightning) {
+            abilityMultiplier += (ABILITY_MULTS.CHAIN_LIGHTNING || 0.30);
+        }
+
+        // Piercing hits multiple enemies in a line
+        if ((player.piercing || player.combat?.piercing || 0) > 0) {
+            abilityMultiplier += (ABILITY_MULTS.PIERCING || 0.20);
+        }
+
+        // AOE attacks hit multiple enemies
+        if (player.hasAOEAttack || player.combat?.hasAOEAttack) {
+            abilityMultiplier += (ABILITY_MULTS.AOE || 0.15);
+        }
+
+        // Apply efficiency factor (accounts for misses, dodging, kiting)
+        const realisticDPS = baseDPS * abilityMultiplier * DPS_EFFICIENCY;
+
+        // Sanity check: ensure DPS is in reasonable range
+        return Math.max(10, Math.min(500, realisticDPS));
+    }
+
+    /**
+     * Calculate boss damage resistance with diminishing returns
+     * @private
+     */
+    _calculateBossResistance(bossCount) {
+        const BOSS_CONST = window.GAME_CONSTANTS?.BOSSES || {};
+        const baseResistance = BOSS_CONST.BASE_RESISTANCE || 0.20;
+        const growthRate = BOSS_CONST.RESISTANCE_GROWTH_RATE || 0.15;
+        const maxResistance = BOSS_CONST.MAX_RESISTANCE || 0.60;
+
+        // Exponential decay curve: resistance approaches max asymptotically
+        // Formula: max * (1 - e^(-bossCount * growthRate))
+        const resistance = maxResistance * (1 - Math.exp(-bossCount * growthRate));
+
+        // Ensure resistance stays within bounds
+        return Math.min(maxResistance, Math.max(baseResistance, resistance));
+    }
+
+    /**
+     * Generate dynamic phase thresholds with variance
+     * @private
+     */
+    _generatePhaseThresholds() {
+        const BOSS_CONST = window.GAME_CONSTANTS?.BOSSES || {};
+        const variance = BOSS_CONST.PHASE_VARIANCE || 0.05;
+        const baseThresholds = BOSS_CONST.BASE_PHASE_THRESHOLDS || [0.70, 0.40, 0.15];
+
+        return baseThresholds.map(threshold => {
+            // Add ±variance random variation
+            const randomOffset = (Math.random() - 0.5) * variance * 2;
+            return Math.max(0.10, Math.min(0.90, threshold + randomOffset));
+        });
+    }
+
+    /**
+     * Add golden tint to boss color for visual distinction
+     * @private
+     */
+    _addGoldenTint(color) {
+        // Parse the color (hex or rgb)
+        let r, g, b, a = 1;
+
+        if (color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 6) {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+            } else if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            }
+        } else if (color.startsWith('rgb')) {
+            const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+            if (match) {
+                r = parseInt(match[1]);
+                g = parseInt(match[2]);
+                b = parseInt(match[3]);
+                a = match[4] ? parseFloat(match[4]) : 1;
+            }
+        }
+
+        // Default fallback
+        if (r === undefined) {
+            r = 231; g = 76; b = 60; // Default red
+        }
+
+        // Blend with gold (#f1c40f = rgb(241, 196, 15))
+        const goldR = 241, goldG = 196, goldB = 15;
+        const blendFactor = 0.3; // 30% gold, 70% original
+
+        const finalR = Math.round(r * (1 - blendFactor) + goldR * blendFactor);
+        const finalG = Math.round(g * (1 - blendFactor) + goldG * blendFactor);
+        const finalB = Math.round(b * (1 - blendFactor) + goldB * blendFactor);
+
+        return `rgba(${finalR}, ${finalG}, ${finalB}, ${a})`;
+    }
+
+    /**
      * Scale boss enemy with special considerations
      */
     scaleBoss(boss) {
         if (!boss) return;
-        
+
+        // Get boss constants
+        const BOSS_CONST = window.GAME_CONSTANTS?.BOSSES || {};
+        const MEGA_INTERVAL = BOSS_CONST.MEGA_BOSS_INTERVAL || 4;
+        const MEGA_HEALTH_MULT = BOSS_CONST.MEGA_HEALTH_MULTIPLIER || 1.5;
+        const MEGA_RADIUS_MULT = BOSS_CONST.MEGA_RADIUS_MULTIPLIER || 1.2;
+        const MIN_FIGHT_DUR = BOSS_CONST.MIN_FIGHT_DURATION || 7;
+        const MEGA_FIGHT_DUR = BOSS_CONST.MEGA_FIGHT_DURATION || 10;
+        const SAFETY_MULT = BOSS_CONST.DPS_SAFETY_MULTIPLIER || 1.3;
+
         this.bossCount++;
-        const isMegaBoss = this.bossCount >= this.megaBossThreshold;
-        
-        // Get player stats for intelligent scaling
+
+        // Mega boss determination: every Nth boss (4th, 8th, 12th...)
+        const isMegaBoss = (this.bossCount % MEGA_INTERVAL === 0) && this.bossCount > 0;
+
+        // Get player for intelligent scaling
         const player = this.gameManager.game.player;
-        const playerLevel = player ? player.level : 1;
-        const playerDamage = player ? (player.combat?.attackDamage || player.attackDamage || 25) : 25;
-        const playerAttackSpeed = player ? (player.combat?.attackSpeed || player.attackSpeed || 1.2) : 1.2;
-        
-        // Calculate DPS-based minimum health
-        const estimatedPlayerDPS = playerDamage * playerAttackSpeed;
-        const minimumFightDuration = isMegaBoss ? 10 : 7; // seconds
-        const minimumBossHealth = estimatedPlayerDPS * minimumFightDuration;
-        
-        // Apply boss scaling
-        const bossHealthScale = this.bossScalingFactor * (isMegaBoss ? 1.5 : 1.0);
+
+        // Calculate realistic player DPS with ability modifiers
+        const realisticDPS = this._calculateRealisticPlayerDPS(player);
+
+        // Determine target fight duration
+        const fightDuration = isMegaBoss ? MEGA_FIGHT_DUR : MIN_FIGHT_DUR;
+
+        // Calculate minimum boss health with safety multiplier
+        // Safety multiplier accounts for burst damage, lucky crits, etc.
+        const minimumBossHealth = realisticDPS * fightDuration * SAFETY_MULT;
+
+        // Apply boss scaling with difficulty factor
+        const bossHealthScale = this.bossScalingFactor * (isMegaBoss ? MEGA_HEALTH_MULT : 1.0);
         const scaledHealth = Math.max(minimumBossHealth, boss.maxHealth * bossHealthScale);
-        
+
         boss.maxHealth = Math.ceil(scaledHealth);
         boss.health = boss.maxHealth;
-        
+
         // Conservative damage scaling to avoid one-shots
         boss.damage = Math.ceil(boss.damage * Math.sqrt(this.bossScalingFactor));
-        
+
         // Increase XP reward proportionally
         boss.xpValue = Math.ceil(boss.xpValue * bossHealthScale);
-        
-        // Add damage resistance for high-DPS scenarios
-        boss.damageResistance = Math.min(0.5, 0.2 + (this.bossCount * 0.02));
-        
-        // Set mega boss flag
+
+        // Add damage resistance with diminishing returns
+        boss.damageResistance = this._calculateBossResistance(this.bossCount);
+
+        // Dynamic phase thresholds for variety
+        if (boss.hasPhases) {
+            boss.phaseThresholds = this._generatePhaseThresholds();
+        }
+
+        // Set mega boss properties
         if (isMegaBoss) {
             boss.isMegaBoss = true;
-            boss.radius *= 1.2;
+            boss.radius *= MEGA_RADIUS_MULT;
             boss.color = '#8e44ad'; // Purple for mega bosses
+
+            // Mega bosses get enhanced minion spawning
+            if (boss.abilities) {
+                const MEGA_MINION_RATE = BOSS_CONST.MEGA_MINION_RATE_MULTIPLIER || 1.5;
+                const MEGA_MINION_BONUS = BOSS_CONST.MEGA_MINION_COUNT_BONUS || 2;
+
+                if (boss.abilities.minionSpawnCooldown) {
+                    boss.abilities.minionSpawnCooldown /= MEGA_MINION_RATE;
+                }
+                if (boss.abilities.minionMaxCount) {
+                    boss.abilities.minionMaxCount += MEGA_MINION_BONUS;
+                }
+            }
+
+            // Show mega boss warning
+            if (this.gameManager.effectsManager) {
+                this.gameManager.effectsManager.showCombatText(
+                    '! MEGA BOSS APPROACHING! !',
+                    player ? player.x : 0,
+                    player ? player.y - 100 : 0,
+                    'critical',
+                    28
+                );
+                this.gameManager.effectsManager.addScreenShake(6, 0.6);
+            }
+        } else {
+            // Regular bosses get a golden tint to stand out from normal enemies
+            // Keep their base color but blend with gold
+            boss.color = this._addGoldenTint(boss.color || '#e74c3c');
         }
-        
+
         return boss;
     }
     

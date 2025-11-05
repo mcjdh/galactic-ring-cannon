@@ -5,7 +5,7 @@ class AchievementSystem {
         if (window.ACHIEVEMENT_DEFINITIONS) {
             this.achievements = JSON.parse(JSON.stringify(window.ACHIEVEMENT_DEFINITIONS));
         } else {
-            console.warn('⚠️ ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
+            console.warn('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
             this.achievements = {};
         }
 
@@ -174,21 +174,36 @@ class AchievementSystem {
         try {
             const notification = document.createElement('div');
             notification.className = 'achievement-notification';
-            
+
             // Add special styling for important achievements
             if (achievement.important) {
                 notification.classList.add('important-achievement');
             }
-            
-            notification.innerHTML = `
-                <div class="achievement-icon">${achievement.icon}</div>
-                <div class="achievement-content">
-                    <h3>Achievement Unlocked!</h3>
-                    <p>${achievement.name}</p>
-                    <p>${achievement.description}</p>
-                </div>
-            `;
-            
+
+            // Create elements safely to prevent XSS
+            const icon = document.createElement('div');
+            icon.className = 'achievement-icon';
+            icon.textContent = achievement.icon || '';
+
+            const content = document.createElement('div');
+            content.className = 'achievement-content';
+
+            const title = document.createElement('h3');
+            title.textContent = 'Achievement Unlocked!';
+
+            const name = document.createElement('p');
+            name.textContent = achievement.name || '';
+
+            const description = document.createElement('p');
+            description.textContent = achievement.description || '';
+
+            // Assemble the notification
+            content.appendChild(title);
+            content.appendChild(name);
+            content.appendChild(description);
+            notification.appendChild(icon);
+            notification.appendChild(content);
+
             document.body.appendChild(notification);
             
             // Animate in

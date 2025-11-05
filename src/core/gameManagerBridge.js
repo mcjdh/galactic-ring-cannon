@@ -39,6 +39,9 @@ class GameManagerBridge {
         this.performanceMode = 'normal';
         this._minimapRetryHandle = null;
 
+        // Boss countdown tracking
+        this._lastBossDebugSecond = -1;
+
         (window.logger?.log || console.log)('🌊 GameManager Bridge ready');
 
         this._uiRefs = new Map();
@@ -241,7 +244,7 @@ class GameManagerBridge {
      * Initialize the game systems
      */
     initGameEngine() {
-        (window.logger?.log || console.log)('🎮 Initializing game engine...');
+        (window.logger?.log || console.log)('> Initializing game engine...');
 
         try {
             // Create game engine
@@ -253,15 +256,15 @@ class GameManagerBridge {
 
             // 🌊 LINK GAME STATE - Single Source of Truth
             this.state = this.game.state;
-            (window.logger?.log || console.log)('✅ GameState linked to GameManagerBridge');
+            (window.logger?.log || console.log)('+ GameState linked to GameManagerBridge');
         
             // Create enemy spawner
             const EnemySpawnerClass = this.resolveNamespace('EnemySpawner');
             if (typeof EnemySpawnerClass === 'function') {
                 this.enemySpawner = new EnemySpawnerClass(this.game);
-                (window.logger?.log || console.log)('✅ Enemy spawner created');
+                (window.logger?.log || console.log)('+ Enemy spawner created');
             } else {
-                (window.logger?.warn || console.warn)('⚠️ EnemySpawner not available');
+                (window.logger?.warn || console.warn)('! EnemySpawner not available');
             }
 
             // Initialize HUD event handlers now that the engine/state exist
@@ -270,7 +273,7 @@ class GameManagerBridge {
             // Player will be created by GameEngine.prepareNewRun() when game starts
             // This prevents double-initialization where player is created here then recreated in prepareNewRun()
             // See: ARCHITECTURE_FIXES.md - Issue 3
-            (window.logger?.log || console.log)('✅ Player will be created on game start');
+            (window.logger?.log || console.log)('+ Player will be created on game start');
         
             // Initialize minimap after core systems
             this.setupMinimap();
@@ -279,16 +282,16 @@ class GameManagerBridge {
             const UIManagerClass = this.resolveNamespace('UnifiedUIManager');
             if (typeof UIManagerClass === 'function') {
                 this.uiManager = new UIManagerClass(this);
-                (window.logger?.log || console.log)('✅ UIManager initialized');
+                (window.logger?.log || console.log)('+ UIManager initialized');
             }
 
             // Initialize Effects Manager for particles, screen shake, etc.
             const EffectsManagerClass = this.resolveNamespace('EffectsManager');
             if (typeof EffectsManagerClass === 'function') {
                 this.effectsManager = new EffectsManagerClass(this);
-                (window.logger?.log || console.log)('✅ EffectsManager initialized');
+                (window.logger?.log || console.log)('+ EffectsManager initialized');
             } else {
-                (window.logger?.warn || console.warn)('⚠️ EffectsManager not available');
+                (window.logger?.warn || console.warn)('! EffectsManager not available');
             }
 
             const StatsManagerClass = this.resolveNamespace('StatsManager');
@@ -297,11 +300,13 @@ class GameManagerBridge {
                 if (!window.statsManager) {
                     window.statsManager = this.statsManager;
                 }
+                // StatsManager now loads from GameState, so they should already be in sync
+                // Keep this sync for defensive programming and backward compatibility
                 this.metaStars = this.statsManager.starTokens;
-                (window.logger?.log || console.log)('✅ StatsManager initialized');
+                (window.logger?.log || console.log)('+ StatsManager initialized');
                 this.updateStarDisplay();
             } else {
-                (window.logger?.warn || console.warn)('⚠️ StatsManager not available');
+                (window.logger?.warn || console.warn)('! StatsManager not available');
             }
 
             // Initialize DifficultyManager to drive game scaling
@@ -312,16 +317,16 @@ class GameManagerBridge {
                     window.gameManager = this;
                 }
                 window.gameManager.difficultyManager = this.difficultyManager;
-                (window.logger?.log || console.log)('✅ DifficultyManager initialized');
+                (window.logger?.log || console.log)('+ DifficultyManager initialized');
             } else {
-                (window.logger?.warn || console.warn)('⚠️ DifficultyManager not available');
+                (window.logger?.warn || console.warn)('! DifficultyManager not available');
             }
 
-            (window.logger?.log || console.log)('✅ Game engine initialized successfully');
+            (window.logger?.log || console.log)('+ Game engine initialized successfully');
             return true;
             
         } catch (error) {
-            (window.logger?.error || console.error)('❌ Failed to initialize game engine:', error);
+            (window.logger?.error || console.error)('! Failed to initialize game engine:', error);
             return false;
         }
     }
@@ -330,13 +335,23 @@ class GameManagerBridge {
      * Start the game
      */
     startGame() {
-        (window.logger?.log || console.log)('🚀 Starting game...');
-        
+        (window.logger?.log || console.log)('> Starting game...');
+
+        // Defensive cleanup: Clear menu listeners/animations when transitioning to game
+        // This prevents memory leaks if menu state gets out of sync
+        if (window.mainMenuController) {
+            window.mainMenuController.clearDynamicListeners?.();
+            if (window.mainMenuController.menuAnimationFrame) {
+                cancelAnimationFrame(window.mainMenuController.menuAnimationFrame);
+                window.mainMenuController.menuAnimationFrame = null;
+            }
+        }
+
         // Initialize engine if not done
         if (!this.game) {
-            (window.logger?.log || console.log)('🔧 Game engine not initialized, creating...');
+            (window.logger?.log || console.log)('> Game engine not initialized, creating...');
             if (!this.initGameEngine()) {
-                (window.logger?.error || console.error)('❌ Cannot start game - engine initialization failed');
+                (window.logger?.error || console.error)('! Cannot start game - engine initialization failed');
                 alert('Failed to initialize game engine. Please refresh the page.');
                 return;
             }
@@ -347,7 +362,7 @@ class GameManagerBridge {
         
         // Start the game engine
         if (this.game && typeof this.game.start === 'function') {
-            (window.logger?.log || console.log)('▶️ Starting game engine...');
+            (window.logger?.log || console.log)('> Starting game engine...');
             this.game.start();
             if (typeof this.game.resumeGame === 'function') {
                 this.game.resumeGame();
@@ -357,11 +372,11 @@ class GameManagerBridge {
             this.running = true;
             this.setupMinimap();
             this.renderMinimap();
-            (window.logger?.log || console.log)('✅ Game started successfully!');
-            (window.logger?.log || console.log)('🎮 Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
-            (window.logger?.log || console.log)('🎨 Canvas size:', this.game.canvas ? `${this.game.canvas.width}x${this.game.canvas.height}` : 'No canvas');
+            (window.logger?.log || console.log)('+ Game started successfully!');
+            (window.logger?.log || console.log)('[P] Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
+            (window.logger?.log || console.log)('[R] Canvas size:', this.game.canvas ? `${this.game.canvas.width}x${this.game.canvas.height}` : 'No canvas');
         } else {
-            (window.logger?.error || console.error)('❌ Game engine start method not available');
+            (window.logger?.error || console.error)('! Game engine start method not available');
             (window.logger?.log || console.log)('Available methods:', Object.getOwnPropertyNames(this.game || {}));
             alert('Game engine is not ready. Please refresh the page.');
         }
@@ -374,7 +389,7 @@ class GameManagerBridge {
         // 🌊 RESET GAME STATE - Single Source of Truth
         if (this.state) {
             this.state.resetSession();
-            (window.logger?.log || console.log)('✅ GameState reset for new session');
+            (window.logger?.log || console.log)('+ GameState reset for new session');
         }
 
         // Reset StatsManager (it will sync with GameState)
@@ -395,7 +410,12 @@ class GameManagerBridge {
             this.enemySpawner.reset();
         }
 
-        (window.logger?.log || console.log)('🔄 Game state reset');
+        // Reset game over flags
+        this.gameOver = false;
+        this.gameWon = false;
+        this.endScreenShown = false;
+
+        (window.logger?.log || console.log)('@ Game state reset');
     }
 
     setupMinimap() {
@@ -477,7 +497,7 @@ class GameManagerBridge {
             if (this.currentCombo >= 5) {
                 const textTargetY = this.game?.player?.y ? this.game.player.y - 50 : 0;
                 if (this.game?.unifiedUI?.addComboText) {
-                    this.game.unifiedUI.addComboText(this.currentCombo, this.game.player.x, textTargetY);
+                    this.game.unifiedUI.addComboText(this.currentCombo, this.game.player?.x ?? 0, textTargetY);
                 } else {
                     this.showCombatText(`${this.currentCombo}x COMBO!`, this.game.player?.x ?? 0, textTargetY, 'combo', 18);
                 }
@@ -506,10 +526,10 @@ class GameManagerBridge {
 
         // Show boss kill text
         if (this.game && this.game.player) {
-            this.showCombatText('BOSS DEFEATED!', 
+            this.showCombatText('BOSS DEFEATED!',
                 this.game.canvas.width / 2, this.game.canvas.height / 2, 'critical', 32);
         }
-        
+
         // Play victory sound if available
         if (window.audioSystem && window.audioSystem.play) {
             window.audioSystem.play('bossKilled', 0.6);
@@ -519,16 +539,36 @@ class GameManagerBridge {
         if (this.uiManager && typeof this.uiManager.removeBoss === 'function') {
             try { this.uiManager.removeBoss(this._lastBossId || null); } catch (_) {}
         }
+    }
 
-        if (!this.gameWon) {
-            this.onGameWon();
+    /**
+     * Handle boss defeat (called with enemy parameter)
+     */
+    onBossDefeated(enemy) {
+        if (!enemy) return;
+
+        (window.logger?.log || console.log)('👑 Boss defeated:', { isMegaBoss: enemy.isMegaBoss });
+
+        // Check if this was a mega boss - show victory screen
+        if (enemy.isMegaBoss) {
+            (window.logger?.log || console.log)('🏆 Mega Boss defeated! Showing victory screen...');
+
+            // Wait a moment for effects to play
+            setTimeout(() => {
+                this.onGameWon();
+            }, 1500);
         }
+        // Regular bosses: game continues (no victory screen)
     }
     
     /**
      * Main update loop - called by GameEngine
      */
     update(deltaTime) {
+        // Always check game conditions first, even if not running
+        // This ensures death is detected immediately
+        this.checkGameConditions();
+
         if (!this.running || this.gameOver || this.isPaused) {
             return;
         }
@@ -572,7 +612,7 @@ class GameManagerBridge {
         }
 
         // Combo system is updated by GameState
-        // Just sync UI
+        // Just sync UI with GPU-optimized transforms
         const comboText = this._getUiRef('comboText', 'combo-text');
         const comboFill = this._getUiRef('comboFill', 'combo-fill');
         const comboContainer = this._getUiRef('comboContainer', 'combo-container');
@@ -587,7 +627,9 @@ class GameManagerBridge {
             const timeout = this.state?.combo?.timeout ?? 1;
             const timer = Math.max(0, Math.min(this.comboTimer ?? 0, timeout));
             const ratio = timeout > 0 ? timer / timeout : 0;
-            comboFill.style.width = `${Math.round(ratio * 100)}%`;
+            // Use scaleX for GPU acceleration instead of width changes
+            const scaleX = Math.max(0, Math.min(1, ratio));
+            comboFill.style.transform = `scaleX(${scaleX}) translateZ(0)`;
             comboFill.style.opacity = comboCount > 0 ? '1' : '0';
         }
 
@@ -595,69 +637,102 @@ class GameManagerBridge {
             comboContainer.style.opacity = comboCount > 0 ? '1' : '0.3';
             comboContainer.style.visibility = 'visible';
         }
-
-        // Check win/lose conditions
-        this.checkGameConditions();
     }
     
     /**
      * Check game win/lose conditions
      */
     checkGameConditions() {
-        if (!this.game || !this.game.player) return;
-        
-        // Check lose condition
-        if (this.game.player.isDead && !this.gameOver) {
+        // Don't check if already game over
+        if (this.gameOver) return;
+
+        const playerEntity = this.game?.player || null;
+
+        // Player entity is the single source of truth for death status
+        // Check if player entity exists and is dead
+        if (playerEntity && playerEntity.isDead) {
+            // Immediately sync state before calling onGameOver to prevent race conditions
+            if (this.state && this.state.player) {
+                this.state.player.isAlive = false;
+            }
+
             this.onGameOver();
+            return;
         }
-        
     }
     
     /**
      * Handle game over
      */
     onGameOver() {
-        (window.logger?.log || console.log)('💀 Game Over');
+        (window.logger?.log || console.log)('💀 Game Over', {
+            gameOver: this.gameOver,
+            running: this.running,
+            endScreenShown: this.endScreenShown
+        });
+
+        // Prevent multiple calls
+        if (this.gameOver) {
+            (window.logger?.warn || console.warn)('! onGameOver already called, skipping');
+            return;
+        }
+
         this.gameOver = true;
         this.running = false;
-        
+
         // Create death effect
-        if (this.game.player) {
+        if (this.game?.player) {
             this.createExplosion(this.game.player.x, this.game.player.y, 100, '#e74c3c');
             this.addScreenShake(15, 1.5);
         }
 
-        this.showRunSummary({
-            title: 'Defeat',
-            subtitle: `You survived ${this.formatTime(this.gameTime)}.`,
-            outcome: 'defeat',
-            buttons: [
-                { label: 'Retry Run', action: () => this.startGame() },
-                { label: 'Main Menu', action: () => this.returnToMenu() }
-            ]
-        });
+        // Small delay to let death animation play
+        setTimeout(() => {
+            this.showRunSummary({
+                title: 'Defeat',
+                subtitle: `You survived ${this.formatTime(this.gameTime)}.`,
+                outcome: 'defeat',
+                buttons: [
+                    { label: 'Retry Run', action: () => this.startGame() },
+                    { label: 'Main Menu', action: () => this.returnToMenu() }
+                ]
+            });
+        }, 500);
     }
     
     /**
      * Handle game won
      */
     onGameWon() {
-        (window.logger?.log || console.log)('🏆 Victory!');
+        (window.logger?.log || console.log)('🏆 Victory!', {
+            gameWon: this.gameWon,
+            gameOver: this.gameOver,
+            running: this.running,
+            endScreenShown: this.endScreenShown
+        });
+
+        // Prevent multiple calls
+        if (this.gameWon || this.gameOver) {
+            (window.logger?.warn || console.warn)('! onGameWon already called or game is over, skipping');
+            return;
+        }
+
         this.gameWon = true;
+        this.gameOver = true; // Also set gameOver to stop the game loop
         this.running = false;
 
-        // Award bonus stars
-        this.earnStarTokens(10);
+        // Award bonus stars for mega boss
+        this.earnStarTokens(20); // 20 stars for mega boss (was 10)
 
         // Create victory effect
-        if (this.game.player) {
+        if (this.game?.player) {
             this.createLevelUpEffect(this.game.player.x, this.game.player.y);
-            this.showFloatingText('VICTORY!', this.game.player.x, this.game.player.y - 50, '#f1c40f', 36);
+            this.showFloatingText('MEGA BOSS DEFEATED!', this.game.player.x, this.game.player.y - 50, '#f1c40f', 36);
         }
 
         this.showRunSummary({
             title: 'Victory!',
-            subtitle: `Boss defeated in ${this.formatTime(this.gameTime)}.`,
+            subtitle: `Mega Boss defeated! Total time: ${this.formatTime(this.gameTime)}.`,
             outcome: 'victory',
             buttons: [
                 { label: 'Continue Run', action: () => this.resumeRun() },
@@ -687,20 +762,27 @@ class GameManagerBridge {
     }
 
     showRunSummary({ title, subtitle = '', outcome = 'summary', buttons = [] }) {
-        if (this.endScreenShown) return;
+        if (this.endScreenShown) {
+            return;
+        }
         this.endScreenShown = true;
 
         const stats = this.getRunSummaryStats();
 
         if (window.resultScreen && typeof window.resultScreen.show === 'function') {
-            window.resultScreen.show({
-                title,
-                subtitle,
-                stats,
-                outcome,
-                buttons
-            });
+            try {
+                window.resultScreen.show({
+                    title,
+                    subtitle,
+                    stats,
+                    outcome,
+                    buttons
+                });
+            } catch (error) {
+                console.error('Error showing result screen:', error);
+            }
         } else {
+            // Fallback to alert if result screen not available
             let message = `${title}\n${subtitle}`.trim();
             stats.forEach(stat => {
                 message += `\n${stat.label}: ${stat.value}`;
@@ -717,21 +799,21 @@ class GameManagerBridge {
         try {
             const HandlerClass = this.resolveNamespace('HUDEventHandlers');
             if (!HandlerClass) {
-                (window.logger?.warn || console.warn)('⚠️ HUDEventHandlers class not found');
+                (window.logger?.warn || console.warn)('! HUDEventHandlers class not found');
                 return;
             }
 
             if (!this.game?.state) {
-                (window.logger?.warn || console.warn)('⚠️ Game state not available for HUD handlers');
+                (window.logger?.warn || console.warn)('! Game state not available for HUD handlers');
                 return;
             }
 
             if (!window.hudEventHandlers) {
                 window.hudEventHandlers = new HandlerClass(this.game.state);
-                (window.logger?.log || console.log)('✅ HUD event handlers initialized');
+                (window.logger?.log || console.log)('+ HUD event handlers initialized');
             }
         } catch (error) {
-            (window.logger?.error || console.error)('❌ Failed to initialize HUD event handlers:', error);
+            (window.logger?.error || console.error)('! Failed to initialize HUD event handlers:', error);
         }
     }
 
@@ -907,14 +989,17 @@ class GameManagerBridge {
             return;
         }
         const particleCount = Math.min(8, Math.floor(damage / 10));
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < particleCount; i++) {
             const angle = (i / particleCount) * Math.PI * 2;
             const speed = 50 + Math.random() * 100;
+            // Use FastMath.sincos for 5x speedup on ARM
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
                 window.optimizedParticles.spawnParticle({
                     x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: cos * speed,
+                    vy: sin * speed,
                     size: 2 + Math.random() * 3,
                     color: '#e74c3c',
                     life: 0.3 + Math.random() * 0.3,
@@ -924,8 +1009,8 @@ class GameManagerBridge {
                 this._spawnParticleViaPoolOrFallback(
                     x,
                     y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
+                    cos * speed,
+                    sin * speed,
                     2 + Math.random() * 3,
                     '#e74c3c',
                     0.3 + Math.random() * 0.3,
@@ -949,14 +1034,17 @@ class GameManagerBridge {
             return;
         }
         const particleCount = Math.min(20, radius / 5);
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < particleCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 100 + Math.random() * 200;
+            // Use FastMath.sincos for 5x speedup on ARM
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
                 window.optimizedParticles.spawnParticle({
                     x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: cos * speed,
+                    vy: sin * speed,
                     size: 3 + Math.random() * 5,
                     color,
                     life: 0.5 + Math.random() * 0.5,
@@ -966,8 +1054,8 @@ class GameManagerBridge {
                 this._spawnParticleViaPoolOrFallback(
                     x,
                     y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
+                    cos * speed,
+                    sin * speed,
                     3 + Math.random() * 5,
                     color,
                     0.5 + Math.random() * 0.5,
@@ -990,14 +1078,17 @@ class GameManagerBridge {
             helpers.createLevelUpEffect(x, y);
             return;
         }
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < 16; i++) {
             const angle = (i / 16) * Math.PI * 2;
             const speed = 80 + Math.random() * 40;
+            // Use FastMath.sincos for 5x speedup on ARM
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             if (window.optimizedParticles && typeof window.optimizedParticles.spawnParticle === 'function') {
                 window.optimizedParticles.spawnParticle({
                     x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: cos * speed,
+                    vy: sin * speed,
                     size: 3 + Math.random() * 3,
                     color: '#f1c40f',
                     life: 0.8 + Math.random() * 0.4,
@@ -1007,8 +1098,8 @@ class GameManagerBridge {
                 this._spawnParticleViaPoolOrFallback(
                     x,
                     y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
+                    cos * speed,
+                    sin * speed,
                     3 + Math.random() * 3,
                     '#f1c40f',
                     0.8 + Math.random() * 0.4,
@@ -1052,7 +1143,7 @@ class GameManagerBridge {
     }
 
     /**
-     * Update boss spawn countdown
+     * Update boss spawn countdown with progress bar
      */
     updateBossCountdown() {
         if (!this.enemySpawner) {
@@ -1060,58 +1151,96 @@ class GameManagerBridge {
         }
 
         const bossCountdownElement = this._getUiRef('bossCountdown', 'boss-countdown');
+        const bossCountdownBar = this._getUiRef('bossCountdownBar', 'boss-countdown-bar');
+        const bossCountdownText = this._getUiRef('bossCountdownText', 'boss-countdown-text');
+        const bossCountdownContainer = this._getUiRef('bossCountdownContainer', 'boss-countdown-container');
 
-        if (bossCountdownElement) {
-            if (typeof this.enemySpawner.isBossAlive === 'function' && this.enemySpawner.isBossAlive()) {
-                bossCountdownElement.classList.remove('hidden');
-                bossCountdownElement.style.color = '#f1c40f';
-                bossCountdownElement.style.animation = 'pulse 1.5s infinite';
-                bossCountdownElement.textContent = 'Boss active!';
-                return;
+        if (!bossCountdownElement || !bossCountdownBar || !bossCountdownText) {
+            return;
+        }
+
+        // Check if boss is currently active
+        if (typeof this.enemySpawner.isBossAlive === 'function' && this.enemySpawner.isBossAlive()) {
+            bossCountdownElement.classList.remove('hidden');
+            bossCountdownBar.style.transform = 'scaleX(1) translateZ(0)';
+            bossCountdownBar.className = 'active'; // Replace all classes with 'active' state
+            bossCountdownText.textContent = '[B] Boss Active!';
+            if (bossCountdownContainer) {
+                bossCountdownContainer.style.animation = 'pulse 1.5s infinite';
             }
+            return;
+        }
 
-            const timeUntilBoss = this.enemySpawner.bossInterval - this.enemySpawner.bossTimer;
+        const timeUntilBoss = this.enemySpawner.bossInterval - this.enemySpawner.bossTimer;
+        const bossInterval = this.enemySpawner.bossInterval;
 
-            // Debug once per second
-            const currentSecond = Math.floor(this.gameTime);
-            if (currentSecond !== this._lastBossDebugSecond) {
-                this._lastBossDebugSecond = currentSecond;
+        // Validate boss interval to prevent division by zero
+        if (!Number.isFinite(bossInterval) || bossInterval <= 0) {
+            // Invalid boss interval - hide countdown
+            bossCountdownElement.classList.add('hidden');
+            return;
+        }
+
+        // Debug once per second
+        const currentSecond = Math.floor(this.gameTime);
+        if (currentSecond !== this._lastBossDebugSecond) {
+            this._lastBossDebugSecond = currentSecond;
             if (window.debugManager?.enabled) {
-                console.log(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${this.enemySpawner.bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
+                (window.logger?.log || (() => {}))(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
             }
-            }
+        }
 
-            // Show different messages based on time until boss
-            if (timeUntilBoss > 0) {
-                bossCountdownElement.classList.remove('hidden');
+        // Update progress bar based on time remaining
+        if (timeUntilBoss > 0) {
+            bossCountdownElement.classList.remove('hidden');
 
-                if (timeUntilBoss <= 10) {
-                    // Urgent countdown - red pulsing
-                    bossCountdownElement.style.color = '#e74c3c';
-                    bossCountdownElement.style.animation = 'pulse 1s infinite';
-                    bossCountdownElement.textContent = `Boss in: ${Math.ceil(timeUntilBoss)}s`;
-                } else if (timeUntilBoss <= 30) {
-                    // Warning - orange, no animation
-                    bossCountdownElement.style.color = '#f39c12';
-                    bossCountdownElement.style.animation = 'none';
-                    bossCountdownElement.textContent = `Boss approaching: ${Math.ceil(timeUntilBoss)}s`;
-                } else {
-                    // Info - white, no animation
-                    bossCountdownElement.style.color = '#ecf0f1';
-                    bossCountdownElement.style.animation = 'none';
-                    const minutes = Math.floor(timeUntilBoss / 60);
-                    const seconds = Math.floor(timeUntilBoss % 60);
-                    if (minutes > 0) {
-                        bossCountdownElement.textContent = `Next boss: ${minutes}m ${seconds}s`;
-                    } else {
-                        bossCountdownElement.textContent = `Next boss: ${seconds}s`;
-                    }
-                }
+            // Calculate scale factor (0.0 to 1.0) for GPU-accelerated transform
+            // Keep translateZ(0) to maintain GPU compositing layer
+            const scaleX = Math.max(0, Math.min(1, timeUntilBoss / bossInterval));
+            bossCountdownBar.style.transform = `scaleX(${scaleX}) translateZ(0)`;
+
+            let textLabel = '';
+            let barClass = 'normal';
+            let shouldPulse = false;
+
+            if (timeUntilBoss <= 10) {
+                // Urgent countdown - red pulsing bar
+                barClass = 'urgent';
+                shouldPulse = true;
+                textLabel = `! Boss in ${Math.ceil(timeUntilBoss)}s`;
+            } else if (timeUntilBoss <= 30) {
+                // Warning - orange bar
+                barClass = 'warning';
+                textLabel = `Boss approaching: ${Math.ceil(timeUntilBoss)}s`;
             } else {
-                bossCountdownElement.classList.add('hidden');
+                // Normal - blue-white bar
+                barClass = 'normal';
+                const minutes = Math.floor(timeUntilBoss / 60);
+                const seconds = Math.floor(timeUntilBoss % 60);
+                if (minutes > 0) {
+                    textLabel = `Next boss: ${minutes}m ${seconds}s`;
+                } else {
+                    textLabel = `Next boss: ${seconds}s`;
+                }
+            }
+
+            // Update bar color class (replaces all classes with state class)
+            bossCountdownBar.className = barClass;
+
+            // Update text
+            bossCountdownText.textContent = textLabel;
+
+            // Apply pulse animation to container for urgent state only
+            if (bossCountdownContainer) {
+                if (shouldPulse) {
+                    bossCountdownContainer.style.animation = 'pulse 1s infinite';
+                } else {
+                    bossCountdownContainer.style.animation = 'none';
+                }
             }
         } else {
-            console.log('[GameManagerBridge] Boss countdown element not found');
+            // Time until boss is zero or negative - hide countdown
+            bossCountdownElement.classList.add('hidden');
         }
     }
 
@@ -1143,12 +1272,12 @@ class GameManagerBridge {
         const stars = this.getStarTokenBalance();
         const starDisplay = this._getUiRef('starMenuDisplay', 'star-menu-display');
         if (starDisplay) {
-            starDisplay.textContent = '⭐ ' + stars;
+            starDisplay.textContent = '* ' + stars;
         }
 
         const vendorDisplay = this._getUiRef('vendorStarDisplay', 'vendor-star-display');
         if (vendorDisplay) {
-            vendorDisplay.textContent = '⭐ ' + stars;
+            vendorDisplay.textContent = '* ' + stars;
         }
     }
     
@@ -1224,7 +1353,7 @@ class GameManagerBridge {
     onDodge(wasPerfect) {
         this.statsManager?.trackSpecialEvent?.('dodge');
 
-        if (wasPerfect) {
+        if (wasPerfect && this.game?.player) {
             this.statsManager?.trackSpecialEvent?.('perfect_dodge');
             this.showFloatingText('PERFECT DODGE!', this.game.player.x, this.game.player.y - 30, '#3498db', 18);
         }
@@ -1232,14 +1361,14 @@ class GameManagerBridge {
 
     onChainLightningHit(chainCount) {
         this.statsManager?.recordChainLightningHit?.(chainCount);
-        if (chainCount >= 3) {
+        if (chainCount >= 3 && this.game?.player) {
             this.showFloatingText(`${chainCount} CHAIN!`, this.game.player.x, this.game.player.y - 40, '#74b9ff', 16);
         }
     }
 
     onRicochetHit(bounceCount) {
         this.statsManager?.recordRicochetHit?.(bounceCount);
-        if (bounceCount >= 2) {
+        if (bounceCount >= 2 && this.game?.player) {
             this.showFloatingText(`${bounceCount} BOUNCES!`, this.game.player.x, this.game.player.y - 40, '#f39c12', 16);
         }
     }
@@ -1257,14 +1386,17 @@ class GameManagerBridge {
 
         // Minimal fallback: spawn a small burst
         const fallbackColor = color || '#ffffff';
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < 4; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 40 + Math.random() * 60;
+            // Use FastMath.sincos for 5x speedup on ARM
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             this._spawnParticleViaPoolOrFallback(
                 x,
                 y,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
+                cos * speed,
+                sin * speed,
                 2 + Math.random() * 2,
                 fallbackColor,
                 0.4 + Math.random() * 0.3,

@@ -91,13 +91,14 @@ class PlayerRenderer {
         }
 
         const radius = this.player.radius;
-        const key = radius.toFixed(2);
+        const classKey = this.player.characterId || 'default';
+        const key = `${classKey}_${radius.toFixed(2)}`;
 
         if (this._spriteCache && this._spriteCache.key === key) {
             return this._spriteCache;
         }
 
-        const base = this._createBaseSprite(radius);
+        const base = this._createBaseSprite(radius, classKey);
         if (!base) {
             this._spriteCache = null;
             return null;
@@ -115,7 +116,7 @@ class PlayerRenderer {
         return this._spriteCache;
     }
 
-    _createBaseSprite(radius) {
+    _createBaseSprite(radius, classKey) {
         const glowBlur = 15;
         const glowPadding = Math.max(glowBlur * 2, radius * 0.6);
         const outerRadius = radius + glowPadding;
@@ -127,26 +128,36 @@ class PlayerRenderer {
         if (!offCtx) return null;
 
         const center = size / 2;
+        const colors = this._resolveClassColors(classKey);
         const gradient = offCtx.createRadialGradient(center, center, 0, center, center, radius);
         gradient.addColorStop(0, '#ffffff');
-        gradient.addColorStop(0.3, '#00ffff');
-        gradient.addColorStop(1, '#0088ff');
+        gradient.addColorStop(0.3, colors.glow);
+        gradient.addColorStop(1, colors.core);
 
         offCtx.shadowBlur = glowBlur;
-        offCtx.shadowColor = '#00ffff';
+        offCtx.shadowColor = colors.glow;
         offCtx.fillStyle = gradient;
         offCtx.beginPath();
         offCtx.arc(center, center, radius, 0, Math.PI * 2);
         offCtx.fill();
         offCtx.shadowBlur = 0;
 
-        offCtx.strokeStyle = '#00ffff';
+        offCtx.strokeStyle = colors.glow;
         offCtx.lineWidth = 2;
         offCtx.beginPath();
         offCtx.arc(center, center, radius, 0, Math.PI * 2);
         offCtx.stroke();
 
         return { canvas, halfSize: size / 2 };
+    }
+
+    _resolveClassColors(classKey) {
+        const defaults = { core: '#0088ff', glow: '#00ffff' };
+        const table = window.GAME_CONSTANTS?.PLAYER?.CLASS_COLORS;
+        if (!table) {
+            return defaults;
+        }
+        return table[classKey] || defaults;
     }
 
     _createInvulnerabilitySprite(radius) {

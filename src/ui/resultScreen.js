@@ -1,11 +1,24 @@
 (function() {
-    const screen = {
-        root: document.getElementById('result-screen'),
-        title: document.getElementById('result-title'),
-        subtitle: document.getElementById('result-subtitle'),
-        stats: document.getElementById('result-stats'),
-        buttonsContainer: document.getElementById('result-buttons')
-    };
+    let elements = null;
+    let _dirty = false;
+
+    function ensureElements() {
+        if (elements) return elements;
+
+        elements = {
+            root: document.getElementById('result-screen'),
+            title: document.getElementById('result-title'),
+            subtitle: document.getElementById('result-subtitle'),
+            stats: document.getElementById('result-stats'),
+            buttonsContainer: document.getElementById('result-buttons')
+        };
+
+        if (!elements.root) {
+            elements = null;
+        }
+
+        return elements;
+    }
 
     function defaultRestart() {
         if (window.gameManager?.startGame) {
@@ -30,6 +43,9 @@
     }
 
     function hide() {
+        const screen = ensureElements();
+        if (!screen) return;
+
         if (screen.root) {
             screen.root.classList.add('hidden');
             screen.root.removeAttribute('data-outcome');
@@ -40,6 +56,7 @@
         if (screen.buttonsContainer) {
             screen.buttonsContainer.innerHTML = '';
         }
+        _dirty = false;
     }
 
     function normalizeButtons(buttons) {
@@ -56,7 +73,8 @@
     }
 
     function renderButtons(buttons) {
-        if (!screen.buttonsContainer) return;
+        const screen = ensureElements();
+        if (!screen?.buttonsContainer) return;
         screen.buttonsContainer.innerHTML = '';
         normalizeButtons(buttons).forEach(button => {
             const btn = document.createElement('button');
@@ -75,7 +93,8 @@
     }
 
     function show(options = {}) {
-        if (!screen.root) return;
+        const screen = ensureElements();
+        if (!screen?.root) return;
         const {
             title = 'Run Complete',
             subtitle = '',
@@ -113,7 +132,13 @@
 
         renderButtons(buttons);
         screen.root.classList.remove('hidden');
+        _dirty = true;
     }
 
-    window.resultScreen = { show, hide };
+    window.resultScreen = {
+        show,
+        hide,
+        isVisible: () => ensureElements()?.root?.classList?.contains('hidden') === false,
+        isDirty: () => _dirty
+    };
 })();

@@ -102,6 +102,9 @@ class EnemyStats {
             }
 
             if (enemy.isBoss) {
+                // Check for perfect boss kill and reward player
+                this.handlePerfectBossKill(enemy, gm.game?.player);
+
                 gm.onBossKilled?.();
                 gm.onBossDefeated?.(enemy);
             }
@@ -109,6 +112,90 @@ class EnemyStats {
             try {
                 gm.enemySpawner?.onEnemyKilled?.(enemy);
             } catch (_) {}
+        }
+    }
+
+    /**
+     * Handle perfect boss kill rewards
+     * Perfect kill = player has 90%+ health remaining
+     */
+    static handlePerfectBossKill(boss, player) {
+        if (!boss || !player || !boss.isBoss) return;
+
+        // Get boss constants
+        const BOSS_CONST = window.GAME_CONSTANTS?.BOSSES || {};
+        const PERFECT_THRESHOLD = BOSS_CONST.PERFECT_KILL_THRESHOLD || 0.90;
+        const HEAL_BONUS = BOSS_CONST.PERFECT_KILL_HEAL_BONUS || 0.15;
+        const INVULN_DURATION = BOSS_CONST.PERFECT_KILL_INVULN_DURATION || 2.0;
+        const XP_BONUS = BOSS_CONST.PERFECT_KILL_XP_BONUS || 1.5;
+
+        // Check if player has high enough health for perfect kill
+        const healthPercent = player.health / (player.maxHealth || 1);
+        const isPerfectKill = healthPercent >= PERFECT_THRESHOLD;
+
+        if (isPerfectKill) {
+            // Bonus heal
+            const healAmount = Math.ceil(player.maxHealth * HEAL_BONUS);
+            if (player.heal) {
+                player.heal(healAmount);
+            } else if (player.stats?.heal) {
+                player.stats.heal(healAmount);
+            }
+
+            // Grant invulnerability
+            if (player.stats) {
+                player.stats.isInvulnerable = true;
+                player.stats.invulnerabilityTimer = INVULN_DURATION;
+            } else {
+                player.isInvulnerable = true;
+                player.invulnerabilityTimer = INVULN_DURATION;
+            }
+
+            // Bonus XP (applied to the XP orb drop)
+            boss._perfectKillXPBonus = XP_BONUS;
+
+            // Visual feedback
+            const gm = window.gameManager || window.gameManagerBridge;
+            if (gm) {
+                // Show perfect kill text
+                gm.showFloatingText?.(
+                    '⭐ PERFECT KILL! ⭐',
+                    player.x,
+                    player.y - 80,
+                    '#FFD700',  // Gold
+                    28
+                );
+
+                // Show heal notification
+                gm.showFloatingText?.(
+                    `+${healAmount} HP`,
+                    player.x,
+                    player.y - 50,
+                    '#2ecc71',  // Green
+                    20
+                );
+
+                // Add celebratory screen shake
+                gm.effectsManager?.addScreenShake?.(4, 0.4);
+
+                // Create particle burst
+                if (window.optimizedParticles) {
+                    for (let i = 0; i < 20; i++) {
+                        const angle = (i / 20) * Math.PI * 2;
+                        const speed = 100 + Math.random() * 150;
+                        window.optimizedParticles.spawnParticle({
+                            x: player.x,
+                            y: player.y,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            size: 4 + Math.random() * 4,
+                            color: '#FFD700',
+                            life: 1.5,
+                            type: 'star'
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -132,16 +219,22 @@ class EnemyStats {
                 if (enemy.isMegaBoss) {
                     xpValue *= 2;
                 }
+
+                // Perfect kill bonus XP
+                if (enemy._perfectKillXPBonus) {
+                    xpValue *= enemy._perfectKillXPBonus;
+                }
             }
 
             // Create XP orb
-            const xpOrb = new XPOrb(enemy.x, enemy.y, xpValue);
+            const xpOrb = new XPOrb(enemy.x, enemy.y, Math.ceil(xpValue));
 
             // Add some randomness to XP orb position
             xpOrb.x += (Math.random() - 0.5) * 20;
             xpOrb.y += (Math.random() - 0.5) * 20;
 
-            window.gameManager.game.addEntity(xpOrb);
+            // Use optional chaining for defensive programming even though protected by if above
+            window.gameManager?.game?.addEntity?.(xpOrb);
         }
     }
 

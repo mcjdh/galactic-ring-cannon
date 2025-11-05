@@ -23,7 +23,7 @@ const META_UPGRADE_DEFINITIONS = [
         description: 'Start each run with +25% damage',
         cost: 5,
         maxLevel: 5,
-        icon: '🔥',
+        icon: '^',
         effect: 'Starting damage multiplier'
     },
     {
@@ -32,7 +32,7 @@ const META_UPGRADE_DEFINITIONS = [
         description: 'Start each run with +20% health',
         cost: 4,
         maxLevel: 5,
-        icon: '🛡️',
+        icon: '#',
         effect: 'Starting health boost'
     },
     {
@@ -41,7 +41,7 @@ const META_UPGRADE_DEFINITIONS = [
         description: 'Start each run with +15% movement speed',
         cost: 3,
         maxLevel: 4,
-        icon: '🚀',
+        icon: '|>',
         effect: 'Starting speed boost'
     },
     {
@@ -50,7 +50,7 @@ const META_UPGRADE_DEFINITIONS = [
         description: 'Increase star token drop rate',
         cost: 8,
         maxLevel: 3,
-        icon: '⭐',
+        icon: '*',
         effect: 'Better star drops'
     },
     {
@@ -59,7 +59,7 @@ const META_UPGRADE_DEFINITIONS = [
         description: 'Chain lightning effects +1 additional chain',
         cost: 12,
         maxLevel: 2,
-        icon: '⚡',
+        icon: '*',
         effect: 'Improved chain lightning'
     }
 ];

@@ -1,5 +1,5 @@
 /**
- * 🧪 GameState Unit Tests
+ * [T] GameState Unit Tests
  * Runs in Node.js for CI/CD validation
  *
  * Usage: npm test
@@ -22,7 +22,7 @@ if (isNode) {
 }
 
 function runNodeTests() {
-    console.log('🧪 Running GameState Unit Tests (Node.js)...\n');
+    console.log('[T] Running GameState Unit Tests (Node.js)...\n');
 
     // Import GameState in Node context
     let GameState;
@@ -33,7 +33,7 @@ function runNodeTests() {
             throw new Error('GameState class not exported from GameState.js');
         }
     } catch (err) {
-        console.error('❌ Failed to load GameState:', err.message);
+        console.error('! Failed to load GameState:', err.message);
         process.exit(1);
     }
 
@@ -44,10 +44,10 @@ function runNodeTests() {
     const test = (name, fn) => {
         try {
             fn();
-            console.log(`✅ ${name}`);
+            console.log(`+ ${name}`);
             results.passed++;
         } catch (error) {
-            console.error(`❌ ${name}:`, error.message);
+            console.error(`! ${name}:`, error.message);
             results.failed++;
             results.errors.push({ test: name, error: error.message });
         }
@@ -237,19 +237,19 @@ function runNodeTests() {
     // ===== RESULTS =====
 
     console.log('\n' + '='.repeat(50));
-    console.log(`📊 Test Results:`);
-    console.log(`   ✅ Passed: ${results.passed}`);
-    console.log(`   ❌ Failed: ${results.failed}`);
+    console.log(`[S] Test Results:`);
+    console.log(`   + Passed: ${results.passed}`);
+    console.log(`   ! Failed: ${results.failed}`);
     console.log(`   📈 Success Rate: ${((results.passed / (results.passed + results.failed)) * 100).toFixed(1)}%`);
 
     if (results.failed > 0) {
-        console.log('\n❌ Failed Tests:');
+        console.log('\n! Failed Tests:');
         results.errors.forEach(({ test, error }) => {
             console.log(`   • ${test}: ${error}`);
         });
         console.log('='.repeat(50) + '\n');
     } else {
-        console.log('\n🎉 All tests passed!');
+        console.log('\n+ All tests passed!');
         console.log('='.repeat(50) + '\n');
     }
 
@@ -266,17 +266,17 @@ function setupBrowserTests() {
      * Run in browser console: testGameState()
      */
     window.testGameState = function() {
-        console.log('🧪 Testing GameState Integration...\n');
+        console.log('[T] Testing GameState Integration...\n');
 
         const results = { passed: 0, failed: 0, errors: [] };
 
         const test = (name, fn) => {
             try {
                 fn();
-                console.log(`✅ ${name}`);
+                console.log(`+ ${name}`);
                 results.passed++;
             } catch (error) {
-                console.error(`❌ ${name}:`, error.message);
+                console.error(`! ${name}:`, error.message);
                 results.failed++;
                 results.errors.push({ test: name, error: error.message });
             }
@@ -301,16 +301,16 @@ function setupBrowserTests() {
 
         // Results
         console.log('\n' + '='.repeat(50));
-        console.log(`📊 Browser Test Results: ${results.passed} passed, ${results.failed} failed`);
+        console.log(`[S] Browser Test Results: ${results.passed} passed, ${results.failed} failed`);
         if (results.failed === 0) {
-            console.log('🎉 All integration tests passed!');
+            console.log('+ All integration tests passed!');
         }
         console.log('='.repeat(50) + '\n');
 
         return results;
     };
 
-    console.log('🧪 GameState browser tests loaded. Run testGameState() in console.');
+    console.log('[T] GameState browser tests loaded. Run testGameState() in console.');
 }
 
 // Export for Node.js

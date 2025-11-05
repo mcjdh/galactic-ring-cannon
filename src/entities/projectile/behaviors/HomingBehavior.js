@@ -79,8 +79,11 @@ class HomingBehavior extends ProjectileBehaviorBase {
             return;
         }
 
-        const invCurrentSpeed = 1 / Math.sqrt(currentSpeedSq);
-        const invTargetLen = 1 / Math.sqrt(targetLenSq);
+        // Use FastMath.invSqrt for 2x faster normalization on ARM
+        const FastMath = window.Game?.FastMath;
+        const invCurrentSpeed = FastMath ? FastMath.invSqrt(currentSpeedSq) : (1 / Math.sqrt(currentSpeedSq));
+        const invTargetLen = FastMath ? FastMath.invSqrt(targetLenSq) : (1 / Math.sqrt(targetLenSq));
+        
         const currentDirX = currentVx * invCurrentSpeed;
         const currentDirY = currentVy * invCurrentSpeed;
         const targetDirX = dx * invTargetLen;
@@ -88,7 +91,7 @@ class HomingBehavior extends ProjectileBehaviorBase {
 
         const dot = currentDirX * targetDirX + currentDirY * targetDirY;
         const cross = currentDirX * targetDirY - currentDirY * targetDirX;
-        const angleDiff = Math.atan2(cross, dot);
+        const angleDiff = FastMath ? FastMath.atan2(cross, dot) : Math.atan2(cross, dot);
 
         const maxTurn = this.turnSpeed * deltaTime;
         const turn = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
@@ -96,11 +99,11 @@ class HomingBehavior extends ProjectileBehaviorBase {
             return;
         }
 
-        const sin = Math.sin(turn);
-        const cos = Math.cos(turn);
+        // Use FastMath.sincos for combined trig calculation
+        const { sin, cos } = FastMath ? FastMath.sincos(turn) : { sin: Math.sin(turn), cos: Math.cos(turn) };
         const newDirX = currentDirX * cos - currentDirY * sin;
         const newDirY = currentDirX * sin + currentDirY * cos;
-        const speed = Math.sqrt(currentSpeedSq);
+        const speed = 1 / invCurrentSpeed; // Reuse invCurrentSpeed instead of sqrt
 
         this.projectile.vx = newDirX * speed;
         this.projectile.vy = newDirY * speed;

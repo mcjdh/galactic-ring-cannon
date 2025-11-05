@@ -21,6 +21,8 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 
 3. **Play the game**: Open `http://localhost:8000/index.html` in your browser
 
+**Platform-specific setup:** See [docs/current/QUICK_START_PI5.md](docs/current/QUICK_START_PI5.md) for Raspberry Pi 5 optimization guide.
+
 ## 🌟 Features
 
 - **Loopable Runs**: Face escalating waves across successive boss encounters
@@ -28,8 +30,19 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 - **Boss Battles**: Multi-phase boss encounters with special mechanics
 - **Meta Progression**: Permanent upgrades via the Star Vendor system
 - **Achievement System**: 15+ achievements to unlock
-- **Performance Optimized**: Runs smoothly on older hardware
+- **Performance Optimized**: 60 FPS on Raspberry Pi 5 (+44-70 FPS improvement)
 - **Mobile Friendly**: Responsive design with touch support
+
+## ⚡ Performance
+
+**Optimized for Raspberry Pi 5 and low-end hardware:**
+- TrigCache & FastMath for ARM optimization (+16-22 FPS)
+- Array pre-allocation & batch rendering (+13-23 FPS)
+- Advanced performance caching (+15-25 FPS)
+- Spatial grid partitioning for collision detection
+- GPU memory management for smooth rendering
+
+**See:** [docs/audits/FINAL_STATUS.md](docs/audits/FINAL_STATUS.md) for complete optimization details.
 
 ## 🎯 Gameplay
 
@@ -60,12 +73,17 @@ galactic-ring-cannon/
 │   └── utils/              # Utilities and helpers
 ├── assets/                 # Game assets
 │   └── css/               # Stylesheets
-├── config/                 # Configuration files
 ├── docs/                   # Documentation
 │   ├── current/           # Current reference docs
+│   ├── updates/           # Version update documentation
 │   ├── development-history/ # Multi-agent development notes
 │   ├── planning/          # Future enhancements
 │   └── README.md          # Documentation guide
+├── scripts/                # Development & testing utilities
+│   ├── performance/       # Performance testing scripts
+│   ├── debug/             # Debugging utilities
+│   └── README.md          # Script documentation
+├── tests/                  # Test files
 └── index.html             # Single entry point (unified)
 ```
 
@@ -92,6 +110,13 @@ galactic-ring-cannon/
 - **Performance Focused**: Optimized for 60fps gameplay
 - **Documented Code**: Comprehensive inline documentation
 - **ES6 Features**: Modern JavaScript practices
+
+### Development Utilities
+Helpful scripts for development and testing:
+- **Performance Testing**: Run `./scripts/performance/test-pi5-performance.sh` for Pi 5 benchmarks
+- **GPU Monitoring**: Check GPU memory with `./scripts/performance/check-gpu-memory.sh`
+- **Debug Tools**: See `scripts/debug/` for debugging utilities
+- **Full documentation**: [scripts/README.md](scripts/README.md)
 
 ### Global Namespace API
 Runtime classes and helpers are exposed through a single `window.Game` namespace (legacy globals like `window.Player` have been removed). Use the namespace to access engine systems:
@@ -133,17 +158,14 @@ Accessing classes through `window.Game` keeps the global scope clean and makes f
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to:
+Contributions are welcome! Please see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
+
+**Quick summary:**
 - Report bugs via GitHub Issues
 - Suggest new features
 - Submit pull requests
 - Improve documentation
-
-### Development Guidelines
-1. Follow existing code style
-2. Test changes thoroughly
-3. Update documentation as needed
-4. Keep commits focused and descriptive
+- Follow existing code style and test thoroughly
 
 ## 🎯 Roadmap
 
@@ -159,9 +181,15 @@ Contributions are welcome! Please feel free to:
 - [ ] Steam/itch.io release
 - [ ] Mobile app version
 
+## 📜 Version History
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for complete version history and release notes.
+
+**Latest:** v1.0.9 (Jan 2025) - Boss balance overhaul and critical bug fixes
+
 ## 🏆 Credits
 
-**Created by**: mcjdh  
+**Created by**: mcjdh
 **Tools Used**: VS Code, GitHub Copilot, Claude, GPT-4
 
 ## 🌟 Star History

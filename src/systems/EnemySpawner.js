@@ -1,8 +1,8 @@
 /**
  * Enemy Spawner - Manages enemy spawning, waves, and difficulty progression
  * Extracted from enemy.js for better organization
- * ✅ PERFORMANCE: Adaptive enemy limits based on frame time monitoring
- * ✅ PERFORMANCE: Distant enemy culling when performance degrades
+ * + PERFORMANCE: Adaptive enemy limits based on frame time monitoring
+ * + PERFORMANCE: Distant enemy culling when performance degrades
  */
 class EnemySpawner {
     constructor(game) {
@@ -17,7 +17,31 @@ class EnemySpawner {
         this.spawnTimer = 0;
         this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
         this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 60;
-        this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 800;
+        this.spawnDistanceMin = typeof EN.SPAWN_DISTANCE_MIN === 'number' ? EN.SPAWN_DISTANCE_MIN : 350;
+        this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 650;
+        this.earlyGameConfig = {
+            duration: typeof EN.EARLY_GAME_DURATION === 'number' ? EN.EARLY_GAME_DURATION : 48,
+            spawnMultiplier: typeof EN.EARLY_GAME_SPAWN_MULTIPLIER === 'number' ? EN.EARLY_GAME_SPAWN_MULTIPLIER : 1.22,
+            maxEnemyBonus: typeof EN.EARLY_GAME_MAX_ENEMY_BONUS === 'number' ? EN.EARLY_GAME_MAX_ENEMY_BONUS : 10
+        };
+        this.spawnRampDampener = typeof EN.SPAWN_RAMP_DAMPENER === 'number' ? EN.SPAWN_RAMP_DAMPENER : 0.58;
+        this.midGameSoftener = {
+            start: typeof EN.MID_GAME_SOFTENER_START === 'number' ? EN.MID_GAME_SOFTENER_START : 45,
+            end: typeof EN.MID_GAME_SOFTENER_END === 'number' ? EN.MID_GAME_SOFTENER_END : 110,
+            strength: typeof EN.MID_GAME_SOFTENER_STRENGTH === 'number' ? EN.MID_GAME_SOFTENER_STRENGTH : 0.35
+        };
+        this.dynamicBossBaseInterval = typeof EN.BOSS_BASE_INTERVAL === 'number' ? EN.BOSS_BASE_INTERVAL : 90;
+        this.dynamicBossIntervalIncrement = typeof EN.BOSS_INTERVAL_INCREMENT === 'number' ? EN.BOSS_INTERVAL_INCREMENT : 70;
+        this.dynamicBossMinInterval = typeof EN.BOSS_MIN_INTERVAL === 'number' ? EN.BOSS_MIN_INTERVAL : 55;
+        this.dynamicBossKillReduction = typeof EN.BOSS_KILL_REDUCTION === 'number' ? EN.BOSS_KILL_REDUCTION : 0.85;
+        this.dynamicBossProgressReduction = typeof EN.BOSS_PROGRESSIVE_REDUCTION === 'number' ? EN.BOSS_PROGRESSIVE_REDUCTION : 6;
+
+        if (!Number.isFinite(this.spawnRadius) || this.spawnRadius <= this.spawnDistanceMin) {
+            this.spawnRadius = this.spawnDistanceMin + 250;
+        }
+
+        this._fallbackKillCount = 0;
+        this.bossKillBaseline = this.getCurrentKillCount();
 
         this.baseSpawnRate = this.spawnRate;
         this.baseMaxEnemies = this.maxEnemies;
@@ -35,7 +59,7 @@ class EnemySpawner {
             lastFrameTime: 0
         };
         
-        // 🍓 Apply Pi5 optimizations if detected
+        // [Pi] Apply Pi5 optimizations if detected
         if (window.isRaspberryPi) {
             this.enablePi5Mode();
         }
@@ -44,16 +68,16 @@ class EnemySpawner {
         // NOTE: Enemy unlock times are hard-coded for game balance
         this.enemyTypes = ['basic'];
         this.enemyTypeUnlockTimes = {
-            'fast': 0.5,      // 30 seconds
-            'tank': 1,        // 1 minute  
-            'ranged': 1.5,    // 1.5 minutes
-            'dasher': 2,      // 2 minutes
-            'exploder': 2.5,  // 2.5 minutes
-            'teleporter': 3,  // 3 minutes
-            'phantom': 3.5,   // 3.5 minutes
-            'shielder': 4,    // 4 minutes
-            'summoner': 4.5,  // 4.5 minutes
-            'berserker': 5    // 5 minutes
+            'fast': 0.25,      // 15 seconds
+            'tank': 0.75,      // 45 seconds
+            'ranged': 1.2,     // ~72 seconds
+            'dasher': 1.6,     // ~96 seconds
+            'exploder': 2.0,   // 2 minutes
+            'teleporter': 2.4, // 2.4 minutes
+            'phantom': 2.8,    // 2.8 minutes
+            'shielder': 3.2,   // 3.2 minutes
+            'summoner': 3.6,   // 3.6 minutes
+            'berserker': 4.2   // 4.2 minutes
         };
         
         // Difficulty scaling
@@ -62,13 +86,18 @@ class EnemySpawner {
         
         // Boss spawning
         this.bossTimer = 0;
-        this.bossSpawnTimes = Array.isArray(MODES.BOSS_SPAWN_TIMES) && MODES.BOSS_SPAWN_TIMES.length > 0 ? MODES.BOSS_SPAWN_TIMES : [60];
+        this.bossSpawnTimes = Array.isArray(MODES.BOSS_SPAWN_TIMES) && MODES.BOSS_SPAWN_TIMES.length > 0
+            ? MODES.BOSS_SPAWN_TIMES
+            : [90, 160, 240];
         this.bossSpawnIndex = 0;
-        this.bossInterval = this.bossSpawnTimes[this.bossSpawnIndex] || 60; // First boss timing
+        const initialDynamicInterval = this.getDynamicBossInterval();
+        this.bossInterval = Number.isFinite(initialDynamicInterval)
+            ? initialDynamicInterval
+            : (this.bossSpawnTimes[this.bossSpawnIndex] || this.dynamicBossBaseInterval || 60);
         this.bossScaleFactor = 1.0;
         this.bossesKilled = 0;
 
-        this.baseBossInterval = this.bossInterval;
+        this.baseBossInterval = this.dynamicBossBaseInterval || this.bossInterval;
         this.activeBossId = null;
         
         // Wave system
@@ -156,6 +185,7 @@ class EnemySpawner {
 
         let culledCount = 0;
 
+        // Reverse iteration for safe removal during loop
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (!enemy || enemy.isBoss) continue; // Never cull bosses
@@ -172,7 +202,12 @@ class EnemySpawner {
                 if (typeof this.game.removeEntity === 'function') {
                     this.game.removeEntity(enemy);
                 } else {
-                    enemies.splice(i, 1);
+                    // Write-back pattern: O(n) instead of splice O(n²)
+                    const lastIndex = enemies.length - 1;
+                    if (i !== lastIndex) {
+                        enemies[i] = enemies[lastIndex];
+                    }
+                    enemies.length = lastIndex;
                 }
                 culledCount++;
 
@@ -199,9 +234,14 @@ class EnemySpawner {
             
             // Performance-aware spawn rate scaling
             if (!this.performanceMonitor.isLagging) {
-                this.spawnRate = Math.min(4, this.baseSpawnRate * spawnRateMultiplier);
+                const dampener = Number.isFinite(this.spawnRampDampener) && this.spawnRampDampener > 0
+                    ? this.spawnRampDampener
+                    : 1.0;
+                const adjustedMultiplier = 1 + (spawnRateMultiplier - 1) * dampener;
+                this.spawnRate = Math.min(4, this.baseSpawnRate * adjustedMultiplier);
                 this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
-                this.maxEnemies = Math.min(150, this.baseMaxEnemies + (spawnRateMultiplier - 1.0) * 40);
+                const dampenedMaxBonus = (spawnRateMultiplier - 1.0) * dampener * 40;
+                this.maxEnemies = Math.min(150, this.baseMaxEnemies + dampenedMaxBonus);
             }
             
             // Unlock new enemy types
@@ -265,23 +305,52 @@ class EnemySpawner {
             window.gameManager.bossActive = false;
         }
 
+        // Increment boss timer
         this.bossTimer += deltaTime;
+
+        // Calculate dynamic boss interval (updated every frame to reflect kills)
+        const BOSS_CONST = window.GAME_CONSTANTS?.BOSSES || {};
+        const MIN_REST = BOSS_CONST.MIN_REST_PERIOD || 60;
+        const LAG_DELAY = BOSS_CONST.SPAWN_DELAY_IF_LAGGING || 15;
+
+        const dynamicInterval = this.getDynamicBossInterval();
+        if (Number.isFinite(dynamicInterval)) {
+            // Apply minimum rest period floor
+            let effectiveInterval = Math.max(MIN_REST, dynamicInterval);
+
+            // Add lag delay if performance is poor
+            if (this.performanceMonitor.isLagging) {
+                effectiveInterval += LAG_DELAY;
+            }
+
+            this.bossInterval = effectiveInterval;
+        }
 
         // Debug logging
         if (Math.floor(this.bossTimer) !== this._lastLoggedBossTimer) {
             this._lastLoggedBossTimer = Math.floor(this.bossTimer);
             if (window.debugManager?.enabled) {
-                console.log(`[EnemySpawner] Boss timer: ${this.bossTimer.toFixed(1)}s / ${this.bossInterval}s`);
+                console.log(`[EnemySpawner] Boss timer: ${this.bossTimer.toFixed(1)}s / ${this.bossInterval}s (lag: ${this.performanceMonitor.isLagging})`);
             }
         }
 
+        // Spawn boss when timer reaches interval
         if (this.bossTimer >= this.bossInterval) {
             this.bossTimer = 0;
             this.spawnBoss();
-            // Advance to next configured boss time if available
-            if (this.bossSpawnIndex < this.bossSpawnTimes.length - 1) {
-                this.bossSpawnIndex++;
-                this.bossInterval = this.bossSpawnTimes[this.bossSpawnIndex];
+            this.bossKillBaseline = this.getCurrentKillCount();
+
+            // Advance to next boss
+            this.bossSpawnIndex++;
+
+            // Recalculate interval for next boss
+            const nextInterval = this.getDynamicBossInterval();
+            if (Number.isFinite(nextInterval)) {
+                let effectiveNextInterval = Math.max(MIN_REST, nextInterval);
+                if (this.performanceMonitor.isLagging) {
+                    effectiveNextInterval += LAG_DELAY;
+                }
+                this.bossInterval = effectiveNextInterval;
             }
         }
     }
@@ -307,10 +376,21 @@ class EnemySpawner {
      */
     updateRegularSpawning(deltaTime) {
         this.spawnTimer += deltaTime;
-
-        const effectiveMaxEnemies = this.performanceMonitor.adaptiveMaxEnemies;
+        const gameTime = window.gameManager?.gameTime || 0;
+        const earlyMultiplier = this.getEarlyGameSpawnMultiplier(gameTime);
+        const midGameMultiplier = this.getMidGameReliefMultiplier(gameTime);
+        const totalSpawnMultiplier = Math.max(0.25, earlyMultiplier * midGameMultiplier);
+        const effectiveSpawnCooldown = this.spawnCooldown / totalSpawnMultiplier;
+        const maxBonus = this.getEarlyGameMaxBonus(gameTime);
+        const roundedBonus = Math.max(0, Math.round(maxBonus));
+        const adaptiveBase = this.performanceMonitor.adaptiveMaxEnemies;
+        const hardCap = this.maxEnemies + roundedBonus;
+        const softCapMultiplier = Math.max(0.45, Math.min(1, midGameMultiplier + 0.05));
+        const softCap = Math.max(1, Math.floor((adaptiveBase + roundedBonus) * softCapMultiplier));
+        const effectiveMaxEnemies = Math.max(1, Math.min(hardCap, softCap));
         const enemies = this.game?.getEnemies?.() ?? this.game?.enemies ?? [];
-        if (this.spawnTimer >= this.spawnCooldown && enemies.length < effectiveMaxEnemies) {
+
+        if (this.spawnTimer >= effectiveSpawnCooldown && enemies.length < effectiveMaxEnemies) {
             this.spawnTimer = 0;
             this.spawnEnemy();
         }
@@ -329,6 +409,101 @@ class EnemySpawner {
             this.eliteChance = Math.min(0.25, this.eliteChance + 0.02);
             // Elite chance increased
         }
+    }
+    
+    getEarlyGameProgress(gameTime) {
+        const duration = this.earlyGameConfig?.duration;
+        if (!duration || duration <= 0) {
+            return 1;
+        }
+        return Math.min(1, Math.max(0, gameTime / duration));
+    }
+
+    getEarlyGameSpawnMultiplier(gameTime) {
+        const configMultiplier = this.earlyGameConfig?.spawnMultiplier;
+        if (!configMultiplier || configMultiplier <= 1) {
+            return 1;
+        }
+        const progress = this.getEarlyGameProgress(gameTime);
+        return configMultiplier - (configMultiplier - 1) * progress;
+    }
+
+    getEarlyGameMaxBonus(gameTime) {
+        const bonus = this.earlyGameConfig?.maxEnemyBonus;
+        if (!bonus || bonus <= 0) {
+            return 0;
+        }
+        const progress = this.getEarlyGameProgress(gameTime);
+        return bonus * (1 - progress);
+    }
+
+    getMidGameReliefMultiplier(gameTime) {
+        const config = this.midGameSoftener;
+        if (!config || config.strength <= 0) {
+            return 1;
+        }
+
+        const { start, end, strength } = config;
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+            return 1;
+        }
+
+        if (gameTime <= start) {
+            return 1 - strength;
+        }
+        if (gameTime >= end) {
+            return 1;
+        }
+
+        const t = (gameTime - start) / (end - start);
+        return 1 - strength * (1 - t);
+    }
+
+    getCurrentKillCount() {
+        if (typeof window === 'undefined' || !window.gameManager) {
+            return this._fallbackKillCount;
+        }
+
+        const gm = window.gameManager;
+        if (typeof gm.killCount === 'number') {
+            return gm.killCount;
+        }
+
+        const statsManager = gm.statsManager;
+        if (statsManager && typeof statsManager.killCount === 'number') {
+            return statsManager.killCount;
+        }
+
+        const stateKills = gm.game?.state?.progression?.killCount;
+        if (typeof stateKills === 'number') {
+            return stateKills;
+        }
+
+        return this._fallbackKillCount;
+    }
+
+    getDynamicBossInterval() {
+        const index = this.bossSpawnIndex;
+        const baseFromList = Array.isArray(this.bossSpawnTimes) ? this.bossSpawnTimes[index] : undefined;
+        const base = Number.isFinite(baseFromList)
+            ? baseFromList
+            : this.dynamicBossBaseInterval + this.dynamicBossIntervalIncrement * index;
+
+        const killCount = this.getCurrentKillCount();
+        if (!Number.isFinite(this.bossKillBaseline)) {
+            this.bossKillBaseline = killCount;
+        }
+        const killsSinceBaseline = Math.max(0, killCount - this.bossKillBaseline);
+
+        const killReduction = killsSinceBaseline * this.dynamicBossKillReduction;
+        const progressiveReduction = this.bossesKilled * this.dynamicBossProgressReduction;
+
+        const target = Math.max(
+            this.dynamicBossMinInterval,
+            base - killReduction - progressiveReduction
+        );
+
+        return target;
     }
     
     // Note: createEnemy consolidated below
@@ -380,16 +555,29 @@ class EnemySpawner {
             return { x: fallbackX, y: fallbackY };
         }
 
-        // Validate spawn radius
-        const spawnRadius = typeof this.spawnRadius === 'number' && Number.isFinite(this.spawnRadius)
-            ? this.spawnRadius
-            : 800; // Fallback to default
-
         const angle = Math.random() * Math.PI * 2;
-        const distance = spawnRadius + Math.random() * 200; // Some distance variation
 
-        const x = this.game.player.x + Math.cos(angle) * distance;
-        const y = this.game.player.y + Math.sin(angle) * distance;
+        const globalWindow = (typeof window !== 'undefined') ? window : undefined;
+        const canvasWidth = this.game.canvas?.width || globalWindow?.innerWidth || 1280;
+        const canvasHeight = this.game.canvas?.height || globalWindow?.innerHeight || 720;
+        const visibleRadius = Math.hypot(canvasWidth, canvasHeight) * 0.45;
+
+        const minDistance = Math.max(
+            50,
+            this.spawnDistanceMin,
+            visibleRadius + 60
+        );
+        const maxDistanceConfig = Number.isFinite(this.spawnRadius)
+            ? this.spawnRadius
+            : minDistance + 250;
+        const maxDistance = Math.max(minDistance + 120, maxDistanceConfig);
+        const distance = minDistance + Math.random() * (maxDistance - minDistance);
+
+        // Use FastMath.sincos for 5x speedup on ARM
+        const FastMath = window.Game?.FastMath;
+        const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+        const x = this.game.player.x + cos * distance;
+        const y = this.game.player.y + sin * distance;
 
         // Final validation - ensure no NaN or Infinity values
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -554,7 +742,7 @@ class EnemySpawner {
             window.gameManager._lastBossId = boss.id;
         }
         
-        this.showNewEnemyMessage("⚠️ BOSS INCOMING! ⚠️");
+        this.showNewEnemyMessage("! BOSS INCOMING! !");
         // Boss spawned successfully
     }
 
@@ -589,10 +777,10 @@ class EnemySpawner {
         const playerLevel = window.gameManager?.game?.player?.level || 1;
         window.gameManager?.statsManager?.trackSpecialEvent?.('wave_completed', { 'waveNumber': this.waveCount });
         // Wave size scales with wave index and player level for higher intensity
-        const base = 5 + this.waveCount;
-        const levelBonus = Math.floor(playerLevel * 1.2);
+        const base = 9 + Math.floor(this.waveCount * 1.5);
+        const levelBonus = Math.floor(playerLevel * 1.4);
         // Performance-aware wave sizing
-        const maxWaveSize = this.performanceMonitor.isLagging ? 15 : 25;
+        const maxWaveSize = this.performanceMonitor.isLagging ? 24 : 40;
         const waveSize = Math.min(maxWaveSize, base + levelBonus);
         
         // Wave spawning initiated
@@ -600,7 +788,7 @@ class EnemySpawner {
         // Store timeout IDs for cleanup if needed
         if (!this.waveTimeouts) this.waveTimeouts = [];
 
-        // 🚀 OPTIMIZATION: Longer delays on Pi5 to prevent GC spikes
+        // > OPTIMIZATION: Longer delays on Pi5 to prevent GC spikes
         const spawnDelay = window.isRaspberryPi ? 250 : 100; // 250ms on Pi5, 100ms on desktop
 
         for (let i = 0; i < waveSize; i++) {
@@ -645,6 +833,10 @@ class EnemySpawner {
      */
     onEnemyKilled(enemy) {
         this.enemiesKilledThisWave++;
+
+        if (typeof window === 'undefined' || !window.gameManager) {
+            this._fallbackKillCount += 1;
+        }
         
         if (enemy.isBoss) {
             this.bossesKilled++;
@@ -658,6 +850,10 @@ class EnemySpawner {
     onBossCleared() {
         this.activeBossId = null;
         this.bossTimer = 0;
+
+        // Reset kill baseline so next boss interval only counts kills AFTER this boss
+        this.bossKillBaseline = this.getCurrentKillCount();
+
         if (window.gameManager) {
             window.gameManager.bossActive = false;
             window.gameManager._activeBossId = null;
@@ -695,6 +891,8 @@ class EnemySpawner {
             this.waveTimeouts = [];
         }
 
+        this._fallbackKillCount = 0;
+
         this.spawnRate = this.baseSpawnRate;
         this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
         this.maxEnemies = this.baseMaxEnemies;
@@ -703,7 +901,11 @@ class EnemySpawner {
         this.difficultyTimer = 0;
         this.bossTimer = 0;
         this.bossSpawnIndex = 0;
-        this.bossInterval = this.bossSpawnTimes[this.bossSpawnIndex] || this.baseBossInterval || 60;
+        this.bossKillBaseline = this.getCurrentKillCount();
+        const initialBossInterval = this.getDynamicBossInterval();
+        this.bossInterval = Number.isFinite(initialBossInterval)
+            ? initialBossInterval
+            : (this.baseBossInterval || this.dynamicBossBaseInterval || 60);
         this.activeBossId = null;
         this.waveTimer = 0;
         this.waveCount = 0;
@@ -726,6 +928,7 @@ class EnemySpawner {
             window.gameManager.bossActive = false;
             window.gameManager._activeBossId = null;
         }
+
     }
     
     /**
@@ -784,11 +987,13 @@ class EnemySpawner {
     }
     
     /**
-     * 🍓 RASPBERRY PI 5 OPTIMIZATION MODE
+     * [Pi] RASPBERRY PI 5 OPTIMIZATION MODE
      * Applies conservative limits for smooth 60fps gameplay on Pi5
      */
     enablePi5Mode() {
-        console.log('🍓 EnemySpawner: Enabling Pi5 optimization mode...');
+        if (window.debugManager?.enabled) {
+            console.log('[Pi] EnemySpawner: Enabling Pi5 optimization mode...');
+        }
         
         // Conservative enemy limits
         this.maxEnemies = 35; // Much lower than default 60
@@ -807,7 +1012,9 @@ class EnemySpawner {
         this.eliteChance = Math.min(this.eliteChance, 0.08);
         this.baseEliteChance = 0.03;
         
-        console.log('✅ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
+        if (window.debugManager?.enabled) {
+            console.log('+ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
+        }
     }
 }
 

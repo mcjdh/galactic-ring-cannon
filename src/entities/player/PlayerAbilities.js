@@ -54,6 +54,12 @@ class PlayerAbilities {
     updateOrbitalAttacks(deltaTime, game) {
         if (!this.hasOrbitalAttack || this.orbitCount <= 0) return;
 
+        // Validate required modules exist
+        if (!this.player?.combat || !this.player?.stats) {
+            (window.logger?.warn || (() => {}))('Player combat or stats module not initialized');
+            return;
+        }
+
         // Update orbit angle based on orbit speed
         this.orbitAngle += this.orbitSpeed * deltaTime;
         if (this.orbitAngle >= Math.PI * 2) {
@@ -78,13 +84,16 @@ class PlayerAbilities {
         }
 
         // Update orbit positions and check for collisions
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < Math.min(this.orbitProjectiles.length, this.orbitCount); i++) {
             const orb = this.orbitProjectiles[i];
             if (!orb || typeof orb !== 'object') continue;
 
             orb.angle = this.orbitAngle + (i * angleStep);
-            orb.x = this.player.x + Math.cos(orb.angle) * this.orbitRadius;
-            orb.y = this.player.y + Math.sin(orb.angle) * this.orbitRadius;
+            // Use FastMath.sincos for 5x speedup on ARM (called every frame for each orbital)
+            const { sin, cos } = FastMath ? FastMath.sincos(orb.angle) : { sin: Math.sin(orb.angle), cos: Math.cos(orb.angle) };
+            orb.x = this.player.x + cos * this.orbitRadius;
+            orb.y = this.player.y + sin * this.orbitRadius;
 
             // Reduce cooldown for orbital hits
             if (orb.cooldown > 0) {
@@ -168,6 +177,12 @@ class PlayerAbilities {
     processChainLightning(startEnemy, baseDamage, chainsLeft, hitEnemies = new Set()) {
         // Enhanced safety checks to prevent infinite loops
         if (chainsLeft <= 0 || !startEnemy || hitEnemies.size > 20) return;
+
+        // Validate required modules exist
+        if (!this.player?.combat || !this.player?.stats) {
+            (window.logger?.warn || (() => {}))('Player combat or stats module not initialized');
+            return;
+        }
 
         // Add recursion depth limit as backup safety
         this._chainDepth++;
@@ -259,6 +274,12 @@ class PlayerAbilities {
 
     processRicochet(sourceX, sourceY, damage, bouncesLeft, hitEnemies = new Set()) {
         if (bouncesLeft <= 0 || hitEnemies.size > 15) return;
+
+        // Validate required modules exist
+        if (!this.player?.combat || !this.player?.stats) {
+            (window.logger?.warn || (() => {}))('Player combat or stats module not initialized');
+            return;
+        }
 
         // Safety checks for parameters
         if (typeof sourceX !== 'number' || typeof sourceY !== 'number' ||
@@ -499,9 +520,14 @@ class PlayerAbilities {
                     this.ricochetRange = Math.max(this.ricochetRange, upgrade.bounceRange || 260);
                     this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.bounceDamage || 0.85);
                 } else if (upgrade.specialType === 'aoe') {
-                    this.player.combat.hasAOEAttack = true;
-                    this.player.combat.aoeAttackRange = Math.max(150, this.player.combat.aoeAttackRange);
-                    this.player.combat.aoeAttackTimer = this.player.combat.aoeAttackCooldown;
+                    // Validate combat module exists before modifying
+                    if (this.player?.combat) {
+                        this.player.combat.hasAOEAttack = true;
+                        this.player.combat.aoeAttackRange = Math.max(150, this.player.combat.aoeAttackRange);
+                        this.player.combat.aoeAttackTimer = this.player.combat.aoeAttackCooldown;
+                    } else {
+                        (window.logger?.warn || (() => {}))('Cannot apply AOE upgrade: player combat module not initialized');
+                    }
                 }
                 break;
 
@@ -547,10 +573,16 @@ class PlayerAbilities {
 
             case 'explosionSize':
                 this.explosionRadius *= upgrade.multiplier || 1;
+                if (upgrade.chanceBonus) {
+                    this.explosiveChance = Math.min(0.95, (this.explosiveChance || 0.3) + upgrade.chanceBonus);
+                }
                 break;
 
             case 'explosionDamage':
                 this.explosionDamage = upgrade.value || this.explosionDamage;
+                if (upgrade.chanceBonus) {
+                    this.explosiveChance = Math.min(0.95, (this.explosiveChance || 0.3) + upgrade.chanceBonus);
+                }
                 break;
 
             case 'explosionChain':
@@ -570,6 +602,9 @@ class PlayerAbilities {
             case 'ricochetDamage':
                 if (upgrade.value) {
                     this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.value);
+                }
+                if (upgrade.chanceBonus) {
+                    this.ricochetChance = Math.min(0.95, (this.ricochetChance || 0.45) + upgrade.chanceBonus);
                 }
                 break;
         }

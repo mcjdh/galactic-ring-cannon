@@ -10,7 +10,7 @@
 
             // Warn if config not loaded
             if (!window.META_UPGRADE_DEFINITIONS) {
-                console.warn('⚠️ META_UPGRADE_DEFINITIONS not loaded. Make sure metaUpgrades.config.js is loaded before bootstrap.');
+                console.warn('! META_UPGRADE_DEFINITIONS not loaded. Make sure metaUpgrades.config.js is loaded before bootstrap.');
             }
 
             const ready = document.readyState === 'loading';
@@ -74,9 +74,9 @@
                     .map(([name]) => name);
 
                 if (missing.length > 0) {
-                    this.warn('⚠️ Missing systems:', missing);
+                    this.warn('! Missing systems:', missing);
                 } else {
-                    this.info('✅ All core systems available!');
+                    this.info('+ All core systems available!');
                 }
 
                 this.initGameManager();
@@ -84,7 +84,7 @@
                 this.setupUI();
                 this.checkSystemsReady();
             } catch (err) {
-                this.error('❌ Error initializing game systems:', err);
+                this.error('! Error initializing game systems:', err);
                 alert('Failed to initialize game. Error: ' + (err?.message || err));
             }
         }
@@ -176,9 +176,9 @@
             if (typeof GameManagerBridge === 'function') {
                 window.gameManager = new GameManagerBridge();
                 window.gameManagerBridge = window.gameManager;
-                this.info('✅ GameManager bridge created successfully');
+                this.info('+ GameManager bridge created successfully');
             } else {
-                this.error('❌ GameManagerBridge class not available');
+                this.error('! GameManagerBridge class not available');
             }
         }
 
@@ -194,37 +194,37 @@
         initInputManager() {
             const InputManager = this.resolveNamespace('InputManager');
             if (typeof InputManager !== 'function') {
-                this.warn('⚠️ InputManager not available');
+                this.warn('! InputManager not available');
                 return;
             }
 
             if (!window.inputManager) {
                 window.inputManager = new InputManager();
-                this.log('✅ InputManager initialized');
+                this.log('+ InputManager initialized');
             } else {
-                this.log('ℹ️ InputManager already initialized');
+                this.log('i InputManager already initialized');
             }
         }
 
         initUpgradeSystem() {
             const UpgradeSystem = this.resolveNamespace('UpgradeSystem');
             if (typeof UpgradeSystem !== 'function') {
-                this.warn('⚠️ UpgradeSystem not available');
+                this.warn('! UpgradeSystem not available');
                 return;
             }
 
             if (!window.upgradeSystem) {
                 window.upgradeSystem = new UpgradeSystem();
-                this.log('✅ UpgradeSystem initialized');
+                this.log('+ UpgradeSystem initialized');
             } else {
-                this.log('ℹ️ UpgradeSystem already initialized');
+                this.log('i UpgradeSystem already initialized');
             }
         }
 
         initAudioSystem() {
             const AudioSystem = this.resolveNamespace('AudioSystem');
             if (typeof AudioSystem !== 'function') {
-                this.warn('⚠️ AudioSystem not available - creating stub');
+                this.warn('! AudioSystem not available - creating stub');
                 window.audioSystem = {
                     play: () => {},
                     playBossBeat: () => {},
@@ -238,9 +238,9 @@
 
             if (!window.audioSystem) {
                 window.audioSystem = new AudioSystem();
-                this.log('✅ AudioSystem initialized');
+                this.log('+ AudioSystem initialized');
             } else {
-                this.log('ℹ️ AudioSystem already initialized');
+                this.log('i AudioSystem already initialized');
             }
         }
 
@@ -252,17 +252,17 @@
 
             if (!window.performanceManager) {
                 window.performanceManager = new PerformanceManager();
-                this.log('✅ PerformanceManager initialized');
+                this.log('+ PerformanceManager initialized');
                 
-                // 🍓 Detect and optimize for Raspberry Pi 5
+                // [Pi] Detect and optimize for Raspberry Pi 5
                 this.detectAndOptimizeForPi5();
             } else {
-                this.log('ℹ️ PerformanceManager already initialized');
+                this.log('i PerformanceManager already initialized');
             }
         }
         
         /**
-         * 🍓 RASPBERRY PI 5 AUTO-DETECTION & OPTIMIZATION
+         * [Pi] RASPBERRY PI 5 AUTO-DETECTION & OPTIMIZATION
          * Automatically enables performance mode when running on Pi5 or low-end ARM devices
          */
         detectAndOptimizeForPi5() {
@@ -297,14 +297,13 @@
             
             if (isPi) {
                 window.isRaspberryPi = true;
-                console.log('🍓 Raspberry Pi detected!');
-                console.log('🚀 Enabling Pi5 performance optimizations...');
-                
+                (window.logger?.log || console.log)('[Pi] Raspberry Pi detected!');
+                (window.logger?.log || console.log)('[Pi] Enabling Pi5 performance optimizations...');
                 // Enable performance mode across all systems
                 this.enablePi5Optimizations();
             } else if (isARM) {
                 // Other ARM devices (mobile, tablets) - use moderate optimizations
-                console.log('📱 ARM device detected - enabling moderate optimizations');
+                (window.logger?.log || console.log)('📱 ARM device detected - enabling moderate optimizations');
                 window.isLowPowerDevice = true;
                 this.enableModeratePowerOptimizations();
             }
@@ -317,7 +316,7 @@
             // CosmicBackground optimizations
             if (window.cosmicBackground && typeof window.cosmicBackground.enablePi5Mode === 'function') {
                 window.cosmicBackground.enablePi5Mode();
-                this.log('✅ CosmicBackground Pi5 mode enabled');
+                this.log('+ CosmicBackground Pi5 mode enabled');
             }
             
             // Particle system optimizations
@@ -325,7 +324,7 @@
                 window.optimizedParticles.setLowQuality(true);
                 window.optimizedParticles.maxParticles = 80; // Reduced for Pi5
                 window.optimizedParticles.densityMultiplier = 0.5;
-                this.log('✅ Particle system optimized for Pi5');
+                this.log('+ Particle system optimized for Pi5');
             }
             
             // Enemy AI optimizations (cache lifetime)
@@ -335,56 +334,56 @@
                 if (originalConstructor.prototype) {
                     originalConstructor.prototype._pi5OptimizationApplied = true;
                 }
-                this.log('✅ Enemy AI cache optimizations ready for Pi5');
+                this.log('+ Enemy AI cache optimizations ready for Pi5');
             }
             
             // GameEngine performance mode
             if (window.gameEngine && typeof window.gameEngine.enablePerformanceMode === 'function') {
                 window.gameEngine.enablePerformanceMode();
-                this.log('✅ GameEngine performance mode enabled');
+                this.log('+ GameEngine performance mode enabled');
             }
             
             // PerformanceManager settings
             if (window.performanceManager) {
                 window.performanceManager.targetFPS = 60;
                 window.performanceManager.criticalMode = false; // Start optimistic
-                this.log('✅ PerformanceManager configured for Pi5');
+                this.log('+ PerformanceManager configured for Pi5');
             }
             
-            // 🍓 GPU Memory Manager (NEW)
+            // [Pi] GPU Memory Manager (NEW)
             if (window.gpuMemoryManager && typeof window.gpuMemoryManager.enable === 'function') {
                 window.gpuMemoryManager.enable();
-                this.log('✅ GPU Memory Manager enabled for Pi5');
+                this.log('+ GPU Memory Manager enabled for Pi5');
             }
 
-            // 🍓 ProjectileRenderer cache limits (ensure applied after detection)
+            // [Pi] ProjectileRenderer cache limits (ensure applied after detection)
             if (typeof ProjectileRenderer !== 'undefined' && typeof ProjectileRenderer.applyPi5GpuLimits === 'function') {
                 ProjectileRenderer.applyPi5GpuLimits();
-                this.log('✅ ProjectileRenderer Pi5 GPU limits enforced');
+                this.log('+ ProjectileRenderer Pi5 GPU limits enforced');
             }
 
-            // 🍓 Enable performance profiler now that Pi detection is confirmed
+            // [Pi] Enable performance profiler now that Pi detection is confirmed
             if (window.performanceProfiler && typeof window.performanceProfiler.setEnabled === 'function') {
                 window.performanceProfiler.setEnabled(true);
                 if (typeof window.performanceProfiler.setVerbose === 'function' && window.debugMode) {
                     window.performanceProfiler.setVerbose(true);
                 }
-                this.log('✅ Performance profiler enabled for Pi5 monitoring');
+                this.log('+ Performance profiler enabled for Pi5 monitoring');
             }
             
-            // 🍓 Trig Cache for fast math on ARM (NEW)
+            // [Pi] Trig Cache for fast math on ARM (NEW)
             if (window.initTrigCache && typeof window.initTrigCache === 'function') {
                 window.trigCache = window.initTrigCache();
-                this.log('✅ TrigCache initialized for Pi5 (ARM-optimized math)');
+                this.log('+ TrigCache initialized for Pi5 (ARM-optimized math)');
             }
 
-            // 🍓 Install FastMath global overrides to accelerate existing math calls
+            // [Pi] Install FastMath global overrides to accelerate existing math calls
             if (window.FastMath && typeof window.FastMath.installGlobals === 'function') {
                 window.FastMath.installGlobals();
-                this.log('✅ FastMath global overrides installed');
+                this.log('+ FastMath global overrides installed');
             }
             
-            this.log('🍓 All Pi5 optimizations applied! Target: 60 FPS');
+            this.log('[Pi] All Pi5 optimizations applied! Target: 60 FPS');
         }
         
         /**
@@ -401,26 +400,26 @@
                 window.optimizedParticles.densityMultiplier = 0.7;
             }
             
-            this.log('✅ Moderate optimizations applied for low-power device');
+            this.log('+ Moderate optimizations applied for low-power device');
         }
 
         initHUDEventHandlers() {
             const HUDEventHandlers = this.resolveNamespace('HUDEventHandlers');
             if (typeof HUDEventHandlers !== 'function') {
-                this.warn('⚠️ HUDEventHandlers not available');
+                this.warn('! HUDEventHandlers not available');
                 return;
             }
 
             if (window.gameEngine?.state && !window.hudEventHandlers) {
                 window.hudEventHandlers = new HUDEventHandlers(window.gameEngine.state);
-                this.log('✅ HUD event handlers initialized');
+                this.log('+ HUD event handlers initialized');
             }
         }
 
         initAchievementSystem() {
             const AchievementSystem = this.resolveNamespace('AchievementSystem');
             if (typeof AchievementSystem !== 'function') {
-                this.warn('⚠️ AchievementSystem not available - creating stub');
+                this.warn('! AchievementSystem not available - creating stub');
                 window.achievementSystem = {
                     achievements: {},
                     getUnlockedCount: () => 0,
@@ -430,7 +429,7 @@
             }
 
             window.achievementSystem = new AchievementSystem();
-            this.log('✅ AchievementSystem initialized');
+            this.log('+ AchievementSystem initialized');
         }
 
         setupUI() {
@@ -505,6 +504,11 @@
 
             if (window.performanceManager?.destroy) {
                 window.performanceManager.destroy();
+            }
+
+            // Clean up main menu controller (removes event listeners, animations, etc.)
+            if (window.mainMenuController?.cleanup) {
+                window.mainMenuController.cleanup();
             }
 
             window.gameManager?.cleanup?.();

@@ -587,10 +587,11 @@ try {
     }
     
     // Add event listeners for user interactions to initialize audio
+    // Use { once: true } so listener auto-removes after first click (prevents memory leak)
     if (typeof document !== 'undefined') {
         document.addEventListener('click', () => {
             audioSystem.handleUserInteraction();
-        });
+        }, { once: true });
     }
 } catch (error) {
     console.error('Error creating audio system:', error);

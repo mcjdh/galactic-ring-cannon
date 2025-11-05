@@ -18,7 +18,7 @@
         <div id="loading-bar">
             <div id="loading-progress"></div>
         </div>
-        <p id="loading-tip">Tip: Use WASD or Arrow Keys to move</p>
+        <p id="loading-tip">💡 Tip: Press SPACE to dodge with invincibility frames!</p>
     </div>
     
     <!-- Main Menu: Title / Mode Selection -->
@@ -31,6 +31,11 @@
                 <span class="title-cannon">CANNON</span>
             </h1>
             <div id="star-menu-display">⭐ 0</div>
+            <div id="loadout-selector">
+                <p id="loadout-selector-title">CHOOSE YOUR PILOT</p>
+                <div id="character-options"></div>
+                <div id="loadout-description"></div>
+            </div>
             <p id="menu-subtitle">SELECT YOUR MODE</p>
             <div id="menu-buttons">
                 <button id="btn-normal" class="menu-button menu-button-primary">
@@ -58,12 +63,18 @@
         <div id="level-up-container" class="hidden">
             <h2>Level Up!</h2>
             <p class="shortcut-hint">Press 1, 2, or 3 to select an upgrade</p>
+            <p class="shortcut-hint secondary-hint">💡 Tip: Press G to toggle Auto-Level mode</p>
             <div id="upgrade-options"></div>
         </div>
         <!-- Timer display at top center -->
         <div id="timer-container">
             <div id="timer-display">00:00</div>
-            <div id="boss-countdown" class="hidden">Next boss: 1m 0s</div>
+            <div id="boss-countdown" class="hidden">
+                <div id="boss-countdown-container">
+                    <div id="boss-countdown-bar"></div>
+                    <div id="boss-countdown-text">Next boss: 1m 0s</div>
+                </div>
+            </div>
         </div>
 
         <div id="ui-container">
@@ -78,7 +89,12 @@
             <div id="combo-text">0</div>
         </div>
         <button id="pause-button" class="control-button">⏸️</button>
-        <div id="controls-info">P or ESC = Pause | SPACE = Dodge | G = Auto-Level</div>
+        <div id="controls-info">
+            <span class="control-key">P</span> or <span class="control-key">ESC</span> Pause | 
+            <span class="control-key">SPACE</span> Dodge | 
+            <span class="control-key">M</span> Audio | 
+            <span class="control-key">G</span> Auto-Level
+        </div>
         
         <!-- Add minimap -->
         <div id="minimap-container">
@@ -103,10 +119,17 @@
         <button id="return-button-pause" class="menu-button">Main Menu</button>
             <h3>Controls:</h3>
             <p>WASD or Arrow Keys = Move</p>
+            <p>SPACE = Dodge (dash with invincibility)</p>
             <p>P or ESC = Pause Game</p>
         <p>M = Toggle Sound</p>
         <p>L = Toggle Low Quality</p>
-        <p>G = Toggle Auto-Level</p>
+        <p>G = Toggle Auto-Level (automatic upgrades)</p>
+            <div class="pause-tips">
+                <h3>💡 Tips:</h3>
+                <p>• Numbers 1-3 select upgrades during level-up</p>
+                <p>• Dodge through enemies and projectiles</p>
+                <p>• Minimap shows enemies (red) and XP orbs (green)</p>
+            </div>
         </div>
     </div>
 
@@ -174,6 +197,8 @@
     <script defer src="src/config/upgrades.config.js"></script>
     <script defer src="src/config/achievements.config.js"></script>
     <script defer src="src/config/metaUpgrades.config.js"></script>
+    <script defer src="src/config/characters.config.js"></script>
+    <script defer src="src/config/weapons.config.js"></script>
 
     <!-- Configuration and utilities - load in proper order -->
     <script defer src="src/utils/Logger.js"></script>
@@ -182,6 +207,8 @@
     <script defer src="src/utils/CollisionUtils.js"></script>
     <script defer src="src/utils/TrigCache.js"></script>
     <script defer src="src/utils/FastMath.js"></script>
+    <script defer src="src/utils/PerformanceCache.js"></script>
+    <script defer src="src/utils/CollisionCache.js"></script>
     <script defer src="src/utils/PerformanceProfiler.js"></script>
     <script defer src="src/utils/GPUMemoryManager.js"></script>
     <script defer src="src/systems/OptimizedParticlePool.js"></script>
@@ -243,6 +270,10 @@
     <script defer src="src/entities/enemy/EnemyRenderer.js"></script>
     <script defer src="src/entities/enemy/Enemy.js"></script>
     <!-- Player modular components -->
+    <script defer src="src/weapons/WeaponManager.js"></script>
+    <script defer src="src/weapons/types/PulseCannon.js"></script>
+    <script defer src="src/weapons/types/NovaShotgun.js"></script>
+    <script defer src="src/weapons/types/ArcBurst.js"></script>
     <script defer src="src/entities/player/PlayerStats.js"></script>
     <script defer src="src/entities/player/PlayerMovement.js"></script>
     <script defer src="src/entities/player/PlayerCombat.js"></script>

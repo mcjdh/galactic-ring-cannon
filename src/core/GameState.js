@@ -1,5 +1,5 @@
 /**
- * 🌊 GAME STATE - Single Source of Truth
+ * [GAME STATE] - Single Source of Truth
  * Central state management for the entire game
  *
  * Architecture Pattern: Single Source of Truth
@@ -14,6 +14,9 @@
  * 3. Validation on writes
  * 4. Serializable for save/load
  */
+
+const DEFAULT_WEAPON_ID = 'pulse_cannon';
+const DEFAULT_CHARACTER_ID = 'aegis_vanguard';
 
 class GameState {
     constructor() {
@@ -35,7 +38,9 @@ class GameState {
             isGameOver: false,        // Player died
             isGameWon: false,         // Player won
             hasShownEndScreen: false,
-            difficulty: 'normal'      // 'easy' | 'normal' | 'hard'
+            difficulty: 'normal',     // 'easy' | 'normal' | 'hard'
+            selectedWeapon: null,
+            selectedCharacter: null
         };
 
         // ===== PLAYER STATE =====
@@ -91,7 +96,9 @@ class GameState {
             totalStarsEarned: 0,
             achievements: new Set(),
             gamesPlayed: 0,
-            totalKills: 0
+            totalKills: 0,
+            selectedWeapon: null,
+            selectedCharacter: null
         };
 
         // ===== PERFORMANCE STATE =====
@@ -114,6 +121,8 @@ class GameState {
 
         // Initialize meta state from localStorage
         this._loadMetaState();
+        this._initializeSelectedCharacter();
+        this._initializeSelectedWeapon();
     }
 
     // ===== RUNTIME STATE METHODS =====
@@ -219,6 +228,60 @@ class GameState {
         }
     }
 
+    /**
+     * Set the currently selected weapon archetype for the next run
+     */
+    setSelectedWeapon(weaponId) {
+        if (typeof weaponId !== 'string' || weaponId.trim() === '') {
+            return;
+        }
+
+        const normalizedId = weaponId.trim();
+        if (this.flow.selectedWeapon === normalizedId) {
+            return;
+        }
+
+        this.flow.selectedWeapon = normalizedId;
+        this.meta.selectedWeapon = normalizedId;
+        this._recordStateChange('selectedWeaponChanged');
+        this._notifyObservers('selectedWeaponChanged', { weaponId: normalizedId });
+        this._persistSelectedWeapon(normalizedId);
+    }
+
+    /**
+     * Get the active weapon id (falls back to default)
+     */
+    getSelectedWeapon() {
+        return this.flow.selectedWeapon || this.meta.selectedWeapon || DEFAULT_WEAPON_ID;
+    }
+
+    /**
+     * Set the selected character archetype
+     */
+    setSelectedCharacter(characterId) {
+        if (typeof characterId !== 'string' || characterId.trim() === '') {
+            return;
+        }
+
+        const normalizedId = characterId.trim();
+        if (this.flow.selectedCharacter === normalizedId) {
+            return;
+        }
+
+        this.flow.selectedCharacter = normalizedId;
+        this.meta.selectedCharacter = normalizedId;
+        this._recordStateChange('selectedCharacterChanged');
+        this._notifyObservers('selectedCharacterChanged', { characterId: normalizedId });
+        this._persistSelectedCharacter(normalizedId);
+    }
+
+    /**
+     * Get the selected character id
+     */
+    getSelectedCharacter() {
+        return this.flow.selectedCharacter || this.meta.selectedCharacter || DEFAULT_CHARACTER_ID;
+    }
+
     // ===== PLAYER STATE METHODS =====
 
     /**
@@ -254,10 +317,9 @@ class GameState {
             this._notifyObservers('levelUp', { level: this.player.level });
         }
 
-        // Check for death
-        if (!this.player.isAlive && !this.flow.isGameOver) {
-            this.gameOver();
-        }
+        // NOTE: Death detection removed from here - handled by GameManagerBridge.checkGameConditions()
+        // This prevents race condition where gameOver is set before the loss screen can be shown
+        // See: gameManagerBridge.js checkGameConditions() for proper death handling
     }
 
     // ===== PROGRESSION METHODS =====
@@ -527,6 +589,16 @@ class GameState {
             const totalKills = parseInt(localStorage.getItem('totalKills') || '0', 10);
             this.meta.totalKills = isNaN(totalKills) ? 0 : totalKills;
 
+            const selectedWeapon = localStorage.getItem('selectedWeapon');
+            if (typeof selectedWeapon === 'string' && selectedWeapon.trim() !== '') {
+                this.meta.selectedWeapon = selectedWeapon.trim();
+            }
+
+            const selectedCharacter = localStorage.getItem('selectedCharacter');
+            if (typeof selectedCharacter === 'string' && selectedCharacter.trim() !== '') {
+                this.meta.selectedCharacter = selectedCharacter.trim();
+            }
+
             // Use separate key to avoid conflict with AchievementSystem
             const achievements = localStorage.getItem('gamestate_achievements');
             if (achievements) {
@@ -560,7 +632,7 @@ class GameState {
                             this.meta.achievements = new Set(unlockedIds);
                             // Save in new format
                             this._saveMetaState();
-                            console.log(`✅ Migrated ${unlockedIds.length} achievements from AchievementSystem`);
+                            console.log(`+ Migrated ${unlockedIds.length} achievements from AchievementSystem`);
                         }
                     } catch (error) {
                         console.warn('Failed to migrate old achievements:', error);
@@ -569,6 +641,46 @@ class GameState {
             }
         } catch (error) {
             console.warn('Failed to load meta state:', error);
+        }
+    }
+
+    _initializeSelectedCharacter() {
+        const fallback = DEFAULT_CHARACTER_ID;
+        const stored = (typeof this.meta.selectedCharacter === 'string' && this.meta.selectedCharacter.trim() !== '')
+            ? this.meta.selectedCharacter.trim()
+            : fallback;
+
+        this.flow.selectedCharacter = stored;
+        this.meta.selectedCharacter = stored;
+        this._persistSelectedCharacter(stored);
+    }
+
+    _persistSelectedCharacter(characterId) {
+        if (typeof localStorage === 'undefined') return;
+        try {
+            localStorage.setItem('selectedCharacter', characterId);
+        } catch (error) {
+            console.warn('Failed to persist selected character:', error);
+        }
+    }
+
+    _initializeSelectedWeapon() {
+        const fallback = DEFAULT_WEAPON_ID;
+        const stored = (typeof this.meta.selectedWeapon === 'string' && this.meta.selectedWeapon.trim() !== '')
+            ? this.meta.selectedWeapon.trim()
+            : fallback;
+
+        this.flow.selectedWeapon = stored;
+        this.meta.selectedWeapon = stored;
+        this._persistSelectedWeapon(stored);
+    }
+
+    _persistSelectedWeapon(weaponId) {
+        if (typeof localStorage === 'undefined') return;
+        try {
+            localStorage.setItem('selectedWeapon', weaponId);
+        } catch (error) {
+            console.warn('Failed to persist selected weapon:', error);
         }
     }
 
@@ -587,6 +699,10 @@ class GameState {
             localStorage.setItem('totalKills', this.meta.totalKills.toString());
             // Use different key to avoid conflict with AchievementSystem
             localStorage.setItem('gamestate_achievements', JSON.stringify([...this.meta.achievements]));
+            const weaponId = this.meta.selectedWeapon || DEFAULT_WEAPON_ID;
+            localStorage.setItem('selectedWeapon', weaponId);
+            const characterId = this.meta.selectedCharacter || DEFAULT_CHARACTER_ID;
+            localStorage.setItem('selectedCharacter', characterId);
         } catch (error) {
             console.warn('Failed to save meta state:', error);
         }

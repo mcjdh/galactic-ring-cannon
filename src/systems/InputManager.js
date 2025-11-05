@@ -64,12 +64,57 @@ class InputManager {
         this._attachListener(window, 'gamepadconnected', this.handleGamepadConnected.bind(this));
         this._attachListener(window, 'gamepaddisconnected', this.handleGamepadDisconnected.bind(this));
 
+        // [BUG FIX] Window focus/blur to prevent stuck keys
+        this._attachListener(window, 'blur', this.handleWindowBlur.bind(this));
+        this._attachListener(window, 'focus', this.handleWindowFocus.bind(this));
+        this._attachListener(document, 'visibilitychange', this.handleVisibilityChange.bind(this));
+
         // Input manager initialized successfully
     }
 
     _attachListener(target, type, handler) {
         target.addEventListener(type, handler);
         this._listeners.push({ target, type, handler });
+    }
+
+    /**
+     * [BUG FIX] Clear all key states when window loses focus
+     * Prevents stuck movement when alt-tabbing or clicking away
+     */
+    handleWindowBlur() {
+        this.clearAllKeys();
+    }
+
+    /**
+     * [BUG FIX] Handle window regaining focus
+     */
+    handleWindowFocus() {
+        // Keys are already cleared, just log if needed
+    }
+
+    /**
+     * [BUG FIX] Handle page visibility changes (tab switching)
+     */
+    handleVisibilityChange() {
+        if (document.hidden) {
+            this.clearAllKeys();
+        }
+    }
+
+    /**
+     * [BUG FIX] Clear all key states to prevent stuck keys
+     */
+    clearAllKeys() {
+        // Clear all key states
+        this.keyStates = {};
+        
+        // Also clear mouse buttons
+        this.mouseState.buttons = 0;
+        
+        // Log for debugging if needed
+        if (window.debugMode) {
+            console.log('[InputManager] Cleared all key states (focus lost)');
+        }
     }
 
     destroy() {
@@ -155,9 +200,13 @@ class InputManager {
         
         // Toggle sound with M key
         if (key === 'm' || key === 'M') {
-            const soundButton = document.getElementById('sound-button');
-            if (soundButton) {
-                soundButton.click();
+            if (window.audioSystem) {
+                const isMuted = window.audioSystem.toggleMute();
+                // Update UI checkbox if settings panel is open
+                const muteCheckbox = document.getElementById('mute-checkbox');
+                if (muteCheckbox) {
+                    muteCheckbox.checked = isMuted;
+                }
             }
         }
         
@@ -165,7 +214,11 @@ class InputManager {
         if (key === 'l' || key === 'L') {
             if (window.gameManager) {
                 window.gameManager.lowQuality = !window.gameManager.lowQuality;
-                localStorage.setItem('lowQuality', window.gameManager.lowQuality);
+                try {
+                    localStorage.setItem('lowQuality', window.gameManager.lowQuality);
+                } catch (error) {
+                    console.warn('Failed to save low quality setting:', error);
+                }
                 // Low quality mode toggled
             }
         }
@@ -203,7 +256,7 @@ class InputManager {
         
         // Performance mode toggle
         if (key === 'o' || key === 'O') {
-            if (window.gameManager && window.gameManager.game) {
+            if (window.gameManager?.game && typeof window.gameManager.game.togglePerformanceMode === 'function') {
                 window.gameManager.game.togglePerformanceMode();
             }
         }
@@ -352,11 +405,13 @@ class InputManager {
         if (this.isActionPressed('moveUp')) movement.y -= 1;
         if (this.isActionPressed('moveDown')) movement.y += 1;
         
-        // Normalize diagonal movement
+        // Normalize diagonal movement using pre-computed constant (10x faster than sqrt)
         if (movement.x !== 0 && movement.y !== 0) {
-            const length = Math.sqrt(movement.x * movement.x + movement.y * movement.y);
-            movement.x /= length;
-            movement.y /= length;
+            // FastMath.SQRT2_INV is 1/sqrt(2) = 0.7071067811865476
+            const FastMath = window.Game?.FastMath;
+            const SQRT2_INV = FastMath?.SQRT2_INV || 0.7071067811865476;
+            movement.x *= SQRT2_INV;
+            movement.y *= SQRT2_INV;
         }
         
         return movement;

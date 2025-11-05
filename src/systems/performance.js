@@ -1,5 +1,5 @@
 // Performance monitoring and optimization utilities
-// 🤖 RESONANT NOTE: Simplified performance system - removed overengineering
+// [A] RESONANT NOTE: Simplified performance system - removed overengineering
 
 class PerformanceManager {
     constructor() {

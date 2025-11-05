@@ -6,7 +6,7 @@ class UpgradeSystem {
 
         // Warn if config not loaded
         if (!window.UPGRADE_DEFINITIONS) {
-            console.warn('⚠️ UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
+            console.warn('! UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
         }
 
         this.selectedUpgrades = [];
@@ -17,8 +17,13 @@ class UpgradeSystem {
         this.comboEffects = new Set();
 
         // Auto-level feature: load from localStorage
-        const savedAutoLevel = localStorage.getItem('autoLevelEnabled');
-        this.autoLevelEnabled = savedAutoLevel === 'true';
+        try {
+            const savedAutoLevel = localStorage.getItem('autoLevelEnabled');
+            this.autoLevelEnabled = savedAutoLevel === 'true';
+        } catch (error) {
+            console.warn('Failed to load auto-level setting:', error);
+            this.autoLevelEnabled = false;
+        }
     }
 
     resetForNewRun() {
@@ -83,13 +88,31 @@ class UpgradeSystem {
             option.dataset.rarity = upgrade.rarity || 'common';
             option.dataset.index = index + 1; // Store numeric index
 
-            option.innerHTML = `
-                <div class="shortcut-key">${index + 1}</div>
-                <div class="upgrade-icon">${upgrade.icon}</div>
-                <h3>${upgrade.name}</h3>
-                <p>${upgrade.description}</p>
-                <div class="upgrade-rarity">${upgrade.rarity || 'common'}</div>
-            `;
+            // Create elements safely to prevent XSS
+            const shortcutKey = document.createElement('div');
+            shortcutKey.className = 'shortcut-key';
+            shortcutKey.textContent = (index + 1).toString();
+
+            const upgradeIcon = document.createElement('div');
+            upgradeIcon.className = 'upgrade-icon';
+            upgradeIcon.textContent = upgrade.icon || '';
+
+            const upgradeName = document.createElement('h3');
+            upgradeName.textContent = upgrade.name || '';
+
+            const upgradeDesc = document.createElement('p');
+            upgradeDesc.textContent = upgrade.description || '';
+
+            const upgradeRarity = document.createElement('div');
+            upgradeRarity.className = 'upgrade-rarity';
+            upgradeRarity.textContent = upgrade.rarity || 'common';
+
+            // Append all elements
+            option.appendChild(shortcutKey);
+            option.appendChild(upgradeIcon);
+            option.appendChild(upgradeName);
+            option.appendChild(upgradeDesc);
+            option.appendChild(upgradeRarity);
 
             option.addEventListener('click', () => {
                 this.selectUpgrade(upgrade);
@@ -130,30 +153,55 @@ class UpgradeSystem {
 
     _applyUpgradeCore(upgrade) {
         // Core upgrade application logic shared by both manual and auto-level
+        const upgradeInstance = this._cloneUpgrade(upgrade);
+
         // Add to selected upgrades
-        this.selectedUpgrades.push(upgrade);
+        this.selectedUpgrades.push(upgradeInstance);
+
+        // Validate player exists before applying upgrade
+        const player = window.gameManager?.game?.player;
+        if (!player) {
+            (window.logger?.warn || console.warn)('Cannot apply upgrade: player not found');
+            return;
+        }
 
         // Apply upgrade to player using clean delegation
         const playerUpgrades = window.Game?.PlayerUpgrades;
         if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
-            playerUpgrades.apply(window.gameManager.game.player, upgrade);
+            playerUpgrades.apply(player, upgradeInstance);
         } else {
             // Fallback to player method if PlayerUpgrades not available
-            window.gameManager.game.player.applyUpgrade(upgrade);
+            player.applyUpgrade(upgradeInstance);
         }
 
         // Handle special effects
-        if (upgrade.specialEffect) {
-            this.applySpecialEffect(upgrade);
+        if (upgradeInstance.specialEffect) {
+            this.applySpecialEffect(upgradeInstance);
         }
 
         // Handle combo effects
-        if (upgrade.comboEffects) {
-            this.updateComboEffects(upgrade);
+        if (upgradeInstance.comboEffects) {
+            this.updateComboEffects(upgradeInstance);
         }
 
         // Track stats
         window.gameManager?.statsManager?.trackSpecialEvent?.('upgrade_chosen');
+    }
+
+    _cloneUpgrade(upgrade) {
+        if (!upgrade || typeof upgrade !== 'object') {
+            return upgrade;
+        }
+
+        if (typeof structuredClone === 'function') {
+            try {
+                return structuredClone(upgrade);
+            } catch (error) {
+                // Fallback to JSON clone below
+            }
+        }
+
+        return JSON.parse(JSON.stringify(upgrade));
     }
 
     addKeyboardShortcuts(upgrades) {
@@ -195,12 +243,23 @@ class UpgradeSystem {
 
     setAutoLevel(enabled) {
         this.autoLevelEnabled = !!enabled;
-        localStorage.setItem('autoLevelEnabled', this.autoLevelEnabled);
+        try {
+            localStorage.setItem('autoLevelEnabled', this.autoLevelEnabled);
+        } catch (error) {
+            console.warn('Failed to save auto-level setting:', error);
+        }
     }
     
     // Enhanced method to get better quality random upgrades with build path consideration
     getRandomUpgrades(count) {
         // Get all available upgrades that player can select
+        const activeWeaponId = window.gameManager?.game?.player?.combat?.weaponManager?.getActiveWeaponId?.();
+        const weaponDefinitions = typeof window !== 'undefined' ? (window.WEAPON_DEFINITIONS || {}) : {};
+        const activeWeaponDefinition = activeWeaponId ? weaponDefinitions[activeWeaponId] : null;
+        const activeWeaponTags = Array.isArray(activeWeaponDefinition?.upgradeTags)
+            ? activeWeaponDefinition.upgradeTags
+            : [];
+
         const availableUpgrades = this.availableUpgrades.filter(upgrade => {
             // Exclude any non-stackable upgrade already selected
             if (!upgrade.stackable && this.isUpgradeSelected(upgrade.id)) {
@@ -231,6 +290,18 @@ class UpgradeSystem {
             if (upgrade.specialType === 'aoe' && this.isUpgradeSelected('aoe_attack')) {
                 return false;
             }
+
+            if (upgrade.weaponTags && upgrade.weaponTags.length > 0) {
+                if (!activeWeaponDefinition) {
+                    return false;
+                }
+                const matchesTags = upgrade.weaponTags.some(tag =>
+                    activeWeaponTags.includes(tag) || tag === activeWeaponDefinition.id
+                );
+                if (!matchesTags) {
+                    return false;
+                }
+            }
             
             return true;
         });
@@ -255,6 +326,10 @@ class UpgradeSystem {
             if (upgrade.comboEffects && upgrade.comboEffects.some(effect => 
                 this.comboEffects.has(effect))) {
                 weight *= 1.2;
+            }
+
+            if (upgrade.weaponTags && upgrade.weaponTags.length > 0 && activeWeaponDefinition) {
+                weight *= 1.8;
             }
             
             // Add weighted copies to the pool
@@ -358,15 +433,18 @@ class UpgradeSystem {
                 // Create lightning effect at player position
                 effectsManager?.createSpecialEffect?.('lightning', player.x, player.y, upgrade.chainRange || 175, '#74b9ff');
                 break;
-            case 'orbit_visual':
-                // Create orbit effect
+            case 'orbit_visual': {
+                // Create orbit effect with FastMath optimization
+                const FastMath = window.Game?.FastMath;
                 for (let i = 0; i < 8; i++) {
                     const angle = (i / 8) * Math.PI * 2;
-                    const x = player.x + Math.cos(angle) * (upgrade.orbitRadius || 100);
-                    const y = player.y + Math.sin(angle) * (upgrade.orbitRadius || 100);
+                    const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                    const x = player.x + cos * (upgrade.orbitRadius || 100);
+                    const y = player.y + sin * (upgrade.orbitRadius || 100);
                     effectsManager?.createSpecialEffect?.('circle', x, y, 20, '#9b59b6');
                 }
                 break;
+            }
             case 'ricochet_visual':
                 // Create ricochet effect
                 effectsManager?.createSpecialEffect?.('ricochet', player.x, player.y, upgrade.bounceRange || 180, '#f39c12');
@@ -375,15 +453,18 @@ class UpgradeSystem {
                 // Create explosion effect
                 effectsManager?.createSpecialEffect?.('bossPhase', player.x, player.y, upgrade.explosionRadius || 60, '#e74c3c');
                 break;
-            case 'magnet_visual':
-                // Create magnet field effect
+            case 'magnet_visual': {
+                // Create magnet field effect with FastMath optimization
+                const FastMath = window.Game?.FastMath;
                 for (let i = 0; i < 12; i++) {
                     const angle = (i / 12) * Math.PI * 2;
-                    const x = player.x + Math.cos(angle) * (upgrade.value || 75);
-                    const y = player.y + Math.sin(angle) * (upgrade.value || 75);
+                    const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                    const x = player.x + cos * (upgrade.value || 75);
+                    const y = player.y + sin * (upgrade.value || 75);
                     effectsManager?.createSpecialEffect?.('circle', x, y, 15, '#3498db');
                 }
                 break;
+            }
             case 'heal_visual':
                 // Create healing effect
                 effectsManager?.createSpecialEffect?.('random', player.x, player.y, 40, '#2ecc71');
@@ -428,7 +509,7 @@ class UpgradeSystem {
     }
 }
 
-// ✅ ARCHITECTURE: Clean delegation pattern implemented
+// + ARCHITECTURE: Clean delegation pattern implemented
 // UpgradeSystem -> PlayerUpgrades.apply() -> Player methods
 // This eliminates global state dependencies and improves testability
 // Previous prototype monkey patching removed in favor of composition
@@ -439,4 +520,4 @@ if (typeof window !== 'undefined') {
     window.Game.UpgradeSystem = UpgradeSystem;
 }
 
-// 🤖 RESONANT NOTE: XP bonus logic should be moved to XP orb collection logic
+// [A] RESONANT NOTE: XP bonus logic should be moved to XP orb collection logic

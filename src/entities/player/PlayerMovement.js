@@ -125,8 +125,9 @@ class PlayerMovement {
         const baseDuration = this.isDodging ? 0.4 : 0.3;
         const factor = (window.gameManager.particleReductionFactor || 1.0);
         const duration = baseDuration * (factor < 1 ? Math.max(0.6, factor + 0.4) : 1);
+        const trailColor = this.player.trailColor || this.player.color;
 
-        this.player.spawnParticle(x, y, 0, 0, trailSize, this.player.color, duration, 'trail');
+        this.player.spawnParticle(x, y, 0, 0, trailSize, trailColor, duration, 'trail');
     }
 
     handleDodge(deltaTime, game) {
@@ -200,7 +201,7 @@ class PlayerMovement {
         // Visual effect for dodge
         const gm = window.gameManager || window.gameManagerBridge;
         if (gm && typeof gm.showFloatingText === 'function') {
-            gm.showFloatingText("Dodge!", this.player.x, this.player.y - 30, '#3498db', 18);
+            gm.showFloatingText("Dodge!", this.player.x, this.player.y - 30, this.player.glowColor || '#3498db', 18);
         }
 
         // Create dodge effect
@@ -219,7 +220,7 @@ class PlayerMovement {
                 (Math.random() - 0.5) * 50,
                 (Math.random() - 0.5) * 50,
                 this.player.radius / 2,
-                this.player.color,
+                this.player.glowColor || this.player.color,
                 0.3,
                 'spark'
             );

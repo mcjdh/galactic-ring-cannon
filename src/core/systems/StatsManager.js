@@ -1,6 +1,6 @@
 /**
  * 🌊 UNIFIED STATS MANAGER - Resonant Multi-Agent Architecture
- * 🤖 RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
+ * [A] RESONANT NOTE: Extracted from massive GameManager.js (2,400+ lines)
  * Handles all statistics tracking, achievements, combos, and progression
  * 
  * Single responsibility: Track and manage all game statistics and progression
@@ -57,9 +57,21 @@ class StatsManager {
         this.achievementProgress = new Map();
         this.unlockedAchievements = new Set();
         this.achievementNotifications = [];
-        
-        // Star token system
-        this.starTokens = parseInt(localStorage.getItem('starTokens') || '0', 10);
+
+        // Star token system - Use GameState as source of truth, fallback to localStorage
+        // This prevents race conditions where GameState and StatsManager load independently
+        if (this.state?.meta?.starTokens != null) {
+            // GameState has already loaded, use it as the source of truth
+            this.starTokens = this.state.meta.starTokens;
+        } else {
+            // GameState not yet loaded, load from localStorage as fallback
+            try {
+                this.starTokens = parseInt(localStorage.getItem('starTokens') || '0', 10);
+            } catch (error) {
+                console.warn('Failed to load star tokens:', error);
+                this.starTokens = 0;
+            }
+        }
         this.starTokensEarned = 0;
         
         // Progression tracking
@@ -430,9 +442,13 @@ class StatsManager {
         this.earnStarTokens(1);
 
         // Check for Jupiter star drop upgrade
-        const extraStars = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
-        if (extraStars > 0) {
-            this.earnStarTokens(extraStars);
+        try {
+            const extraStars = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
+            if (extraStars > 0) {
+                this.earnStarTokens(extraStars);
+            }
+        } catch (error) {
+            console.warn('Failed to load Jupiter star drop upgrade:', error);
         }
 
         this.achievementSystem?.updateAchievement?.('boss_slayer', this.sessionStats.bossesKilled);
@@ -556,7 +572,12 @@ class StatsManager {
     earnStarTokens(amount) {
         this.bindAchievementSystem();
         // Apply Stellar Fortune bonus from Star Vendor
-        const stellarFortuneLevel = parseInt(localStorage.getItem('meta_star_chance') || '0', 10);
+        let stellarFortuneLevel = 0;
+        try {
+            stellarFortuneLevel = parseInt(localStorage.getItem('meta_star_chance') || '0', 10);
+        } catch (error) {
+            console.warn('Failed to load stellar fortune level:', error);
+        }
         let finalAmount = amount;
 
         if (stellarFortuneLevel > 0) {
@@ -607,7 +628,11 @@ class StatsManager {
     spendStarTokens(amount) {
         if (this.starTokens >= amount) {
             this.starTokens -= amount;
-            localStorage.setItem('starTokens', this.starTokens.toString());
+            try {
+                localStorage.setItem('starTokens', this.starTokens.toString());
+            } catch (error) {
+                console.warn('Failed to save star tokens:', error);
+            }
 
             // Sync with GameManager metaStars and update UI
             if (this.gameManager) {

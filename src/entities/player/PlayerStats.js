@@ -176,6 +176,11 @@ class PlayerStats {
     takeDamage(amount) {
         if (this.isInvulnerable || typeof amount !== 'number' || amount <= 0) return;
 
+        const damageMultiplier = window.GAME_CONSTANTS?.PLAYER?.DAMAGE_INTAKE_MULTIPLIER || 1;
+        if (damageMultiplier !== 1) {
+            amount *= damageMultiplier;
+        }
+
         // Apply damage reduction if present
         if (this.damageReduction && this.damageReduction > 0) {
             amount = amount * (1 - this.damageReduction);

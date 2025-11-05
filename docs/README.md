@@ -1,11 +1,15 @@
 # Documentation Guide
-**Last Updated**: October 25, 2025
+**Last Updated**: January 4, 2025
 
 Welcome to the Galactic Ring Cannon documentation! This guide will help you navigate the documentation structure.
 
 ---
 
 ## Quick Start
+
+### 🆕 Latest Updates
+
+**[updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/)** - Major balance overhaul and bug fixes (January 2025)
 
 ### For Developers
 
@@ -19,6 +23,7 @@ Start here to understand the codebase:
 
 1. **[current/GAME_GUIDE.md](current/GAME_GUIDE.md)** - How to play, controls, enemy types, upgrades
 2. **[current/GAME_DESIGN.md](current/GAME_DESIGN.md)** - Game design philosophy and mechanics
+3. **[updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/)** - What's new in v1.0.9
 
 ### For DevOps/Deployment
 
@@ -28,7 +33,18 @@ Start here to understand the codebase:
 
 ## Documentation Structure
 
-The documentation is organized into five main categories:
+The documentation is organized into the following categories:
+
+### 📋 Root Documentation Files
+
+Essential project documentation:
+
+| Document | Description |
+|----------|-------------|
+| [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines and development workflow |
+
+**When to use**: Understanding project history, learning how to contribute.
 
 ### 📘 [current/](current/) - Current Reference Documentation
 
@@ -43,8 +59,9 @@ Up-to-date documentation reflecting the current state of the codebase (as of Oct
 | [GAME_GUIDE.md](current/GAME_GUIDE.md) | Player guide - controls, enemies, upgrades |
 | [GAME_DESIGN.md](current/GAME_DESIGN.md) | Game design philosophy and mechanics |
 | [DEPLOYMENT.md](current/DEPLOYMENT.md) | Deployment instructions |
+| [QUICK_START_PI5.md](current/QUICK_START_PI5.md) | Raspberry Pi 5 optimization and setup guide |
 
-**When to use**: Learning the codebase, implementing features, understanding architecture.
+**When to use**: Learning the codebase, implementing features, understanding architecture, deploying to specific platforms.
 
 ---
 
@@ -102,6 +119,18 @@ Reports from documentation verification and cleanup efforts (October 2025). Show
 
 ---
 
+### 🔄 [updates/](updates/) - Version Update Documentation
+
+Detailed documentation for major updates and releases. Each update has its own folder with comprehensive change logs, bug fix analysis, and balance documentation.
+
+| Update | Description |
+|--------|-------------|
+| [v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/) | Boss balance overhaul, special types fixes, critical bug repairs (Jan 2025) |
+
+**When to use**: Understanding what changed in a specific version, troubleshooting issues after an update, reviewing balance decisions.
+
+---
+
 ## Key Concepts
 
 ### Component-Based Architecture
@@ -152,6 +181,12 @@ See [current/GAMESTATE_ARCHITECTURE.md](current/GAMESTATE_ARCHITECTURE.md) for d
 ---
 
 ## Common Tasks
+
+### Understanding Recent Changes
+
+1. Check [updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/) for latest update documentation
+2. Review [updates/v1.0.9-balance-and-fixes/ALL_CHANGES_FINAL.md](updates/v1.0.9-balance-and-fixes/ALL_CHANGES_FINAL.md) for complete change list
+3. See specific fix documentation for detailed explanations
 
 ### Understanding a Class
 
@@ -234,5 +269,15 @@ The documentation reorganization (October 2025) was specifically done to prevent
 
 ---
 
-*This documentation reflects the production-ready component-based architecture as of October 2025.*
-*Total: 70+ markdown files organized for clarity and maintainability.*
+## Recent Updates
+
+- **January 4, 2025**: Added v1.0.9 update documentation (14 files in [updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/))
+  - Boss balance overhaul documentation
+  - Special types fix and balance documentation
+  - Critical bug fix documentation
+  - Comprehensive change summaries
+
+---
+
+*This documentation reflects the production-ready component-based architecture as of January 2025.*
+*Total: 85+ markdown files organized for clarity and maintainability.*

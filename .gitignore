@@ -48,3 +48,31 @@ Thumbs.db
 # Coverage reports
 coverage/
 .nyc_output/
+
+# Test outputs
+test-results/
+*.test.log
+benchmark-results/
+
+# Performance profiling
+*.cpuprofile
+*.heapprofile
+*.trace
+performance-*.json
+
+# Python (if using Python tools)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# Temporary editor files
+*.kate-swp
+.*.swp
+.*.swo
+.~lock.*
+
+# Local development
+local-config.json
+debug-*.html
+temp-*

@@ -1,5 +1,5 @@
 /**
- * 🍓 GPU Memory Manager for Raspberry Pi 5
+ * [Pi] GPU Memory Manager for Raspberry Pi 5
  * Monitors and manages sprite cache sizes to prevent GPU memory exhaustion
  * 
  * Pi5 has ~256MB GPU memory shared with system
@@ -39,7 +39,7 @@ class GPUMemoryManager {
         if (this.enabled) return;
         
         this.enabled = true;
-        console.log('🍓 GPU Memory Manager enabled');
+        console.log('[Pi] GPU Memory Manager enabled');
         
         // Start monitoring interval
         this.monitoringInterval = setInterval(() => {
@@ -58,7 +58,7 @@ class GPUMemoryManager {
             clearInterval(this.monitoringInterval);
             this.monitoringInterval = null;
         }
-        console.log('🍓 GPU Memory Manager disabled');
+        console.log('[Pi] GPU Memory Manager disabled');
     }
     
     /**
@@ -82,10 +82,10 @@ class GPUMemoryManager {
         
         // Take action based on pressure
         if (pressureLevel === 'critical') {
-            console.warn(`🔴 GPU Memory CRITICAL: ${totalSprites} sprites cached`);
+            console.warn(`!! GPU Memory CRITICAL: ${totalSprites} sprites cached`);
             this.aggressiveCleanup();
         } else if (pressureLevel === 'high') {
-            console.warn(`🟠 GPU Memory HIGH: ${totalSprites} sprites cached`);
+            console.warn(`! GPU Memory HIGH: ${totalSprites} sprites cached`);
             this.moderateCleanup();
         } else if (pressureLevel === 'medium') {
             if (window.debugMode || window.performanceProfiler?.verbose) {
@@ -150,7 +150,7 @@ class GPUMemoryManager {
             }
         }
         
-        // 🎨 FIX: Don't clean nebula cache - only 8 sprites, essential for background consistency
+        // [R] FIX: Don't clean nebula cache - only 8 sprites, essential for background consistency
         // Nebulae are pre-warmed and should never be cleaned to prevent pop-in
         
         console.log('🧹 Moderate GPU memory cleanup complete (nebulae protected)');
@@ -171,7 +171,7 @@ class GPUMemoryManager {
             }
         }
         
-        // 🎨 FIX: Don't clean nebula cache even in aggressive mode
+        // [R] FIX: Don't clean nebula cache even in aggressive mode
         // Only 8 nebula sprites total (~64KB), essential for smooth background
         
         console.log('🧹 Aggressive GPU memory cleanup complete (nebulae protected)');
@@ -225,7 +225,7 @@ if (typeof window !== 'undefined') {
     // Add console commands for debugging
     window.gpuStatus = () => {
         const status = window.gpuMemoryManager.getStatus();
-        console.log('🍓 GPU Memory Status:', status);
+        console.log('[Pi] GPU Memory Status:', status);
         return status;
     };
     
