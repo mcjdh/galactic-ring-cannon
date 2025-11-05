@@ -163,7 +163,9 @@ class CosmicBackground {
             this._lastCanvasHeight = currentHeight;
             // Redistribute stars when canvas resizes
             this.initialize();
-            console.log(`🌌 CosmicBackground resized (${currentWidth}x${currentHeight})`);
+            if (window.debugManager?.enabled) {
+                console.log(`🌌 CosmicBackground resized (${currentWidth}x${currentHeight})`);
+            }
         }
     }
 
@@ -689,7 +691,9 @@ class CosmicBackground {
         this.grid.spacing = Math.max(this.grid.spacing, 100);
         this._gridFrameCounter = 0;
 
-        console.log('🍓 CosmicBackground: Pi5 optimization mode enabled');
+        if (window.debugManager?.enabled) {
+            console.log('🍓 CosmicBackground: Pi5 optimization mode enabled');
+        }
     }
 
     /**
@@ -706,7 +710,9 @@ class CosmicBackground {
         this.grid.showUpperGrid = true;
         this.grid.spacing = 80;
         this._gridFrameCounter = 0;
-        console.log('🖥️ CosmicBackground: Desktop quality mode enabled');
+        if (window.debugManager?.enabled) {
+            console.log('🖥️ CosmicBackground: Desktop quality mode enabled');
+        }
     }
 
     /**
@@ -807,7 +813,9 @@ class CosmicBackground {
             this._gridFrameCounter = 0;
             // Reinitialize with new counts
             this.initialize();
-            console.log(`🌌 CosmicBackground reinitialized (quality=${enabled ? 'low' : 'high'})`);
+            if (window.debugManager?.enabled) {
+                console.log(`🌌 CosmicBackground reinitialized (quality=${enabled ? 'low' : 'high'})`);
+            }
         }
     }
 }

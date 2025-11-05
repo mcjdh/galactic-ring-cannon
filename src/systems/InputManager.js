@@ -155,9 +155,13 @@ class InputManager {
         
         // Toggle sound with M key
         if (key === 'm' || key === 'M') {
-            const soundButton = document.getElementById('sound-button');
-            if (soundButton) {
-                soundButton.click();
+            if (window.audioSystem) {
+                const isMuted = window.audioSystem.toggleMute();
+                // Update UI checkbox if settings panel is open
+                const muteCheckbox = document.getElementById('mute-checkbox');
+                if (muteCheckbox) {
+                    muteCheckbox.checked = isMuted;
+                }
             }
         }
         

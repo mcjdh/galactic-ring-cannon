@@ -982,7 +982,9 @@ class EnemySpawner {
      * Applies conservative limits for smooth 60fps gameplay on Pi5
      */
     enablePi5Mode() {
-        console.log('🍓 EnemySpawner: Enabling Pi5 optimization mode...');
+        if (window.debugManager?.enabled) {
+            console.log('🍓 EnemySpawner: Enabling Pi5 optimization mode...');
+        }
         
         // Conservative enemy limits
         this.maxEnemies = 35; // Much lower than default 60
@@ -1001,7 +1003,9 @@ class EnemySpawner {
         this.eliteChance = Math.min(this.eliteChance, 0.08);
         this.baseEliteChance = 0.03;
         
-        console.log('✅ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
+        if (window.debugManager?.enabled) {
+            console.log('✅ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
+        }
     }
 }
 
