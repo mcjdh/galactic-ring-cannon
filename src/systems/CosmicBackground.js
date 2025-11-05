@@ -137,8 +137,20 @@ class CosmicBackground {
         // Clear sprite cache when reinitializing to ensure fresh rendering
         this._nebulaSpriteCache.clear();
         
-        // [R] FIX: Pre-warm nebula sprite cache to prevent pop-in during gameplay
-        // Generate sprites for all nebula clouds immediately after creation
+        // [PERFORMANCE] Defer nebula sprite pre-warming to avoid early-game lag
+        // Pre-warm on first render instead of initialization
+        this._needsPreWarm = true;
+    }
+
+    /**
+     * [PERFORMANCE] Pre-warm nebula sprite cache to prevent pop-in
+     * Called on first render to avoid blocking game start
+     */
+    _preWarmNebulaCache() {
+        if (!this._needsPreWarm) return;
+        this._needsPreWarm = false;
+        
+        // Generate sprites for all nebula clouds
         for (const cloud of this.nebulaClouds) {
             this._getNebulaSprite(cloud.color, cloud.radius);
         }
@@ -329,6 +341,11 @@ class CosmicBackground {
     }
 
     render(player) {
+        // [PERFORMANCE] Pre-warm nebula cache on first render (deferred from init)
+        if (this._needsPreWarm) {
+            this._preWarmNebulaCache();
+        }
+
         const ctx = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;

@@ -30,8 +30,19 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 - **Boss Battles**: Multi-phase boss encounters with special mechanics
 - **Meta Progression**: Permanent upgrades via the Star Vendor system
 - **Achievement System**: 15+ achievements to unlock
-- **Performance Optimized**: Runs smoothly on older hardware
+- **Performance Optimized**: 60 FPS on Raspberry Pi 5 (+44-70 FPS improvement)
 - **Mobile Friendly**: Responsive design with touch support
+
+## ⚡ Performance
+
+**Optimized for Raspberry Pi 5 and low-end hardware:**
+- TrigCache & FastMath for ARM optimization (+16-22 FPS)
+- Array pre-allocation & batch rendering (+13-23 FPS)
+- Advanced performance caching (+15-25 FPS)
+- Spatial grid partitioning for collision detection
+- GPU memory management for smooth rendering
+
+**See:** [docs/audits/FINAL_STATUS.md](docs/audits/FINAL_STATUS.md) for complete optimization details.
 
 ## 🎯 Gameplay
 

@@ -144,8 +144,9 @@ class PlayerCombat {
         // Create visual effect for AOE attack
         this.createAOEEffect();
 
-        // Create AOE damage around player
-        enemies.forEach(enemy => {
+        // Create AOE damage around player (optimized for loop)
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
             const isCrit = Math.random() < this.critChance;
             const baseDamage = this.attackDamage * this.aoeDamageMultiplier;
             const damage = isCrit ? baseDamage * this.critMultiplier : baseDamage;
@@ -159,7 +160,7 @@ class PlayerCombat {
                     gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
                 }
             }
-        });
+        }
 
         // Play AOE attack sound
         if (window.audioSystem?.play) {
@@ -178,16 +179,19 @@ class PlayerCombat {
 
         if (particleCount <= 0) return;
         const radius = this.aoeAttackRange;
+        const FastMath = window.Game?.FastMath;
 
         for (let i = 0; i < particleCount; i++) {
             const angle = (i / particleCount) * Math.PI * 2;
-            const x = this.player.x + Math.cos(angle) * radius;
-            const y = this.player.y + Math.sin(angle) * radius;
+            // Use FastMath.sincos for 5x speedup on ARM (called multiple times per attack)
+            const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+            const x = this.player.x + cos * radius;
+            const y = this.player.y + sin * radius;
             this.player.spawnParticle(
                 this.player.x,
                 this.player.y,
-                Math.cos(angle) * 300,
-                Math.sin(angle) * 300,
+                cos * 300,
+                sin * 300,
                 3 + Math.random() * 3,
                 '#3498db',
                 0.3,

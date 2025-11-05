@@ -84,13 +84,16 @@ class PlayerAbilities {
         }
 
         // Update orbit positions and check for collisions
+        const FastMath = window.Game?.FastMath;
         for (let i = 0; i < Math.min(this.orbitProjectiles.length, this.orbitCount); i++) {
             const orb = this.orbitProjectiles[i];
             if (!orb || typeof orb !== 'object') continue;
 
             orb.angle = this.orbitAngle + (i * angleStep);
-            orb.x = this.player.x + Math.cos(orb.angle) * this.orbitRadius;
-            orb.y = this.player.y + Math.sin(orb.angle) * this.orbitRadius;
+            // Use FastMath.sincos for 5x speedup on ARM (called every frame for each orbital)
+            const { sin, cos } = FastMath ? FastMath.sincos(orb.angle) : { sin: Math.sin(orb.angle), cos: Math.cos(orb.angle) };
+            orb.x = this.player.x + cos * this.orbitRadius;
+            orb.y = this.player.y + sin * this.orbitRadius;
 
             // Reduce cooldown for orbital hits
             if (orb.cooldown > 0) {

@@ -366,21 +366,25 @@ class OptimizedParticlePool {
             : count;
         
         const FastMath = window.Game?.FastMath;
+        
+        // Helper function for random with proper binding
+        const getRandom = () => window.perfCache ? window.perfCache.random() : Math.random();
+        
         for (let i = 0; i < effectiveCount; i++) {
             const angle = (i / effectiveCount) * Math.PI * 2;
-            const speed = 50 + Math.random() * 100 * intensity;
+            const speed = 50 + getRandom() * 100 * intensity;
             
             // Use FastMath.sincos for 5x speedup on ARM
             const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
             
             this.spawnParticle({
-                x: x + (Math.random() - 0.5) * 10,
-                y: y + (Math.random() - 0.5) * 10,
+                x: x + (getRandom() - 0.5) * 10,
+                y: y + (getRandom() - 0.5) * 10,
                 vx: cos * speed,
                 vy: sin * speed,
-                size: 2 + Math.random() * 3 * intensity,
+                size: 2 + getRandom() * 3 * intensity,
                 color: intensity > 0.8 ? '#ff6b6b' : '#ffa726',
-                life: 0.3 + Math.random() * 0.4,
+                life: 0.3 + getRandom() * 0.4,
                 type: 'spark',
                 friction: 0.9
             });
@@ -388,14 +392,17 @@ class OptimizedParticlePool {
     }
     
     spawnTrailEffect(x, y, vx, vy) {
+        // Helper function for random with proper binding
+        const getRandom = () => window.perfCache ? window.perfCache.random() : Math.random();
+        
         this.spawnParticle({
-            x: x + (Math.random() - 0.5) * 5,
-            y: y + (Math.random() - 0.5) * 5,
-            vx: vx * 0.3 + (Math.random() - 0.5) * 20,
-            vy: vy * 0.3 + (Math.random() - 0.5) * 20,
-            size: 1 + Math.random() * 2,
+            x: x + (getRandom() - 0.5) * 5,
+            y: y + (getRandom() - 0.5) * 5,
+            vx: vx * 0.3 + (getRandom() - 0.5) * 20,
+            vy: vy * 0.3 + (getRandom() - 0.5) * 20,
+            size: 1 + getRandom() * 2,
             color: '#4ecdc4',
-            life: 0.5 + Math.random() * 0.3,
+            life: 0.5 + getRandom() * 0.3,
             type: 'basic',
             friction: 0.95
         });

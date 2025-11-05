@@ -185,6 +185,7 @@ class EnemySpawner {
 
         let culledCount = 0;
 
+        // Reverse iteration for safe removal during loop
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (!enemy || enemy.isBoss) continue; // Never cull bosses
@@ -201,7 +202,12 @@ class EnemySpawner {
                 if (typeof this.game.removeEntity === 'function') {
                     this.game.removeEntity(enemy);
                 } else {
-                    enemies.splice(i, 1);
+                    // Write-back pattern: O(n) instead of splice O(n²)
+                    const lastIndex = enemies.length - 1;
+                    if (i !== lastIndex) {
+                        enemies[i] = enemies[lastIndex];
+                    }
+                    enemies.length = lastIndex;
                 }
                 culledCount++;
 

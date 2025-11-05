@@ -82,7 +82,13 @@ const FastMath = {
     distance(x1, y1, x2, y2) {
         const dx = x2 - x1;
         const dy = y2 - y1;
-        return Math.sqrt(dx * dx + dy * dy);
+        const distSq = dx * dx + dy * dy;
+        
+        // Use cached sqrt if available
+        if (window.perfCache) {
+            return window.perfCache.sqrt(distSq);
+        }
+        return Math.sqrt(distSq);
     },
 
     distanceSquared(x1, y1, x2, y2) {
@@ -115,12 +121,18 @@ const FastMath = {
 
     /**
      * Fast vector normalization - returns unit vector from components
-     * Optimized: Uses inverse sqrt to avoid division
+     * Optimized: Uses inverse sqrt + cached common directions
      * @param {number} x - X component
      * @param {number} y - Y component  
      * @returns {{x: number, y: number}} Normalized vector
      */
     normalize(x, y) {
+        // Check cache for common directions (movement keys)
+        if (window.perfCache && (x === -1 || x === 0 || x === 1) && (y === -1 || y === 0 || y === 1)) {
+            const cached = window.perfCache.getNormalizedVector(x, y);
+            if (cached) return cached;
+        }
+        
         const lenSq = x * x + y * y;
         if (lenSq === 0) return { x: 0, y: 0 };
         
@@ -206,7 +218,7 @@ const FastMath = {
 
     /**
      * Check if distance between points is less than threshold
-     * Optimized: Uses squared distance to avoid sqrt
+     * Optimized: Uses squared distance to avoid sqrt + cached thresholds
      * @param {number} x1 - First point X
      * @param {number} y1 - First point Y
      * @param {number} x2 - Second point X
@@ -217,8 +229,14 @@ const FastMath = {
     isWithinDistance(x1, y1, x2, y2, threshold) {
         const dx = x2 - x1;
         const dy = y2 - y1;
-        const thresholdSq = threshold * threshold;
-        return (dx * dx + dy * dy) < thresholdSq;
+        const distSq = dx * dx + dy * dy;
+        
+        // Use cached threshold if available (common collision radii)
+        const thresholdSq = window.perfCache 
+            ? window.perfCache.getDistanceThreshold(threshold)
+            : threshold * threshold;
+        
+        return distSq < thresholdSq;
     },
 
     /**

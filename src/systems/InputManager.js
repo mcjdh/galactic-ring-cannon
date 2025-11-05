@@ -64,12 +64,57 @@ class InputManager {
         this._attachListener(window, 'gamepadconnected', this.handleGamepadConnected.bind(this));
         this._attachListener(window, 'gamepaddisconnected', this.handleGamepadDisconnected.bind(this));
 
+        // [BUG FIX] Window focus/blur to prevent stuck keys
+        this._attachListener(window, 'blur', this.handleWindowBlur.bind(this));
+        this._attachListener(window, 'focus', this.handleWindowFocus.bind(this));
+        this._attachListener(document, 'visibilitychange', this.handleVisibilityChange.bind(this));
+
         // Input manager initialized successfully
     }
 
     _attachListener(target, type, handler) {
         target.addEventListener(type, handler);
         this._listeners.push({ target, type, handler });
+    }
+
+    /**
+     * [BUG FIX] Clear all key states when window loses focus
+     * Prevents stuck movement when alt-tabbing or clicking away
+     */
+    handleWindowBlur() {
+        this.clearAllKeys();
+    }
+
+    /**
+     * [BUG FIX] Handle window regaining focus
+     */
+    handleWindowFocus() {
+        // Keys are already cleared, just log if needed
+    }
+
+    /**
+     * [BUG FIX] Handle page visibility changes (tab switching)
+     */
+    handleVisibilityChange() {
+        if (document.hidden) {
+            this.clearAllKeys();
+        }
+    }
+
+    /**
+     * [BUG FIX] Clear all key states to prevent stuck keys
+     */
+    clearAllKeys() {
+        // Clear all key states
+        this.keyStates = {};
+        
+        // Also clear mouse buttons
+        this.mouseState.buttons = 0;
+        
+        // Log for debugging if needed
+        if (window.debugMode) {
+            console.log('[InputManager] Cleared all key states (focus lost)');
+        }
     }
 
     destroy() {
