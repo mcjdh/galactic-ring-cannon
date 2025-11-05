@@ -1509,9 +1509,14 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;  /* Changed from center to allow scrolling */
     z-index: 500;
-    overflow: hidden;
+    /* FIXED: Enable scrolling instead of clipping content */
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Smooth scrolling for better UX */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;  /* iOS momentum scrolling */
 }
 
 #menu-background {
@@ -1530,6 +1535,11 @@ body {
     flex-direction: column;
     align-items: center;
     animation: fadeIn 0.8s ease-out;
+    /* FIXED: Add padding to prevent content clipping at edges */
+    padding: 32px 20px;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 100vh;  /* Ensure content can scroll if taller than viewport */
 }
 
 /* Title Styling - Split into three parts */
@@ -1659,13 +1669,59 @@ body {
     width: 100%;
 }
 
+/* IMPROVED: Better structured character description */
 #loadout-description {
-    min-height: 42px;
-    font-size: 14px;
+    min-height: 80px;  /* Increased from 42px to fit structured content */
+    max-height: 180px;  /* Prevent infinite expansion */
+    overflow-y: auto;  /* Allow scrolling if needed */
+    font-size: 13px;
     color: #00ffff;
     font-family: 'Lucida Console', 'Courier New', monospace;
-    line-height: 1.4;
+    line-height: 1.6;  /* Increased for readability */
     text-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
+    padding: 8px 12px;
+    box-sizing: border-box;
+    word-wrap: break-word;  /* Prevent text overflow */
+    white-space: normal;  /* Allow wrapping */
+}
+
+/* Character description styling */
+.char-desc-flavor {
+    margin-bottom: 8px;
+    font-style: italic;
+    opacity: 0.9;
+    line-height: 1.5;
+}
+
+.char-desc-weapon {
+    margin: 6px 0;
+    padding: 4px 8px;
+    background: rgba(0, 255, 255, 0.08);
+    border-left: 2px solid #00ffff;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.char-desc-highlights {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0 0;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.char-desc-highlights li {
+    padding: 2px 0 2px 14px;
+    position: relative;
+}
+
+.char-desc-highlights li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: #ff00ff;
+    font-size: 10px;
 }
 
 .menu-button {
@@ -1747,6 +1803,175 @@ body {
 .button-text {
     flex: 1;
 }
+
+/* =================================================================
+   IMPROVED: Character Selection and Menu Section Styles
+   Better spacing, visual hierarchy, and aesthetics
+   ================================================================= */
+
+/* Menu section titles - consistent typography */
+.menu-section-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #ff00ff;
+    text-shadow: 0 0 15px rgba(255, 0, 255, 0.6);
+    margin: 25px 0 15px 0;
+    text-transform: uppercase;
+    font-family: 'Lucida Console', 'Courier New', monospace;
+    text-align: center;
+    transition: text-shadow 0.3s ease;
+}
+
+.menu-section-title:hover {
+    text-shadow: 0 0 20px rgba(255, 0, 255, 0.8), 0 0 30px rgba(0, 255, 255, 0.4);
+}
+
+/* Character selection container */
+#character-select-container {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.05), rgba(255, 0, 255, 0.05));
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 15px 0;
+    max-width: 600px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2), inset 0 0 20px rgba(0, 255, 255, 0.05);
+    max-height: 450px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+#character-select-container:hover {
+    border-color: rgba(255, 0, 255, 0.4);
+    box-shadow: 0 0 25px rgba(255, 0, 255, 0.3), inset 0 0 20px rgba(255, 0, 255, 0.05);
+}
+
+/* Custom scrollbar for character selection */
+#character-select-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+#character-select-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+#character-select-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #00ffff, #ff00ff);
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+#character-select-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #ff00ff, #00ffff);
+}
+
+/* Character option cards */
+.character-option {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.08), rgba(255, 0, 255, 0.08));
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.character-option::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.15), transparent);
+    transition: left 0.5s ease;
+}
+
+.character-option:hover::before {
+    left: 100%;
+}
+
+.character-option:hover {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 255, 0.15));
+    border-color: #ff00ff;
+    transform: translateX(4px);
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.4), 0 0 25px rgba(0, 255, 255, 0.3);
+}
+
+.character-option.selected {
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.2), rgba(0, 255, 255, 0.2));
+    border-color: #ff00ff;
+    box-shadow: 0 0 30px rgba(255, 0, 255, 0.6), inset 0 0 20px rgba(255, 0, 255, 0.1);
+    transform: scale(1.02);
+}
+
+.character-option.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 20px;
+    color: #00ff00;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+    animation: check-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes check-pulse {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* Character name styling */
+.char-name {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #00ffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    font-family: 'Lucida Console', 'Courier New', monospace;
+    transition: color 0.3s ease;
+}
+
+.character-option:hover .char-name {
+    color: #ff00ff;
+    text-shadow: 0 0 12px rgba(255, 0, 255, 0.8);
+}
+
+/* Character description container */
+.char-description {
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Better visual separation for stat displays */
+.stat-display,
+.credits-display {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.1));
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 8px 16px;
+    margin: 8px 4px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.stat-display:hover,
+.credits-display:hover {
+    border-color: rgba(255, 0, 255, 0.5);
+    box-shadow: 0 4px 12px rgba(255, 0, 255, 0.4);
+    transform: translateY(-2px);
+}
+
 /* Settings Panel Styles */
 #settings-panel {
     position: fixed;
@@ -2208,4 +2433,534 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+}
+
+/* =================================================================
+   RESPONSIVE BREAKPOINTS
+   Mobile-first responsive design for main menu layout
+   Fixes: Settings button invisibility, button scaling, text overflow
+   ================================================================= */
+
+/* Mobile Landscape & Small Tablets (480px - 768px) */
+@media screen and (max-width: 768px) and (min-width: 480px) {
+    #menu-container {
+        padding: 15px;
+    }
+
+    #menu-title {
+        font-size: 2.5em;
+        margin-bottom: 15px;
+    }
+
+    #menu-subtitle {
+        font-size: 0.9em;
+        margin-bottom: 15px;
+    }
+
+    #menu-buttons {
+        width: 85%;
+        max-width: 400px;
+        padding: 15px;
+    }
+
+    .menu-button {
+        padding: 12px 20px;
+        font-size: 1em;
+        margin: 8px 0;
+    }
+
+    .menu-section-title {
+        font-size: 1.1em;
+        margin: 15px 0 10px 0;
+    }
+
+    #character-select-container {
+        padding: 12px;
+    }
+
+    .character-option {
+        padding: 10px;
+        margin: 6px 0;
+    }
+
+    .char-name {
+        font-size: 1em;
+    }
+
+    .char-desc-flavor {
+        font-size: 11px;
+    }
+
+    .char-desc-weapon {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+
+    .char-desc-highlights {
+        font-size: 10px;
+    }
+
+    #settings-panel,
+    #shop-panel,
+    #achievements-panel {
+        width: 85%;
+        max-width: 500px;
+        padding: 20px;
+    }
+}
+
+/* Mobile Portrait (< 480px) */
+@media screen and (max-width: 479px) {
+    #menu-container {
+        padding: 10px 5px;
+    }
+
+    #menu-title {
+        font-size: 1.8em;
+        margin-bottom: 10px;
+    }
+
+    #menu-subtitle {
+        font-size: 0.75em;
+        margin-bottom: 10px;
+    }
+
+    #menu-buttons {
+        width: 95%;
+        max-width: 100%;
+        padding: 10px;
+    }
+
+    .menu-button {
+        padding: 10px 15px;
+        font-size: 0.9em;
+        margin: 6px 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .menu-section-title {
+        font-size: 1em;
+        margin: 12px 0 8px 0;
+    }
+
+    #character-select-container {
+        padding: 8px;
+        max-height: 400px;
+    }
+
+    .character-option {
+        padding: 8px;
+        margin: 5px 0;
+    }
+
+    .char-name {
+        font-size: 0.95em;
+        margin-bottom: 4px;
+    }
+
+    .char-description {
+        min-height: 60px;
+        max-height: 140px;
+    }
+
+    .char-desc-flavor {
+        font-size: 10px;
+        margin-bottom: 6px;
+    }
+
+    .char-desc-weapon {
+        font-size: 10px;
+        padding: 3px 5px;
+        margin: 4px 0;
+    }
+
+    .char-desc-highlights {
+        font-size: 9px;
+        margin-top: 4px;
+    }
+
+    .char-desc-highlights li {
+        padding: 1px 0 1px 12px;
+    }
+
+    .char-desc-highlights li::before {
+        font-size: 8px;
+    }
+
+    #settings-panel,
+    #shop-panel,
+    #achievements-panel {
+        width: 95%;
+        max-width: 100%;
+        padding: 15px 10px;
+    }
+
+    .setting-item label {
+        font-size: 0.9em;
+    }
+
+    .shop-item {
+        padding: 10px;
+        margin: 8px 0;
+    }
+
+    .achievement-item {
+        padding: 8px;
+        font-size: 0.85em;
+    }
+}
+
+/* Large Desktop (> 1200px) */
+@media screen and (min-width: 1200px) {
+    #menu-buttons {
+        width: 400px;
+        max-width: 400px;
+    }
+
+    #character-select-container {
+        padding: 20px;
+        max-height: 500px;
+    }
+
+    .character-option {
+        padding: 15px;
+    }
+
+    .char-description {
+        min-height: 90px;
+        max-height: 200px;
+    }
+
+    #settings-panel,
+    #shop-panel,
+    #achievements-panel {
+        width: 600px;
+        max-width: 600px;
+    }
+}
+
+/* Extra small screens (< 360px) - Older phones */
+@media screen and (max-width: 359px) {
+    #menu-title {
+        font-size: 1.5em;
+    }
+
+    .menu-button {
+        padding: 8px 12px;
+        font-size: 0.85em;
+    }
+
+    .char-desc-flavor {
+        font-size: 9px;
+    }
+
+    .char-desc-weapon {
+        font-size: 9px;
+    }
+
+    .char-desc-highlights {
+        font-size: 8px;
+    }
+}
+
+/* =================================================================
+   ORIENTATION-SPECIFIC OPTIMIZATIONS
+   Zero-cost CSS media queries for portrait vs landscape layouts
+   Browser handles detection automatically - no JavaScript needed!
+   ================================================================= */
+
+/* Portrait orientation - Optimize for vertical scrolling */
+@media screen and (orientation: portrait) {
+    /* More vertical space available - optimize for scrolling */
+    #menu-content {
+        padding: 20px 12px;
+        justify-content: flex-start;
+    }
+
+    #menu-title {
+        margin-bottom: 20px;
+        gap: 6px;
+    }
+
+    .title-galactic,
+    .title-cannon {
+        font-size: 2.2em;
+    }
+
+    .title-ring {
+        font-size: 2.8em;
+    }
+
+    #menu-subtitle {
+        font-size: 0.9em;
+        margin-bottom: 20px;
+    }
+
+    /* Buttons take full width in portrait */
+    #menu-buttons {
+        width: 90%;
+        max-width: 420px;
+        gap: 12px;
+    }
+
+    .menu-button {
+        padding: 14px 20px;
+    }
+
+    /* Character selection optimized for scrolling */
+    #character-select-container {
+        max-height: 60vh;
+        width: 90%;
+        max-width: 500px;
+    }
+
+    .character-option {
+        margin: 8px 0;
+    }
+
+    /* Compact description to save vertical space */
+    .char-description {
+        max-height: 150px;
+    }
+
+    /* Settings/Shop panels use more vertical space */
+    #settings-panel .settings-content,
+    #shop-panel .settings-content,
+    #achievements-panel .settings-content {
+        max-height: 85vh;
+        width: 90%;
+        max-width: 500px;
+    }
+}
+
+/* Landscape orientation - Optimize for horizontal space, minimal vertical */
+@media screen and (orientation: landscape) {
+    /* Less vertical space - compact everything */
+    #menu-content {
+        padding: 15px 20px;
+        min-height: auto;
+    }
+
+    #menu-title {
+        margin-bottom: 12px;
+        gap: 4px;
+    }
+
+    /* Significantly smaller title in landscape to save vertical space */
+    .title-galactic,
+    .title-cannon {
+        font-size: 1.8em;
+    }
+
+    .title-ring {
+        font-size: 2.2em;
+    }
+
+    #menu-subtitle {
+        font-size: 0.8em;
+        margin-bottom: 12px;
+    }
+
+    #star-menu-display {
+        font-size: 20px;
+        margin-bottom: 8px;
+    }
+
+    /* Buttons more compact in landscape */
+    #menu-buttons {
+        gap: 10px;
+    }
+
+    .menu-button {
+        padding: 10px 18px;
+        font-size: 0.95em;
+    }
+
+    .menu-section-title {
+        margin: 15px 0 10px 0;
+        font-size: 1em;
+    }
+
+    /* Character selection takes less vertical space */
+    #character-select-container {
+        max-height: 50vh;
+        padding: 12px;
+    }
+
+    .character-option {
+        padding: 8px 12px;
+        margin: 6px 0;
+    }
+
+    .char-name {
+        font-size: 1em;
+        margin-bottom: 4px;
+    }
+
+    /* Compact description in landscape */
+    .char-description {
+        min-height: 50px;
+        max-height: 100px;
+        font-size: 11px;
+    }
+
+    .char-desc-flavor {
+        font-size: 10px;
+        margin-bottom: 4px;
+    }
+
+    .char-desc-weapon {
+        font-size: 10px;
+        padding: 3px 6px;
+        margin: 3px 0;
+    }
+
+    .char-desc-highlights {
+        font-size: 9px;
+    }
+
+    /* Settings/Shop panels more compact in landscape */
+    #settings-panel .settings-content,
+    #shop-panel .settings-content,
+    #achievements-panel .settings-content {
+        max-height: 75vh;
+        padding: 15px 20px;
+    }
+
+    .setting-item {
+        margin: 8px 0;
+    }
+}
+
+/* Mobile landscape (< 768px AND landscape) - Extra compact! */
+@media screen and (max-width: 767px) and (orientation: landscape) {
+    /* Critical: Very limited vertical space on mobile landscape */
+    #menu-content {
+        padding: 10px 15px;
+    }
+
+    #menu-title {
+        margin-bottom: 8px;
+        gap: 2px;
+    }
+
+    /* Super compact title for mobile landscape */
+    .title-galactic,
+    .title-cannon {
+        font-size: 1.4em;
+    }
+
+    .title-ring {
+        font-size: 1.8em;
+    }
+
+    #menu-subtitle {
+        font-size: 0.7em;
+        margin-bottom: 8px;
+    }
+
+    #star-menu-display {
+        font-size: 16px;
+        margin-bottom: 6px;
+    }
+
+    #menu-buttons {
+        gap: 8px;
+        width: 85%;
+    }
+
+    .menu-button {
+        padding: 8px 14px;
+        font-size: 0.85em;
+        margin: 4px 0;
+    }
+
+    .menu-section-title {
+        margin: 10px 0 8px 0;
+        font-size: 0.9em;
+    }
+
+    /* Character selection very compact */
+    #character-select-container {
+        max-height: 40vh;
+        padding: 8px;
+    }
+
+    .character-option {
+        padding: 6px 10px;
+        margin: 4px 0;
+    }
+
+    .char-name {
+        font-size: 0.9em;
+        margin-bottom: 3px;
+    }
+
+    .char-description {
+        min-height: 40px;
+        max-height: 80px;
+        font-size: 10px;
+    }
+
+    .char-desc-flavor {
+        font-size: 9px;
+        margin-bottom: 3px;
+    }
+
+    .char-desc-weapon {
+        font-size: 9px;
+        padding: 2px 4px;
+        margin: 2px 0;
+    }
+
+    .char-desc-highlights {
+        font-size: 8px;
+    }
+
+    .char-desc-highlights li {
+        padding: 1px 0 1px 10px;
+    }
+
+    /* Settings/Shop panels ultra-compact */
+    #settings-panel .settings-content,
+    #shop-panel .settings-content,
+    #achievements-panel .settings-content {
+        max-height: 70vh;
+        padding: 12px 15px;
+        font-size: 0.9em;
+    }
+
+    .setting-item {
+        margin: 6px 0;
+    }
+
+    .setting-item label {
+        font-size: 0.85em;
+    }
+}
+
+/* Tablet landscape (768px - 1024px AND landscape) - Optimize horizontal layout */
+@media screen and (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    /* Good horizontal space, limited vertical */
+    #menu-buttons {
+        width: 450px;
+        max-width: 450px;
+    }
+
+    #character-select-container {
+        max-width: 650px;
+        max-height: 55vh;
+    }
+
+    /* Could use two-column layout for character options if needed */
+    #character-options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .loadout-option {
+        min-width: auto;
+    }
 }

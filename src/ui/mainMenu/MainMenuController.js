@@ -359,23 +359,29 @@
                 return;
             }
 
-            const detailParts = [];
+            // IMPROVED: Structure description with HTML for better readability
+            const descriptionParts = [];
+
+            // Character description (main flavor text)
             if (character.description) {
-                detailParts.push(character.description);
+                descriptionParts.push(`<div class="char-desc-flavor">${character.description}</div>`);
             }
 
+            // Weapon info (concise, on its own line)
             const weaponDef = this.getWeaponDefinition(character.weaponId);
             if (weaponDef) {
-                const summary = this.formatWeaponSummary(weaponDef);
-                detailParts.push(`Starts with ${weaponDef.name}${summary ? ` (${summary})` : ''}`);
+                descriptionParts.push(`<div class="char-desc-weapon">⚡ ${weaponDef.name}</div>`);
             }
 
+            // Character highlights (stats/abilities)
             const highlights = this.formatCharacterHighlights(character);
             if (highlights) {
-                detailParts.push(highlights);
+                // Split multiple highlights into bullet points
+                const highlightList = highlights.split(' | ').map(h => `<li>${h}</li>`).join('');
+                descriptionParts.push(`<ul class="char-desc-highlights">${highlightList}</ul>`);
             }
 
-            descriptionEl.textContent = detailParts.join(' - ');
+            descriptionEl.innerHTML = descriptionParts.join('');
         }
 
         formatWeaponSummary(def) {
