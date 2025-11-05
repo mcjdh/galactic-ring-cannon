@@ -213,7 +213,7 @@ class GameEngine {
                 const isLowEndDevice = this._detectLowEndDevice();
                 
                 if (isLowEndDevice.isRaspberryPi) {
-                    console.log('🍓 Raspberry Pi detected - enabling optimizations');
+                    (window.logger?.log || (() => {}))('🍓 Raspberry Pi detected - enabling optimizations');
                     window.isRaspberryPi = true;
                     this.cosmicBackground.enablePi5Mode();
                     this._autoLowQualityCosmic = true;
@@ -237,7 +237,7 @@ class GameEngine {
                         window.FastMath.installGlobals();
                     }
                 } else if (isLowEndDevice.isLowEnd) {
-                    console.log('⚡ Low-end device detected - enabling optimizations');
+                    (window.logger?.log || (() => {}))('⚡ Low-end device detected - enabling optimizations');
                     this.cosmicBackground.setLowQuality(true);
                     this._autoLowQualityCosmic = true;
                     this._autoParticleLowQuality = true;
@@ -378,7 +378,7 @@ class GameEngine {
 
         const debugEnabled = this.debugMode || (typeof window !== 'undefined' && window.debugMode);
         if (debugEnabled) {
-            console.log(`🎨 _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
+            (window.logger?.log || (() => {}))(`🎨 _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
         }
 
         this.cosmicBackground.setLowQuality(shouldUseLowQuality);
@@ -1508,7 +1508,7 @@ class GameEngine {
 
     _handleProjectileEnemyCollision(projectile, enemy) {
         if (window.debugProjectiles) {
-            console.log(`[GameEngine] _handleProjectileEnemyCollision: Projectile ${projectile.id} hitting enemy ${enemy.id}. Projectile piercing: ${projectile.piercing}`);
+            (window.logger?.log || (() => {}))(`[GameEngine] _handleProjectileEnemyCollision: Projectile ${projectile.id} hitting enemy ${enemy.id}. Projectile piercing: ${projectile.piercing}`);
         }
 
         if (enemy.isDead || (projectile.hitEnemies && projectile.hitEnemies.has(enemy.id))) {

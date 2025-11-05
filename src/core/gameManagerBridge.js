@@ -333,7 +333,17 @@ class GameManagerBridge {
      */
     startGame() {
         (window.logger?.log || console.log)('🚀 Starting game...');
-        
+
+        // Defensive cleanup: Clear menu listeners/animations when transitioning to game
+        // This prevents memory leaks if menu state gets out of sync
+        if (window.mainMenuController) {
+            window.mainMenuController.clearDynamicListeners?.();
+            if (window.mainMenuController.menuAnimationFrame) {
+                cancelAnimationFrame(window.mainMenuController.menuAnimationFrame);
+                window.mainMenuController.menuAnimationFrame = null;
+            }
+        }
+
         // Initialize engine if not done
         if (!this.game) {
             (window.logger?.log || console.log)('🔧 Game engine not initialized, creating...');
@@ -1146,7 +1156,7 @@ class GameManagerBridge {
             if (currentSecond !== this._lastBossDebugSecond) {
                 this._lastBossDebugSecond = currentSecond;
             if (window.debugManager?.enabled) {
-                console.log(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${this.enemySpawner.bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
+                (window.logger?.log || (() => {}))(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${this.enemySpawner.bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
             }
             }
 
@@ -1180,7 +1190,7 @@ class GameManagerBridge {
                 bossCountdownElement.classList.add('hidden');
             }
         } else {
-            console.log('[GameManagerBridge] Boss countdown element not found');
+            (window.logger?.warn || console.warn)('[GameManagerBridge] Boss countdown element not found');
         }
     }
 

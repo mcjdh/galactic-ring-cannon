@@ -398,7 +398,7 @@
                         let piercingExhausted = false;
                         if (typeof entity1.piercing === 'number' && entity1.piercing > 0) {
                             if (window.debugProjectiles) {
-                                console.log(`[CollisionSystem] Projectile ${entity1.id} piercing hit. Piercing: ${entity1.piercing} -> ${entity1.piercing - 1}`);
+                                (window.logger?.log || (() => {}))(`[CollisionSystem] Projectile ${entity1.id} piercing hit. Piercing: ${entity1.piercing} -> ${entity1.piercing - 1}`);
                             }
                             entity1.piercing--;
                             projectileShouldDie = false; // Continue after piercing
@@ -419,7 +419,7 @@
                         // Check for ricochet only when projectile would normally die
                         if (projectileShouldDie && (entity1.hasRicochet || entity1.ricochet || entity1.specialType === 'ricochet')) {
                             if (window.debugProjectiles) {
-                                console.log(`[CollisionSystem] Projectile ${entity1.id} attempting ricochet. hasRicochet: ${!!entity1.hasRicochet}, specialType: ${entity1.specialType}`);
+                                (window.logger?.log || (() => {}))(`[CollisionSystem] Projectile ${entity1.id} attempting ricochet. hasRicochet: ${!!entity1.hasRicochet}, specialType: ${entity1.specialType}`);
                             }
                             try {
                                 const ok = entity1.ricochet(engine);
@@ -504,7 +504,7 @@
                         let piercingExhausted2 = false;
                         if (typeof entity2.piercing === 'number' && entity2.piercing > 0) {
                             if (window.debugProjectiles) {
-                                console.log(`[CollisionSystem] Projectile ${entity2.id} piercing hit. Piercing: ${entity2.piercing} -> ${entity2.piercing - 1}`);
+                                (window.logger?.log || (() => {}))(`[CollisionSystem] Projectile ${entity2.id} piercing hit. Piercing: ${entity2.piercing} -> ${entity2.piercing - 1}`);
                             }
                             entity2.piercing--;
                             projectileShouldDie2 = false; // Continue after piercing
@@ -525,7 +525,7 @@
                         // Check for ricochet only when projectile would normally die
                         if (projectileShouldDie2 && (entity2.hasRicochet || entity2.ricochet || entity2.specialType === 'ricochet')) {
                             if (window.debugProjectiles) {
-                                console.log(`[CollisionSystem] Projectile ${entity2.id} attempting ricochet. hasRicochet: ${!!entity2.hasRicochet}, specialType: ${entity2.specialType}`);
+                                (window.logger?.log || (() => {}))(`[CollisionSystem] Projectile ${entity2.id} attempting ricochet. hasRicochet: ${!!entity2.hasRicochet}, specialType: ${entity2.specialType}`);
                             }
                             try {
                                 const ok = entity2.ricochet(engine);

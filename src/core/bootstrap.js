@@ -297,14 +297,14 @@
             
             if (isPi) {
                 window.isRaspberryPi = true;
-                console.log('🍓 Raspberry Pi detected!');
-                console.log('🚀 Enabling Pi5 performance optimizations...');
+                (window.logger?.log || console.log)('🍓 Raspberry Pi detected!');
+                (window.logger?.log || console.log)('🚀 Enabling Pi5 performance optimizations...');
                 
                 // Enable performance mode across all systems
                 this.enablePi5Optimizations();
             } else if (isARM) {
                 // Other ARM devices (mobile, tablets) - use moderate optimizations
-                console.log('📱 ARM device detected - enabling moderate optimizations');
+                (window.logger?.log || console.log)('📱 ARM device detected - enabling moderate optimizations');
                 window.isLowPowerDevice = true;
                 this.enableModeratePowerOptimizations();
             }
@@ -505,6 +505,11 @@
 
             if (window.performanceManager?.destroy) {
                 window.performanceManager.destroy();
+            }
+
+            // Clean up main menu controller (removes event listeners, animations, etc.)
+            if (window.mainMenuController?.cleanup) {
+                window.mainMenuController.cleanup();
             }
 
             window.gameManager?.cleanup?.();
