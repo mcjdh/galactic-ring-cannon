@@ -465,11 +465,11 @@
                                 piercingExhausted = true;
                                 projectileShouldDie = true; // Should die unless ricochet saves it
                                 if (window.debugProjectiles) {
-                                    console.log(`[CollisionSystem] Projectile ${entity1.id} piercing exhausted, should die unless ricochet saves it`);
+                                    window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing exhausted, should die unless ricochet saves it`);
                                 }
                             } else {
                                 if (window.debugProjectiles) {
-                                    console.log(`[CollisionSystem] Projectile ${entity1.id} still has piercing charges: ${entity1.piercing}`);
+                                    window.logger.log(`[CollisionSystem] Projectile ${entity1.id} still has piercing charges: ${entity1.piercing}`);
                                 }
                             }
                         }
@@ -484,23 +484,23 @@
                                 if (ok) {
                                     projectileShouldDie = false; // Ricochet successful
                                     if (window.debugProjectiles) {
-                                        console.log(`[CollisionSystem] Projectile ${entity1.id} ricochet successful!`);
+                                        window.logger.log(`[CollisionSystem] Projectile ${entity1.id} ricochet successful!`);
                                     }
                                     // Reset piercing if projectile ricocheted
                                     if (piercingExhausted && entity1.originalPiercing > 0) {
                                         entity1.piercing = Math.max(1, Math.floor(entity1.originalPiercing / 2));
                                         if (window.debugProjectiles) {
-                                            console.log(`[CollisionSystem] Projectile ${entity1.id} piercing restored: ${entity1.piercing}`);
+                                            window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing restored: ${entity1.piercing}`);
                                         }
                                     }
                                 } else {
                                     if (window.debugProjectiles) {
-                                        console.log(`[CollisionSystem] Projectile ${entity1.id} ricochet failed`);
+                                        window.logger.log(`[CollisionSystem] Projectile ${entity1.id} ricochet failed`);
                                     }
                                 }
                             } catch (e) {
                                 if (window.debugProjectiles) {
-                                    console.log(`[CollisionSystem] Projectile ${entity1.id} ricochet error:`, e);
+                                    window.logger.log(`[CollisionSystem] Projectile ${entity1.id} ricochet error:`, e);
                                 }
                             }
                         }
@@ -571,11 +571,11 @@
                                 piercingExhausted2 = true;
                                 projectileShouldDie2 = true; // Should die unless ricochet saves it
                                 if (window.debugProjectiles) {
-                                    console.log(`[CollisionSystem] Projectile ${entity2.id} piercing exhausted, should die unless ricochet saves it`);
+                                    window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing exhausted, should die unless ricochet saves it`);
                                 }
                             } else {
                                 if (window.debugProjectiles) {
-                                    console.log(`[CollisionSystem] Projectile ${entity2.id} still has piercing charges: ${entity2.piercing}`);
+                                    window.logger.log(`[CollisionSystem] Projectile ${entity2.id} still has piercing charges: ${entity2.piercing}`);
                                 }
                             }
                         }
@@ -590,23 +590,23 @@
                                 if (ok) {
                                     projectileShouldDie2 = false; // Ricochet successful
                                     if (window.debugProjectiles) {
-                                        console.log(`[CollisionSystem] Projectile ${entity2.id} ricochet successful!`);
+                                        window.logger.log(`[CollisionSystem] Projectile ${entity2.id} ricochet successful!`);
                                     }
                                     // Reset piercing if projectile ricocheted
                                     if (piercingExhausted2 && entity2.originalPiercing > 0) {
                                         entity2.piercing = Math.max(1, Math.floor(entity2.originalPiercing / 2));
                                         if (window.debugProjectiles) {
-                                            console.log(`[CollisionSystem] Projectile ${entity2.id} piercing restored: ${entity2.piercing}`);
+                                            window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing restored: ${entity2.piercing}`);
                                         }
                                     }
                                 } else {
                                     if (window.debugProjectiles) {
-                                        console.log(`[CollisionSystem] Projectile ${entity2.id} ricochet failed`);
+                                        window.logger.log(`[CollisionSystem] Projectile ${entity2.id} ricochet failed`);
                                     }
                                 }
                             } catch (e) {
                                 if (window.debugProjectiles) {
-                                    console.log(`[CollisionSystem] Projectile ${entity2.id} ricochet error:`, e);
+                                    window.logger.log(`[CollisionSystem] Projectile ${entity2.id} ricochet error:`, e);
                                 }
                             }
                         }
