@@ -391,21 +391,52 @@ class Player {
     get ricochetDamage() { return this.abilities.ricochetDamage; }
     set ricochetDamage(value) { this.abilities.ricochetDamage = value; }
 
-    // Unified upgrade system
+    /**
+     * Apply upgrade to player, routing to appropriate component systems.
+     *
+     * This is the second of two clones in the upgrade flow:
+     * 1. UpgradeSystem clones to protect UPGRADE_DEFINITIONS
+     * 2. Player clones HERE to protect UpgradeSystem.selectedUpgrades
+     *
+     * Why clone again?
+     * - We mutate the upgrade by adding stackCount/tier metadata
+     * - If we didn't clone, we'd corrupt UpgradeSystem.selectedUpgrades array
+     * - That array is used for synergy detection, combo tracking, build paths
+     *
+     * Both clones serve different purposes:
+     * - UpgradeSystem.selectedUpgrades: Tracks chosen upgrades for selection logic
+     * - player.upgrades: Stores upgrade history with stack data for UI/diminishing returns
+     *
+     * @param {Object} upgrade - Upgrade instance from UpgradeSystem (already cloned once)
+     */
     applyUpgrade(upgrade) {
-        const existingStacks = this.upgrades.filter(existing => existing.id === upgrade.id).length;
+        // Clone upgrade to protect UpgradeSystem.selectedUpgrades from mutations
+        // We add stackCount/tier metadata which would corrupt the tracking array
+        let upgradeInstance;
+        if (typeof structuredClone === 'function') {
+            try {
+                upgradeInstance = structuredClone(upgrade);
+            } catch (e) {
+                // Fallback to JSON clone if structuredClone fails
+                upgradeInstance = JSON.parse(JSON.stringify(upgrade));
+            }
+        } else {
+            upgradeInstance = JSON.parse(JSON.stringify(upgrade));
+        }
+
+        const existingStacks = this.upgrades.filter(existing => existing.id === upgradeInstance.id).length;
         const newStackCount = existingStacks + 1;
         const tiers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
-        upgrade.stackCount = newStackCount;
-        upgrade.tier = tiers[Math.min(newStackCount - 1, tiers.length - 1)];
+        upgradeInstance.stackCount = newStackCount;
+        upgradeInstance.tier = tiers[Math.min(newStackCount - 1, tiers.length - 1)];
 
         const isUpgradeStacked = newStackCount > 1;
 
-        this.upgrades.push(upgrade);
+        this.upgrades.push(upgradeInstance);
 
         // Route upgrade to appropriate system
-        switch (upgrade.type) {
+        switch (upgradeInstance.type) {
             // Stats upgrades
             case 'maxHealth':
             case 'regeneration':
@@ -413,7 +444,7 @@ class Player {
             case 'lifesteal':
             case 'lifestealCrit':
             case 'lifestealAOE':
-                this.stats.applyStatsUpgrade(upgrade);
+                this.stats.applyStatsUpgrade(upgradeInstance);
                 break;
 
             // Movement upgrades
@@ -422,7 +453,7 @@ class Player {
             case 'dodgeCooldown':
             case 'dodgeDuration':
             case 'dodgeInvulnerability':
-                this.movement.applyMovementUpgrade(upgrade);
+                this.movement.applyMovementUpgrade(upgradeInstance);
                 break;
 
             // Combat upgrades
@@ -434,7 +465,7 @@ class Player {
             case 'projectileSpeed':
             case 'critChance':
             case 'critDamage':
-                this.combat.applyCombatUpgrade(upgrade);
+                this.combat.applyCombatUpgrade(upgradeInstance);
                 break;
 
             // Ability upgrades
@@ -451,20 +482,20 @@ class Player {
             case 'explosionChain':
             case 'ricochetBounces':
             case 'ricochetDamage':
-                this.abilities.applyAbilityUpgrade(upgrade);
+                this.abilities.applyAbilityUpgrade(upgradeInstance);
                 break;
         }
 
         if (this.combat.weaponManager) {
-            this.combat.weaponManager.applyUpgrade(upgrade);
+            this.combat.weaponManager.applyUpgrade(upgradeInstance);
         }
 
         // Show upgrade feedback
         if (isUpgradeStacked) {
-            const tierText = upgrade.tier ? ` ${upgrade.tier}` : '';
+            const tierText = upgradeInstance.tier ? ` ${upgradeInstance.tier}` : '';
             if (window.gameManager && typeof window.gameManager.showFloatingText === 'function') {
                 window.gameManager.showFloatingText(
-                    `${upgrade.name}${tierText} upgraded!`,
+                    `${upgradeInstance.name}${tierText} upgraded!`,
                     this.x,
                     this.y - 30,
                     '#e67e22',
@@ -475,7 +506,7 @@ class Player {
         } else {
             if (window.gameManager && typeof window.gameManager.showFloatingText === 'function') {
                 window.gameManager.showFloatingText(
-                    `${upgrade.name} acquired!`,
+                    `${upgradeInstance.name} acquired!`,
                     this.x,
                     this.y - 30,
                     '#3498db',

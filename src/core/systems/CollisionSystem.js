@@ -251,14 +251,14 @@
                 }
                 
             } catch (error) {
-                window.LoggerUtils.error('Error in collision checking:', error);
+                window.logger.error('Error in collision checking:', error);
             }
         }
         
         // + PERFORMANCE STATISTICS LOGGING
         logPerformanceStats(processingTime) {
             const stats = this.stats;
-            window.LoggerUtils.debug(`Collision Performance:
+            window.logger.log(`Collision Performance:
                 Cells: ${stats.cellsProcessed} | Avg Entities/Cell: ${stats.avgEntitiesPerCell.toFixed(1)}
                 Checks: ${stats.collisionsChecked} | Detected: ${stats.collisionsDetected} 
                 Processing Time: ${processingTime.toFixed(2)}ms`);
@@ -456,7 +456,7 @@
                         let piercingExhausted = false;
                         if (typeof entity1.piercing === 'number' && entity1.piercing > 0) {
                             if (window.debugProjectiles) {
-                                window.LoggerUtils.log(`[CollisionSystem] Projectile ${entity1.id} piercing hit. Piercing: ${entity1.piercing} -> ${entity1.piercing - 1}`);
+                                window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing hit. Piercing: ${entity1.piercing} -> ${entity1.piercing - 1}`);
                             }
                             entity1.piercing--;
                             projectileShouldDie = false; // Continue after piercing
@@ -477,7 +477,7 @@
                         // Check for ricochet only when projectile would normally die
                         if (projectileShouldDie && (entity1.hasRicochet || entity1.ricochet || entity1.specialType === 'ricochet')) {
                             if (window.debugProjectiles) {
-                                window.LoggerUtils.log(`[CollisionSystem] Projectile ${entity1.id} attempting ricochet. hasRicochet: ${!!entity1.hasRicochet}, specialType: ${entity1.specialType}`);
+                                window.logger.log(`[CollisionSystem] Projectile ${entity1.id} attempting ricochet. hasRicochet: ${!!entity1.hasRicochet}, specialType: ${entity1.specialType}`);
                             }
                             try {
                                 const ok = entity1.ricochet(engine);
@@ -562,7 +562,7 @@
                         let piercingExhausted2 = false;
                         if (typeof entity2.piercing === 'number' && entity2.piercing > 0) {
                             if (window.debugProjectiles) {
-                                window.LoggerUtils.log(`[CollisionSystem] Projectile ${entity2.id} piercing hit. Piercing: ${entity2.piercing} -> ${entity2.piercing - 1}`);
+                                window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing hit. Piercing: ${entity2.piercing} -> ${entity2.piercing - 1}`);
                             }
                             entity2.piercing--;
                             projectileShouldDie2 = false; // Continue after piercing
@@ -583,7 +583,7 @@
                         // Check for ricochet only when projectile would normally die
                         if (projectileShouldDie2 && (entity2.hasRicochet || entity2.ricochet || entity2.specialType === 'ricochet')) {
                             if (window.debugProjectiles) {
-                                window.LoggerUtils.log(`[CollisionSystem] Projectile ${entity2.id} attempting ricochet. hasRicochet: ${!!entity2.hasRicochet}, specialType: ${entity2.specialType}`);
+                                window.logger.log(`[CollisionSystem] Projectile ${entity2.id} attempting ricochet. hasRicochet: ${!!entity2.hasRicochet}, specialType: ${entity2.specialType}`);
                             }
                             try {
                                 const ok = entity2.ricochet(engine);
@@ -628,7 +628,7 @@
                     }
                 }
             } catch (err) {
-                window.LoggerUtils.error('Error handling collision:', err, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
+                window.logger.error('Error handling collision:', err, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
             }
         }
         
@@ -653,7 +653,7 @@
                 }
 
                 if (window.debugManager?.enabled) {
-                    window.LoggerUtils.debug(`Cell pool cleaned: ${this.cellPool.size} cells remaining`);
+                    window.logger.log(`Cell pool cleaned: ${this.cellPool.size} cells remaining`);
                 }
             }
         }

@@ -2,15 +2,15 @@
     let assigned = false;
 
     function log(...args) {
-        window.LoggerUtils.log(...args);
+        window.logger.log(...args);
     }
 
     function warn(...args) {
-        window.LoggerUtils.warn(...args);
+        window.logger.warn(...args);
     }
 
     function error(...args) {
-        window.LoggerUtils.error(...args);
+        window.logger.error(...args);
     }
 
     function once(fn) {

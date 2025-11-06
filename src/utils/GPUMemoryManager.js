@@ -39,7 +39,7 @@ class GPUMemoryManager {
         if (this.enabled) return;
         
         this.enabled = true;
-        console.log('[Pi] GPU Memory Manager enabled');
+        window.logger.info('[Pi] GPU Memory Manager enabled');
         
         // Start monitoring interval
         this.monitoringInterval = setInterval(() => {
@@ -58,7 +58,7 @@ class GPUMemoryManager {
             clearInterval(this.monitoringInterval);
             this.monitoringInterval = null;
         }
-        console.log('[Pi] GPU Memory Manager disabled');
+        window.logger.info('[Pi] GPU Memory Manager disabled');
     }
     
     /**
@@ -82,15 +82,13 @@ class GPUMemoryManager {
         
         // Take action based on pressure
         if (pressureLevel === 'critical') {
-            console.warn(`!! GPU Memory CRITICAL: ${totalSprites} sprites cached`);
+            window.logger.warn(`!! GPU Memory CRITICAL: ${totalSprites} sprites cached`);
             this.aggressiveCleanup();
         } else if (pressureLevel === 'high') {
-            console.warn(`! GPU Memory HIGH: ${totalSprites} sprites cached`);
+            window.logger.warn(`! GPU Memory HIGH: ${totalSprites} sprites cached`);
             this.moderateCleanup();
         } else if (pressureLevel === 'medium') {
-            if (window.debugMode || window.performanceProfiler?.verbose) {
-                console.log(`🟡 GPU Memory MEDIUM: ${totalSprites} sprites cached`);
-            }
+            window.logger.info(`🟡 GPU Memory MEDIUM: ${totalSprites} sprites cached`);
         }
         
         return { pressureLevel, stats };
@@ -153,7 +151,7 @@ class GPUMemoryManager {
         // [R] FIX: Don't clean nebula cache - only 8 sprites, essential for background consistency
         // Nebulae are pre-warmed and should never be cleaned to prevent pop-in
         
-        console.log('🧹 Moderate GPU memory cleanup complete (nebulae protected)');
+        window.logger.info('🧹 Moderate GPU memory cleanup complete (nebulae protected)');
     }
     
     /**
@@ -174,7 +172,7 @@ class GPUMemoryManager {
         // [R] FIX: Don't clean nebula cache even in aggressive mode
         // Only 8 nebula sprites total (~64KB), essential for smooth background
         
-        console.log('🧹 Aggressive GPU memory cleanup complete (nebulae protected)');
+        window.logger.info('🧹 Aggressive GPU memory cleanup complete (nebulae protected)');
     }
     
     /**
@@ -188,13 +186,13 @@ class GPUMemoryManager {
         
         if (typeof window !== 'undefined' && window.cosmicBackground) {
             window.cosmicBackground._nebulaSpriteCache?.clear();
-            console.log('🧹 Cleared CosmicBackground sprite cache');
+            window.logger.info('🧹 Cleared CosmicBackground sprite cache');
         }
         
         this.lastCleanupTime = performance.now();
         this.totalCleanups++;
         
-        console.log('🧹 All sprite caches cleared (emergency cleanup)');
+        window.logger.info('🧹 All sprite caches cleared (emergency cleanup)');
     }
     
     /**
@@ -225,7 +223,7 @@ if (typeof window !== 'undefined') {
     // Add console commands for debugging
     window.gpuStatus = () => {
         const status = window.gpuMemoryManager.getStatus();
-        console.log('[Pi] GPU Memory Status:', status);
+        window.logger.log('[Pi] GPU Memory Status:', status);
         return status;
     };
     

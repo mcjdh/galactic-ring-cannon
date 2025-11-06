@@ -85,7 +85,7 @@
                 try {
                     button.action();
                 } catch (error) {
-                    console.error('Result button handler error:', error);
+                    window.logger.error('Result button handler error:', error);
                 }
             });
             screen.buttonsContainer.appendChild(btn);

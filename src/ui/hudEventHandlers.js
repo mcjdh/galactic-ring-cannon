@@ -28,7 +28,7 @@ class HUDEventHandlers {
         const pauseMenu = document.getElementById('pause-menu');
         if (pauseMenu) pauseMenu.classList.add('hidden');
 
-        window.LoggerUtils.log('[H] HUD reset on game reset');
+        window.logger.log('[H] HUD reset on game reset');
     }
 
     /**
@@ -47,7 +47,7 @@ class HUDEventHandlers {
         const healthBar = document.getElementById('health-bar');
         if (healthBar) healthBar.style.setProperty('--health-width', '100%');
 
-        window.LoggerUtils.log('[H] HUD updated for new player');
+        window.logger.log('[H] HUD updated for new player');
     }
 
     /**

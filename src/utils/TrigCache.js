@@ -36,7 +36,7 @@ class TrigCache {
             this._buildAtan2Cache();
         }
         
-        console.log(`[M] TrigCache initialized: ${this.resolution} samples, atan2=${this.useAtan2Cache}`);
+        window.logger.info(`[M] TrigCache initialized: ${this.resolution} samples, atan2=${this.useAtan2Cache}`);
     }
     
     /**

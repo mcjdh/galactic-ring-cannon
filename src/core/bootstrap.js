@@ -10,7 +10,7 @@
 
             // Warn if config not loaded
             if (!window.META_UPGRADE_DEFINITIONS) {
-                console.warn('! META_UPGRADE_DEFINITIONS not loaded. Make sure metaUpgrades.config.js is loaded before bootstrap.');
+                window.logger.warn('! META_UPGRADE_DEFINITIONS not loaded. Make sure metaUpgrades.config.js is loaded before bootstrap.');
             }
 
             const ready = document.readyState === 'loading';
@@ -24,19 +24,19 @@
         }
 
         log(...args) {
-            window.LoggerUtils.log(...args);
+            window.logger.log(...args);
         }
 
         info(...args) {
-            window.LoggerUtils.info(...args);
+            window.logger.info(...args);
         }
 
         warn(...args) {
-            window.LoggerUtils.warn(...args);
+            window.logger.warn(...args);
         }
 
         error(...args) {
-            window.LoggerUtils.error(...args);
+            window.logger.error(...args);
         }
 
         getNamespace() {
@@ -297,13 +297,13 @@
             
             if (isPi) {
                 window.isRaspberryPi = true;
-                window.LoggerUtils.log('[Pi] Raspberry Pi detected!');
-                window.LoggerUtils.log('[Pi] Enabling Pi5 performance optimizations...');
+                window.logger.log('[Pi] Raspberry Pi detected!');
+                window.logger.log('[Pi] Enabling Pi5 performance optimizations...');
                 // Enable performance mode across all systems
                 this.enablePi5Optimizations();
             } else if (isARM) {
                 // Other ARM devices (mobile, tablets) - use moderate optimizations
-                window.LoggerUtils.log('📱 ARM device detected - enabling moderate optimizations');
+                window.logger.log('📱 ARM device detected - enabling moderate optimizations');
                 window.isLowPowerDevice = true;
                 this.enableModeratePowerOptimizations();
             }

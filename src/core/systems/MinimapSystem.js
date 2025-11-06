@@ -42,7 +42,7 @@ class MinimapSystem {
             this.ctx = ctx;
             return true;
         } catch (error) {
-            window.LoggerUtils.warn('Minimap initialization failed:', error);
+            window.logger.warn('Minimap initialization failed:', error);
             return false;
         }
     }

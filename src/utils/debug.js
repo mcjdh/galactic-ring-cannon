@@ -225,9 +225,9 @@ Commands:
         const player = window.gameManager?.game?.player;
         if (player && typeof player.addExperience === 'function') {
             player.addExperience(amount);
-            window.LoggerUtils.log(`[*] Gave ${amount} XP to player`);
+            window.logger.log(`[*] Gave ${amount} XP to player`);
         } else {
-            window.LoggerUtils.warn('! Player not found or addExperience method not available');
+            window.logger.warn('! Player not found or addExperience method not available');
         }
     }
     
@@ -235,9 +235,9 @@ Commands:
         const gameManager = window.gameManager;
         if (gameManager && typeof gameManager.earnStarTokens === 'function') {
             gameManager.earnStarTokens(amount);
-            window.LoggerUtils.log(`[*] Gave ${amount} star tokens`);
+            window.logger.log(`[*] Gave ${amount} star tokens`);
         } else {
-            window.LoggerUtils.warn('! GameManager not found or earnStarTokens method not available');
+            window.logger.warn('! GameManager not found or earnStarTokens method not available');
         }
     }
     
@@ -251,9 +251,9 @@ Commands:
                     killed++;
                 }
             });
-            window.LoggerUtils.log(`[SWORD] Killed ${killed} enemies`);
+            window.logger.log(`[SWORD] Killed ${killed} enemies`);
         } else {
-            window.LoggerUtils.warn('! No enemies found or enemies array not available');
+            window.logger.warn('! No enemies found or enemies array not available');
         }
     }
     

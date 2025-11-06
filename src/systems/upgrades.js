@@ -6,7 +6,7 @@ class UpgradeSystem {
 
         // Warn if config not loaded
         if (!window.UPGRADE_DEFINITIONS) {
-            console.warn('! UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
+            window.logger.warn('! UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
         }
 
         this.selectedUpgrades = [];
@@ -157,18 +157,12 @@ class UpgradeSystem {
         // Validate player exists before applying upgrade
         const player = window.gameManager?.game?.player;
         if (!player) {
-            window.LoggerUtils.warn('Cannot apply upgrade: player not found');
+            window.logger.warn('Cannot apply upgrade: player not found');
             return;
         }
 
-        // Apply upgrade to player using clean delegation
-        const playerUpgrades = window.Game?.PlayerUpgrades;
-        if (playerUpgrades && typeof playerUpgrades.apply === 'function') {
-            playerUpgrades.apply(player, upgradeInstance);
-        } else {
-            // Fallback to player method if PlayerUpgrades not available
-            player.applyUpgrade(upgradeInstance);
-        }
+        // Apply upgrade to player
+        player.applyUpgrade(upgradeInstance);
 
         // Handle special effects
         if (upgradeInstance.specialEffect) {
@@ -184,6 +178,21 @@ class UpgradeSystem {
         window.gameManager?.statsManager?.trackSpecialEvent?.('upgrade_chosen');
     }
 
+    /**
+     * Clone upgrade definition to protect immutable UPGRADE_DEFINITIONS.
+     *
+     * This is the first of two clones in the upgrade flow:
+     * 1. UpgradeSystem clones here to protect global definitions
+     * 2. Player clones again to protect selectedUpgrades from stack metadata mutations
+     *
+     * Both clones are necessary for proper separation of concerns:
+     * - selectedUpgrades tracks what's been chosen (for synergies/combos)
+     * - player.upgrades stores history with stack counts (for UI/diminishing returns)
+     *
+     * @private
+     * @param {Object} upgrade - Upgrade definition from UPGRADE_DEFINITIONS
+     * @returns {Object} Deep clone of upgrade
+     */
     _cloneUpgrade(upgrade) {
         if (!upgrade || typeof upgrade !== 'object') {
             return upgrade;
@@ -504,7 +513,7 @@ class UpgradeSystem {
 }
 
 // + ARCHITECTURE: Clean delegation pattern implemented
-// UpgradeSystem -> PlayerUpgrades.apply() -> Player methods
+// UpgradeSystem -> Player.applyUpgrade() -> Component methods
 // This eliminates global state dependencies and improves testability
 // Previous prototype monkey patching removed in favor of composition
 

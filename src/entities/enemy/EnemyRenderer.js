@@ -441,7 +441,7 @@ class EnemyRenderer {
 
             ctx.globalAlpha = previousAlpha;
         } catch (error) {
-            window.LoggerUtils.warn('Error rendering enemy health bar:', error);
+            window.logger.warn('Error rendering enemy health bar:', error);
         }
     }
 

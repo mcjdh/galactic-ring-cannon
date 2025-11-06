@@ -171,8 +171,10 @@ function runTests() {
 
     test('Crit chance at 0% gets full value', () => {
         // At 0%, the soft cap formula still applies
-        const result = applyCritChanceSoftCap(0, 0.15);
-        const expected = 0.15 * Math.pow(0.8, 0 / 0.8); // 0.15 * 1 = 0.15
+        const softCap = 0.8;
+        const result = applyCritChanceSoftCap(0, 0.15, softCap);
+        // Formula: increase * ((softCap - currentCritChance) / softCap)
+        const expected = 0.15 * ((softCap - 0) / softCap); // 0.15 * 1 = 0.15
         // Allow small floating point tolerance
         if (Math.abs(result - expected) > 0.001) {
             throw new Error(`Expected ${expected.toFixed(4)}, got ${result.toFixed(4)}`);
@@ -265,8 +267,9 @@ function runTests() {
     test('XP progression at level 50 is reasonable', () => {
         const thresholds = calculateXPThresholds(100, 50);
         const level50 = thresholds[50];
-        
-        // Should be large but not insane (< 1 million)
+
+        // Expected: 100 * 1.12^49 ≈ 28,900 (with Math.floor rounding)
+        // Allow range: 1,000 - 1,000,000 for sanity check
         if (level50 > 1000000) {
             throw new Error(`Level 50 XP (${level50}) seems too high`);
         }

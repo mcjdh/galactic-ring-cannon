@@ -56,7 +56,7 @@ class PlayerAbilities {
 
         // Validate required modules exist
         if (!this.player?.combat || !this.player?.stats) {
-            window.LoggerUtils.warn('Player combat or stats module not initialized');
+            window.logger.warn('Player combat or stats module not initialized');
             return;
         }
 
@@ -180,7 +180,7 @@ class PlayerAbilities {
 
         // Validate required modules exist
         if (!this.player?.combat || !this.player?.stats) {
-            window.LoggerUtils.warn('Player combat or stats module not initialized');
+            window.logger.warn('Player combat or stats module not initialized');
             return;
         }
 
@@ -277,7 +277,7 @@ class PlayerAbilities {
 
         // Validate required modules exist
         if (!this.player?.combat || !this.player?.stats) {
-            window.LoggerUtils.warn('Player combat or stats module not initialized');
+            window.logger.warn('Player combat or stats module not initialized');
             return;
         }
 
@@ -526,7 +526,7 @@ class PlayerAbilities {
                         this.player.combat.aoeAttackRange = Math.max(150, this.player.combat.aoeAttackRange);
                         this.player.combat.aoeAttackTimer = this.player.combat.aoeAttackCooldown;
                     } else {
-                        window.LoggerUtils.warn('Cannot apply AOE upgrade: player combat module not initialized');
+                        window.logger.warn('Cannot apply AOE upgrade: player combat module not initialized');
                     }
                 }
                 break;

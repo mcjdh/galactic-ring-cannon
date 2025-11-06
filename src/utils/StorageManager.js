@@ -6,6 +6,36 @@
 
 class StorageManager {
     /**
+     * Internal helper to log warnings with fallback
+     * @private
+     */
+    static _warn(message, error) {
+        window.logger.warn(`[StorageManager] ${message}`, error);
+    }
+
+    /**
+     * Validate storage key
+     * @private
+     * @param {*} key - Key to validate
+     * @returns {boolean} True if valid
+     */
+    static _isValidKey(key) {
+        if (typeof key !== 'string') {
+            this._warn(`Invalid storage key type: ${typeof key}`, new Error('Key must be a string'));
+            return false;
+        }
+        if (key.length === 0) {
+            this._warn('Storage key cannot be empty', new Error('Empty key'));
+            return false;
+        }
+        if (key.length > 1000) {
+            this._warn(`Storage key too long: ${key.length} characters`, new Error('Key exceeds 1000 chars'));
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Check if localStorage is available
      * @returns {boolean} True if localStorage is available
      */
@@ -27,13 +57,14 @@ class StorageManager {
      * @returns {string|null} Stored value or default
      */
     static getItem(key, defaultValue = null) {
+        if (!this._isValidKey(key)) {
+            return defaultValue;
+        }
         try {
             const value = localStorage.getItem(key);
             return value !== null ? value : defaultValue;
         } catch (e) {
-            if (window.LoggerUtils) {
-                window.LoggerUtils.warn(`Failed to get localStorage item "${key}":`, e);
-            }
+            this._warn(`Failed to get localStorage item "${key}":`, e);
             return defaultValue;
         }
     }
@@ -45,13 +76,14 @@ class StorageManager {
      * @returns {boolean} True if successful
      */
     static setItem(key, value) {
+        if (!this._isValidKey(key)) {
+            return false;
+        }
         try {
             localStorage.setItem(key, value);
             return true;
         } catch (e) {
-            if (window.LoggerUtils) {
-                window.LoggerUtils.warn(`Failed to set localStorage item "${key}":`, e);
-            }
+            this._warn(`Failed to set localStorage item "${key}":`, e);
             return false;
         }
     }
@@ -62,13 +94,14 @@ class StorageManager {
      * @returns {boolean} True if successful
      */
     static removeItem(key) {
+        if (!this._isValidKey(key)) {
+            return false;
+        }
         try {
             localStorage.removeItem(key);
             return true;
         } catch (e) {
-            if (window.LoggerUtils) {
-                window.LoggerUtils.warn(`Failed to remove localStorage item "${key}":`, e);
-            }
+            this._warn(`Failed to remove localStorage item "${key}":`, e);
             return false;
         }
     }
@@ -123,9 +156,7 @@ class StorageManager {
         try {
             return JSON.parse(value);
         } catch (e) {
-            if (window.LoggerUtils) {
-                window.LoggerUtils.warn(`Failed to parse JSON from localStorage key "${key}":`, e);
-            }
+            this._warn(`Failed to parse JSON from localStorage key "${key}":`, e);
             return defaultValue;
         }
     }
@@ -141,9 +172,7 @@ class StorageManager {
             const json = JSON.stringify(value);
             return this.setItem(key, json);
         } catch (e) {
-            if (window.LoggerUtils) {
-                window.LoggerUtils.warn(`Failed to stringify JSON for localStorage key "${key}":`, e);
-            }
+            this._warn(`Failed to stringify JSON for localStorage key "${key}":`, e);
             return false;
         }
     }
@@ -157,9 +186,7 @@ class StorageManager {
             localStorage.clear();
             return true;
         } catch (e) {
-            if (window.LoggerUtils) {
-                window.LoggerUtils.warn('Failed to clear localStorage:', e);
-            }
+            this._warn('Failed to clear localStorage:', e);
             return false;
         }
     }
@@ -172,9 +199,7 @@ class StorageManager {
         try {
             return Object.keys(localStorage);
         } catch (e) {
-            if (window.LoggerUtils) {
-                window.LoggerUtils.warn('Failed to get localStorage keys:', e);
-            }
+            this._warn('Failed to get localStorage keys:', e);
             return [];
         }
     }
@@ -185,6 +210,9 @@ class StorageManager {
      * @returns {boolean} True if key exists
      */
     static hasKey(key) {
+        if (!this._isValidKey(key)) {
+            return false;
+        }
         try {
             return localStorage.getItem(key) !== null;
         } catch (e) {

@@ -253,7 +253,7 @@
     if (typeof window !== 'undefined') {
         window.GAME_CONSTANTS = GAME_CONSTANTS;
         window.GameMath = GameMath;
-        window.LoggerUtils.log('GameConstants loaded');
+        window.logger.log('GameConstants loaded');
     }
 
     if (typeof module !== 'undefined' && module.exports) {

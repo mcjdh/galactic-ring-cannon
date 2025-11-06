@@ -551,7 +551,7 @@ class GameState {
                 try {
                     callback(data);
                 } catch (error) {
-                    window.LoggerUtils.error(`Error in observer callback for ${event}:`, error);
+                    window.logger.error(`Error in observer callback for ${event}:`, error);
                 }
             });
         }
@@ -562,7 +562,7 @@ class GameState {
                 try {
                     callback({ event, ...data });
                 } catch (error) {
-                    window.LoggerUtils.error(`Error in wildcard observer callback:`, error);
+                    window.logger.error(`Error in wildcard observer callback:`, error);
                 }
             });
         }
@@ -608,11 +608,11 @@ class GameState {
                     if (Array.isArray(parsed)) {
                         this.meta.achievements = new Set(parsed);
                     } else {
-                        console.warn('GameState achievements has invalid format, resetting');
+                        window.logger.warn('GameState achievements has invalid format, resetting');
                         this.meta.achievements = new Set();
                     }
                 } catch (parseError) {
-                    console.warn('Failed to parse GameState achievements, resetting:', parseError);
+                    window.logger.warn('Failed to parse GameState achievements, resetting:', parseError);
                     this.meta.achievements = new Set();
                 }
             } else {
@@ -632,15 +632,15 @@ class GameState {
                             this.meta.achievements = new Set(unlockedIds);
                             // Save in new format
                             this._saveMetaState();
-                            console.log(`+ Migrated ${unlockedIds.length} achievements from AchievementSystem`);
+                            window.logger.log(`+ Migrated ${unlockedIds.length} achievements from AchievementSystem`);
                         }
                     } catch (error) {
-                        console.warn('Failed to migrate old achievements:', error);
+                        window.logger.warn('Failed to migrate old achievements:', error);
                     }
                 }
             }
         } catch (error) {
-            console.warn('Failed to load meta state:', error);
+            window.logger.warn('Failed to load meta state:', error);
         }
     }
 
@@ -660,7 +660,7 @@ class GameState {
         try {
             window.StorageManager.setItem('selectedCharacter', characterId);
         } catch (error) {
-            console.warn('Failed to persist selected character:', error);
+            window.logger.warn('Failed to persist selected character:', error);
         }
     }
 
@@ -680,7 +680,7 @@ class GameState {
         try {
             window.StorageManager.setItem('selectedWeapon', weaponId);
         } catch (error) {
-            console.warn('Failed to persist selected weapon:', error);
+            window.logger.warn('Failed to persist selected weapon:', error);
         }
     }
 
@@ -704,7 +704,7 @@ class GameState {
             const characterId = this.meta.selectedCharacter || DEFAULT_CHARACTER_ID;
             window.StorageManager.setItem('selectedCharacter', characterId);
         } catch (error) {
-            console.warn('Failed to save meta state:', error);
+            window.logger.warn('Failed to save meta state:', error);
         }
     }
 
@@ -733,7 +733,7 @@ class GameState {
      */
     enableDebug() {
         this._debugMode = true;
-        console.log('GameState debug mode enabled');
+        window.logger.log('GameState debug mode enabled');
     }
 
     /**

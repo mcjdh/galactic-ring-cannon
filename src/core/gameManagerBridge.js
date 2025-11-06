@@ -6,7 +6,7 @@
 
 class GameManagerBridge {
     constructor() {
-        window.LoggerUtils.log('🌊 GameManager Bridge initializing...');
+        window.logger.log('🌊 GameManager Bridge initializing...');
 
         // Core game systems
         this.game = null;
@@ -42,7 +42,7 @@ class GameManagerBridge {
         // Boss countdown tracking
         this._lastBossDebugSecond = -1;
 
-        window.LoggerUtils.log('🌊 GameManager Bridge ready');
+        window.logger.log('🌊 GameManager Bridge ready');
 
         this._uiRefs = new Map();
         this._uiLookupInterval = 750;
@@ -235,7 +235,7 @@ class GameManagerBridge {
                 return this.addParticleViaEffectsManager(particle);
             }
         } catch (e) {
-            window.LoggerUtils.warn('Particle spawn failed in GameManagerBridge', e);
+            window.logger.warn('Particle spawn failed in GameManagerBridge', e);
         }
         return false;
     }
@@ -244,7 +244,7 @@ class GameManagerBridge {
      * Initialize the game systems
      */
     initGameEngine() {
-        window.LoggerUtils.log('> Initializing game engine...');
+        window.logger.log('> Initializing game engine...');
 
         try {
             // Create game engine
@@ -256,15 +256,15 @@ class GameManagerBridge {
 
             // 🌊 LINK GAME STATE - Single Source of Truth
             this.state = this.game.state;
-            window.LoggerUtils.log('+ GameState linked to GameManagerBridge');
+            window.logger.log('+ GameState linked to GameManagerBridge');
         
             // Create enemy spawner
             const EnemySpawnerClass = this.resolveNamespace('EnemySpawner');
             if (typeof EnemySpawnerClass === 'function') {
                 this.enemySpawner = new EnemySpawnerClass(this.game);
-                window.LoggerUtils.log('+ Enemy spawner created');
+                window.logger.log('+ Enemy spawner created');
             } else {
-                window.LoggerUtils.warn('! EnemySpawner not available');
+                window.logger.warn('! EnemySpawner not available');
             }
 
             // Initialize HUD event handlers now that the engine/state exist
@@ -273,7 +273,7 @@ class GameManagerBridge {
             // Player will be created by GameEngine.prepareNewRun() when game starts
             // This prevents double-initialization where player is created here then recreated in prepareNewRun()
             // See: ARCHITECTURE_FIXES.md - Issue 3
-            window.LoggerUtils.log('+ Player will be created on game start');
+            window.logger.log('+ Player will be created on game start');
         
             // Initialize minimap after core systems
             this.setupMinimap();
@@ -282,16 +282,16 @@ class GameManagerBridge {
             const UIManagerClass = this.resolveNamespace('UnifiedUIManager');
             if (typeof UIManagerClass === 'function') {
                 this.uiManager = new UIManagerClass(this);
-                window.LoggerUtils.log('+ UIManager initialized');
+                window.logger.log('+ UIManager initialized');
             }
 
             // Initialize Effects Manager for particles, screen shake, etc.
             const EffectsManagerClass = this.resolveNamespace('EffectsManager');
             if (typeof EffectsManagerClass === 'function') {
                 this.effectsManager = new EffectsManagerClass(this);
-                window.LoggerUtils.log('+ EffectsManager initialized');
+                window.logger.log('+ EffectsManager initialized');
             } else {
-                window.LoggerUtils.warn('! EffectsManager not available');
+                window.logger.warn('! EffectsManager not available');
             }
 
             const StatsManagerClass = this.resolveNamespace('StatsManager');
@@ -303,10 +303,10 @@ class GameManagerBridge {
                 // StatsManager now loads from GameState, so they should already be in sync
                 // Keep this sync for defensive programming and backward compatibility
                 this.metaStars = this.statsManager.starTokens;
-                window.LoggerUtils.log('+ StatsManager initialized');
+                window.logger.log('+ StatsManager initialized');
                 this.updateStarDisplay();
             } else {
-                window.LoggerUtils.warn('! StatsManager not available');
+                window.logger.warn('! StatsManager not available');
             }
 
             // Initialize DifficultyManager to drive game scaling
@@ -317,16 +317,16 @@ class GameManagerBridge {
                     window.gameManager = this;
                 }
                 window.gameManager.difficultyManager = this.difficultyManager;
-                window.LoggerUtils.log('+ DifficultyManager initialized');
+                window.logger.log('+ DifficultyManager initialized');
             } else {
-                window.LoggerUtils.warn('! DifficultyManager not available');
+                window.logger.warn('! DifficultyManager not available');
             }
 
-            window.LoggerUtils.log('+ Game engine initialized successfully');
+            window.logger.log('+ Game engine initialized successfully');
             return true;
             
         } catch (error) {
-            window.LoggerUtils.error('! Failed to initialize game engine:', error);
+            window.logger.error('! Failed to initialize game engine:', error);
             return false;
         }
     }
@@ -335,7 +335,7 @@ class GameManagerBridge {
      * Start the game
      */
     startGame() {
-        window.LoggerUtils.log('> Starting game...');
+        window.logger.log('> Starting game...');
 
         // Defensive cleanup: Clear menu listeners/animations when transitioning to game
         // This prevents memory leaks if menu state gets out of sync
@@ -349,9 +349,9 @@ class GameManagerBridge {
 
         // Initialize engine if not done
         if (!this.game) {
-            window.LoggerUtils.log('> Game engine not initialized, creating...');
+            window.logger.log('> Game engine not initialized, creating...');
             if (!this.initGameEngine()) {
-                window.LoggerUtils.error('! Cannot start game - engine initialization failed');
+                window.logger.error('! Cannot start game - engine initialization failed');
                 alert('Failed to initialize game engine. Please refresh the page.');
                 return;
             }
@@ -362,7 +362,7 @@ class GameManagerBridge {
         
         // Start the game engine
         if (this.game && typeof this.game.start === 'function') {
-            window.LoggerUtils.log('> Starting game engine...');
+            window.logger.log('> Starting game engine...');
             this.game.start();
             if (typeof this.game.resumeGame === 'function') {
                 this.game.resumeGame();
@@ -372,12 +372,12 @@ class GameManagerBridge {
             this.running = true;
             this.setupMinimap();
             this.renderMinimap();
-            window.LoggerUtils.log('+ Game started successfully!');
-            window.LoggerUtils.log('[P] Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
-            window.LoggerUtils.log('[R] Canvas size:', this.game.canvas ? `${this.game.canvas.width}x${this.game.canvas.height}` : 'No canvas');
+            window.logger.log('+ Game started successfully!');
+            window.logger.log('[P] Player position:', this.game.player ? `${this.game.player.x}, ${this.game.player.y}` : 'No player');
+            window.logger.log('[R] Canvas size:', this.game.canvas ? `${this.game.canvas.width}x${this.game.canvas.height}` : 'No canvas');
         } else {
-            window.LoggerUtils.error('! Game engine start method not available');
-            window.LoggerUtils.log('Available methods:', Object.getOwnPropertyNames(this.game || {}));
+            window.logger.error('! Game engine start method not available');
+            window.logger.log('Available methods:', Object.getOwnPropertyNames(this.game || {}));
             alert('Game engine is not ready. Please refresh the page.');
         }
     }
@@ -389,7 +389,7 @@ class GameManagerBridge {
         // 🌊 RESET GAME STATE - Single Source of Truth
         if (this.state) {
             this.state.resetSession();
-            window.LoggerUtils.log('+ GameState reset for new session');
+            window.logger.log('+ GameState reset for new session');
         }
 
         // Reset StatsManager (it will sync with GameState)
@@ -415,7 +415,7 @@ class GameManagerBridge {
         this.gameWon = false;
         this.endScreenShown = false;
 
-        window.LoggerUtils.log('@ Game state reset');
+        window.logger.log('@ Game state reset');
     }
 
     setupMinimap() {
@@ -449,7 +449,7 @@ class GameManagerBridge {
                 ensureUpdate(system);
                 return true;
             } catch (error) {
-                window.LoggerUtils.warn('Minimap initialization error:', error);
+                window.logger.warn('Minimap initialization error:', error);
                 return false;
             }
         };
@@ -492,7 +492,7 @@ class GameManagerBridge {
         const stats = this.statsManager;
         if (stats?.incrementKills) {
             const killCount = stats.incrementKills();
-            window.LoggerUtils.log(`💀 Kill count: ${killCount}`);
+            window.logger.log(`💀 Kill count: ${killCount}`);
 
             if (this.currentCombo >= 5) {
                 const textTargetY = this.game?.player?.y ? this.game.player.y - 50 : 0;
@@ -519,7 +519,7 @@ class GameManagerBridge {
      * Handle boss death
      */
     onBossKilled() {
-        window.LoggerUtils.log('👑 Boss killed!');
+        window.logger.log('👑 Boss killed!');
 
         // Add screen shake for dramatic effect (duration in seconds for bridge)
         this.addScreenShake(20, 1.0);
@@ -547,11 +547,11 @@ class GameManagerBridge {
     onBossDefeated(enemy) {
         if (!enemy) return;
 
-        window.LoggerUtils.log('👑 Boss defeated:', { isMegaBoss: enemy.isMegaBoss });
+        window.logger.log('👑 Boss defeated:', { isMegaBoss: enemy.isMegaBoss });
 
         // Check if this was a mega boss - show victory screen
         if (enemy.isMegaBoss) {
-            window.LoggerUtils.log('🏆 Mega Boss defeated! Showing victory screen...');
+            window.logger.log('🏆 Mega Boss defeated! Showing victory screen...');
 
             // Wait a moment for effects to play
             setTimeout(() => {
@@ -600,7 +600,7 @@ class GameManagerBridge {
             try {
                 this.effectsManager.update(deltaTime);
             } catch (error) {
-                window.LoggerUtils.error('ERROR in effectsManager.update():', error);
+                window.logger.error('ERROR in effectsManager.update():', error);
                 // Disable effectsManager to prevent continuous errors
                 this.effectsManager = null;
             }
@@ -665,7 +665,7 @@ class GameManagerBridge {
      * Handle game over
      */
     onGameOver() {
-        window.LoggerUtils.log('💀 Game Over', {
+        window.logger.log('💀 Game Over', {
             gameOver: this.gameOver,
             running: this.running,
             endScreenShown: this.endScreenShown
@@ -673,7 +673,7 @@ class GameManagerBridge {
 
         // Prevent multiple calls
         if (this.gameOver) {
-            window.LoggerUtils.warn('! onGameOver already called, skipping');
+            window.logger.warn('! onGameOver already called, skipping');
             return;
         }
 
@@ -704,7 +704,7 @@ class GameManagerBridge {
      * Handle game won
      */
     onGameWon() {
-        window.LoggerUtils.log('🏆 Victory!', {
+        window.logger.log('🏆 Victory!', {
             gameWon: this.gameWon,
             gameOver: this.gameOver,
             running: this.running,
@@ -713,7 +713,7 @@ class GameManagerBridge {
 
         // Prevent multiple calls
         if (this.gameWon || this.gameOver) {
-            window.LoggerUtils.warn('! onGameWon already called or game is over, skipping');
+            window.logger.warn('! onGameWon already called or game is over, skipping');
             return;
         }
 
@@ -779,7 +779,7 @@ class GameManagerBridge {
                     buttons
                 });
             } catch (error) {
-                console.error('Error showing result screen:', error);
+                window.logger.error('Error showing result screen:', error);
             }
         } else {
             // Fallback to alert if result screen not available
@@ -799,21 +799,21 @@ class GameManagerBridge {
         try {
             const HandlerClass = this.resolveNamespace('HUDEventHandlers');
             if (!HandlerClass) {
-                window.LoggerUtils.warn('! HUDEventHandlers class not found');
+                window.logger.warn('! HUDEventHandlers class not found');
                 return;
             }
 
             if (!this.game?.state) {
-                window.LoggerUtils.warn('! Game state not available for HUD handlers');
+                window.logger.warn('! Game state not available for HUD handlers');
                 return;
             }
 
             if (!window.hudEventHandlers) {
                 window.hudEventHandlers = new HandlerClass(this.game.state);
-                window.LoggerUtils.log('+ HUD event handlers initialized');
+                window.logger.log('+ HUD event handlers initialized');
             }
         } catch (error) {
-            window.LoggerUtils.error('! Failed to initialize HUD event handlers:', error);
+            window.logger.error('! Failed to initialize HUD event handlers:', error);
         }
     }
 
@@ -959,7 +959,7 @@ class GameManagerBridge {
     }
     
     onPlayerLevelUp(level) {
-        window.LoggerUtils.log('🆙 Player leveled up to', level);
+        window.logger.log('🆙 Player leveled up to', level);
 
         this.statsManager?.onPlayerLevelUp?.(level);
 
@@ -1186,7 +1186,7 @@ class GameManagerBridge {
         if (currentSecond !== this._lastBossDebugSecond) {
             this._lastBossDebugSecond = currentSecond;
             if (window.debugManager?.enabled) {
-                window.LoggerUtils.log(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
+                window.logger.log(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
             }
         }
 
@@ -1285,7 +1285,7 @@ class GameManagerBridge {
      * Handle when a meta upgrade is maxed out
      */
     onUpgradeMaxed(upgradeId) {
-        window.LoggerUtils.log('Meta upgrade maxed:', upgradeId);
+        window.logger.log('Meta upgrade maxed:', upgradeId);
         this.statsManager?.achievementSystem?.onUpgradeMaxed?.();
     }
     
@@ -1335,7 +1335,7 @@ class GameManagerBridge {
     
     onPlayerDamaged() {
         // Handle player taking damage (for achievements)
-        window.LoggerUtils.log('Player took damage');
+        window.logger.log('Player took damage');
         this.statsManager?.onPlayerDamaged?.();
     }
     

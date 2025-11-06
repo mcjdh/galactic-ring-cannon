@@ -172,7 +172,7 @@ class InputManager {
             try {
                 callbacks[i](e, key);
             } catch (error) {
-                console.error('Input callback error:', error);
+                window.logger.error('Input callback error:', error);
             }
         }
     }
@@ -194,7 +194,7 @@ class InputManager {
             try {
                 callbacks[i](e, key);
             } catch (error) {
-                console.error('Input callback error:', error);
+                window.logger.error('Input callback error:', error);
             }
         }
     }
@@ -293,7 +293,7 @@ class InputManager {
             try {
                 callbacks[i](e);
             } catch (error) {
-                console.error('Mouse move callback error:', error);
+                window.logger.error('Mouse move callback error:', error);
             }
         }
     }
@@ -314,7 +314,7 @@ class InputManager {
             try {
                 callbacks[i](e);
             } catch (error) {
-                console.error('Mouse down callback error:', error);
+                window.logger.error('Mouse down callback error:', error);
             }
         }
     }
@@ -335,7 +335,7 @@ class InputManager {
             try {
                 callbacks[i](e);
             } catch (error) {
-                console.error('Mouse up callback error:', error);
+                window.logger.error('Mouse up callback error:', error);
             }
         }
     }
@@ -380,7 +380,7 @@ class InputManager {
                 try {
                     callbacks[i](gamepad);
                 } catch (error) {
-                    console.error('Gamepad callback error:', error);
+                    window.logger.error('Gamepad callback error:', error);
                 }
             }
         }

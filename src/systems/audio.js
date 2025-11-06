@@ -16,11 +16,11 @@ class AudioSystem {
             // Add fallback for browsers without Web Audio API
             if (!this.isWebAudioSupported) {
                 // Use logger instead of console.warn
-                window.LoggerUtils.warn('Web Audio API not supported, using fallback audio system');
+                window.logger.warn('Web Audio API not supported, using fallback audio system');
                 this.initializeFallbackAudio();
             }
         } catch (error) {
-            window.LoggerUtils.error('Error initializing audio system:', error);
+            window.logger.error('Error initializing audio system:', error);
             this.isWebAudioSupported = false;
         }
     }
@@ -65,7 +65,7 @@ class AudioSystem {
             
             this.initialized = true;
         } catch (error) {
-            window.LoggerUtils.error('Error initializing audio context:', error);
+            window.logger.error('Error initializing audio context:', error);
             this.isWebAudioSupported = false;
         }
     }
@@ -79,7 +79,7 @@ class AudioSystem {
                 return this.audioContext.resume();
             }
         } catch (error) {
-            window.LoggerUtils.error('Error resuming audio context:', error);
+            window.logger.error('Error resuming audio context:', error);
         }
     }
     
@@ -92,7 +92,7 @@ class AudioSystem {
             try {
                 this.playWithWebAudio(soundName, volume);
             } catch (error) {
-                window.LoggerUtils.error("Error playing sound with Web Audio API:", error);
+                window.logger.error("Error playing sound with Web Audio API:", error);
                 this.isWebAudioSupported = false;
             }
         }
@@ -163,10 +163,10 @@ class AudioSystem {
                     break;
                 default:
                     // Use logger instead of console.warn
-                    window.LoggerUtils.warn(`Unknown sound name: ${soundName}`);
+                    window.logger.warn(`Unknown sound name: ${soundName}`);
             }
         } catch (error) {
-            window.LoggerUtils.error(`Error playing sound ${soundName}:`, error);
+            window.logger.error(`Error playing sound ${soundName}:`, error);
         }
     }
 
@@ -186,7 +186,7 @@ class AudioSystem {
                 this.masterGainNode.gain.value = target;
             }
         } catch (error) {
-            window.LoggerUtils.error('Error setting audio enabled state:', error);
+            window.logger.error('Error setting audio enabled state:', error);
         }
     }
     
@@ -199,7 +199,7 @@ class AudioSystem {
                 this.audioContext.resume();
             }
         } catch (error) {
-            window.LoggerUtils.error('Error handling user interaction:', error);
+            window.logger.error('Error handling user interaction:', error);
         }
     }
     
@@ -216,7 +216,7 @@ class AudioSystem {
             }
             return this.isMuted;
         } catch (error) {
-            window.LoggerUtils.error('Error toggling mute:', error);
+            window.logger.error('Error toggling mute:', error);
             return this.isMuted;
         }
     }
@@ -594,7 +594,7 @@ try {
         }, { once: true });
     }
 } catch (error) {
-    window.LoggerUtils.error('Error creating audio system:', error);
+    window.logger.error('Error creating audio system:', error);
     // Create a dummy audio system that does nothing but includes all expected methods
     audioSystem = {
         play: () => {},
@@ -651,7 +651,7 @@ AudioSystem.prototype.playBossBeat = function() {
             gainNode.disconnect();
         }, 450); // Slightly longer than sound duration
     } catch (error) {
-        window.LoggerUtils.error('Error playing boss beat:', error);
+        window.logger.error('Error playing boss beat:', error);
     }
 };
 

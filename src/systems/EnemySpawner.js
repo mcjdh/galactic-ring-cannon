@@ -550,7 +550,7 @@ class EnemySpawner {
             const fallbackX = this.game.canvas ? this.game.canvas.width / 2 : 400;
             const fallbackY = this.game.canvas ? this.game.canvas.height / 2 : 300;
             if (window.debugManager?.enabled) {
-                console.warn('[EnemySpawner] Invalid player position, using fallback:', { fallbackX, fallbackY });
+                window.logger.warn('[EnemySpawner] Invalid player position, using fallback:', { fallbackX, fallbackY });
             }
             return { x: fallbackX, y: fallbackY };
         }
@@ -582,7 +582,7 @@ class EnemySpawner {
         // Final validation - ensure no NaN or Infinity values
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
             if (window.debugManager?.enabled) {
-                console.warn('[EnemySpawner] Calculated position is invalid:', { x, y, angle, distance });
+                window.logger.warn('[EnemySpawner] Calculated position is invalid:', { x, y, angle, distance });
             }
             // Return player position as last resort
             return {

@@ -68,7 +68,7 @@ class StatsManager {
             try {
                 this.starTokens = window.StorageManager.getInt('starTokens', 0);
             } catch (error) {
-                console.warn('Failed to load star tokens:', error);
+                window.logger.warn('Failed to load star tokens:', error);
                 this.starTokens = 0;
             }
         }
@@ -448,7 +448,7 @@ class StatsManager {
                 this.earnStarTokens(extraStars);
             }
         } catch (error) {
-            console.warn('Failed to load Jupiter star drop upgrade:', error);
+            window.logger.warn('Failed to load Jupiter star drop upgrade:', error);
         }
 
         this.achievementSystem?.updateAchievement?.('boss_slayer', this.sessionStats.bossesKilled);
@@ -576,7 +576,7 @@ class StatsManager {
         try {
             stellarFortuneLevel = window.StorageManager.getInt('meta_star_chance', 0);
         } catch (error) {
-            console.warn('Failed to load stellar fortune level:', error);
+            window.logger.warn('Failed to load stellar fortune level:', error);
         }
         let finalAmount = amount;
 
@@ -631,7 +631,7 @@ class StatsManager {
             try {
                 window.StorageManager.setItem('starTokens', this.starTokens.toString());
             } catch (error) {
-                console.warn('Failed to save star tokens:', error);
+                window.logger.warn('Failed to save star tokens:', error);
             }
 
             // Sync with GameManager metaStars and update UI
@@ -664,11 +664,11 @@ class StatsManager {
                     this.projectilesFired = this.validateNumericStat(parsed.projectilesFired, 0);
                     this.distanceTraveled = this.validateNumericStat(parsed.distanceTraveled, 0);
                 } else {
-                    console.warn('Invalid save data structure, using defaults');
+                    window.logger.warn('Invalid save data structure, using defaults');
                 }
             }
         } catch (error) {
-            console.warn('Failed to load persistent stats:', error);
+            window.logger.warn('Failed to load persistent stats:', error);
             // Clear corrupted data
             window.StorageManager.removeItem('gameStats');
         }
@@ -699,7 +699,7 @@ class StatsManager {
             
             window.StorageManager.setJSON('gameStats', statsToSave);
         } catch (error) {
-            console.warn('Failed to save persistent stats:', error);
+            window.logger.warn('Failed to save persistent stats:', error);
         }
     }
     

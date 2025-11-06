@@ -1,5 +1,8 @@
 /**
- * Production-safe logging utility to replace scattered console.log statements
+ * Unified Logging System
+ * 
+ * Production-safe logging utility that replaces both scattered console.log statements
+ * and the deprecated LoggerUtils wrapper.
  *
  * Debug modes:
  * - ?debug=true in URL
@@ -8,6 +11,12 @@
  *
  * In production, only errors and warnings are logged.
  * In debug mode, all logs are visible.
+ *
+ * Usage:
+ *   window.logger.log('message')     // Debug-only messages
+ *   window.logger.info('message')    // Debug-only info
+ *   window.logger.warn('message')    // Always shown
+ *   window.logger.error('message')   // Always shown
  */
 class Logger {
     constructor() {
@@ -46,27 +55,27 @@ class Logger {
         return false;
     }
 
-    log(message, ...args) {
+    log(...args) {
         // Only log in debug mode
         if (this.debug) {
-            console.log(`[LOG] ${message}`, ...args);
+            console.log(...args);
         }
     }
 
-    warn(message, ...args) {
+    warn(...args) {
         // Warnings always visible (important for debugging issues)
-        console.warn(`! ${message}`, ...args);
+        console.warn(...args);
     }
 
-    error(message, ...args) {
+    error(...args) {
         // Errors always visible (critical for debugging)
-        console.error(`! ${message}`, ...args);
+        console.error(...args);
     }
 
-    info(message, ...args) {
+    info(...args) {
         // Info logs only in debug mode (similar to log)
         if (this.debug) {
-            console.info(`i ${message}`, ...args);
+            console.info(...args);
         }
     }
 

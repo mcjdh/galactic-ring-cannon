@@ -107,7 +107,15 @@ function runTests() {
 
     test('StorageManager loads without errors', () => {
         const localStorage = createMockLocalStorage();
-        const windowStub = { localStorage, LoggerUtils: { warn: () => {} } };
+        const windowStub = { 
+            localStorage, 
+            logger: { 
+                log: () => {}, 
+                warn: () => {}, 
+                error: () => {}, 
+                info: () => {} 
+            } 
+        };
         global.window = windowStub;
         global.localStorage = localStorage;
 

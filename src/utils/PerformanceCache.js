@@ -45,7 +45,7 @@ class PerformanceCache {
         this._initNormalizedVectors();
         
         // Use logger if available, fallback to console
-        const log = window.LoggerUtils.info;
+        const log = window.logger.info;
         log('[PerformanceCache] Initialized:', {
             sqrtCache: `${this._sqrtCacheSize} entries`,
             enabled: this.enabled
@@ -409,7 +409,7 @@ if (typeof window !== 'undefined') {
     // Console commands
     window.perfCacheStats = () => {
         const stats = window.perfCache.getStats();
-        const log = window.LoggerUtils.info;
+        const log = window.logger.info;
         log('📊 Performance Cache Statistics:');
         log(JSON.stringify(stats, null, 2));
         return stats;
@@ -417,7 +417,7 @@ if (typeof window !== 'undefined') {
     
     window.perfCacheToggle = () => {
         window.perfCache.setEnabled(!window.perfCache.enabled);
-        const log = window.LoggerUtils.info;
+        const log = window.logger.info;
         log(`[PerformanceCache] ${window.perfCache.enabled ? 'ENABLED' : 'DISABLED'}`);
     };
 }

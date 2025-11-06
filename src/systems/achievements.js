@@ -5,7 +5,7 @@ class AchievementSystem {
         if (window.ACHIEVEMENT_DEFINITIONS) {
             this.achievements = JSON.parse(JSON.stringify(window.ACHIEVEMENT_DEFINITIONS));
         } else {
-            window.LoggerUtils.warn('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
+            window.logger.warn('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
             this.achievements = {};
         }
 
@@ -42,7 +42,7 @@ class AchievementSystem {
                 }
             }
         } catch (error) {
-            window.LoggerUtils.error('Error loading achievements:', error);
+            window.logger.error('Error loading achievements:', error);
             // Clear corrupted data
             window.StorageManager.removeItem('achievements');
         }
@@ -60,14 +60,14 @@ class AchievementSystem {
             }
             window.StorageManager.setJSON('achievements', saveData);
         } catch (error) {
-            window.LoggerUtils.error('Error saving achievements:', error);
+            window.logger.error('Error saving achievements:', error);
         }
     }
     
     updateAchievement(key, value) {
         if (!this.achievements[key]) {
             // Use logger instead of console.warn for better error handling
-            window.LoggerUtils.warn(`Achievement '${key}' not found`);
+            window.logger.warn(`Achievement '${key}' not found`);
             return;
         }
         
@@ -237,7 +237,7 @@ class AchievementSystem {
                 }
             }
         } catch (error) {
-            window.LoggerUtils.error('Error showing achievement notification:', error);
+            window.logger.error('Error showing achievement notification:', error);
         }
     }
     

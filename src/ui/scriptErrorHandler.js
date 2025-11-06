@@ -85,7 +85,7 @@
         };
 
         errors.push(errorInfo);
-        window.LoggerUtils.error('Script error:', errorInfo.file, errorInfo.message, errorInfo.line);
+        window.logger.error('Script error:', errorInfo.file, errorInfo.message, errorInfo.line);
         updateBanner(errorInfo);
     });
 })();

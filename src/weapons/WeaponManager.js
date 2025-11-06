@@ -53,7 +53,7 @@ class WeaponManager {
     _getDefinition(id) {
         const definition = this.definitions?.[id];
         if (!definition) {
-            console.warn(`[WeaponManager] Unknown weapon id "${id}".`);
+            window.logger.warn(`[WeaponManager] Unknown weapon id "${id}".`);
         }
         return definition;
     }
@@ -61,7 +61,7 @@ class WeaponManager {
     _createWeapon(id, definition) {
         const ctor = _weaponRegistry.get(id);
         if (!ctor) {
-            console.warn(`[WeaponManager] No registered constructor for weapon "${id}".`);
+            window.logger.warn(`[WeaponManager] No registered constructor for weapon "${id}".`);
             return null;
         }
 
@@ -74,7 +74,7 @@ class WeaponManager {
             });
             return weapon;
         } catch (error) {
-            window.LoggerUtils.error(
+            window.logger.error(
                 `[WeaponManager] Failed to construct weapon "${id}":`,
                 error
             );
@@ -175,7 +175,7 @@ class WeaponManager {
 
 WeaponManager.registerType = function registerType(id, ctor) {
     if (!id || typeof id !== 'string' || !ctor) {
-        console.warn('[WeaponManager] registerType called with invalid arguments.');
+        window.logger.warn('[WeaponManager] registerType called with invalid arguments.');
         return;
     }
     _weaponRegistry.set(id, ctor);

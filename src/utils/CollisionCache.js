@@ -34,7 +34,7 @@ class CollisionCache {
         this._gridKeyCacheSize = 1000;
         
         // Use logger if available, fallback to console
-        const log = window.LoggerUtils.info;
+        const log = window.logger.info;
         log('[CollisionCache] Initialized');
     }
     
@@ -59,13 +59,15 @@ class CollisionCache {
 
         // Validate non-negative radii (bitwise encoding requires non-negative values)
         if (min < 0 || max < 0) {
-            console.warn(`[CollisionCache] getRadiusSum: negative radius detected (r1=${r1}, r2=${r2}), falling back to direct addition`);
+            const warnMsg = `[CollisionCache] getRadiusSum: negative radius detected (r1=${r1}, r2=${r2}), falling back to direct addition`;
+            window.logger.warn(warnMsg);
             return r1 + r2;
         }
-        
+
         // Validate maximum radius limitation
         if (r1 > 65.535 || r2 > 65.535) {
-            console.warn(`[CollisionCache] getRadiusSum: radius exceeds maximum supported value of 65.535 (got r1=${r1}, r2=${r2}), falling back to direct addition`);
+            const warnMsg = `[CollisionCache] getRadiusSum: radius exceeds maximum supported value of 65.535 (got r1=${r1}, r2=${r2}), falling back to direct addition`;
+            window.logger.warn(warnMsg);
             return r1 + r2;
         }
         

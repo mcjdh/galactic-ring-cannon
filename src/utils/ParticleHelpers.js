@@ -8,7 +8,7 @@ class ParticleHelpers {
     static init() {
         // Ensure optimized particle pool is available
         if (!window.optimizedParticles) {
-            console.warn('OptimizedParticlePool not found, falling back to basic particles');
+            window.logger.warn('OptimizedParticlePool not found, falling back to basic particles');
             return false;
         }
         return true;

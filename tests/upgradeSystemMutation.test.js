@@ -41,6 +41,10 @@ function setupGlobalEnvironment() {
             localStorageStub.setItem(key, value);
             return true;
         },
+        removeItem(key) {
+            localStorageStub.removeItem(key);
+            return true;
+        },
         getInt(key, defaultValue = 0) {
             const value = localStorageStub.getItem(key);
             if (value === null) return defaultValue;
@@ -66,6 +70,28 @@ function setupGlobalEnvironment() {
             try {
                 const json = JSON.stringify(value);
                 localStorageStub.setItem(key, json);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        },
+        hasKey(key) {
+            return localStorageStub.getItem(key) !== null;
+        },
+        keys() {
+            const keys = [];
+            // Simulate localStorage.keys() behavior
+            return keys;
+        },
+        clear() {
+            localStorageStub.clear();
+            return true;
+        },
+        isAvailable() {
+            try {
+                const test = '__storage_test__';
+                localStorageStub.setItem(test, test);
+                localStorageStub.removeItem(test);
                 return true;
             } catch (e) {
                 return false;
