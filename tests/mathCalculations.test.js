@@ -110,10 +110,6 @@ function runTests() {
         const singleStack = calculateAttackSpeedWithStacking(1.15, 1);
         const doubleStack = calculateAttackSpeedWithStacking(1.15, 2);
         
-        // Second stack's effective increase should be less than first
-        const firstIncrease = singleStack - 100;  // First stack effect
-        const secondIncrease = doubleStack - singleStack; // Second stack effect
-        
         // Due to compounding, second stack is actually (115 * 1.135) - 115 = 15.525
         // which is slightly MORE than the first stack (15.0) due to compounding
         // So the test should verify the BASE increase is diminished, not the absolute increase

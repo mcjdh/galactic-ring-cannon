@@ -73,7 +73,9 @@ class UpgradeSystem {
         }
 
         // Clear previous options
-        this.upgradeOptionsContainer.innerHTML = '';
+        if (this.upgradeOptionsContainer) {
+            this.upgradeOptionsContainer.innerHTML = '';
+        }
 
         // Add upgrade options to the DOM
         options.forEach((upgrade, index) => {
