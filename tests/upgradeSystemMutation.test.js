@@ -5,99 +5,11 @@
  * after applying upgrades and that stack counts increment per run.
  */
 
-function createLocalStorageStub() {
-    const store = new Map();
-    return {
-        getItem(key) {
-            return store.has(key) ? store.get(key) : null;
-        },
-        setItem(key, value) {
-            store.set(key, String(value));
-        },
-        removeItem(key) {
-            store.delete(key);
-        },
-        clear() {
-            store.clear();
-        }
-    };
-}
+const { createMockLocalStorage, createStorageManagerStub } = require('./testUtils.js');
 
 function setupGlobalEnvironment() {
-    const localStorageStub = createLocalStorageStub();
-    
-    // Create StorageManager stub
-    const StorageManager = {
-        getBoolean(key, defaultValue = false) {
-            const value = localStorageStub.getItem(key);
-            if (value === null) return defaultValue;
-            return value === 'true' || value === '1';
-        },
-        getItem(key, defaultValue = null) {
-            const value = localStorageStub.getItem(key);
-            return value !== null ? value : defaultValue;
-        },
-        setItem(key, value) {
-            localStorageStub.setItem(key, value);
-            return true;
-        },
-        removeItem(key) {
-            localStorageStub.removeItem(key);
-            return true;
-        },
-        getInt(key, defaultValue = 0) {
-            const value = localStorageStub.getItem(key);
-            if (value === null) return defaultValue;
-            const parsed = parseInt(value, 10);
-            return isNaN(parsed) ? defaultValue : parsed;
-        },
-        getFloat(key, defaultValue = 0.0) {
-            const value = localStorageStub.getItem(key);
-            if (value === null) return defaultValue;
-            const parsed = parseFloat(value);
-            return isNaN(parsed) ? defaultValue : parsed;
-        },
-        getJSON(key, defaultValue = null) {
-            const value = localStorageStub.getItem(key);
-            if (value === null) return defaultValue;
-            try {
-                return JSON.parse(value);
-            } catch (e) {
-                return defaultValue;
-            }
-        },
-        setJSON(key, value) {
-            try {
-                const json = JSON.stringify(value);
-                localStorageStub.setItem(key, json);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        },
-        hasKey(key) {
-            return localStorageStub.getItem(key) !== null;
-        },
-        keys() {
-            const keys = [];
-            // Simulate localStorage.keys() behavior
-            return keys;
-        },
-        clear() {
-            localStorageStub.clear();
-            return true;
-        },
-        isAvailable() {
-            try {
-                const test = '__storage_test__';
-                localStorageStub.setItem(test, test);
-                localStorageStub.removeItem(test);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-    };
+    const localStorageStub = createMockLocalStorage();
+    const StorageManager = createStorageManagerStub(localStorageStub);
     
     const windowStub = {
         Game: {},
