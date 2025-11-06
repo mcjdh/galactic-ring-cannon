@@ -104,7 +104,7 @@
             // Need to rebuild if: entities moved cells, entities added/removed, or entities died
             if (!this._gridDirty) {
                 let needsRebuild = false;
-                
+
                 // Entity count changed - always rebuild to account for additions/removals
                 if (entityCount !== this._lastEntityCount) {
                     needsRebuild = true;

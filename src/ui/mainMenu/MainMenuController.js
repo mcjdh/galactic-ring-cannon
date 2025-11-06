@@ -419,11 +419,11 @@
         /**
          * Format character highlights for display
          * Returns a string with highlights separated by ' | ' delimiter
-         * 
+         *
          * IMPORTANT: This delimiter format is coupled with the rendering code
          * at line 389 which uses .split(' | ') to create bullet points.
          * If this format changes, update both locations.
-         * 
+         *
          * @param {Object} character - Character definition object
          * @returns {string} Formatted highlights string with ' | ' delimiter
          */

@@ -56,7 +56,7 @@ class CollisionCache {
         const r1Round = Math.round(r1 * 1000);
         const r2Round = Math.round(r2 * 1000);
         const [min, max] = r1Round <= r2Round ? [r1Round, r2Round] : [r2Round, r1Round];
-        
+
         // Validate non-negative radii (bitwise encoding requires non-negative values)
         if (min < 0 || max < 0) {
             console.warn(`[CollisionCache] getRadiusSum: negative radius detected (r1=${r1}, r2=${r2}), falling back to direct addition`);

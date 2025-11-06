@@ -57,7 +57,7 @@ class PlayerMovement {
 
         // Magnet system
         this.magnetRange = PLAYER_CONSTANTS.BASE_MAGNET_RANGE || 120;
-        
+
         // Cache SQRT2_INV to avoid repeated property access
         this._sqrt2Inv = window.FastMath?.SQRT2_INV || PlayerMovement.MOVEMENT_CONSTANTS.SQRT2_INV_FALLBACK;
     }
