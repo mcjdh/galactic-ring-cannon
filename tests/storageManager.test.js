@@ -15,72 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-
-// Create a mock localStorage that mimics browser behavior
-function createMockLocalStorage(shouldFail = false) {
-    const store = new Map();
-    
-    // Create a proxy to make stored keys enumerable like real localStorage
-    const mockStorage = new Proxy({}, {
-        get(target, prop) {
-            if (prop === 'getItem') {
-                return (key) => {
-                    if (shouldFail) throw new Error('localStorage unavailable');
-                    return store.has(key) ? store.get(key) : null;
-                };
-            }
-            if (prop === 'setItem') {
-                return (key, value) => {
-                    if (shouldFail) throw new Error('localStorage unavailable');
-                    store.set(key, String(value));
-                    // Make the key enumerable
-                    target[key] = String(value);
-                };
-            }
-            if (prop === 'removeItem') {
-                return (key) => {
-                    if (shouldFail) throw new Error('localStorage unavailable');
-                    store.delete(key);
-                    delete target[key];
-                };
-            }
-            if (prop === 'clear') {
-                return () => {
-                    if (shouldFail) throw new Error('localStorage unavailable');
-                    store.clear();
-                    // Clear all enumerable properties
-                    Object.keys(target).forEach(key => delete target[key]);
-                };
-            }
-            if (prop === 'length') {
-                return store.size;
-            }
-            if (prop === 'key') {
-                return (index) => {
-                    const keys = Array.from(store.keys());
-                    return keys[index] || null;
-                };
-            }
-            return target[prop];
-        },
-        ownKeys(target) {
-            // Return stored keys for Object.keys() calls
-            return Array.from(store.keys());
-        },
-        getOwnPropertyDescriptor(target, prop) {
-            if (store.has(prop)) {
-                return {
-                    enumerable: true,
-                    configurable: true,
-                    value: store.get(prop)
-                };
-            }
-            return Object.getOwnPropertyDescriptor(target, prop);
-        }
-    });
-    
-    return mockStorage;
-}
+const { createMockLocalStorage } = require('./testUtils.js');
 
 function runTests() {
     console.log('[T] Running StorageManager Integration Tests...\n');
@@ -99,7 +34,7 @@ function runTests() {
         }
     };
 
-    // Load StorageManager
+    // Load StorageManager source once
     const storageManagerPath = path.join(__dirname, '..', 'src', 'utils', 'StorageManager.js');
     const storageManagerSource = fs.readFileSync(storageManagerPath, 'utf8');
 
