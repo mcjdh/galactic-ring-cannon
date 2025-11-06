@@ -8,7 +8,7 @@
     "dev": "echo 'Use VS Code Live Server extension for development'",
     "serve": "python -m http.server 8000 || npx http-server",
     "docs": "echo 'Documentation available in docs/ folder'",
-    "test": "node src/core/GameState.test.js && node tests/namespaceSmoke.test.js && node tests/upgradeSystemMutation.test.js && node tests/storageManager.test.js"
+    "test": "node src/core/GameState.test.js && node tests/namespaceSmoke.test.js && node tests/upgradeSystemMutation.test.js && node tests/storageManager.test.js && node tests/mathCalculations.test.js"
   },
   "repository": {
     "type": "git",
