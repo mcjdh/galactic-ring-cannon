@@ -1499,7 +1499,7 @@ body {
     }
 }
 
-/* Main Menu Styles - Enhanced */
+/* Main Menu Styles - Enhanced for Single-Screen Display */
 #main-menu {
     position: fixed;
     top: 0;
@@ -1509,14 +1509,10 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;  /* Changed from center to allow scrolling */
+    justify-content: center;  /* Center content - no scrolling needed for standard screens */
     z-index: 500;
-    /* FIXED: Enable scrolling instead of clipping content */
-    overflow-y: auto;
-    overflow-x: hidden;
-    /* Smooth scrolling for better UX */
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;  /* iOS momentum scrolling */
+    /* OPTIMIZED: No scrolling on standard screens - everything fits via smart scaling */
+    overflow: hidden;  /* Prevent scroll by default */
 }
 
 #menu-background {
@@ -1535,30 +1531,39 @@ body {
     flex-direction: column;
     align-items: center;
     animation: fadeIn 0.8s ease-out;
-    /* FIXED: Add padding to prevent content clipping at edges */
-    padding: 32px 20px;
+    /* OPTIMIZED: Smart padding that scales with viewport - no fixed min-height */
+    padding: clamp(10px, 2vh, 32px) clamp(12px, 2vw, 20px);
     width: 100%;
+    max-height: 100vh;  /* Never exceed viewport height */
     box-sizing: border-box;
-    min-height: 100vh;  /* Ensure content can scroll if taller than viewport */
+    /* NO SCROLLING - everything fits on screen with smart scaling */
+    overflow: hidden;
 }
 
-/* Title Styling - Split into three parts */
+/* Title Styling - 2 lines: "GALACTIC RING" / "CANNON" */
 #menu-title {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 30px;
+    gap: clamp(2px, 0.5vh, 6px);
+    margin-bottom: clamp(10px, 2vh, 25px);
     font-family: 'Lucida Console', 'Courier New', monospace;
     font-weight: 900;
-    letter-spacing: 8px;
+    letter-spacing: clamp(3px, 0.8vw, 8px);
     text-transform: uppercase;
     /* Use filter drop-shadow instead of text-shadow for clipped text */
     filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.6)) drop-shadow(0 0 40px rgba(255, 0, 255, 0.4));
 }
 
+/* First line: GALACTIC RING */
+.title-line-1 {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1.5vw, 20px);
+}
+
 .title-galactic {
-    font-size: 52px;
+    font-size: clamp(28px, 5vw, 52px);  /* Scales: 28px (mobile) → 52px (desktop) */
     background: linear-gradient(90deg, #00ffff, #0088ff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1567,7 +1572,7 @@ body {
 }
 
 .title-ring {
-    font-size: 64px;
+    font-size: clamp(28px, 5vw, 52px);  /* Match galactic size for same line */
     background: linear-gradient(90deg, #ff00ff, #ff6b9d);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1575,8 +1580,9 @@ body {
     animation: title-pulse 2s ease-in-out infinite;
 }
 
+/* Second line: CANNON (larger for emphasis) */
 .title-cannon {
-    font-size: 52px;
+    font-size: clamp(36px, 6.5vw, 64px);  /* Larger: 36px (mobile) → 64px (desktop) */
     background: linear-gradient(90deg, #00ff88, #00ffff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1606,18 +1612,18 @@ body {
 }
 
 #star-menu-display {
-    font-size: 28px;
-    margin-bottom: 10px;
+    font-size: clamp(18px, 2.8vw, 28px);  /* Scales with viewport */
+    margin-bottom: clamp(6px, 1vh, 10px);
     color: #f1c40f;
     text-shadow: 0 0 15px rgba(241, 196, 15, 0.8);
     font-weight: bold;
 }
 
 #menu-subtitle {
-    font-size: 16px;
+    font-size: clamp(12px, 1.6vw, 16px);  /* Scales with viewport */
     color: #00ffff;
-    margin-bottom: 30px;
-    letter-spacing: 4px;
+    margin-bottom: clamp(15px, 2.5vh, 30px);
+    letter-spacing: clamp(2px, 0.4vw, 4px);
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
     animation: subtitle-glow 2s ease-in-out infinite;
 }
@@ -1630,21 +1636,21 @@ body {
 #menu-buttons {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    width: 320px;
+    gap: clamp(8px, 1.5vh, 15px);  /* Scales with viewport height */
+    width: clamp(280px, 40vw, 360px);  /* Responsive width */
 }
 
 #loadout-selector {
-    margin: 30px 0 20px;
+    margin: clamp(15px, 2.5vh, 30px) 0 clamp(10px, 1.5vh, 20px);
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    max-width: 520px;
+    gap: clamp(8px, 1.2vh, 12px);
+    max-width: clamp(420px, 60vw, 600px);  /* Scales with viewport */
 }
 
 #loadout-selector-title {
-    font-size: 14px;
-    letter-spacing: 3px;
+    font-size: clamp(11px, 1.4vw, 14px);  /* Scales with viewport */
+    letter-spacing: clamp(1.5px, 0.3vw, 3px);
     color: #ff00ff;
     text-shadow: 0 0 12px rgba(255, 0, 255, 0.6);
     font-family: 'Lucida Console', 'Courier New', monospace;
@@ -1669,50 +1675,50 @@ body {
     width: 100%;
 }
 
-/* IMPROVED: Better structured character description */
+/* IMPROVED: Better structured character description - compact & responsive, NO SCROLL */
 #loadout-description {
-    min-height: 80px;  /* Increased from 42px to fit structured content */
-    max-height: 180px;  /* Prevent infinite expansion */
-    overflow-y: auto;  /* Allow scrolling if needed */
-    font-size: 13px;
+    min-height: clamp(60px, 8vh, 80px);  /* Scales with viewport height */
+    font-size: clamp(11px, 1.3vw, 13px);  /* Scales with viewport */
     color: #00ffff;
     font-family: 'Lucida Console', 'Courier New', monospace;
-    line-height: 1.6;  /* Increased for readability */
+    line-height: 1.4;
     text-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
-    padding: 8px 12px;
+    padding: clamp(6px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px);
     box-sizing: border-box;
     word-wrap: break-word;  /* Prevent text overflow */
     white-space: normal;  /* Allow wrapping */
+    overflow: visible;  /* NO SCROLLBARS - let content flow naturally */
 }
 
 /* Character description styling */
 .char-desc-flavor {
-    margin-bottom: 8px;
+    margin-bottom: clamp(6px, 0.8vh, 10px);
     font-style: italic;
     opacity: 0.9;
     line-height: 1.5;
+    font-size: clamp(10px, 1.1vw, 12px);
 }
 
 .char-desc-weapon {
-    margin: 6px 0;
-    padding: 4px 8px;
+    margin: clamp(4px, 0.6vh, 8px) 0;
+    padding: clamp(3px, 0.4vh, 5px) clamp(6px, 0.8vw, 10px);
     background: rgba(0, 255, 255, 0.08);
     border-left: 2px solid #00ffff;
     border-radius: 3px;
-    font-size: 12px;
+    font-size: clamp(11px, 1.2vw, 13px);
     font-weight: bold;
 }
 
 .char-desc-highlights {
     list-style: none;
     padding: 0;
-    margin: 6px 0 0 0;
-    font-size: 11px;
+    margin: clamp(4px, 0.6vh, 8px) 0 0 0;
+    font-size: clamp(10px, 1.1vw, 12px);
     opacity: 0.85;
 }
 
 .char-desc-highlights li {
-    padding: 2px 0 2px 14px;
+    padding: clamp(1px, 0.2vh, 3px) 0 clamp(1px, 0.2vh, 3px) clamp(12px, 1.5vw, 16px);
     position: relative;
 }
 
@@ -1721,7 +1727,7 @@ body {
     position: absolute;
     left: 0;
     color: #ff00ff;
-    font-size: 10px;
+    font-size: clamp(9px, 1vw, 11px);
 }
 
 .menu-button {
@@ -1832,16 +1838,13 @@ body {
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.05), rgba(255, 0, 255, 0.05));
     border: 2px solid rgba(0, 255, 255, 0.3);
     border-radius: 12px;
-    padding: 16px;
-    margin: 15px 0;
+    padding: clamp(10px, 1.5vh, 16px);
+    margin: clamp(10px, 1.5vh, 15px) 0;
     max-width: 600px;
     width: 100%;
     box-sizing: border-box;
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.2), inset 0 0 20px rgba(0, 255, 255, 0.05);
-    max-height: 450px;
-    overflow-y: auto;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;  /* NO SCROLLBARS - let content fit naturally */
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -1850,33 +1853,13 @@ body {
     box-shadow: 0 0 25px rgba(255, 0, 255, 0.3), inset 0 0 20px rgba(255, 0, 255, 0.05);
 }
 
-/* Custom scrollbar for character selection */
-#character-select-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-#character-select-container::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 4px;
-}
-
-#character-select-container::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #00ffff, #ff00ff);
-    border-radius: 4px;
-    transition: background 0.3s ease;
-}
-
-#character-select-container::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #ff00ff, #00ffff);
-}
-
 /* Character option cards */
 .character-option {
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.08), rgba(255, 0, 255, 0.08));
     border: 2px solid rgba(0, 255, 255, 0.3);
     border-radius: 8px;
-    padding: 12px 16px;
-    margin: 10px 0;
+    padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.5vw, 18px);
+    margin: clamp(6px, 1vh, 10px) 0;
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -1931,11 +1914,11 @@ body {
 
 /* Character name styling */
 .char-name {
-    font-size: 1.1em;
+    font-size: clamp(14px, 1.5vw, 18px);
     font-weight: bold;
     color: #00ffff;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
-    margin-bottom: 6px;
+    margin-bottom: clamp(4px, 0.6vh, 8px);
     letter-spacing: 1px;
     font-family: 'Lucida Console', 'Courier New', monospace;
     transition: color 0.3s ease;
@@ -1948,8 +1931,9 @@ body {
 
 /* Character description container */
 .char-description {
-    line-height: 1.6;
+    line-height: 1.5;
     color: rgba(255, 255, 255, 0.9);
+    font-size: clamp(11px, 1.2vw, 13px);
 }
 
 /* Better visual separation for stat displays */
@@ -2442,501 +2426,79 @@ body {
    ================================================================= */
 
 /* Mobile Landscape & Small Tablets (480px - 768px) */
-@media screen and (max-width: 768px) and (min-width: 480px) {
-    #menu-container {
-        padding: 15px;
-    }
-
-    #menu-title {
-        font-size: 2.5em;
-        margin-bottom: 15px;
-    }
-
-    #menu-subtitle {
-        font-size: 0.9em;
-        margin-bottom: 15px;
-    }
-
-    #menu-buttons {
-        width: 85%;
-        max-width: 400px;
-        padding: 15px;
-    }
-
-    .menu-button {
-        padding: 12px 20px;
-        font-size: 1em;
-        margin: 8px 0;
-    }
-
-    .menu-section-title {
-        font-size: 1.1em;
-        margin: 15px 0 10px 0;
-    }
-
-    #character-select-container {
-        padding: 12px;
-    }
-
-    .character-option {
-        padding: 10px;
-        margin: 6px 0;
-    }
-
-    .char-name {
-        font-size: 1em;
-    }
-
-    .char-desc-flavor {
-        font-size: 11px;
-    }
-
-    .char-desc-weapon {
-        font-size: 11px;
-        padding: 3px 6px;
-    }
-
-    .char-desc-highlights {
-        font-size: 10px;
-    }
-
-    #settings-panel,
-    #shop-panel,
-    #achievements-panel {
-        width: 85%;
-        max-width: 500px;
-        padding: 20px;
-    }
-}
-
-/* Mobile Portrait (< 480px) */
-@media screen and (max-width: 479px) {
-    #menu-container {
-        padding: 10px 5px;
-    }
-
-    #menu-title {
-        font-size: 1.8em;
-        margin-bottom: 10px;
-    }
-
-    #menu-subtitle {
-        font-size: 0.75em;
-        margin-bottom: 10px;
-    }
-
-    #menu-buttons {
-        width: 95%;
-        max-width: 100%;
-        padding: 10px;
-    }
-
-    .menu-button {
-        padding: 10px 15px;
-        font-size: 0.9em;
-        margin: 6px 0;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .menu-section-title {
-        font-size: 1em;
-        margin: 12px 0 8px 0;
-    }
-
-    #character-select-container {
-        padding: 8px;
-        max-height: 400px;
-    }
-
-    .character-option {
-        padding: 8px;
-        margin: 5px 0;
-    }
-
-    .char-name {
-        font-size: 0.95em;
-        margin-bottom: 4px;
-    }
-
-    .char-description {
-        min-height: 60px;
-        max-height: 140px;
-    }
-
-    .char-desc-flavor {
-        font-size: 10px;
-        margin-bottom: 6px;
-    }
-
-    .char-desc-weapon {
-        font-size: 10px;
-        padding: 3px 5px;
-        margin: 4px 0;
-    }
-
-    .char-desc-highlights {
-        font-size: 9px;
-        margin-top: 4px;
-    }
-
-    .char-desc-highlights li {
-        padding: 1px 0 1px 12px;
-    }
-
-    .char-desc-highlights li::before {
-        font-size: 8px;
-    }
-
-    #settings-panel,
-    #shop-panel,
-    #achievements-panel {
-        width: 95%;
-        max-width: 100%;
-        padding: 15px 10px;
-    }
-
-    .setting-item label {
-        font-size: 0.9em;
-    }
-
-    .shop-item {
-        padding: 10px;
-        margin: 8px 0;
-    }
-
-    .achievement-item {
-        padding: 8px;
-        font-size: 0.85em;
-    }
-}
-
-/* Large Desktop (> 1200px) */
-@media screen and (min-width: 1200px) {
-    #menu-buttons {
-        width: 400px;
-        max-width: 400px;
-    }
-
-    #character-select-container {
-        padding: 20px;
-        max-height: 500px;
-    }
-
-    .character-option {
-        padding: 15px;
-    }
-
-    .char-description {
-        min-height: 90px;
-        max-height: 200px;
-    }
-
-    #settings-panel,
-    #shop-panel,
-    #achievements-panel {
-        width: 600px;
-        max-width: 600px;
-    }
-}
-
-/* Extra small screens (< 360px) - Older phones */
-@media screen and (max-width: 359px) {
-    #menu-title {
-        font-size: 1.5em;
-    }
-
-    .menu-button {
-        padding: 8px 12px;
-        font-size: 0.85em;
-    }
-
-    .char-desc-flavor {
-        font-size: 9px;
-    }
-
-    .char-desc-weapon {
-        font-size: 9px;
-    }
-
-    .char-desc-highlights {
-        font-size: 8px;
-    }
-}
+/* Width-based media queries removed - clamp() handles all scaling automatically */
 
 /* =================================================================
    ORIENTATION-SPECIFIC OPTIMIZATIONS
-   Zero-cost CSS media queries for portrait vs landscape layouts
-   Browser handles detection automatically - no JavaScript needed!
+   Simplified - most scaling handled by clamp() automatically
    ================================================================= */
 
-/* Portrait orientation - Optimize for vertical scrolling */
+/* Portrait orientation - Optimize vertical layout */
 @media screen and (orientation: portrait) {
-    /* More vertical space available - optimize for scrolling */
-    #menu-content {
-        padding: 20px 12px;
-        justify-content: flex-start;
-    }
-
-    #menu-title {
-        margin-bottom: 20px;
-        gap: 6px;
-    }
-
-    .title-galactic,
-    .title-cannon {
-        font-size: 2.2em;
-    }
-
-    .title-ring {
-        font-size: 2.8em;
-    }
-
-    #menu-subtitle {
-        font-size: 0.9em;
-        margin-bottom: 20px;
-    }
-
-    /* Buttons take full width in portrait */
+    /* Portrait has more vertical space but less horizontal */
     #menu-buttons {
-        width: 90%;
-        max-width: 420px;
-        gap: 12px;
+        width: min(90vw, 420px);  /* Wider buttons in portrait */
     }
 
-    .menu-button {
-        padding: 14px 20px;
+    #loadout-selector {
+        max-width: min(90vw, 550px);
     }
 
-    /* Character selection optimized for scrolling */
-    #character-select-container {
-        max-height: 60vh;
-        width: 90%;
-        max-width: 500px;
-    }
-
-    .character-option {
-        margin: 8px 0;
-    }
-
-    /* Compact description to save vertical space */
-    .char-description {
-        max-height: 150px;
-    }
-
-    /* Settings/Shop panels use more vertical space */
+    /* Settings/Shop panels use more screen width in portrait */
     #settings-panel .settings-content,
     #shop-panel .settings-content,
     #achievements-panel .settings-content {
-        max-height: 85vh;
-        width: 90%;
-        max-width: 500px;
+        width: min(90vw, 500px);
     }
 }
 
-/* Landscape orientation - Optimize for horizontal space, minimal vertical */
+/* Landscape orientation - Optimize for horizontal space */
 @media screen and (orientation: landscape) {
-    /* Less vertical space - compact everything */
-    #menu-content {
-        padding: 15px 20px;
-        min-height: auto;
-    }
-
-    #menu-title {
-        margin-bottom: 12px;
-        gap: 4px;
-    }
-
-    /* Significantly smaller title in landscape to save vertical space */
-    .title-galactic,
-    .title-cannon {
-        font-size: 1.8em;
-    }
-
-    .title-ring {
-        font-size: 2.2em;
-    }
-
-    #menu-subtitle {
-        font-size: 0.8em;
-        margin-bottom: 12px;
-    }
-
-    #star-menu-display {
-        font-size: 20px;
-        margin-bottom: 8px;
-    }
-
-    /* Buttons more compact in landscape */
-    #menu-buttons {
-        gap: 10px;
-    }
-
-    .menu-button {
-        padding: 10px 18px;
-        font-size: 0.95em;
-    }
-
-    .menu-section-title {
-        margin: 15px 0 10px 0;
-        font-size: 1em;
-    }
-
-    /* Character selection takes less vertical space */
-    #character-select-container {
-        max-height: 50vh;
-        padding: 12px;
-    }
-
-    .character-option {
-        padding: 8px 12px;
-        margin: 6px 0;
-    }
-
-    .char-name {
-        font-size: 1em;
-        margin-bottom: 4px;
-    }
-
-    /* Compact description in landscape */
-    .char-description {
-        min-height: 50px;
-        max-height: 100px;
-        font-size: 11px;
-    }
-
-    .char-desc-flavor {
-        font-size: 10px;
-        margin-bottom: 4px;
-    }
-
-    .char-desc-weapon {
-        font-size: 10px;
-        padding: 3px 6px;
-        margin: 3px 0;
-    }
-
-    .char-desc-highlights {
-        font-size: 9px;
-    }
-
-    /* Settings/Shop panels more compact in landscape */
+    /* Landscape has limited vertical space - clamp() already handles most scaling */
+    /* Just ensure panels don't get too tall */
     #settings-panel .settings-content,
     #shop-panel .settings-content,
     #achievements-panel .settings-content {
-        max-height: 75vh;
-        padding: 15px 20px;
-    }
-
-    .setting-item {
-        margin: 8px 0;
+        max-height: 85vh;  /* Leave some margin for browser chrome */
     }
 }
 
-/* Mobile landscape (< 768px AND landscape) - Extra compact! */
+/* Mobile landscape (< 768px AND landscape) - Critical vertical space constraints only */
 @media screen and (max-width: 767px) and (orientation: landscape) {
-    /* Critical: Very limited vertical space on mobile landscape */
+    /* Critical: Override clamp() for severely limited vertical space */
     #menu-content {
-        padding: 10px 15px;
+        padding: 8px 12px;
+        gap: clamp(4px, 0.5vh, 8px);
     }
 
     #menu-title {
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         gap: 2px;
     }
 
-    /* Super compact title for mobile landscape */
-    .title-galactic,
-    .title-cannon {
-        font-size: 1.4em;
-    }
-
-    .title-ring {
-        font-size: 1.8em;
-    }
-
     #menu-subtitle {
-        font-size: 0.7em;
-        margin-bottom: 8px;
-    }
-
-    #star-menu-display {
-        font-size: 16px;
         margin-bottom: 6px;
     }
 
+    #star-menu-display {
+        margin-bottom: 4px;
+    }
+
     #menu-buttons {
-        gap: 8px;
-        width: 85%;
+        gap: 6px;
     }
 
     .menu-button {
-        padding: 8px 14px;
-        font-size: 0.85em;
-        margin: 4px 0;
+        padding: 6px 12px;
+        margin: 3px 0;
     }
 
-    .menu-section-title {
-        margin: 10px 0 8px 0;
-        font-size: 0.9em;
-    }
-
-    /* Character selection very compact */
-    #character-select-container {
-        max-height: 40vh;
-        padding: 8px;
-    }
-
-    .character-option {
-        padding: 6px 10px;
-        margin: 4px 0;
-    }
-
-    .char-name {
-        font-size: 0.9em;
-        margin-bottom: 3px;
-    }
-
-    .char-description {
-        min-height: 40px;
-        max-height: 80px;
-        font-size: 10px;
-    }
-
-    .char-desc-flavor {
-        font-size: 9px;
-        margin-bottom: 3px;
-    }
-
-    .char-desc-weapon {
-        font-size: 9px;
-        padding: 2px 4px;
-        margin: 2px 0;
-    }
-
-    .char-desc-highlights {
-        font-size: 8px;
-    }
-
-    .char-desc-highlights li {
-        padding: 1px 0 1px 10px;
-    }
-
-    /* Settings/Shop panels ultra-compact */
+    /* Settings/Shop panels height constraints for mobile landscape */
     #settings-panel .settings-content,
     #shop-panel .settings-content,
     #achievements-panel .settings-content {
         max-height: 70vh;
-        padding: 12px 15px;
-        font-size: 0.9em;
-    }
-
-    .setting-item {
-        margin: 6px 0;
-    }
-
-    .setting-item label {
-        font-size: 0.85em;
+        padding: 10px 12px;
     }
 }
 
@@ -2950,10 +2512,9 @@ body {
 
     #character-select-container {
         max-width: 650px;
-        max-height: 55vh;
     }
 
-    /* Could use two-column layout for character options if needed */
+    /* Two-column layout for character options */
     #character-options {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -2962,5 +2523,138 @@ body {
 
     .loadout-option {
         min-width: auto;
+    }
+}
+
+/* =================================================================
+   WIDESCREEN OPTIMIZATIONS - Horizontal layout, no scrolling
+   ================================================================= */
+
+/* Widescreen (> 1024px) - Use horizontal space efficiently */
+@media screen and (min-width: 1025px) {
+    #menu-content {
+        display: grid;
+        grid-template-columns: minmax(350px, 450px) 1fr;
+        grid-template-rows: auto auto auto 1fr;
+        row-gap: clamp(12px, 1.8vh, 25px);
+        column-gap: clamp(30px, 4vw, 50px);
+        align-items: start;
+        max-width: 1400px;
+        padding: clamp(15px, 2.5vh, 35px) clamp(30px, 4vw, 60px);
+    }
+
+    /* Row 1: Title spans both columns */
+    #menu-title {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        margin-bottom: clamp(8px, 1.2vh, 15px);
+    }
+
+    /* Row 2: Star display spans both columns */
+    #star-menu-display {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        margin-bottom: clamp(8px, 1.2vh, 12px);
+        font-size: clamp(20px, 3vw, 32px);
+    }
+
+    /* Row 3 Column 2: Loadout selector (appears before menu-subtitle in HTML, so explicit positioning needed) */
+    #loadout-selector {
+        grid-column: 2;
+        grid-row: 3 / 5;
+        margin: 0;
+        max-width: 100%;
+        width: 100%;
+        align-self: start;
+    }
+
+    #loadout-selector-title {
+        text-align: left;
+        margin-bottom: clamp(12px, 1.8vh, 18px);
+        font-size: clamp(13px, 1.6vw, 16px);
+        padding-bottom: 8px;
+        border-bottom: 2px solid rgba(255, 0, 255, 0.3);
+    }
+
+    /* Row 3 Column 1: Menu subtitle header */
+    #menu-subtitle {
+        grid-column: 1;
+        grid-row: 3;
+        text-align: left;
+        margin-bottom: clamp(10px, 1.5vh, 15px);
+        align-self: start;
+        font-size: clamp(13px, 1.6vw, 16px);
+        padding-bottom: 8px;
+        border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+    }
+
+    /* Row 4 Column 1: Buttons */
+    #menu-buttons {
+        grid-column: 1;
+        grid-row: 4;
+        width: 100%;
+        max-width: 100%;
+        align-self: start;
+    }
+
+    #character-select-container {
+        max-width: 100%;
+    }
+
+    /* Make loadout options flow horizontally */
+    #character-options {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: clamp(8px, 1.2vw, 14px);
+        margin-bottom: clamp(10px, 1.3vh, 15px);
+    }
+
+    .loadout-option {
+        min-width: auto;
+        max-width: none;
+        padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.4vw, 18px);
+        font-size: clamp(13px, 1.4vw, 16px);
+    }
+
+    #loadout-description {
+        min-height: auto;
+        font-size: clamp(11px, 1.1vw, 13px);
+        line-height: 1.4;
+        padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.4vw, 16px);
+        background: rgba(0, 255, 255, 0.03);
+        border-radius: 8px;
+        border: 1px solid rgba(0, 255, 255, 0.15);
+    }
+
+    /* Compact menu buttons for widescreen */
+    #menu-buttons {
+        gap: clamp(8px, 1.2vh, 12px);
+    }
+
+    .menu-button {
+        padding: clamp(12px, 1.4vh, 16px) clamp(18px, 2vw, 24px);
+        font-size: clamp(15px, 1.6vw, 18px);
+    }
+
+    .button-icon {
+        font-size: clamp(18px, 2vw, 22px);
+    }
+}
+
+/* Extra wide screens (> 1400px) - Even more spacious */
+@media screen and (min-width: 1401px) {
+    #menu-content {
+        grid-template-columns: 450px 1fr;
+        gap: 50px;
+        padding: 40px 80px;
+    }
+
+    .menu-button {
+        font-size: clamp(16px, 1.2vw, 20px);
+        padding: clamp(14px, 1.5vh, 18px) clamp(20px, 2vw, 28px);
+    }
+
+    #loadout-description {
+        font-size: clamp(12px, 1vw, 14px);
     }
 }
