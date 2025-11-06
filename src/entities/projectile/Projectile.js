@@ -64,7 +64,7 @@ class Projectile {
         } catch (error) {
             // Fallback: Create a minimal stub manager if BehaviorManager fails
             if (window.debugProjectiles) {
-                console.warn(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error.message);
+                window.LoggerUtils.warn(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error.message);
             }
             this.behaviorManager = this._createFallbackBehaviorManager();
         }
@@ -81,7 +81,7 @@ class Projectile {
                 }
             } catch (error) {
                 if (window.debugProjectiles) {
-                    console.warn(`[Projectile ${this.id}] Failed to add PiercingBehavior:`, error.message);
+                    window.LoggerUtils.warn(`[Projectile ${this.id}] Failed to add PiercingBehavior:`, error.message);
                 }
             }
         }
@@ -112,7 +112,7 @@ class Projectile {
             addBehavior: function() {
                 // Stub - do nothing
                 if (window.debugProjectiles) {
-                    console.warn('[Projectile] Fallback manager: addBehavior called (no-op)');
+                    window.LoggerUtils.warn('[Projectile] Fallback manager: addBehavior called (no-op)');
                 }
             },
             hasBehavior: function() { return false; },

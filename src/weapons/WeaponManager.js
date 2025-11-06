@@ -74,7 +74,7 @@ class WeaponManager {
             });
             return weapon;
         } catch (error) {
-            ((typeof window !== 'undefined' && window.logger?.error) || console.error)(
+            window.LoggerUtils.error(
                 `[WeaponManager] Failed to construct weapon "${id}":`,
                 error
             );

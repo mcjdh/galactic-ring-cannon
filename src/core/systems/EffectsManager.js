@@ -110,7 +110,7 @@ class EffectsManager {
                     : ParticleManager;
             } else {
             this.particleManager = null;
-            (window.logger && window.logger.warn ? window.logger.warn('No particle system available, using fallback') : console.warn('No particle system available, using fallback'));
+            window.LoggerUtils.warn('No particle system available, using fallback');
             }
         }
     }

@@ -5,7 +5,7 @@ class AchievementSystem {
         if (window.ACHIEVEMENT_DEFINITIONS) {
             this.achievements = JSON.parse(JSON.stringify(window.ACHIEVEMENT_DEFINITIONS));
         } else {
-            console.warn('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
+            window.LoggerUtils.warn('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
             this.achievements = {};
         }
 
@@ -31,7 +31,7 @@ class AchievementSystem {
     
     loadAchievements() {
         try {
-            const saved = localStorage.getItem('achievements');
+            const saved = window.StorageManager.getItem('achievements');
             if (saved) {
                 const loaded = JSON.parse(saved);
                 for (const [key, achievement] of Object.entries(loaded)) {
@@ -43,9 +43,9 @@ class AchievementSystem {
                 }
             }
         } catch (error) {
-            console.error('Error loading achievements:', error);
+            window.LoggerUtils.error('Error loading achievements:', error);
             // Clear corrupted data
-            localStorage.removeItem('achievements');
+            window.StorageManager.removeItem('achievements');
         }
     }
     
@@ -59,16 +59,16 @@ class AchievementSystem {
                     unlocked: achievement.unlocked
                 };
             }
-            localStorage.setItem('achievements', JSON.stringify(saveData));
+            window.StorageManager.setJSON('achievements', saveData);
         } catch (error) {
-            console.error('Error saving achievements:', error);
+            window.LoggerUtils.error('Error saving achievements:', error);
         }
     }
     
     updateAchievement(key, value) {
         if (!this.achievements[key]) {
             // Use logger instead of console.warn for better error handling
-            (window.logger?.warn || (() => {}))(`Achievement '${key}' not found`);
+            window.LoggerUtils.warn(`Achievement '${key}' not found`);
             return;
         }
         
@@ -238,7 +238,7 @@ class AchievementSystem {
                 }
             }
         } catch (error) {
-            console.error('Error showing achievement notification:', error);
+            window.LoggerUtils.error('Error showing achievement notification:', error);
         }
     }
     

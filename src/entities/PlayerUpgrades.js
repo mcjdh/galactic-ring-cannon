@@ -5,7 +5,7 @@
 class PlayerUpgrades {
     static apply(player, upgrade) {
         if (!player || typeof player.applyUpgrade !== 'function') {
-            console.warn('PlayerUpgrades.apply called without valid player');
+            window.LoggerUtils.warn('PlayerUpgrades.apply called without valid player');
             return;
         }
 

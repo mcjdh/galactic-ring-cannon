@@ -50,7 +50,7 @@ class XPOrb {
         let finalValue = baseValue;
         
         // Apply Jupiter XP gain bonus
-        const xpBonusTier = parseInt(localStorage.getItem('meta_jupiter_xp_gain') || '0', 10);
+        const xpBonusTier = window.StorageManager.getInt('meta_jupiter_xp_gain', 0);
         if (xpBonusTier > 0) {
             finalValue = Math.floor(finalValue * (1 + xpBonusTier * 0.05));
         }

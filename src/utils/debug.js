@@ -31,7 +31,7 @@ class DebugManager {
         // Check if debug mode should be enabled
         const urlParams = new URLSearchParams(window.location.search);
         const debugMode = urlParams.get('debug') === 'true' || 
-                         localStorage.getItem('debugMode') === 'true';
+                         window.StorageManager.getBoolean('debugMode', false);
         
         if (debugMode) {
             this.enable();
@@ -81,13 +81,13 @@ class DebugManager {
     
     enable() {
         this.enabled = true;
-        localStorage.setItem('debugMode', 'true');
+        window.StorageManager.setItem('debugMode', 'true');
         this.createOverlay();
     }
     
     disable() {
         this.enabled = false;
-        localStorage.setItem('debugMode', 'false');
+        window.StorageManager.setItem('debugMode', 'false');
         this.removeOverlay();
     }
     
@@ -225,9 +225,9 @@ Commands:
         const player = window.gameManager?.game?.player;
         if (player && typeof player.addExperience === 'function') {
             player.addExperience(amount);
-            (window.logger?.log || (() => {}))(`[*] Gave ${amount} XP to player`);
+            window.LoggerUtils.log(`[*] Gave ${amount} XP to player`);
         } else {
-            (window.logger?.warn || (() => {}))('! Player not found or addExperience method not available');
+            window.LoggerUtils.warn('! Player not found or addExperience method not available');
         }
     }
     
@@ -235,9 +235,9 @@ Commands:
         const gameManager = window.gameManager;
         if (gameManager && typeof gameManager.earnStarTokens === 'function') {
             gameManager.earnStarTokens(amount);
-            (window.logger?.log || (() => {}))(`[*] Gave ${amount} star tokens`);
+            window.LoggerUtils.log(`[*] Gave ${amount} star tokens`);
         } else {
-            (window.logger?.warn || (() => {}))('! GameManager not found or earnStarTokens method not available');
+            window.LoggerUtils.warn('! GameManager not found or earnStarTokens method not available');
         }
     }
     
@@ -251,9 +251,9 @@ Commands:
                     killed++;
                 }
             });
-            (window.logger?.log || (() => {}))(`[SWORD] Killed ${killed} enemies`);
+            window.LoggerUtils.log(`[SWORD] Killed ${killed} enemies`);
         } else {
-            (window.logger?.warn || (() => {}))('! No enemies found or enemies array not available');
+            window.LoggerUtils.warn('! No enemies found or enemies array not available');
         }
     }
     
