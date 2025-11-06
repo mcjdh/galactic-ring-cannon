@@ -24,6 +24,55 @@ function createLocalStorageStub() {
 }
 
 function setupGlobalEnvironment() {
+    const localStorageStub = createLocalStorageStub();
+    
+    // Create StorageManager stub
+    const StorageManager = {
+        getBoolean(key, defaultValue = false) {
+            const value = localStorageStub.getItem(key);
+            if (value === null) return defaultValue;
+            return value === 'true' || value === '1';
+        },
+        getItem(key, defaultValue = null) {
+            const value = localStorageStub.getItem(key);
+            return value !== null ? value : defaultValue;
+        },
+        setItem(key, value) {
+            localStorageStub.setItem(key, value);
+            return true;
+        },
+        getInt(key, defaultValue = 0) {
+            const value = localStorageStub.getItem(key);
+            if (value === null) return defaultValue;
+            const parsed = parseInt(value, 10);
+            return isNaN(parsed) ? defaultValue : parsed;
+        },
+        getFloat(key, defaultValue = 0.0) {
+            const value = localStorageStub.getItem(key);
+            if (value === null) return defaultValue;
+            const parsed = parseFloat(value);
+            return isNaN(parsed) ? defaultValue : parsed;
+        },
+        getJSON(key, defaultValue = null) {
+            const value = localStorageStub.getItem(key);
+            if (value === null) return defaultValue;
+            try {
+                return JSON.parse(value);
+            } catch (e) {
+                return defaultValue;
+            }
+        },
+        setJSON(key, value) {
+            try {
+                const json = JSON.stringify(value);
+                localStorageStub.setItem(key, json);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+    };
+    
     const windowStub = {
         Game: {},
         GAME_CONSTANTS: {
@@ -47,11 +96,12 @@ function setupGlobalEnvironment() {
             error() {}
         },
         addEventListener() {},
-        removeEventListener() {}
+        removeEventListener() {},
+        StorageManager: StorageManager
     };
 
     windowStub.window = windowStub;
-    windowStub.localStorage = createLocalStorageStub();
+    windowStub.localStorage = localStorageStub;
     windowStub.gameManager = {
         showFloatingText() {},
         addXpCollected(amount) {
