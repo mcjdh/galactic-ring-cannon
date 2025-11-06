@@ -1,4 +1,35 @@
 class PlayerMovement {
+    // Movement physics constants (extracted for clarity and maintainability)
+    static MOVEMENT_CONSTANTS = {
+        ACCELERATION: 1200,                // pixels/sec² - how fast player accelerates
+        FRICTION: 0.85,                    // friction coefficient (0-1) - how fast player decelerates
+        MOVEMENT_THRESHOLD: 5,             // velocity below this is considered "stopped"
+        SQRT2_INV_FALLBACK: 0.7071067811865476, // 1/√2 for diagonal normalization (if FastMath unavailable)
+
+        // Trail effect settings
+        TRAIL_SIZE_NORMAL: 0.5,            // trail particle size (ratio of player radius)
+        TRAIL_SIZE_DODGING: 0.8,           // trail particle size while dodging
+        TRAIL_DURATION_NORMAL: 0.3,        // seconds
+        TRAIL_DURATION_DODGING: 0.4,       // seconds
+        TRAIL_MIN_DURATION_FACTOR: 0.6,    // minimum duration multiplier in low-performance mode
+
+        // Dodge mechanics
+        PERFECT_DODGE_DETECTION_RADIUS: 80,  // pixels - radius to check for nearby enemies
+        PERFECT_DODGE_DISTANCE: 50,          // pixels - max distance for perfect dodge
+
+        // Dodge visual effects
+        DODGE_TEXT_OFFSET_Y: -30,            // pixels above player
+        DODGE_PARTICLE_COUNT: 10,            // number of particles spawned
+        DODGE_PARTICLE_VELOCITY_SPREAD: 50,  // pixels/sec - random velocity range
+        DODGE_PARTICLE_SIZE_RATIO: 0.5,      // ratio of player radius
+        DODGE_PARTICLE_DURATION: 0.3,        // seconds
+        DODGE_SOUND_VOLUME: 0.7,             // 0-1
+
+        // Dodge indicator UI
+        DODGE_INDICATOR_RADIUS_OFFSET: 8,    // pixels outside player radius
+        DODGE_INDICATOR_LINE_WIDTH: 2        // pixels
+    };
+
     constructor(player) {
         this.player = player;
 
@@ -53,8 +84,9 @@ class PlayerMovement {
         if (keys['d'] || keys['D'] || keys['ArrowRight']) inputX += 1;
 
         // Enhanced movement physics with acceleration and momentum
-        const acceleration = 1200; // pixels/sec²
-        const friction = 0.85; // friction coefficient
+        const C = PlayerMovement.MOVEMENT_CONSTANTS; // Shorthand for constants
+        const acceleration = C.ACCELERATION;
+        const friction = C.FRICTION;
         const maxSpeed = this.speed;
 
         // Apply input acceleration
@@ -63,8 +95,9 @@ class PlayerMovement {
             // For keyboard input, values are always -1, 0, or 1
             if (inputX !== 0 && inputY !== 0) {
                 // Diagonal movement: multiply by 1/√2 (pre-computed constant)
-                inputX *= window.FastMath.SQRT2_INV;
-                inputY *= window.FastMath.SQRT2_INV;
+                const SQRT2_INV = window.FastMath?.SQRT2_INV || C.SQRT2_INV_FALLBACK;
+                inputX *= SQRT2_INV;
+                inputY *= SQRT2_INV;
             }
             // Cardinal directions (N/S/E/W) are already normalized
 
@@ -81,7 +114,8 @@ class PlayerMovement {
             const frictionFactor = friction ** (deltaTime * 60);
             this.velocity.x *= frictionFactor;
             this.velocity.y *= frictionFactor;
-            this.isMoving = Math.abs(this.velocity.x) > 5 || Math.abs(this.velocity.y) > 5;
+            this.isMoving = Math.abs(this.velocity.x) > C.MOVEMENT_THRESHOLD ||
+                          Math.abs(this.velocity.y) > C.MOVEMENT_THRESHOLD;
         }
 
         // Clamp velocity to max speed (optimized: use squared comparison)
@@ -126,11 +160,16 @@ class PlayerMovement {
     createTrailParticle(x, y) {
         // Respect performance settings
         if (!window.gameManager || window.gameManager.lowQuality) return;
-        const trailSize = this.isDodging ? this.player.radius * 0.8 : this.player.radius * 0.5;
+
+        const C = PlayerMovement.MOVEMENT_CONSTANTS;
+        const trailSize = this.isDodging
+            ? this.player.radius * C.TRAIL_SIZE_DODGING
+            : this.player.radius * C.TRAIL_SIZE_NORMAL;
+
         // Slightly shorten in constrained modes
-        const baseDuration = this.isDodging ? 0.4 : 0.3;
+        const baseDuration = this.isDodging ? C.TRAIL_DURATION_DODGING : C.TRAIL_DURATION_NORMAL;
         const factor = (window.gameManager.particleReductionFactor || 1.0);
-        const duration = baseDuration * (factor < 1 ? Math.max(0.6, factor + 0.4) : 1);
+        const duration = baseDuration * (factor < 1 ? Math.max(C.TRAIL_MIN_DURATION_FACTOR, factor + 0.4) : 1);
         const trailColor = this.player.trailColor || this.player.color;
 
         this.player.spawnParticle(x, y, 0, 0, trailSize, trailColor, duration, 'trail');
@@ -175,18 +214,20 @@ class PlayerMovement {
     doDodge() {
         if (!this.canDodge || this.isDodging) return;
 
+        const C = PlayerMovement.MOVEMENT_CONSTANTS;
+
         // Check for perfect dodge (dodging just before being hit)
         let wasPerfectDodge = false;
         if (window.gameManager && window.gameManager.game) {
             const enemies = window.gameManager.game.getEnemiesWithinRadius?.(
                 this.player.x,
                 this.player.y,
-                80,
+                C.PERFECT_DODGE_DETECTION_RADIUS,
                 { includeDead: false }
             ) ?? [];
 
             for (const enemy of enemies) {
-                if (enemy.isAttacking && this.player.distanceTo(enemy) < 50) {
+                if (enemy.isAttacking && this.player.distanceTo(enemy) < C.PERFECT_DODGE_DISTANCE) {
                     wasPerfectDodge = true;
                     break;
                 }
@@ -207,7 +248,13 @@ class PlayerMovement {
         // Visual effect for dodge
         const gm = window.gameManager || window.gameManagerBridge;
         if (gm && typeof gm.showFloatingText === 'function') {
-            gm.showFloatingText("Dodge!", this.player.x, this.player.y - 30, this.player.glowColor || '#3498db', 18);
+            gm.showFloatingText(
+                "Dodge!",
+                this.player.x,
+                this.player.y + C.DODGE_TEXT_OFFSET_Y,
+                this.player.glowColor || '#3498db',
+                18
+            );
         }
 
         // Create dodge effect
@@ -216,25 +263,25 @@ class PlayerMovement {
         const fallbackLowQuality = gm?.lowQuality ?? false;
         const particleCount = stats?.lowQuality || fallbackLowQuality
             ? 0
-            : helpers?.calculateSpawnCount?.(10)
-                ?? Math.floor(10 * Math.min(gm?.particleReductionFactor || 1, 1));
+            : helpers?.calculateSpawnCount?.(C.DODGE_PARTICLE_COUNT)
+                ?? Math.floor(C.DODGE_PARTICLE_COUNT * Math.min(gm?.particleReductionFactor || 1, 1));
 
         for (let i = 0; i < particleCount; i++) {
             this.player.spawnParticle(
                 this.player.x,
                 this.player.y,
-                (Math.random() - 0.5) * 50,
-                (Math.random() - 0.5) * 50,
-                this.player.radius / 2,
+                (Math.random() - 0.5) * C.DODGE_PARTICLE_VELOCITY_SPREAD,
+                (Math.random() - 0.5) * C.DODGE_PARTICLE_VELOCITY_SPREAD,
+                this.player.radius * C.DODGE_PARTICLE_SIZE_RATIO,
                 this.player.glowColor || this.player.color,
-                0.3,
+                C.DODGE_PARTICLE_DURATION,
                 'spark'
             );
         }
 
         // Play dodge sound
         if (window.audioSystem?.play) {
-            window.audioSystem.play('dodge', 0.7);
+            window.audioSystem.play('dodge', C.DODGE_SOUND_VOLUME);
         }
     }
 
@@ -266,17 +313,18 @@ class PlayerMovement {
     // Render dodge cooldown indicator
     renderDodgeIndicator(ctx) {
         if (!this.canDodge) {
+            const C = PlayerMovement.MOVEMENT_CONSTANTS;
             const cooldownPercent = Math.min(1, this.dodgeCooldownTimer / this.dodgeCooldown);
             ctx.beginPath();
             ctx.arc(
                 this.player.x,
                 this.player.y,
-                this.player.radius + 8,
+                this.player.radius + C.DODGE_INDICATOR_RADIUS_OFFSET,
                 -Math.PI / 2,
                 -Math.PI / 2 + (2 * Math.PI * cooldownPercent)
             );
             ctx.strokeStyle = 'rgba(52, 152, 219, 0.7)';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = C.DODGE_INDICATOR_LINE_WIDTH;
             ctx.stroke();
         }
     }

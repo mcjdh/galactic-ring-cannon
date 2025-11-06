@@ -17,11 +17,17 @@ class OptimizedParticlePool {
         this.batchSize = 50;
 
         // OPTIMIZATION: Pre-allocate alpha grouping structures to avoid per-frame allocations
-        this._alphaGroupsMap = new Map(); // Reused Map for alpha grouping
-        this._alphaArrayPool = []; // Pool of arrays for alpha groups
-        this._maxAlphaGroups = 11; // 0.0 to 1.0 in 0.1 increments
-        // Pre-allocate arrays for alpha groups
-        for (let i = 0; i < this._maxAlphaGroups * 2; i++) {
+        // During rendering, particles are grouped by alpha (rounded to 0.1) for batching
+        // This reduces ctx.globalAlpha state changes from O(n) to O(11) per frame
+        this._alphaGroupsMap = new Map(); // Reused Map for alpha grouping (avoids Map allocation)
+        this._alphaArrayPool = []; // Pool of arrays for alpha groups (avoids array allocation)
+        this._maxAlphaGroups = 11; // 0.0 to 1.0 in 0.1 increments (max distinct alpha values)
+
+        // Pre-allocate 2x arrays for double-buffering between different particle types
+        // We may have up to 11 alpha groups per particle type (basic, spark, smoke, etc.)
+        // Allocating 2x ensures we have enough arrays available even when multiple types render
+        const ALPHA_ARRAY_POOL_SIZE = this._maxAlphaGroups * 2;
+        for (let i = 0; i < ALPHA_ARRAY_POOL_SIZE; i++) {
             this._alphaArrayPool.push([]);
         }
 

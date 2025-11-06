@@ -5,44 +5,82 @@
  */
 
 class EnemyAI {
+    // AI behavior constants (extracted for clarity and maintainability)
+    static AI_CONSTANTS = {
+        // Targeting system
+        TARGET_UPDATE_INTERVAL_BASE: 0.4,       // seconds - base interval for target updates
+        TARGET_UPDATE_INTERVAL_RANDOM: 0.3,     // seconds - random variance to desync enemies
+        TARGET_UPDATE_TIMER_RANDOM: 0.5,        // seconds - random initial timer
+        MAX_TARGET_DISTANCE: 800,               // pixels - max range to consider player as target
+
+        // Attack timing
+        ATTACK_TIMER_RANDOM: 1.0,               // seconds - random initial attack timer
+        ATTACK_COOLDOWN_BASE: 1.8,              // seconds - base cooldown between attacks
+        ATTACK_COOLDOWN_RANDOM: 0.4,            // seconds - random variance
+
+        // Combat positioning (attacking state)
+        OPTIMAL_ATTACK_DISTANCE_RATIO: 0.8,     // ratio of attack range - preferred distance
+        ATTACK_HYSTERESIS_RATIO: 0.2,           // ratio - buffer zone to prevent jittering
+        RETREAT_SPEED: 0.2,                     // movement speed when backing away
+        APPROACH_SPEED: 0.15,                   // movement speed when approaching
+        OPTIMAL_RANGE_DAMPING: 0.8,             // dampen movement when in optimal range
+
+        // Collision avoidance
+        SEPARATION_RADIUS: 30,                  // pixels - distance to maintain from other enemies
+        AVOIDANCE_UPDATE_INTERVAL_BASE: 0.12,   // seconds - base interval for avoidance updates
+        AVOIDANCE_UPDATE_INTERVAL_RANDOM: 0.08, // seconds - random variance
+        AVOIDANCE_TIMER_RANDOM: 0.1,            // seconds - random initial timer
+        AVOIDANCE_STRENGTH: 0.5,                // multiplier for avoidance force
+        MAX_NEIGHBOR_CHECK: 8,                  // max neighbors to check for avoidance
+
+        // Performance optimization
+        NEIGHBOR_CACHE_LIFETIME: 4,             // frames - how long to cache neighbor data (Pi5 optimization)
+        NEIGHBOR_CACHE_INITIAL_FRAME: -999,     // initial cache frame (far in past)
+
+        // Aggressive movement (different AI modes)
+        AGGRESSIVE_CHASE_DISTANCE: 150          // pixels - distance threshold for aggressive pursuit
+    };
+
     constructor(enemy) {
         this.enemy = enemy;
-        
+
+        const C = EnemyAI.AI_CONSTANTS;
+
         // AI state management
         this.currentState = 'idle';
         this.stateTimer = 0;
         this.lastStateChange = 0;
-        
-        // Targeting system
+
+        // Targeting system (randomized to desync enemies)
         this.target = null;
-        this.targetUpdateTimer = Math.random() * 0.5; // Randomize initial timer to desync enemies
-        this.targetUpdateInterval = 0.4 + Math.random() * 0.3; // Random interval 0.4-0.7s
-        this.maxTargetDistance = 800; // Maximum distance to consider player as target
-        
-        // Attack AI
-        this.attackTimer = Math.random() * 1.0; // Randomize initial attack timer
-        this.attackCooldown = 1.8 + Math.random() * 0.4; // Random cooldown 1.8-2.2s
+        this.targetUpdateTimer = Math.random() * C.TARGET_UPDATE_TIMER_RANDOM;
+        this.targetUpdateInterval = C.TARGET_UPDATE_INTERVAL_BASE + Math.random() * C.TARGET_UPDATE_INTERVAL_RANDOM;
+        this.maxTargetDistance = C.MAX_TARGET_DISTANCE;
+
+        // Attack AI (randomized timing)
+        this.attackTimer = Math.random() * C.ATTACK_TIMER_RANDOM;
+        this.attackCooldown = C.ATTACK_COOLDOWN_BASE + Math.random() * C.ATTACK_COOLDOWN_RANDOM;
         this.lastAttackTime = 0;
-        
+
         // Boss-specific AI
         this.attackPatterns = [];
         this.currentAttackPattern = 0;
         this.phaseChangeThresholds = [0.7, 0.4, 0.15]; // Health % thresholds
         this.currentPhase = 1;
-        
-        // Collision avoidance
+
+        // Collision avoidance (randomized to desync)
         this.avoidanceVector = { x: 0, y: 0 };
-        this.separationRadius = 30; // Distance to maintain from other enemies
-        this.avoidanceUpdateTimer = Math.random() * 0.1;
-        this.avoidanceUpdateInterval = 0.12 + Math.random() * 0.08;
+        this.separationRadius = C.SEPARATION_RADIUS;
+        this.avoidanceUpdateTimer = Math.random() * C.AVOIDANCE_TIMER_RANDOM;
+        this.avoidanceUpdateInterval = C.AVOIDANCE_UPDATE_INTERVAL_BASE + Math.random() * C.AVOIDANCE_UPDATE_INTERVAL_RANDOM;
         this._avoidanceFrameGroup = EnemyAI._nextAvoidanceAssignment;
         EnemyAI._nextAvoidanceAssignment = (EnemyAI._nextAvoidanceAssignment + 1) % EnemyAI._avoidanceBuckets;
-        
+
         // > OPTIMIZATION: Neighbor cache for Pi5 performance (70% reduction in spatial queries)
         this._cachedNeighbors = [];
-        this._neighborCacheFrame = -999;
-        this._neighborCacheLifetime = 4; // Cache for 4 frames on Pi5
-        
+        this._neighborCacheFrame = C.NEIGHBOR_CACHE_INITIAL_FRAME;
+        this._neighborCacheLifetime = C.NEIGHBOR_CACHE_LIFETIME;
+
         // Behavior flags
         this.isAggressive = true;
         this.canAttackPlayer = true;
@@ -212,26 +250,27 @@ class EnemyAI {
         }
 
         // Slight movement to maintain optimal attack distance (with hysteresis to prevent jittering)
-        const optimalDistance = this.getAttackRange() * 0.8;
-        const hysteresisRange = optimalDistance * 0.2; // 20% buffer zone
+        const C = EnemyAI.AI_CONSTANTS;
+        const optimalDistance = this.getAttackRange() * C.OPTIMAL_ATTACK_DISTANCE_RATIO;
+        const hysteresisRange = optimalDistance * C.ATTACK_HYSTERESIS_RATIO;
 
         if (distance < optimalDistance - hysteresisRange) {
             // Too close, back away
             this.enemy.targetDirection = {
-                x: -direction.x * 0.2,
-                y: -direction.y * 0.2
+                x: -direction.x * C.RETREAT_SPEED,
+                y: -direction.y * C.RETREAT_SPEED
             };
         } else if (distance > optimalDistance + hysteresisRange) {
             // Too far, move closer
             this.enemy.targetDirection = {
-                x: direction.x * 0.15,
-                y: direction.y * 0.15
+                x: direction.x * C.APPROACH_SPEED,
+                y: direction.y * C.APPROACH_SPEED
             };
         } else {
             // In optimal range, minimal movement
             this.enemy.targetDirection = {
-                x: this.enemy.targetDirection.x * 0.8,  // Dampen existing movement
-                y: this.enemy.targetDirection.y * 0.8
+                x: this.enemy.targetDirection.x * C.OPTIMAL_RANGE_DAMPING,
+                y: this.enemy.targetDirection.y * C.OPTIMAL_RANGE_DAMPING
             };
         }
     }
@@ -366,7 +405,7 @@ class EnemyAI {
                 if (this.target) {
                     // OPTIMIZED: Get both distance and direction with single sqrt calculation
                     const { distance, direction } = this.getDistanceAndDirection(this.target);
-                    if (distance > 150) {
+                    if (distance > EnemyAI.AI_CONSTANTS.AGGRESSIVE_CHASE_DISTANCE) {
                         this.enemy.targetDirection = direction;
                     }
                 }
@@ -437,7 +476,7 @@ class EnemyAI {
                 avoidance.x += dx * invDistance * force;
                 avoidance.y += dy * invDistance * force;
                 neighborCount++;
-                if (neighborCount >= 8) break;
+                if (neighborCount >= EnemyAI.AI_CONSTANTS.MAX_NEIGHBOR_CHECK) break;
             }
         } else {
             const gridSize = game.gridSize;
@@ -473,7 +512,7 @@ class EnemyAI {
                         avoidance.y += dy * invDistance * force;
                         neighborCount++;
 
-                        if (neighborCount >= 8) {
+                        if (neighborCount >= EnemyAI.AI_CONSTANTS.MAX_NEIGHBOR_CHECK) {
                             break outerLoop;
                         }
                     }
@@ -485,8 +524,9 @@ class EnemyAI {
             avoidance.x /= neighborCount;
             avoidance.y /= neighborCount;
 
-            this.enemy.targetDirection.x += avoidance.x * 0.5;
-            this.enemy.targetDirection.y += avoidance.y * 0.5;
+            const C = EnemyAI.AI_CONSTANTS;
+            this.enemy.targetDirection.x += avoidance.x * C.AVOIDANCE_STRENGTH;
+            this.enemy.targetDirection.y += avoidance.y * C.AVOIDANCE_STRENGTH;
 
             // OPTIMIZED: Normalize using inverse sqrt
             const dir = this.enemy.targetDirection;
@@ -537,15 +577,16 @@ class EnemyAI {
             avoidance.y += dy * invDistance * force;
             neighborCount++;
 
-            if (neighborCount >= 8) break;
+            if (neighborCount >= EnemyAI.AI_CONSTANTS.MAX_NEIGHBOR_CHECK) break;
         }
 
         if (neighborCount > 0 && this.enemy.targetDirection) {
             avoidance.x /= neighborCount;
             avoidance.y /= neighborCount;
 
-            this.enemy.targetDirection.x += avoidance.x * 0.5;
-            this.enemy.targetDirection.y += avoidance.y * 0.5;
+            const C = EnemyAI.AI_CONSTANTS;
+            this.enemy.targetDirection.x += avoidance.x * C.AVOIDANCE_STRENGTH;
+            this.enemy.targetDirection.y += avoidance.y * C.AVOIDANCE_STRENGTH;
 
             // OPTIMIZED: Normalize using inverse sqrt
             const dir = this.enemy.targetDirection;

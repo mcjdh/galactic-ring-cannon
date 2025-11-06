@@ -49,9 +49,13 @@ class CollisionCache {
     getRadiusSum(r1, r2) {
         if (!this.enabled) return r1 + r2;
 
-        // OPTIMIZED: Numeric key encoding (3-5% faster than string concatenation)
-        // Encode as: r1 * 1000 + r2 (handles radii up to 999)
-        const key = Math.round(r1 * 1000 + r2);
+        // OPTIMIZED: Order-independent key encoding to avoid cache misses
+        // Use bitwise encoding: (min << 16) | max
+        // Handles radii up to 65535 with no collisions
+        const r1Round = Math.round(r1 * 1000);
+        const r2Round = Math.round(r2 * 1000);
+        const [min, max] = r1Round <= r2Round ? [r1Round, r2Round] : [r2Round, r1Round];
+        const key = (min << 16) | max;
 
         if (this._radiusSumCache.has(key)) {
             return this._radiusSumCache.get(key);

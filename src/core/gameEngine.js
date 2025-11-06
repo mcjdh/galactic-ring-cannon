@@ -778,6 +778,8 @@ class GameEngine {
         } else if (this._manualPerformanceOverride === 'off') {
             this.performanceMode = false;
             this.lowGpuMode = false;
+            // Remove low-end CSS class when manually disabling performance mode
+            document.documentElement.classList.remove('low-end-device');
         } else {
             // No manual override - preserve auto-detected settings
             // Reset performanceMode to false (will be re-enabled by adjustPerformanceMode if FPS drops)
@@ -884,6 +886,8 @@ class GameEngine {
                 this._manualPerformanceOverride = null;
                 this.performanceMode = false;
                 this.lowGpuMode = false;
+                // Remove low-end CSS class when resetting performance override
+                document.documentElement.classList.remove('low-end-device');
                 this._applyBackgroundQuality();
                 this._updateParticleQuality();
             } else {
@@ -1283,7 +1287,10 @@ class GameEngine {
         if (!this._autoLowQualityCosmic) {
             this.lowGpuMode = true;
         }
-        
+
+        // Apply low-end CSS class when enabling performance mode
+        document.documentElement.classList.add('low-end-device');
+
         this._maxSpatialGridPoolSize = 128;
         // Optimize rendering
         if (this.ctx) {
@@ -1308,6 +1315,8 @@ class GameEngine {
         // so lowGpuMode should remain true permanently
         if (!this._autoLowQualityCosmic) {
             this.lowGpuMode = false;
+            // Remove low-end CSS class only if device wasn't auto-detected as low-end
+            document.documentElement.classList.remove('low-end-device');
         }
         
         this._maxSpatialGridPoolSize = 256;
