@@ -204,7 +204,7 @@ class PerformanceManager {
     
     startMonitoring() {
         // Create performance display if debug mode is enabled
-        if (window.location.search.includes('debug') || localStorage.getItem('debugMode') === 'true') {
+        if (window.location.search.includes('debug') || window.StorageManager.getBoolean('debugMode', false)) {
             this.createPerformanceDisplay();
         }
     }

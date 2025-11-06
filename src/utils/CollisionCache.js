@@ -34,7 +34,7 @@ class CollisionCache {
         this._gridKeyCacheSize = 1000;
         
         // Use logger if available, fallback to console
-        const log = (typeof window !== "undefined" && window.logger?.info) || console.log;
+        const log = window.LoggerUtils.info;
         log('[CollisionCache] Initialized');
     }
     

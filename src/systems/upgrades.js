@@ -16,14 +16,8 @@ class UpgradeSystem {
         this.levelUpKeyListener = null; // Store reference to listener for cleanup
         this.comboEffects = new Set();
 
-        // Auto-level feature: load from localStorage
-        try {
-            const savedAutoLevel = localStorage.getItem('autoLevelEnabled');
-            this.autoLevelEnabled = savedAutoLevel === 'true';
-        } catch (error) {
-            console.warn('Failed to load auto-level setting:', error);
-            this.autoLevelEnabled = false;
-        }
+        // Auto-level feature: load from StorageManager
+        this.autoLevelEnabled = window.StorageManager.getBoolean('autoLevelEnabled', false);
     }
 
     resetForNewRun() {
@@ -122,7 +116,9 @@ class UpgradeSystem {
         });
 
         // Show the level up UI
-        this.levelUpContainer.classList.remove('hidden');
+        if (this.levelUpContainer) {
+            this.levelUpContainer.classList.remove('hidden');
+        }
 
         // Add keyboard shortcut listener
         this.addKeyboardShortcuts(options);
@@ -161,7 +157,7 @@ class UpgradeSystem {
         // Validate player exists before applying upgrade
         const player = window.gameManager?.game?.player;
         if (!player) {
-            (window.logger?.warn || console.warn)('Cannot apply upgrade: player not found');
+            window.LoggerUtils.warn('Cannot apply upgrade: player not found');
             return;
         }
 
@@ -243,11 +239,7 @@ class UpgradeSystem {
 
     setAutoLevel(enabled) {
         this.autoLevelEnabled = !!enabled;
-        try {
-            localStorage.setItem('autoLevelEnabled', this.autoLevelEnabled);
-        } catch (error) {
-            console.warn('Failed to save auto-level setting:', error);
-        }
+        window.StorageManager.setItem('autoLevelEnabled', enabled ? 'true' : 'false');
     }
     
     // Enhanced method to get better quality random upgrades with build path consideration
@@ -408,7 +400,9 @@ class UpgradeSystem {
         this.showUpgradeNotification(upgrade);
 
         // Hide the level up UI
-        this.levelUpContainer.classList.add('hidden');
+        if (this.levelUpContainer) {
+            this.levelUpContainer.classList.add('hidden');
+        }
 
         // Clean up keyboard shortcuts
         this.removeKeyboardShortcuts();

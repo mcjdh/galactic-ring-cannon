@@ -551,7 +551,7 @@ class GameState {
                 try {
                     callback(data);
                 } catch (error) {
-                    ((typeof window !== "undefined" && window.logger?.error) || console.error)(`Error in observer callback for ${event}:`, error);
+                    window.LoggerUtils.error(`Error in observer callback for ${event}:`, error);
                 }
             });
         }
@@ -562,7 +562,7 @@ class GameState {
                 try {
                     callback({ event, ...data });
                 } catch (error) {
-                    ((typeof window !== "undefined" && window.logger?.error) || console.error)(`Error in wildcard observer callback:`, error);
+                    window.LoggerUtils.error(`Error in wildcard observer callback:`, error);
                 }
             });
         }
@@ -580,27 +580,27 @@ class GameState {
         }
 
         try {
-            const starTokens = parseInt(localStorage.getItem('starTokens') || '0', 10);
+            const starTokens = window.StorageManager.getInt('starTokens', 0);
             this.meta.starTokens = isNaN(starTokens) ? 0 : starTokens;
 
-            const gamesPlayed = parseInt(localStorage.getItem('gamesPlayed') || '0', 10);
+            const gamesPlayed = window.StorageManager.getInt('gamesPlayed', 0);
             this.meta.gamesPlayed = isNaN(gamesPlayed) ? 0 : gamesPlayed;
 
-            const totalKills = parseInt(localStorage.getItem('totalKills') || '0', 10);
+            const totalKills = window.StorageManager.getInt('totalKills', 0);
             this.meta.totalKills = isNaN(totalKills) ? 0 : totalKills;
 
-            const selectedWeapon = localStorage.getItem('selectedWeapon');
+            const selectedWeapon = window.StorageManager.getItem('selectedWeapon');
             if (typeof selectedWeapon === 'string' && selectedWeapon.trim() !== '') {
                 this.meta.selectedWeapon = selectedWeapon.trim();
             }
 
-            const selectedCharacter = localStorage.getItem('selectedCharacter');
+            const selectedCharacter = window.StorageManager.getItem('selectedCharacter');
             if (typeof selectedCharacter === 'string' && selectedCharacter.trim() !== '') {
                 this.meta.selectedCharacter = selectedCharacter.trim();
             }
 
             // Use separate key to avoid conflict with AchievementSystem
-            const achievements = localStorage.getItem('gamestate_achievements');
+            const achievements = window.StorageManager.getItem('gamestate_achievements');
             if (achievements) {
                 try {
                     const parsed = JSON.parse(achievements);
@@ -617,7 +617,7 @@ class GameState {
                 }
             } else {
                 // Try to migrate from old AchievementSystem format (one-time migration)
-                const oldAchievements = localStorage.getItem('achievements');
+                const oldAchievements = window.StorageManager.getItem('achievements');
                 if (oldAchievements) {
                     try {
                         const parsed = JSON.parse(oldAchievements);
@@ -658,7 +658,7 @@ class GameState {
     _persistSelectedCharacter(characterId) {
         if (typeof localStorage === 'undefined') return;
         try {
-            localStorage.setItem('selectedCharacter', characterId);
+            window.StorageManager.setItem('selectedCharacter', characterId);
         } catch (error) {
             console.warn('Failed to persist selected character:', error);
         }
@@ -678,7 +678,7 @@ class GameState {
     _persistSelectedWeapon(weaponId) {
         if (typeof localStorage === 'undefined') return;
         try {
-            localStorage.setItem('selectedWeapon', weaponId);
+            window.StorageManager.setItem('selectedWeapon', weaponId);
         } catch (error) {
             console.warn('Failed to persist selected weapon:', error);
         }
@@ -694,15 +694,15 @@ class GameState {
         }
 
         try {
-            localStorage.setItem('starTokens', this.meta.starTokens.toString());
-            localStorage.setItem('gamesPlayed', this.meta.gamesPlayed.toString());
-            localStorage.setItem('totalKills', this.meta.totalKills.toString());
+            window.StorageManager.setItem('starTokens', this.meta.starTokens.toString());
+            window.StorageManager.setItem('gamesPlayed', this.meta.gamesPlayed.toString());
+            window.StorageManager.setItem('totalKills', this.meta.totalKills.toString());
             // Use different key to avoid conflict with AchievementSystem
-            localStorage.setItem('gamestate_achievements', JSON.stringify([...this.meta.achievements]));
+            window.StorageManager.setItem('gamestate_achievements', JSON.stringify([...this.meta.achievements]));
             const weaponId = this.meta.selectedWeapon || DEFAULT_WEAPON_ID;
-            localStorage.setItem('selectedWeapon', weaponId);
+            window.StorageManager.setItem('selectedWeapon', weaponId);
             const characterId = this.meta.selectedCharacter || DEFAULT_CHARACTER_ID;
-            localStorage.setItem('selectedCharacter', characterId);
+            window.StorageManager.setItem('selectedCharacter', characterId);
         } catch (error) {
             console.warn('Failed to save meta state:', error);
         }

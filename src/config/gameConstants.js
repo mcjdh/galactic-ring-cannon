@@ -179,7 +179,19 @@
             MAX_PARTICLES: 150,
             SPATIAL_GRID_SIZE: 100,
             TARGET_FPS: 60,
-            LOW_FPS_THRESHOLD: 30
+            LOW_FPS_THRESHOLD: 30,
+
+            // Engine timing constants
+            MAX_FIXED_STEPS: 5,              // Maximum fixed update steps per frame
+            CLEANUP_INTERVAL: 0.2,            // Seconds between entity cleanup passes
+            GRID_RECALC_INTERVAL_MS: 250,     // Milliseconds between spatial grid recalculations
+
+            // Batch rendering pool sizes
+            PROJECTILE_BATCH_SIZE: 200,       // Max projectiles for batch rendering
+            ENEMY_BATCH_SIZE: 100,            // Max enemies for batch rendering
+            ENEMY_PROJECTILE_BATCH_SIZE: 100, // Max enemy projectiles for batch rendering
+            XP_ORB_BATCH_SIZE: 200,           // Max XP orbs for batch rendering
+            FALLBACK_BATCH_SIZE: 50           // Max other entities for batch rendering
         },
 
         // Colors (for consistency)
@@ -241,7 +253,7 @@
     if (typeof window !== 'undefined') {
         window.GAME_CONSTANTS = GAME_CONSTANTS;
         window.GameMath = GameMath;
-        (window.logger?.log || console.log)('GameConstants loaded');
+        window.LoggerUtils.log('GameConstants loaded');
     }
 
     if (typeof module !== 'undefined' && module.exports) {

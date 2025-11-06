@@ -8,7 +8,10 @@ class InputManager {
         this.mouseState = { x: 0, y: 0, buttons: 0 };
         this.gamepadState = null;
         this._listeners = [];
-        
+
+        // DOM element cache for performance
+        this._domCache = {};
+
         // Input callbacks
         this.callbacks = {
             keyDown: [],
@@ -78,6 +81,18 @@ class InputManager {
     }
 
     /**
+     * Get cached DOM element by ID
+     * @param {string} id - Element ID
+     * @returns {HTMLElement|null} - Cached element or null
+     */
+    _getCachedElement(id) {
+        if (!this._domCache[id]) {
+            this._domCache[id] = document.getElementById(id);
+        }
+        return this._domCache[id];
+    }
+
+    /**
      * [BUG FIX] Clear all key states when window loses focus
      * Prevents stuck movement when alt-tabbing or clicking away
      */
@@ -122,6 +137,9 @@ class InputManager {
             listener.target.removeEventListener(listener.type, listener.handler);
         }
         this._listeners = [];
+
+        // Clear DOM cache to release references
+        this._domCache = {};
 
         // Clear callbacks to release references
         this.callbacks = {
@@ -203,7 +221,7 @@ class InputManager {
             if (window.audioSystem) {
                 const isMuted = window.audioSystem.toggleMute();
                 // Update UI checkbox if settings panel is open
-                const muteCheckbox = document.getElementById('mute-checkbox');
+                const muteCheckbox = this._getCachedElement('mute-checkbox');
                 if (muteCheckbox) {
                     muteCheckbox.checked = isMuted;
                 }
@@ -214,11 +232,7 @@ class InputManager {
         if (key === 'l' || key === 'L') {
             if (window.gameManager) {
                 window.gameManager.lowQuality = !window.gameManager.lowQuality;
-                try {
-                    localStorage.setItem('lowQuality', window.gameManager.lowQuality);
-                } catch (error) {
-                    console.warn('Failed to save low quality setting:', error);
-                }
+                window.StorageManager.setItem('lowQuality', window.gameManager.lowQuality.toString());
                 // Low quality mode toggled
             }
         }
@@ -448,7 +462,7 @@ class InputManager {
         ];
         
         return panels.some(id => {
-            const panel = document.getElementById(id);
+            const panel = this._getCachedElement(id);
             return panel && !panel.classList.contains('hidden');
         });
     }

@@ -227,7 +227,7 @@
             const stored =
                 state?.getSelectedCharacter?.() ||
                 state?.flow?.selectedCharacter ||
-                (typeof localStorage !== 'undefined' ? localStorage.getItem('selectedCharacter') : null);
+                window.StorageManager.getItem('selectedCharacter');
 
             if (stored && definitions.some(def => def.id === stored)) {
                 return stored;
@@ -247,13 +247,9 @@
                 state.flow.selectedCharacter = characterId;
             }
 
-            if (typeof localStorage !== 'undefined') {
-                try {
-                    localStorage.setItem('selectedCharacter', characterId);
-                } catch (error) {
-                    if (this.logger && typeof this.logger.warn === 'function') {
-                        this.logger.warn('Failed to persist selected character', error);
-                    }
+            if (!window.StorageManager.setItem('selectedCharacter', characterId)) {
+                if (this.logger && typeof this.logger.warn === 'function') {
+                    this.logger.warn('Failed to persist selected character');
                 }
             }
         }
@@ -269,13 +265,9 @@
                 state.flow.selectedWeapon = weaponId;
             }
 
-            if (typeof localStorage !== 'undefined') {
-                try {
-                    localStorage.setItem('selectedWeapon', weaponId);
-                } catch (error) {
-                    if (this.logger && typeof this.logger.warn === 'function') {
-                        this.logger.warn('Failed to persist selected weapon', error);
-                    }
+            if (!window.StorageManager.setItem('selectedWeapon', weaponId)) {
+                if (this.logger && typeof this.logger.warn === 'function') {
+                    this.logger.warn('Failed to persist selected weapon');
                 }
             }
         }
@@ -545,7 +537,7 @@
                 if (muteCheckbox && window.audioSystem && typeof window.audioSystem.setEnabled === 'function') {
                     const enabled = !muteCheckbox.checked;
                     window.audioSystem.setEnabled(enabled);
-                    localStorage.setItem('soundEnabled', enabled ? 'true' : 'false');
+                    window.StorageManager.setItem('soundEnabled', enabled ? 'true' : 'false');
                 }
 
                 if (volumeRange && window.audioSystem?.masterGain) {
@@ -555,23 +547,23 @@
                         volumeRange.value = '0.5';
                     }
                     window.audioSystem.masterGain.gain.value = volumeValue;
-                    localStorage.setItem('volume', volumeValue.toString());
+                    window.StorageManager.setItem('volume', volumeValue.toString());
                 }
 
                 if (lowQualityCheckbox && window.gameManager) {
                     const lowQualityEnabled = Boolean(lowQualityCheckbox.checked);
                     window.gameManager.lowQuality = lowQualityEnabled;
-                    localStorage.setItem('lowQuality', lowQualityEnabled ? 'true' : 'false');
+                    window.StorageManager.setItem('lowQuality', lowQualityEnabled ? 'true' : 'false');
                 }
 
                 if (difficultySelect) {
                     const valid = ['easy', 'normal', 'hard'];
                     const selected = difficultySelect.value;
                     if (valid.includes(selected)) {
-                        localStorage.setItem('difficulty', selected);
+                        window.StorageManager.setItem('difficulty', selected);
                     } else {
                         difficultySelect.value = 'normal';
-                        localStorage.setItem('difficulty', 'normal');
+                        window.StorageManager.setItem('difficulty', 'normal');
                     }
                 }
             } catch (error) {
@@ -592,18 +584,18 @@
 
             try {
                 if (muteCheckbox) {
-                    const stored = localStorage.getItem('soundEnabled');
+                    const stored = window.StorageManager.getItem('soundEnabled');
                     if (stored === 'true' || stored === 'false') {
                         muteCheckbox.checked = stored !== 'true';
                     } else {
                         muteCheckbox.checked = false;
-                        localStorage.setItem('soundEnabled', 'true');
+                        window.StorageManager.setItem('soundEnabled', 'true');
                     }
                 }
 
                 if (volumeRange) {
                     let volumeValue = 0.5;
-                    const storedVolume = localStorage.getItem('volume');
+                    const storedVolume = window.StorageManager.getItem('volume');
                     if (storedVolume !== null) {
                         const parsed = Number(storedVolume);
                         if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
@@ -617,7 +609,7 @@
                 }
 
                 if (lowQualityCheckbox) {
-                    const storedLowQ = localStorage.getItem('lowQuality');
+                    const storedLowQ = window.StorageManager.getItem('lowQuality');
                     if (storedLowQ === 'true' || storedLowQ === 'false') {
                         const enabled = storedLowQ === 'true';
                         lowQualityCheckbox.checked = enabled;
@@ -626,18 +618,18 @@
                         }
                     } else {
                         lowQualityCheckbox.checked = false;
-                        localStorage.setItem('lowQuality', 'false');
+                        window.StorageManager.setItem('lowQuality', 'false');
                     }
                 }
 
                 if (difficultySelect) {
-                    const storedDifficulty = localStorage.getItem('difficulty');
+                    const storedDifficulty = window.StorageManager.getItem('difficulty');
                     const valid = ['easy', 'normal', 'hard'];
                     if (valid.includes(storedDifficulty)) {
                         difficultySelect.value = storedDifficulty;
                     } else {
                         difficultySelect.value = 'normal';
-                        localStorage.setItem('difficulty', 'normal');
+                        window.StorageManager.setItem('difficulty', 'normal');
                     }
                 }
             } catch (error) {
@@ -770,20 +762,11 @@
         }
 
         getMetaUpgradeLevel(id) {
-            try {
-                return parseInt(localStorage.getItem(`meta_${id}`) || '0', 10);
-            } catch (e) {
-                console.warn('[MainMenuController] Failed to get meta upgrade level:', e.message);
-                return 0;
-            }
+            return window.StorageManager.getInt(`meta_${id}`, 0);
         }
 
         setMetaUpgradeLevel(id, level) {
-            try {
-                localStorage.setItem(`meta_${id}`, level.toString());
-            } catch (e) {
-                console.warn('[MainMenuController] Failed to set meta upgrade level:', e.message);
-            }
+            window.StorageManager.setItem(`meta_${id}`, level.toString());
         }
 
         refreshStarDisplay() {
@@ -811,13 +794,7 @@
             if (typeof window.gameManagerBridge?.metaStars === 'number') {
                 return window.gameManagerBridge.metaStars;
             }
-            try {
-                const stored = parseInt(localStorage.getItem('starTokens') || '0', 10);
-                return Number.isFinite(stored) ? stored : 0;
-            } catch (error) {
-                console.warn('Failed to load star token balance:', error);
-                return 0;
-            }
+            return window.StorageManager.getInt('starTokens', 0);
         }
 
         initMenuBackground() {

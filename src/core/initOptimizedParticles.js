@@ -3,9 +3,9 @@
         const OptimizedParticlePool = window.Game?.OptimizedParticlePool;
         if (typeof OptimizedParticlePool === 'function') {
             window.optimizedParticles = new OptimizedParticlePool(150);
-            (window.logger?.log || console.log)('OptimizedParticlePool initialized');
+            window.LoggerUtils.log('OptimizedParticlePool initialized');
         } else {
-            (window.logger?.warn || console.warn)('OptimizedParticlePool not available');
+            window.LoggerUtils.warn('OptimizedParticlePool not available');
         }
     }
 

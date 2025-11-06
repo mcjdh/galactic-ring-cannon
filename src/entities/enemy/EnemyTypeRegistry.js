@@ -50,7 +50,7 @@ class EnemyTypeRegistry {
      */
     static registerType(typeString, typeClass) {
         if (!typeClass || typeof typeClass.getConfig !== 'function') {
-            console.error(`Cannot register enemy type '${typeString}': Invalid type class`);
+            window.LoggerUtils.error(`Cannot register enemy type '${typeString}': Invalid type class`);
             return false;
         }
 

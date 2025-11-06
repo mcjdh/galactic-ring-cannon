@@ -4,14 +4,14 @@ class GameEngine {
             try {
                 window.__activeGameEngine.cleanupEventListeners();
             } catch (e) {
-                ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Previous GameEngine cleanup failed:', e);
+                window.LoggerUtils.warn('Previous GameEngine cleanup failed:', e);
             }
         }
 
         // Initialize canvas with error handling
         this.canvas = document.getElementById('game-canvas');
         if (!this.canvas) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Game canvas not found!');
+            window.LoggerUtils.error('Game canvas not found!');
             return;
         }
         
@@ -27,7 +27,7 @@ class GameEngine {
         });
         
         if (!this.ctx) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Could not get 2D context!');
+            window.LoggerUtils.error('Could not get 2D context!');
             return;
         }
         
@@ -44,7 +44,7 @@ class GameEngine {
                 try {
                     this.cleanupEventListeners();
                 } catch (error) {
-                    ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Cleanup during unload failed:', error);
+                    window.LoggerUtils.warn('Cleanup during unload failed:', error);
                 }
             };
             
@@ -52,7 +52,7 @@ class GameEngine {
             window.addEventListener('resize', this.boundResizeCanvas);
             window.addEventListener('beforeunload', this.boundHandleBeforeUnload, { once: true });
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error initializing canvas:', error);
+            window.LoggerUtils.error('Error initializing canvas:', error);
         }
         
         // [GAME STATE] - Single Source of Truth
@@ -68,11 +68,13 @@ class GameEngine {
         this.enemyProjectiles = [];
 
         // [OPTIMIZATION] Pre-allocated batch arrays for rendering (eliminates 240 allocations/sec at 60fps)
-        this._projectileBatch = new Array(200);  // Typical max projectiles
-        this._enemyBatch = new Array(100);       // Typical max enemies
-        this._enemyProjectileBatch = new Array(100); // Typical max enemy projectiles
-        this._xpOrbBatch = new Array(200);       // XP orbs (can be 100-200 on screen)
-        this._fallbackBatch = new Array(50);     // Other entities
+        // Initialize as dense arrays with null for better V8 optimization
+        const PERF = GAME_CONSTANTS.PERFORMANCE;
+        this._projectileBatch = Array(PERF.PROJECTILE_BATCH_SIZE).fill(null);
+        this._enemyBatch = Array(PERF.ENEMY_BATCH_SIZE).fill(null);
+        this._enemyProjectileBatch = Array(PERF.ENEMY_PROJECTILE_BATCH_SIZE).fill(null);
+        this._xpOrbBatch = Array(PERF.XP_ORB_BATCH_SIZE).fill(null);
+        this._fallbackBatch = Array(PERF.FALLBACK_BATCH_SIZE).fill(null);
 
 		// Enemy projectile pool is initialized below with other pools
         this.lastTime = 0;
@@ -81,12 +83,12 @@ class GameEngine {
         this.fps = 0;
         this.frameCount = 0;
         this.lastFpsUpdate = 0;
-        this.targetFps = 60;
+        this.targetFps = PERF.TARGET_FPS;
         this.lastFrameTime = 0;
         this._cleanupTimer = 0;
-        this._cleanupInterval = 0.2;
+        this._cleanupInterval = PERF.CLEANUP_INTERVAL;
         this._needsCleanup = false;
-        this._maxFixedSteps = 5;
+        this._maxFixedSteps = PERF.MAX_FIXED_STEPS;
         this._accumulatorMs = 0;
         this._renderAccumulatorMs = 0;
         this.performanceMode = false;
@@ -131,7 +133,7 @@ class GameEngine {
         // [OPTIMIZATION] Initialize Performance Caches (Pi5 stability improvements)
         if (typeof window !== 'undefined' && window.perfCache) {
             window.perfCache.setGridSize(this.gridSize);
-            ((typeof window !== "undefined" && window.logger?.info) || console.log)('[Pi5] Performance caches enabled: sqrt, floor, random, vectors');
+            window.LoggerUtils.info('[Pi5] Performance caches enabled: sqrt, floor, random, vectors');
         }
         
 		// Initialize unified systems if available
@@ -144,7 +146,7 @@ class GameEngine {
 					}
 				}
         } catch (e) {
-            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Collision system initialization failed, using internal collision logic.', e);
+            window.LoggerUtils.warn('Collision system initialization failed, using internal collision logic.', e);
 			this.collisionSystem = null;
 		}
 
@@ -163,7 +165,7 @@ class GameEngine {
 			// Make game engine globally accessible for UI systems
             window.gameEngine = this;
         } catch (e) {
-            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('UnifiedUIManager initialization failed, using legacy UI systems.', e);
+            window.LoggerUtils.warn('UnifiedUIManager initialization failed, using legacy UI systems.', e);
             this.unifiedUI = null;
         }
         if (typeof window !== 'undefined') {
@@ -178,7 +180,7 @@ class GameEngine {
             window.addEventListener('keydown', this.boundHandleKeyDown);
             window.addEventListener('keyup', this.boundHandleKeyUp);
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error setting up input handling:', error);
+            window.LoggerUtils.error('Error setting up input handling:', error);
         }
         
         // Visibility state tracking
@@ -220,13 +222,13 @@ class GameEngine {
                 if (typeof window !== 'undefined') {
                     window.cosmicBackground = this.cosmicBackground;
                 }
-                ((typeof window !== "undefined" && window.logger?.info) || console.log)('Cosmic background initialized');
+                window.LoggerUtils.info('Cosmic background initialized');
 
                 // [Pi] Detect Raspberry Pi and low-end devices for auto-optimization
                 const isLowEndDevice = this._detectLowEndDevice();
                 
                 if (isLowEndDevice.isRaspberryPi) {
-                    (window.logger?.log || (() => {}))('[Pi] Raspberry Pi detected - enabling optimizations');
+                    window.LoggerUtils.log('[Pi] Raspberry Pi detected - enabling optimizations');
                     window.isRaspberryPi = true;
                     this.cosmicBackground.enablePi5Mode();
                     this._autoLowQualityCosmic = true;
@@ -253,7 +255,7 @@ class GameEngine {
                         window.FastMath.installGlobals();
                     }
                 } else if (isLowEndDevice.isLowEnd) {
-                    (window.logger?.log || (() => {}))('[P] Low-end device detected - enabling optimizations');
+                    window.LoggerUtils.log('[P] Low-end device detected - enabling optimizations');
                     this.cosmicBackground.setLowQuality(true);
                     this._autoLowQualityCosmic = true;
                     this._autoParticleLowQuality = true;
@@ -284,7 +286,7 @@ class GameEngine {
                         this._autoLowQualityCosmic = !!autoLowQuality;
                         this._autoParticleLowQuality = !!autoLowQuality;
                     } catch (autoQualityError) {
-                        ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Auto quality adjustment failed', autoQualityError);
+                        window.LoggerUtils.warn('Auto quality adjustment failed', autoQualityError);
                     }
                 }
 
@@ -292,7 +294,7 @@ class GameEngine {
                 this._updateParticleQuality();
             }
         } catch (e) {
-            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('CosmicBackground initialization failed', e);
+            window.LoggerUtils.warn('CosmicBackground initialization failed', e);
             if (typeof window !== 'undefined' && window.cosmicBackground === this.cosmicBackground) {
                 window.cosmicBackground = null;
             }
@@ -397,7 +399,7 @@ class GameEngine {
 
         const debugEnabled = this.debugMode || (typeof window !== 'undefined' && window.debugMode);
         if (debugEnabled) {
-            (window.logger?.log || (() => {}))(`[R] _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
+            window.LoggerUtils.log(`[R] _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
         }
 
         this.cosmicBackground.setLowQuality(shouldUseLowQuality);
@@ -521,7 +523,7 @@ class GameEngine {
                 }
             });
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('EntityManager initialization failed, continuing with legacy arrays.', error);
+            window.LoggerUtils.warn('EntityManager initialization failed, continuing with legacy arrays.', error);
             this.entityManager = null;
         }
     }
@@ -748,7 +750,7 @@ class GameEngine {
             return;
         }
 
-        ((typeof window !== "undefined" && window.logger?.log) || console.log)('@ Preparing game engine for new run');
+        window.LoggerUtils.log('@ Preparing game engine for new run');
 
         this._initializeEntityManager();
 
@@ -847,7 +849,7 @@ class GameEngine {
             try {
                 window.upgradeSystem.resetForNewRun();
             } catch (error) {
-                ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('UpgradeSystem reset failed:', error);
+                window.LoggerUtils.warn('UpgradeSystem reset failed:', error);
             }
         }
 
@@ -864,7 +866,7 @@ class GameEngine {
                 player?.stats?.updateXPBar?.();
                 this.state._notifyObservers('playerCreated', { player });
             } catch (error) {
-                ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Failed to notify player creation:', error);
+                window.LoggerUtils.warn('Failed to notify player creation:', error);
             }
         }
 
@@ -924,12 +926,12 @@ class GameEngine {
                 this.cosmicBackground.resize();
             }
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error resizing canvas:', error);
+            window.LoggerUtils.error('Error resizing canvas:', error);
         }
     }
     
     start() {
-        ((typeof window !== "undefined" && window.logger?.log) || console.log)('> GameEngine starting...');
+        window.LoggerUtils.log('> GameEngine starting...');
 
         // 🌊 START GAME STATE
         this.state.start();
@@ -946,9 +948,9 @@ class GameEngine {
         if (!this._loopInitialized) {
             this._loopInitialized = true;
             this.gameLoop(now);
-            ((typeof window !== "undefined" && window.logger?.log) || console.log)('+ Game loop started');
+            window.LoggerUtils.log('+ Game loop started');
         } else {
-            ((typeof window !== "undefined" && window.logger?.log) || console.log)('@ Game loop already active - refreshed run state');
+            window.LoggerUtils.log('@ Game loop already active - refreshed run state');
         }
     }
     
@@ -1019,7 +1021,7 @@ class GameEngine {
         if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > 1) {
             // [AI NOTE]: Reduced console spam - only log critical deltaTime issues
             if (deltaTime > 0.1 && window.debugManager?.enabled) {
-                ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Invalid deltaTime:', deltaTime);
+                window.LoggerUtils.warn('Invalid deltaTime:', deltaTime);
             }
             deltaTime = 1/60; // Fallback to 60fps
         } else if (deltaTime === 0) {
@@ -1110,7 +1112,7 @@ class GameEngine {
                     try {
                         entity.update(deltaTime, this);
                     } catch (error) {
-                        ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error updating entity:', error, entity);
+                        window.LoggerUtils.error('Error updating entity:', error, entity);
                         entity.isDead = true; // Mark as dead to prevent further errors
                     }
                 }
@@ -1145,7 +1147,7 @@ class GameEngine {
                 }
             } catch (error) {
                 if (window.debugManager?.enabled) {
-                    ((typeof window !== "undefined" && window.logger?.error) || console.error)('GameManager update error:', error);
+                    window.LoggerUtils.error('GameManager update error:', error);
                 }
             }
         }
@@ -1158,7 +1160,7 @@ class GameEngine {
                 this.checkCollisions();
             }
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error in collision detection:', error);
+            window.LoggerUtils.error('Error in collision detection:', error);
         }
 
         // Update unified UI system
@@ -1535,7 +1537,7 @@ class GameEngine {
                 );
             }
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error handling collision:', error, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
+            window.LoggerUtils.error('Error handling collision:', error, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
         }
     }
 
@@ -1543,7 +1545,7 @@ class GameEngine {
         if (typeof player.addXP === 'function' && typeof xpOrb.value === 'number') {
             player.addXP(xpOrb.value);
             if (typeof xpOrb.createCollectionEffect === 'function') {
-                try { xpOrb.createCollectionEffect(); } catch (e) { ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error creating collection effect', e); }
+                try { xpOrb.createCollectionEffect(); } catch (e) { window.LoggerUtils.error('Error creating collection effect', e); }
             }
             if ('collected' in xpOrb) xpOrb.collected = true;
             xpOrb.isDead = true;
@@ -1564,7 +1566,7 @@ class GameEngine {
 
     _handleProjectileEnemyCollision(projectile, enemy) {
         if (window.debugProjectiles) {
-            (window.logger?.log || (() => {}))(`[GameEngine] _handleProjectileEnemyCollision: Projectile ${projectile.id} hitting enemy ${enemy.id}. Projectile piercing: ${projectile.piercing}`);
+            window.LoggerUtils.log(`[GameEngine] _handleProjectileEnemyCollision: Projectile ${projectile.id} hitting enemy ${enemy.id}. Projectile piercing: ${projectile.piercing}`);
         }
 
         if (enemy.isDead || (projectile.hitEnemies && projectile.hitEnemies.has(enemy.id))) {
@@ -1743,7 +1745,7 @@ class GameEngine {
             this.renderEntities(visibleEntities);
             // Ensure player is drawn last on top as a safety net
             if (this.player && typeof this.player.render === 'function') {
-                try { this.player.render(this.ctx); } catch(e) { ((typeof window !== "undefined" && window.logger?.error) || console.error)('Player render error', e); }
+                try { this.player.render(this.ctx); } catch(e) { window.LoggerUtils.error('Player render error', e); }
             }
             
             // Render UI elements using unified system (replaces buggy floating text)
@@ -1773,7 +1775,7 @@ class GameEngine {
             this.ctx.restore();
             
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Render error:', error);
+            window.LoggerUtils.error('Render error:', error);
             // Try to recover context if possible
             if (!this.ctx || this.contextLost) {
                 this.handleContextLoss(new Event('webglcontextlost'));
@@ -1894,7 +1896,7 @@ class GameEngine {
 
     _renderEntitiesIndividually(entities, batchError = null) {
         if (batchError && typeof window !== 'undefined' && window.debugManager?.debugMode) {
-            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Render batch failed, falling back to per-entity rendering:', batchError);
+            window.LoggerUtils.warn('Render batch failed, falling back to per-entity rendering:', batchError);
         }
 
         const ctx = this.ctx;
@@ -1904,7 +1906,7 @@ class GameEngine {
                 entity.render(ctx);
             } catch (error) {
                 if (typeof window !== 'undefined' && window.debugManager?.debugMode) {
-                    ((typeof window !== "undefined" && window.logger?.error) || console.error)(`Render error for ${entity.constructor?.name || 'entity'}:`, error);
+                    window.LoggerUtils.error(`Render error for ${entity.constructor?.name || 'entity'}:`, error);
                 }
             }
         }
@@ -2158,7 +2160,7 @@ class GameEngine {
             this.addEntity(proj);
             return proj;
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error creating projectile:', error);
+            window.LoggerUtils.error('Error creating projectile:', error);
             return null;
         }
     }
@@ -2193,13 +2195,13 @@ class GameEngine {
             // Check if EnemyProjectile class is available
             const EnemyProjectile = window.Game?.EnemyProjectile;
             if (typeof EnemyProjectile !== 'function') {
-                ((typeof window !== "undefined" && window.logger?.error) || console.error)('EnemyProjectile class not available');
+                window.LoggerUtils.error('EnemyProjectile class not available');
                 return null;
             }
             try {
                 ep = new EnemyProjectile(x, y, vx, vy, damage);
             } catch (error) {
-                ((typeof window !== "undefined" && window.logger?.error) || console.error)('Failed to create new EnemyProjectile:', error);
+                window.LoggerUtils.error('Failed to create new EnemyProjectile:', error);
                 return null;
             }
         } else {
@@ -2216,7 +2218,7 @@ class GameEngine {
                 ep.color = '#9b59b6';
                 ep.glowColor = 'rgba(155, 89, 182, 0.45)';
             } catch (error) {
-                ((typeof window !== "undefined" && window.logger?.error) || console.error)('Failed to reset pooled EnemyProjectile:', error);
+                window.LoggerUtils.error('Failed to reset pooled EnemyProjectile:', error);
                 return null;
             }
         }
@@ -2256,18 +2258,18 @@ class GameEngine {
       // Add error handling to addEntity
     addEntity(entity) {
         if (!entity) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Attempted to add null/undefined entity!');
+            window.LoggerUtils.error('Attempted to add null/undefined entity!');
             return null;
         }
 
         // Validate entity has required properties
         if (typeof entity.x !== 'number' || typeof entity.y !== 'number') {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Entity missing required position properties:', entity);
+            window.LoggerUtils.error('Entity missing required position properties:', entity);
             return null;
         }
 
         if (!entity.type || typeof entity.type !== 'string') {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Entity missing or invalid type property:', entity);
+            window.LoggerUtils.error('Entity missing or invalid type property:', entity);
             return null;
         }
 
@@ -2298,7 +2300,7 @@ class GameEngine {
 
             if (entity.type === 'player') {
                 if (this.player && this.player !== entity) {
-                    ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Player already exists, replacing...');
+                    window.LoggerUtils.warn('Player already exists, replacing...');
                 }
                 this.setPlayer(entity);
             }
@@ -2306,7 +2308,7 @@ class GameEngine {
             this._needsCleanup = true;
             return entity;
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error adding entity:', error, entity);
+            window.LoggerUtils.error('Error adding entity:', error, entity);
             return null;
         }
     }
@@ -2325,7 +2327,7 @@ class GameEngine {
                 this.pauseGame({ reason: 'manual' });
             }
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error toggling pause:', error);
+            window.LoggerUtils.error('Error toggling pause:', error);
         }
     }
     
@@ -2624,12 +2626,12 @@ class GameEngine {
     handleContextLoss(event) {
         event.preventDefault();
         this.contextLost = true;
-            ((typeof window !== "undefined" && window.logger?.warn) || console.warn)('Canvas context lost - game paused');
+            window.LoggerUtils.warn('Canvas context lost - game paused');
         this.isPaused = true;
     }
     
     handleContextRestore(event) {
-        ((typeof window !== "undefined" && window.logger?.log) || console.log)('Canvas context restored - resuming game');
+        window.LoggerUtils.log('Canvas context restored - resuming game');
         this.contextLost = false;
         
         // Reinitialize canvas context
@@ -2640,9 +2642,9 @@ class GameEngine {
         
         if (this.ctx) {
             this.isPaused = false;
-            ((typeof window !== "undefined" && window.logger?.log) || console.log)('Game context successfully restored');
+            window.LoggerUtils.log('Game context successfully restored');
         } else {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Failed to restore canvas context');
+            window.LoggerUtils.error('Failed to restore canvas context');
         }
     }
     
@@ -2701,14 +2703,14 @@ class GameEngine {
                 window.gameEngine = null;
             }
             
-            ((typeof window !== "undefined" && window.logger?.log) || console.log)('Event listeners cleaned up successfully');
+            window.LoggerUtils.log('Event listeners cleaned up successfully');
         } catch (error) {
-            ((typeof window !== "undefined" && window.logger?.error) || console.error)('Error cleaning up event listeners:', error);
+            window.LoggerUtils.error('Error cleaning up event listeners:', error);
         }
     }
     
     shutdown() {
-        ((typeof window !== "undefined" && window.logger?.log) || console.log)('Shutting down game engine...');
+        window.LoggerUtils.log('Shutting down game engine...');
         this.isShuttingDown = true;
         this.isPaused = true;
 
@@ -2735,7 +2737,7 @@ class GameEngine {
             window.__activeGameEngine = null;
         }
 
-        ((typeof window !== "undefined" && window.logger?.log) || console.log)('Game engine shutdown complete');
+        window.LoggerUtils.log('Game engine shutdown complete');
     }
 
 }

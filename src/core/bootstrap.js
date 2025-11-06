@@ -24,19 +24,19 @@
         }
 
         log(...args) {
-            (window.logger?.log || console.log)(...args);
+            window.LoggerUtils.log(...args);
         }
 
         info(...args) {
-            (window.logger?.info || console.info)(...args);
+            window.LoggerUtils.info(...args);
         }
 
         warn(...args) {
-            (window.logger?.warn || console.warn)(...args);
+            window.LoggerUtils.warn(...args);
         }
 
         error(...args) {
-            (window.logger?.error || console.error)(...args);
+            window.LoggerUtils.error(...args);
         }
 
         getNamespace() {
@@ -297,13 +297,13 @@
             
             if (isPi) {
                 window.isRaspberryPi = true;
-                (window.logger?.log || console.log)('[Pi] Raspberry Pi detected!');
-                (window.logger?.log || console.log)('[Pi] Enabling Pi5 performance optimizations...');
+                window.LoggerUtils.log('[Pi] Raspberry Pi detected!');
+                window.LoggerUtils.log('[Pi] Enabling Pi5 performance optimizations...');
                 // Enable performance mode across all systems
                 this.enablePi5Optimizations();
             } else if (isARM) {
                 // Other ARM devices (mobile, tablets) - use moderate optimizations
-                (window.logger?.log || console.log)('📱 ARM device detected - enabling moderate optimizations');
+                window.LoggerUtils.log('📱 ARM device detected - enabling moderate optimizations');
                 window.isLowPowerDevice = true;
                 this.enableModeratePowerOptimizations();
             }

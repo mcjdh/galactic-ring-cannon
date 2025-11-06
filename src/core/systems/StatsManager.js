@@ -66,7 +66,7 @@ class StatsManager {
         } else {
             // GameState not yet loaded, load from localStorage as fallback
             try {
-                this.starTokens = parseInt(localStorage.getItem('starTokens') || '0', 10);
+                this.starTokens = window.StorageManager.getInt('starTokens', 0);
             } catch (error) {
                 console.warn('Failed to load star tokens:', error);
                 this.starTokens = 0;
@@ -443,7 +443,7 @@ class StatsManager {
 
         // Check for Jupiter star drop upgrade
         try {
-            const extraStars = parseInt(localStorage.getItem('meta_jupiter_star_drop') || '0', 10);
+            const extraStars = window.StorageManager.getInt('meta_jupiter_star_drop', 0);
             if (extraStars > 0) {
                 this.earnStarTokens(extraStars);
             }
@@ -574,7 +574,7 @@ class StatsManager {
         // Apply Stellar Fortune bonus from Star Vendor
         let stellarFortuneLevel = 0;
         try {
-            stellarFortuneLevel = parseInt(localStorage.getItem('meta_star_chance') || '0', 10);
+            stellarFortuneLevel = window.StorageManager.getInt('meta_star_chance', 0);
         } catch (error) {
             console.warn('Failed to load stellar fortune level:', error);
         }
@@ -629,7 +629,7 @@ class StatsManager {
         if (this.starTokens >= amount) {
             this.starTokens -= amount;
             try {
-                localStorage.setItem('starTokens', this.starTokens.toString());
+                window.StorageManager.setItem('starTokens', this.starTokens.toString());
             } catch (error) {
                 console.warn('Failed to save star tokens:', error);
             }
@@ -654,10 +654,8 @@ class StatsManager {
      */
     loadPersistentStats() {
         try {
-            const savedStats = localStorage.getItem('gameStats');
-            if (savedStats) {
-                const parsed = JSON.parse(savedStats);
-
+            const parsed = window.StorageManager.getJSON('gameStats');
+            if (parsed) {
                 // Validate loaded data to prevent corruption issues
                 if (parsed && typeof parsed === 'object') {
                     // Validate and sanitize numeric fields
@@ -672,7 +670,7 @@ class StatsManager {
         } catch (error) {
             console.warn('Failed to load persistent stats:', error);
             // Clear corrupted data
-            localStorage.removeItem('gameStats');
+            window.StorageManager.removeItem('gameStats');
         }
     }
 
@@ -699,7 +697,7 @@ class StatsManager {
                 lastSaved: Date.now()
             };
             
-            localStorage.setItem('gameStats', JSON.stringify(statsToSave));
+            window.StorageManager.setJSON('gameStats', statsToSave);
         } catch (error) {
             console.warn('Failed to save persistent stats:', error);
         }

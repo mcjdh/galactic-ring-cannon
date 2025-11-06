@@ -19,7 +19,7 @@ class ProjectileBehaviorManager {
      */
     addBehavior(behavior) {
         if (!(behavior instanceof ProjectileBehaviorBase)) {
-            console.error('Cannot add non-behavior to projectile:', behavior);
+            window.LoggerUtils.error('Cannot add non-behavior to projectile:', behavior);
             return;
         }
 

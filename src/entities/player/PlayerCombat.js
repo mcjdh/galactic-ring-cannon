@@ -47,7 +47,7 @@ class PlayerCombat {
         const WeaponManagerClass = (typeof window !== 'undefined' && window.Game?.WeaponManager) || null;
         this.weaponManager = WeaponManagerClass ? new WeaponManagerClass(player, this) : null;
         if (!this.weaponManager && window.debugManager?.debugMode) {
-            console.warn('[PlayerCombat] WeaponManager not available. Using legacy combat loop.');
+            window.LoggerUtils.warn('[PlayerCombat] WeaponManager not available. Using legacy combat loop.');
         }
     }
 
