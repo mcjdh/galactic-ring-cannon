@@ -469,9 +469,9 @@ class EnemyAI {
                 // > Cache neighbor for future frames
                 this._cachedNeighbors.push({ other, distSq });
 
-                // OPTIMIZED: Use inverse sqrt (faster than division on ARM)
-                const invDistance = window.FastMath ? window.FastMath.invSqrt(distSq) : (1 / Math.sqrt(distSq));
-                const distance = distSq * invDistance;
+                // Calculate distance and normalized direction
+                const distance = Math.sqrt(distSq);
+                const invDistance = 1 / distance;
                 const force = (separationRadius - distance) / separationRadius;
                 avoidance.x += dx * invDistance * force;
                 avoidance.y += dy * invDistance * force;

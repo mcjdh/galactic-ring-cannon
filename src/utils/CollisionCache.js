@@ -42,8 +42,8 @@ class CollisionCache {
      * Get pre-computed radius sum for collision pair
      * Caches (radius1 + radius2) to avoid repeated addition
      * 
-     * @param {number} r1 - Entity 1 radius
-     * @param {number} r2 - Entity 2 radius
+     * @param {number} r1 - Entity 1 radius (must be non-negative, max 65.535)
+     * @param {number} r2 - Entity 2 radius (must be non-negative, max 65.535)
      * @returns {number} Sum of radii
      */
     getRadiusSum(r1, r2) {
@@ -51,10 +51,24 @@ class CollisionCache {
 
         // OPTIMIZED: Order-independent key encoding to avoid cache misses
         // Use bitwise encoding: (min << 16) | max
-        // Handles radii up to 65535 with no collisions
+        // Handles radii up to 65.535 (65535 / 1000) with no collisions.
+        // Radii larger than 65.535 will cause cache key collisions.
         const r1Round = Math.round(r1 * 1000);
         const r2Round = Math.round(r2 * 1000);
         const [min, max] = r1Round <= r2Round ? [r1Round, r2Round] : [r2Round, r1Round];
+        
+        // Validate non-negative radii (bitwise encoding requires non-negative values)
+        if (min < 0 || max < 0) {
+            console.warn(`[CollisionCache] getRadiusSum: negative radius detected (r1=${r1}, r2=${r2}), falling back to direct addition`);
+            return r1 + r2;
+        }
+        
+        // Validate maximum radius limitation
+        if (r1 > 65.535 || r2 > 65.535) {
+            console.warn(`[CollisionCache] getRadiusSum: radius exceeds maximum supported value of 65.535 (got r1=${r1}, r2=${r2}), falling back to direct addition`);
+            return r1 + r2;
+        }
+        
         const key = (min << 16) | max;
 
         if (this._radiusSumCache.has(key)) {

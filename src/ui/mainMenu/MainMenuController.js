@@ -386,6 +386,7 @@
                 const ul = document.createElement('ul');
                 ul.className = 'char-desc-highlights';
                 // Split multiple highlights into bullet points
+                // IMPORTANT: This delimiter ' | ' must match formatCharacterHighlights()
                 highlights.split(' | ').forEach(h => {
                     const li = document.createElement('li');
                     li.textContent = h.trim(); // Safe: uses textContent
@@ -415,6 +416,17 @@
             return parts.join(' | ');
         }
 
+        /**
+         * Format character highlights for display
+         * Returns a string with highlights separated by ' | ' delimiter
+         * 
+         * IMPORTANT: This delimiter format is coupled with the rendering code
+         * at line 389 which uses .split(' | ') to create bullet points.
+         * If this format changes, update both locations.
+         * 
+         * @param {Object} character - Character definition object
+         * @returns {string} Formatted highlights string with ' | ' delimiter
+         */
         formatCharacterHighlights(character) {
             if (!character) return '';
             if (Array.isArray(character.highlights) && character.highlights.length) {

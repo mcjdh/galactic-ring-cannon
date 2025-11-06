@@ -227,9 +227,14 @@ class PerformanceCache {
         this._randomIndex = (this._randomIndex + 1) % this._randomPool.length;
 
         // OPTIMIZED: Gradual refill (spread over frames to prevent jank)
-        // Refill a small batch each time we wrap around
+        // When wrapping, immediately refill a larger batch to prevent stale values
         if (this._randomIndex === 0) {
-            this._randomRefillIndex = 0; // Start gradual refill
+            // Refill at least 100 values immediately to prevent stale reuse
+            const immediateRefillSize = 100;
+            for (let i = 0; i < immediateRefillSize; i++) {
+                this._randomPool[i] = Math.random();
+            }
+            this._randomRefillIndex = immediateRefillSize; // Start gradual refill from here
         }
 
         // Incrementally refill pool in small batches (20 values per call)

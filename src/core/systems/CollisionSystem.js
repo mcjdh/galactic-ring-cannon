@@ -100,26 +100,34 @@
 
             engine.gridSize = gridSize;
 
-            // Check if any entity moved to a different cell (dirty check)
-            if (!this._gridDirty && entityCount === this._lastEntityCount) {
-                let anyEntityMoved = false;
-                for (const entity of list) {
-                    if (!entity || entity.isDead) {
-                        anyEntityMoved = true; // Dead entity, need to rebuild
-                        break;
-                    }
-                    const gridX = Math.floor(entity.x / gridSize);
-                    const gridY = Math.floor(entity.y / gridSize);
-                    const lastPos = this._entityGridPositions.get(entity);
+            // Check if grid needs rebuilding (dirty check)
+            // Need to rebuild if: entities moved cells, entities added/removed, or entities died
+            if (!this._gridDirty) {
+                let needsRebuild = false;
+                
+                // Entity count changed - always rebuild to account for additions/removals
+                if (entityCount !== this._lastEntityCount) {
+                    needsRebuild = true;
+                } else {
+                    // Same count - check if entities moved or died
+                    for (const entity of list) {
+                        if (!entity || entity.isDead) {
+                            needsRebuild = true; // Dead entity, need to rebuild
+                            break;
+                        }
+                        const gridX = Math.floor(entity.x / gridSize);
+                        const gridY = Math.floor(entity.y / gridSize);
+                        const lastPos = this._entityGridPositions.get(entity);
 
-                    if (!lastPos || lastPos.gridX !== gridX || lastPos.gridY !== gridY) {
-                        anyEntityMoved = true;
-                        break;
+                        if (!lastPos || lastPos.gridX !== gridX || lastPos.gridY !== gridY) {
+                            needsRebuild = true;
+                            break;
+                        }
                     }
                 }
 
-                // Skip rebuild if nothing moved
-                if (!anyEntityMoved) {
+                // Skip rebuild if nothing changed
+                if (!needsRebuild) {
                     // Update stats to reflect cached grid state
                     this.stats.cellsProcessed = engine.spatialGrid.size;
                     return; // EARLY EXIT - grid is still valid!

@@ -576,16 +576,16 @@ body {
     100% { transform: translateY(-50px) scaleX(1); }
 }
 
-/* OPTIMIZED: Removed filter brightness for 15-20% mobile FPS gain */
+/* OPTIMIZED: Removed filter brightness and text-shadow animation for 15-20% mobile FPS gain */
 @keyframes frost-sparkle {
     0%, 100% { opacity: 0.95; }
-    50% { opacity: 1; text-shadow: 0 0 8px rgba(52, 152, 219, 0.7); }
+    50% { opacity: 1; }
 }
 
-/* OPTIMIZED: Removed filter brightness for 15-20% mobile FPS gain */
+/* OPTIMIZED: Removed filter brightness and text-shadow animation for 15-20% mobile FPS gain */
 @keyframes poison-pulse {
-    0%, 100% { opacity: 0.9; text-shadow: none; }
-    50% { opacity: 1; text-shadow: 0 0 6px rgba(46, 204, 113, 0.7); }
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 1; }
 }
 
 @keyframes fire-flicker {
@@ -2025,11 +2025,8 @@ body {
     align-items: center;
     justify-content: center;
     background: rgba(10, 12, 25, 0.88);
-    /* OPTIMIZED: GPU acceleration hints for mobile (5-8% FPS gain) */
     backdrop-filter: blur(4px);
-    will-change: backdrop-filter;
-    transform: translateZ(0);
-    backface-visibility: hidden;
+    /* GPU acceleration hints removed for compatibility with low-end devices */
     z-index: 700;
     padding: 20px;
 }

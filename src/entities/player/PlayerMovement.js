@@ -57,6 +57,9 @@ class PlayerMovement {
 
         // Magnet system
         this.magnetRange = PLAYER_CONSTANTS.BASE_MAGNET_RANGE || 120;
+        
+        // Cache SQRT2_INV to avoid repeated property access
+        this._sqrt2Inv = window.FastMath?.SQRT2_INV || PlayerMovement.MOVEMENT_CONSTANTS.SQRT2_INV_FALLBACK;
     }
 
     update(deltaTime, game) {
@@ -94,10 +97,9 @@ class PlayerMovement {
             // OPTIMIZED: Normalize diagonal input using FastMath (avoids sqrt)
             // For keyboard input, values are always -1, 0, or 1
             if (inputX !== 0 && inputY !== 0) {
-                // Diagonal movement: multiply by 1/√2 (pre-computed constant)
-                const SQRT2_INV = window.FastMath?.SQRT2_INV || C.SQRT2_INV_FALLBACK;
-                inputX *= SQRT2_INV;
-                inputY *= SQRT2_INV;
+                // Diagonal movement: multiply by 1/√2 (cached instance property)
+                inputX *= this._sqrt2Inv;
+                inputY *= this._sqrt2Inv;
             }
             // Cardinal directions (N/S/E/W) are already normalized
 
