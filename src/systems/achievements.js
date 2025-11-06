@@ -31,9 +31,8 @@ class AchievementSystem {
     
     loadAchievements() {
         try {
-            const saved = window.StorageManager.getItem('achievements');
-            if (saved) {
-                const loaded = JSON.parse(saved);
+            const loaded = window.StorageManager.getJSON('achievements');
+            if (loaded) {
                 for (const [key, achievement] of Object.entries(loaded)) {
                     if (this.achievements[key]) {
                         // Preserve structure, only update progress and unlocked status

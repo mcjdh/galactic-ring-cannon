@@ -239,7 +239,7 @@ class UpgradeSystem {
 
     setAutoLevel(enabled) {
         this.autoLevelEnabled = !!enabled;
-        window.StorageManager.setItem('autoLevelEnabled', this.autoLevelEnabled.toString());
+        window.StorageManager.setItem('autoLevelEnabled', enabled ? 'true' : 'false');
     }
     
     // Enhanced method to get better quality random upgrades with build path consideration
