@@ -654,10 +654,8 @@ class StatsManager {
      */
     loadPersistentStats() {
         try {
-            const savedStats = window.StorageManager.getItem('gameStats');
-            if (savedStats) {
-                const parsed = JSON.parse(savedStats);
-
+            const parsed = window.StorageManager.getJSON('gameStats');
+            if (parsed) {
                 // Validate loaded data to prevent corruption issues
                 if (parsed && typeof parsed === 'object') {
                     // Validate and sanitize numeric fields
