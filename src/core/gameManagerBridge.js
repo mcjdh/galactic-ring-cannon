@@ -1152,10 +1152,9 @@ class GameManagerBridge {
 
         const bossCountdownElement = this._getUiRef('bossCountdown', 'boss-countdown');
         const bossCountdownBar = this._getUiRef('bossCountdownBar', 'boss-countdown-bar');
-        const bossCountdownText = this._getUiRef('bossCountdownText', 'boss-countdown-text');
         const bossCountdownContainer = this._getUiRef('bossCountdownContainer', 'boss-countdown-container');
 
-        if (!bossCountdownElement || !bossCountdownBar || !bossCountdownText) {
+        if (!bossCountdownElement || !bossCountdownBar) {
             return;
         }
 
@@ -1164,7 +1163,6 @@ class GameManagerBridge {
             bossCountdownElement.classList.remove('hidden');
             bossCountdownBar.style.transform = 'scaleX(1) translateZ(0)';
             bossCountdownBar.className = 'active'; // Replace all classes with 'active' state
-            bossCountdownText.textContent = '[B] Boss Active!';
             if (bossCountdownContainer) {
                 bossCountdownContainer.style.animation = 'pulse 1.5s infinite';
             }
@@ -1199,7 +1197,7 @@ class GameManagerBridge {
             const scaleX = Math.max(0, Math.min(1, timeUntilBoss / bossInterval));
             bossCountdownBar.style.transform = `scaleX(${scaleX}) translateZ(0)`;
 
-            let textLabel = '';
+            // Determine bar color/state based on time remaining
             let barClass = 'normal';
             let shouldPulse = false;
 
@@ -1207,28 +1205,16 @@ class GameManagerBridge {
                 // Urgent countdown - red pulsing bar
                 barClass = 'urgent';
                 shouldPulse = true;
-                textLabel = `! Boss in ${Math.ceil(timeUntilBoss)}s`;
             } else if (timeUntilBoss <= 30) {
                 // Warning - orange bar
                 barClass = 'warning';
-                textLabel = `Boss approaching: ${Math.ceil(timeUntilBoss)}s`;
             } else {
                 // Normal - blue-white bar
                 barClass = 'normal';
-                const minutes = Math.floor(timeUntilBoss / 60);
-                const seconds = Math.floor(timeUntilBoss % 60);
-                if (minutes > 0) {
-                    textLabel = `Next boss: ${minutes}m ${seconds}s`;
-                } else {
-                    textLabel = `Next boss: ${seconds}s`;
-                }
             }
 
             // Update bar color class (replaces all classes with state class)
             bossCountdownBar.className = barClass;
-
-            // Update text
-            bossCountdownText.textContent = textLabel;
 
             // Apply pulse animation to container for urgent state only
             if (bossCountdownContainer) {
