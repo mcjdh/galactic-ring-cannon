@@ -4,6 +4,9 @@
  * Handles all special abilities: dash, teleport, phase, range attacks, boss abilities, etc.
  */
 
+// Constants for damage zone abilities
+const TELEGRAPH_DURATION_MS = 700; // Match the 0.7 second telegraph duration
+
 class EnemyAbilities {
     constructor(enemy) {
         this.enemy = enemy;
@@ -496,26 +499,19 @@ class EnemyAbilities {
             zoneType = 'standard';
         } else if (healthPercent > 0.4) {
             // Phase 2: More aggressive, introduce burst zones
-            const patterns = ['predictive', 'scatter', 'chase', 'cluster'];
-            pattern = patterns[Math.floor(Math.random() * patterns.length)];
+            pattern = this._selectRandomPattern(['predictive', 'scatter', 'chase', 'cluster']);
             zoneCount = isMegaBoss ? 2 : 1;
             zoneType = Math.random() < 0.3 ? 'burst' : 'standard';
         } else if (healthPercent > 0.15) {
             // Phase 3: Complex patterns, more zones, persistent types
-            const patterns = ['spiral', 'barrier', 'scatter', 'ring'];
-            pattern = patterns[Math.floor(Math.random() * patterns.length)];
+            pattern = this._selectRandomPattern(['spiral', 'barrier', 'scatter', 'ring']);
             zoneCount = isMegaBoss ? 4 : 3;
-
-            const types = ['standard', 'burst', 'persistent', 'expanding'];
-            zoneType = types[Math.floor(Math.random() * types.length)];
+            zoneType = this._selectRandomPattern(['standard', 'burst', 'persistent', 'expanding']);
         } else {
             // Phase 4: FINAL PHASE - Maximum chaos, corrupted zones
-            const patterns = ['spiral', 'barrier', 'ring', 'scatter'];
-            pattern = patterns[Math.floor(Math.random() * patterns.length)];
+            pattern = this._selectRandomPattern(['spiral', 'barrier', 'ring', 'scatter']);
             zoneCount = isMegaBoss ? 6 : 4;
-
-            const types = ['burst', 'expanding', 'corrupted'];
-            zoneType = types[Math.floor(Math.random() * types.length)];
+            zoneType = this._selectRandomPattern(['burst', 'expanding', 'corrupted']);
         }
 
         // Get positions from pattern
@@ -554,7 +550,7 @@ class EnemyAbilities {
 
                 // Create spawn effect
                 this.createDamageZoneSpawnEffect(pos.x, pos.y, zoneType);
-            }, 700); // Match telegraph duration
+            }, TELEGRAPH_DURATION_MS);
         });
 
         // Show floating text for special patterns
@@ -578,7 +574,25 @@ class EnemyAbilities {
     }
 
     /**
-     * Get zone parameters based on type
+     * Helper method to select a random pattern from an array of patterns.
+     *
+     * @param {Array<string>} patterns - Array of pattern names to choose from.
+     * @returns {string} A randomly selected pattern name.
+     */
+    _selectRandomPattern(patterns) {
+        return patterns[Math.floor(Math.random() * patterns.length)];
+    }
+
+    /**
+     * Returns configuration parameters for a damage zone based on the specified type.
+     *
+     * @param {string} zoneType - The type of damage zone. Valid values are:
+     *   'standard', 'burst', 'persistent', 'expanding', 'corrupted'.
+     *   If an invalid value is provided, falls back to 'standard'.
+     * @returns {{radius: number, duration: number, damageMultiplier: number}} An object containing:
+     *   - radius: The radius of the zone in pixels.
+     *   - duration: The duration of the zone in seconds.
+     *   - damageMultiplier: The damage multiplier applied within the zone.
      */
     _getDamageZoneParams(zoneType) {
         const params = {
@@ -613,21 +627,31 @@ class EnemyAbilities {
     }
 
     /**
-     * Create enhanced spawn effect for damage zones
+     * Creates particle effects when a damage zone spawns.
+     *
+     * The visual effect varies depending on the zone type:
+     * - "standard": Red sparks in a circular burst.
+     * - "burst": Orange sparks with higher speed.
+     * - "persistent": Darker red sparks.
+     * - "expanding": Orange sparks.
+     * - "corrupted": Purple sparks and additional smoke particles.
+     *
+     * @param {number} x - The x-coordinate of the zone's center.
+     * @param {number} y - The y-coordinate of the zone's center.
+     * @param {string} zoneType - The type of the damage zone ("standard", "burst", "persistent", "expanding", or "corrupted").
      */
     createDamageZoneSpawnEffect(x, y, zoneType) {
         try {
             if (!window.optimizedParticles) return;
 
-            const colors = {
-                standard: '#e74c3c',
-                burst: '#ff6b35',
-                persistent: '#c0392b',
-                expanding: '#e67e22',
-                corrupted: '#8e44ad'
-            };
+            // Use shared color constants from window.Game namespace
+            const colors = window.Game?.DAMAGE_ZONE_TYPE_COLORS;
+            if (!colors) {
+                console.warn('DamageZone colors not available - damageZone.js may not be loaded');
+                return;
+            }
 
-            const color = colors[zoneType] || '#e74c3c';
+            const color = colors[zoneType] || colors.standard;
             const segments = zoneType === 'corrupted' ? 32 : 24;
 
             // Burst effect on spawn
