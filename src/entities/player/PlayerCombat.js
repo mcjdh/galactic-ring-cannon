@@ -566,6 +566,20 @@ class PlayerCombat {
                 const adjustedCritIncrease = baseCritIncrease * critScalingFactor;
 
                 this.critChance = Math.min(softCap, currentCrit + adjustedCritIncrease);
+
+                // Also apply crit damage bonus if this upgrade provides it (dual-stat upgrade)
+                if (upgrade.critDamageBonus && typeof upgrade.critDamageBonus === 'number') {
+                    const baseCritDamageIncrease = upgrade.critDamageBonus;
+                    let scaledCritDamageIncrease = baseCritDamageIncrease;
+
+                    // Apply diminishing returns if crit multiplier gets very high
+                    if (this.critMultiplier > 4.0) {
+                        const excessMultiplier = (this.critMultiplier - 4.0) / 2.0;
+                        scaledCritDamageIncrease *= Math.max(0.3, 1 - excessMultiplier);
+                    }
+
+                    this.critMultiplier += scaledCritDamageIncrease;
+                }
                 break;
 
             case 'critDamage':
