@@ -17,16 +17,29 @@ class AchievementSystem {
         // Track time without damage for 'Untouchable' achievement
         this.timeSinceLastDamage = 0;
         this.maxTimeSinceLastDamage = 0;
-        
+
         // Track kills in last 10 seconds for 'Kill Streak'
         this.recentKills = [];
         this.killStreakWindow = 10; // seconds
-        
+
         // Track chain lightning hits (will be restored from saved progress in loadAchievements)
         this.currentChainHits = 0;
-        
+
         // Track ricochet hits (will be restored from saved progress in loadAchievements)
         this.currentRicochetHits = 0;
+
+        // Track time without dodging for 'Tank Commander' achievement
+        this.timeSinceLastDodge = 0;
+        this.maxTimeSinceLastDodge = 0;
+
+        // Track Nova Blitz kills in last 30 seconds
+        this.novaBlitzKills = [];
+        this.novaBlitzWindow = 30; // seconds
+
+        // Track Aegis Wall damage tracking
+        this.aegisWallStartTime = null;
+        this.aegisWallStartDamage = 0;
+        this.aegisWallChecking = false;
     }
     
     loadAchievements() {
@@ -152,25 +165,104 @@ class AchievementSystem {
         this.updateAchievement('elite_hunter', currentProgress + 1);
     }
     
-    // Track wave completion
-    onWaveCompleted(waveNumber) {
-        this.updateAchievement('wave_master', waveNumber);
-    }
-    
     // Track critical hits
     onCriticalHit() {
         const currentProgress = this.achievements.critical_master.progress;
         this.updateAchievement('critical_master', currentProgress + 1);
     }
-    
+
     // Track mega boss defeat
     onMegaBossDefeated() {
         this.updateAchievement('mega_boss_slayer', 1);
     }
-    
+
     // Track vendor upgrade maxed
     onUpgradeMaxed() {
         this.updateAchievement('max_upgrade', 1);
+    }
+
+    // Track time without dodging for 'Tank Commander' achievement
+    updateTankCommander(deltaTime) {
+        this.timeSinceLastDodge += deltaTime;
+        this.maxTimeSinceLastDodge = Math.max(this.maxTimeSinceLastDodge, this.timeSinceLastDodge);
+        this.updateAchievement('tank_commander', this.maxTimeSinceLastDodge);
+    }
+
+    // Reset dodge-free time when player dodges
+    onPlayerDodged() {
+        this.timeSinceLastDodge = 0;
+    }
+
+    // Track Nova Blitz kills (75 kills in 30 seconds)
+    onNovaBlitzKill(timestamp) {
+        // Add new kill
+        this.novaBlitzKills.push(timestamp);
+
+        // Remove kills older than window
+        const windowStart = timestamp - (this.novaBlitzWindow * 1000);
+        this.novaBlitzKills = this.novaBlitzKills.filter(t => t >= windowStart);
+
+        // Update achievement
+        this.updateAchievement('nova_blitz', this.novaBlitzKills.length);
+    }
+
+    // Track Aegis Wall (less than 300 damage in 3 minutes)
+    startAegisWallTracking(currentDamage, currentTime) {
+        if (!this.aegisWallChecking) {
+            this.aegisWallStartDamage = currentDamage;
+            this.aegisWallStartTime = currentTime;
+            this.aegisWallChecking = true;
+        }
+    }
+
+    checkAegisWall(currentDamage, currentTime) {
+        if (this.aegisWallChecking && this.aegisWallStartTime) {
+            const elapsedTime = currentTime - this.aegisWallStartTime;
+            const damageTaken = currentDamage - this.aegisWallStartDamage;
+
+            // Check if 3 minutes have passed
+            if (elapsedTime >= 180) {
+                if (damageTaken < 300) {
+                    this.updateAchievement('aegis_wall', 1);
+                }
+                // Reset tracking
+                this.aegisWallChecking = false;
+                this.aegisWallStartTime = null;
+            }
+        }
+    }
+
+    // Track lifetime achievements (cumulative across runs)
+    updateLifetimeAchievements(stats) {
+        if (stats.totalDamageDealt != null) {
+            this.updateAchievement('cosmic_veteran', stats.totalDamageDealt);
+        }
+        if (stats.distanceTraveled != null) {
+            this.updateAchievement('galactic_explorer', stats.distanceTraveled);
+        }
+        if (stats.projectilesFired != null) {
+            this.updateAchievement('trigger_happy', stats.projectilesFired);
+        }
+    }
+
+    // Track Speed Runner (reach level 15 in single run)
+    onLevelReached(level) {
+        this.updateAchievement('speed_runner', level);
+    }
+
+    // Track Storm Surge (hit 8 enemies with chain lightning)
+    onStormSurgeHit(hitCount) {
+        this.updateAchievement('storm_surge', hitCount);
+    }
+
+    // Track Efficient Killer (100 kills with 80%+ accuracy)
+    checkEfficientKiller(kills, projectilesFired) {
+        if (kills >= 100 && projectilesFired > 0) {
+            const accuracy = kills / projectilesFired;
+            if (accuracy >= 0.8) {
+                this.updateAchievement('efficient_killer', kills);
+            }
+        }
     }
     
     showAchievementNotification(achievement) {

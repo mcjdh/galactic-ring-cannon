@@ -105,14 +105,6 @@ const ACHIEVEMENT_DEFINITIONS = {
     // ========================================
     // SKILL ACHIEVEMENTS
     // ========================================
-    'dodge_master': {
-        name: 'Dodge Master',
-        description: 'Successfully dodge 50 times',
-        icon: '>>',
-        progress: 0,
-        target: 50,
-        unlocked: false
-    },
     'perfect_dodge': {
         name: 'Perfect Dodge',
         description: 'Dodge an attack at the last moment',
@@ -129,16 +121,24 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 60,
         unlocked: false
     },
+    'tank_commander': {
+        name: 'Tank Commander',
+        description: 'Survive 3 minutes without dodging in a single run',
+        icon: '#',
+        progress: 0,
+        target: 180,
+        unlocked: false
+    },
 
     // ========================================
     // CHALLENGE ACHIEVEMENTS
     // ========================================
-    'survivor': {
-        name: 'Survivor',
-        description: 'Survive for 10 minutes',
-        icon: 'T',
+    'speed_runner': {
+        name: 'Speed Runner',
+        description: 'Reach level 15 in a single run',
+        icon: '*',
         progress: 0,
-        target: 600, // 10 minutes in seconds
+        target: 15,
         unlocked: false
     },
     'elite_hunter': {
@@ -149,12 +149,69 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 10,
         unlocked: false
     },
-    'wave_master': {
-        name: 'Wave Master',
-        description: 'Survive 10 waves',
+    'efficient_killer': {
+        name: 'Efficient Killer',
+        description: 'Achieve 100 kills with 80%+ accuracy in a run',
+        icon: '>>',
+        progress: 0,
+        target: 100,
+        unlocked: false
+    },
+
+    // ========================================
+    // LIFETIME/CUMULATIVE ACHIEVEMENTS
+    // ========================================
+    'cosmic_veteran': {
+        name: 'Cosmic Veteran',
+        description: 'Deal 500,000 total damage across all runs',
+        icon: '*',
+        progress: 0,
+        target: 500000,
+        unlocked: false,
+        important: true
+    },
+    'galactic_explorer': {
+        name: 'Galactic Explorer',
+        description: 'Travel 100,000 distance across all runs',
         icon: '~',
         progress: 0,
-        target: 10,
+        target: 100000,
+        unlocked: false
+    },
+    'trigger_happy': {
+        name: 'Trigger Happy',
+        description: 'Fire 25,000 projectiles across all runs',
+        icon: '+',
+        progress: 0,
+        target: 25000,
+        unlocked: false
+    },
+
+    // ========================================
+    // CHARACTER-THEMED ACHIEVEMENTS
+    // ========================================
+    'nova_blitz': {
+        name: 'Nova Blitz',
+        description: 'Kill 75 enemies in 30 seconds',
+        icon: '^',
+        progress: 0,
+        target: 75,
+        unlocked: false
+    },
+    'aegis_wall': {
+        name: 'Aegis Wall',
+        description: 'Take less than 300 damage in a 3-minute run',
+        icon: '=',
+        progress: 0,
+        target: 1,
+        unlocked: false
+    },
+    'storm_surge': {
+        name: 'Storm Surge',
+        description: 'Hit 8 enemies with a single chain lightning',
+        icon: '*',
+        progress: 0,
+        target: 8,
         unlocked: false
     },
 

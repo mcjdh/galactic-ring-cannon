@@ -157,9 +157,24 @@ class StatsManager {
 
         // Update untouchable achievement (damage-free time)
         this.achievementSystem?.updateUntouchable?.(deltaTime);
-        
-        // Update survivor achievement (total survival time)
-        this.achievementSystem?.updateAchievement?.('survivor', this.gameManager.gameTime);
+
+        // Update lifetime achievements (cumulative across all runs)
+        this.achievementSystem?.updateLifetimeAchievements?.({
+            totalDamageDealt: this.totalDamageDealt,
+            distanceTraveled: this.distanceTraveled,
+            projectilesFired: this.projectilesFired
+        });
+
+        // Update Tank Commander achievement (time without dodging)
+        this.achievementSystem?.updateTankCommander?.(deltaTime);
+
+        // Check Aegis Wall achievement
+        this.achievementSystem?.checkAegisWall?.(this.totalDamageTaken, this.gameManager.gameTime);
+
+        // Start Aegis Wall tracking at game start
+        if (this.gameManager.gameTime <= 1 && this.achievementSystem) {
+            this.achievementSystem.startAegisWallTracking?.(this.totalDamageTaken, this.gameManager.gameTime);
+        }
     }
 
     bindAchievementSystem() {
@@ -170,6 +185,22 @@ class StatsManager {
             this.achievementSystem.updateAchievement?.('star_collector', this.xpCollected);
             this.achievementSystem.updateAchievement?.('meta_star_collector', this.starTokens);
             this.achievementSystem.updateAchievement?.('boss_slayer', this.sessionStats.bossesKilled);
+
+            // Update lifetime achievements when binding
+            this.achievementSystem.updateLifetimeAchievements?.({
+                totalDamageDealt: this.totalDamageDealt,
+                distanceTraveled: this.distanceTraveled,
+                projectilesFired: this.projectilesFired
+            });
+
+            // Update level-based achievements
+            const player = this.gameManager?.game?.player;
+            if (player?.level) {
+                this.achievementSystem.onLevelReached?.(player.level);
+            }
+
+            // Check efficient killer achievement
+            this.achievementSystem.checkEfficientKiller?.(this.killCount, this.projectilesFired);
         }
     }
     
@@ -399,12 +430,20 @@ class StatsManager {
             }
         }
 
+        // Track Nova Blitz achievement (75 kills in 30 seconds)
+        this.achievementSystem?.onNovaBlitzKill?.(Date.now());
+
+        // Check efficient killer achievement
+        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.projectilesFired);
+
         return killCount;
     }
 
     recordChainLightningHit(hitCount) {
         this.bindAchievementSystem();
         this.achievementSystem?.onChainLightningHit?.(hitCount);
+        // Also track Storm Surge achievement (higher target than chain_reaction)
+        this.achievementSystem?.onStormSurgeHit?.(hitCount);
     }
 
     recordRicochetHit(hitCount) {
@@ -417,6 +456,8 @@ class StatsManager {
         this.bindAchievementSystem();
         this.sessionStats.highestLevel = Math.max(this.sessionStats.highestLevel, level);
         this.achievementSystem?.updateAchievement?.('level_up', level);
+        // Track Speed Runner achievement (reach level 15)
+        this.achievementSystem?.onLevelReached?.(level);
     }
 
     onPlayerDamaged() {
@@ -519,11 +560,11 @@ class StatsManager {
                 // Perfect dodge counts as both a dodge AND a perfect dodge
                 this.sessionStats.dodges++;
                 this.achievementSystem?.updateAchievement?.('perfect_dodge', 1);
-                this.achievementSystem?.updateAchievement?.('dodge_master', this.sessionStats.dodges);
+                this.achievementSystem?.onPlayerDodged?.(); // Reset Tank Commander timer
                 break;
             case 'dodge':
                 this.sessionStats.dodges++;
-                this.achievementSystem?.updateAchievement?.('dodge_master', this.sessionStats.dodges);
+                this.achievementSystem?.onPlayerDodged?.(); // Reset Tank Commander timer
                 break;
             case 'ricochet_kill':
                 this.sessionStats.ricochetKills++;
@@ -540,11 +581,6 @@ class StatsManager {
                 break;
             case 'upgrade_chosen':
                 this.gameStats.upgradesChosen++;
-                break;
-            case 'wave_completed':
-                this.gameStats.wavesCompleted++;
-                const wave = typeof data.waveNumber === 'number' ? data.waveNumber : this.gameStats.wavesCompleted;
-                this.achievementSystem?.onWaveCompleted?.(wave);
                 break;
         }
     }
