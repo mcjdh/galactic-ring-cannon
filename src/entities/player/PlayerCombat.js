@@ -592,6 +592,22 @@ class PlayerCombat {
                 const baseCritDamageIncrease = upgrade.value;
                 this.applyScaledCritDamage(baseCritDamageIncrease);
                 break;
+
+            case 'attackRange':
+                // Attack range scaling - improves enemy detection for auto-targeting
+                // Synergizes with ricochet (320), chain (240), explosive (70) by increasing search area
+                const rangeMultiplier = upgrade.multiplier || 1.0;
+                this.attackRange *= rangeMultiplier;
+
+                // Show upgrade feedback with new range
+                const gmRange = window.gameManager || window.gameManagerBridge;
+                if (gmRange?.showFloatingText) {
+                    gmRange.showFloatingText(
+                        `Detection Range: ${Math.round(this.attackRange)}`,
+                        this.player.x, this.player.y - 60, '#00d2ff', 16
+                    );
+                }
+                break;
         }
 
         if (this.weaponManager) {
@@ -622,6 +638,7 @@ class PlayerCombat {
             hasAOEAttack: this.hasAOEAttack,
             hasSpreadAttack: this.hasSpreadAttack,
             // Balance information
+            rangeScaling: `${(this.attackRange / (window.GAME_CONSTANTS?.PLAYER?.BASE_ATTACK_RANGE || 300) * 100).toFixed(0)}%`,
             speedScaling: `${(this.projectileSpeed / (window.GAME_CONSTANTS?.PLAYER?.BASE_PROJECTILE_SPEED || 450) * 100).toFixed(0)}%`,
             critCapUtilization: `${(this.critChance / this.BALANCE.CRIT_SOFT_CAP * 100).toFixed(0)}%`,
             attackCooldown: this.attackCooldown.toFixed(3),

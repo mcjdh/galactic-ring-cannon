@@ -459,6 +459,7 @@ class Player {
             // Combat upgrades
             case 'attackSpeed':
             case 'attackDamage':
+            case 'attackRange':
             case 'projectileCount':
             case 'projectileSpread':
             case 'piercing':

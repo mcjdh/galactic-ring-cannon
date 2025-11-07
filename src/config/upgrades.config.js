@@ -344,6 +344,19 @@ const UPGRADE_DEFINITIONS = [
     // SUPPORT UPGRADES
     // ========================================
     {
+        id: 'detection_range_1',
+        name: 'Long Range Sensors',
+        description: '20% larger enemy detection range',
+        type: 'attackRange',
+        multiplier: 1.20,
+        icon: "O",
+        rarity: 'uncommon',
+        buildPath: 'support',
+        synergies: ['ricochet_1', 'chain_lightning_1', 'explosive_shots_1'],
+        stackable: true,
+        specialEffect: 'range_indicator' // Shows detection range when picked up
+    },
+    {
         id: 'magnet_1',
         name: 'Magnetic Field',
         description: '+75% XP attraction radius',
