@@ -151,7 +151,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'efficient_killer': {
         name: 'Efficient Killer',
-        description: 'Achieve 100 kills with 80%+ accuracy in a run',
+        description: 'Achieve 100 kills with 80%+ accuracy in a single run',
         icon: '>>',
         progress: 0,
         target: 100,

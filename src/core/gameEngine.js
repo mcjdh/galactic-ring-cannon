@@ -1579,6 +1579,9 @@ class GameEngine {
         let hitSuccessful = typeof projectile.hit === 'function' ? projectile.hit(enemy) : true;
         if (!hitSuccessful) return;
 
+        // Track successful projectile hit
+        window.gameManager?.statsManager?.trackProjectileHit?.();
+
         if (typeof enemy.takeDamage === 'function' && typeof projectile.damage === 'number') {
             const wasCritical = !!(projectile.isCrit);
             const preHealth = typeof enemy.health === 'number' ? enemy.health : null;

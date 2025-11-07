@@ -272,8 +272,14 @@ class AchievementSystem {
     // Track time without dodging for 'Tank Commander' achievement
     updateTankCommander(deltaTime) {
         this.timeSinceLastDodge += deltaTime;
-        this.maxTimeSinceLastDodge = Math.max(this.maxTimeSinceLastDodge, this.timeSinceLastDodge);
-        this.updateAchievement('tank_commander', this.maxTimeSinceLastDodge);
+        const newMax = Math.max(this.maxTimeSinceLastDodge, this.timeSinceLastDodge);
+        
+        // Only update achievement if progress changed by at least 1 second or achievement is unlocked
+        if (Math.floor(newMax) > Math.floor(this.maxTimeSinceLastDodge) || newMax >= 180) {
+            this.updateAchievement('tank_commander', newMax);
+        }
+        
+        this.maxTimeSinceLastDodge = newMax;
     }
 
     // Reset dodge-free time when player dodges
