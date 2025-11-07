@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * CONFIGURATION VALIDATION TEST SUITE
  * Validates all game configuration files for structural integrity
@@ -475,8 +477,13 @@ function runTests() {
 
 // Run tests if executed directly
 if (require.main === module) {
-    const results = runTests();
-    process.exit(results.failed > 0 ? 1 : 0);
+    try {
+        const results = runTests();
+        process.exit(results.failed > 0 ? 1 : 0);
+    } catch (err) {
+        console.error('[FATAL] Uncaught error during test execution:', err && err.stack ? err.stack : err);
+        process.exit(1);
+    }
 }
 
 module.exports = { runTests };

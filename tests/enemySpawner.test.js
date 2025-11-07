@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * ENEMY SPAWNER TEST SUITE
  * Tests enemy spawning logic, wave progression, and difficulty scaling
@@ -625,8 +627,13 @@ function runTests() {
 
 // Run tests if executed directly
 if (require.main === module) {
-    const results = runTests();
-    process.exit(results.failed > 0 ? 1 : 0);
+    try {
+        const results = runTests();
+        process.exit(results.failed > 0 ? 1 : 0);
+    } catch (err) {
+        console.error('[FATAL] Test suite crashed:', err && err.stack ? err.stack : err);
+        process.exit(1);
+    }
 }
 
 module.exports = { runTests };

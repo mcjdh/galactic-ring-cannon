@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * COLLISION UTILITIES TEST SUITE
  * Tests all collision detection algorithms and edge cases
@@ -452,8 +454,13 @@ function runTests() {
 
 // Run tests if executed directly
 if (require.main === module) {
-    const results = runTests();
-    process.exit(results.failed > 0 ? 1 : 0);
+    try {
+        const results = runTests();
+        process.exit(results.failed > 0 ? 1 : 0);
+    } catch (err) {
+        console.error('[FATAL] Test suite crashed:', err && err.stack ? err.stack : err);
+        process.exit(1);
+    }
 }
 
 module.exports = { runTests };
