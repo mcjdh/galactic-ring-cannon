@@ -63,6 +63,10 @@ class AchievementSystem {
         this.recentKills = [];
         this.novaBlitzKills = [];
 
+        // Reset per-run chain/ricochet hit tracking
+        this.currentChainHits = 0;
+        this.currentRicochetHits = 0;
+
         // Reset Aegis Wall tracking
         this.aegisWallStartTime = null;
         this.aegisWallStartDamage = 0;
@@ -154,7 +158,11 @@ class AchievementSystem {
             clearTimeout(this.saveTimeoutId);
             this.saveTimeoutId = null;
         }
-        this.saveAchievements();
+        try {
+            this.saveAchievements();
+        } finally {
+            this.pendingSave = false;
+        }
     }
     
     updateAchievement(key, value) {
@@ -336,9 +344,9 @@ class AchievementSystem {
     }
 
     // Track Efficient Killer (100 kills with 80%+ accuracy)
-    checkEfficientKiller(kills, projectilesFired) {
+    checkEfficientKiller(kills, projectilesFired, projectileHits) {
         if (kills >= 100 && projectilesFired > 0) {
-            const accuracy = kills / projectilesFired;
+            const accuracy = projectileHits / projectilesFired;
             if (accuracy >= 0.8) {
                 this.updateAchievement('efficient_killer', kills);
             }

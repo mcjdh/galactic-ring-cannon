@@ -30,6 +30,11 @@ class StatsManager {
         this.comboTarget = (COMBO_CONFIG && COMBO_CONFIG.TARGET != null) ? COMBO_CONFIG.TARGET : 8;
         this.maxComboMultiplier = (COMBO_CONFIG && COMBO_CONFIG.MAX_MULTIPLIER != null) ? COMBO_CONFIG.MAX_MULTIPLIER : 2.5;
 
+        // Throttle achievement updates to reduce processing overhead
+        this.lastLifetimeAchievementUpdate = 0;
+        this.lifetimeAchievementUpdateInterval = 5; // Update every 5 seconds
+        this.aegisWallChecked = false; // Track if we've checked the 180-second threshold
+
         // Update GameState combo config when available (after construction)
         // Deferred to avoid initialization order issues
         setTimeout(() => {
@@ -51,7 +56,8 @@ class StatsManager {
             criticalHits: 0,
             ricochetKills: 0,
             explosionKills: 0,
-            projectilesFired: 0 // Track session projectiles for accuracy achievements
+            projectilesFired: 0, // Track session projectiles for accuracy achievements
+            projectileHits: 0 // Track successful projectile hits for accuracy calculation
         };
         
         // Achievement tracking
@@ -159,18 +165,25 @@ class StatsManager {
         // Update untouchable achievement (damage-free time)
         this.achievementSystem?.updateUntouchable?.(deltaTime);
 
-        // Update lifetime achievements (cumulative across all runs)
-        this.achievementSystem?.updateLifetimeAchievements?.({
-            totalDamageDealt: this.totalDamageDealt,
-            distanceTraveled: this.distanceTraveled,
-            projectilesFired: this.projectilesFired
-        });
+        // Update lifetime achievements (throttled to every 5 seconds to reduce processing)
+        const currentTime = this.gameManager.gameTime;
+        if (currentTime - this.lastLifetimeAchievementUpdate >= this.lifetimeAchievementUpdateInterval) {
+            this.achievementSystem?.updateLifetimeAchievements?.({
+                totalDamageDealt: this.totalDamageDealt,
+                distanceTraveled: this.distanceTraveled,
+                projectilesFired: this.projectilesFired
+            });
+            this.lastLifetimeAchievementUpdate = currentTime;
+        }
 
         // Update Tank Commander achievement (time without dodging)
         this.achievementSystem?.updateTankCommander?.(deltaTime);
 
-        // Check Aegis Wall achievement
-        this.achievementSystem?.checkAegisWall?.(this.totalDamageTaken, this.gameManager.gameTime);
+        // Check Aegis Wall achievement only once when crossing the 180-second threshold
+        if (!this.aegisWallChecked && currentTime >= 180) {
+            this.achievementSystem?.checkAegisWall?.(this.totalDamageTaken, currentTime);
+            this.aegisWallChecked = true;
+        }
 
         // Start Aegis Wall tracking at game start
         if (this.gameManager.gameTime <= 1 && this.achievementSystem) {
@@ -200,8 +213,8 @@ class StatsManager {
                 this.achievementSystem.onLevelReached?.(player.level);
             }
 
-            // Check efficient killer achievement (use session projectiles for accuracy)
-            this.achievementSystem.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired);
+            // Check efficient killer achievement (use hits for accuracy)
+            this.achievementSystem.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
         }
     }
     
@@ -434,8 +447,8 @@ class StatsManager {
         // Track Nova Blitz achievement (75 kills in 30 seconds)
         this.achievementSystem?.onNovaBlitzKill?.(Date.now());
 
-        // Check efficient killer achievement (use session projectiles for accuracy)
-        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired);
+        // Check efficient killer achievement (use hits for accuracy)
+        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
 
         return killCount;
     }
@@ -545,6 +558,16 @@ class StatsManager {
     trackProjectileFired() {
         this.projectilesFired++; // Lifetime counter
         this.sessionStats.projectilesFired++; // Session counter for accuracy tracking
+    }
+    
+    /**
+     * Track projectile hit (successful hit on enemy)
+     */
+    trackProjectileHit() {
+        this.sessionStats.projectileHits++;
+        
+        // Check efficient killer achievement (use hits for accuracy)
+        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
     }
     
     /**
@@ -818,7 +841,9 @@ class StatsManager {
             dodges: 0,
             criticalHits: 0,
             ricochetKills: 0,
-            explosionKills: 0
+            explosionKills: 0,
+            projectilesFired: 0,
+            projectileHits: 0
         };
         
         this.gameStats = {
@@ -832,6 +857,10 @@ class StatsManager {
         
         this.achievedMilestones.clear();
         this.performanceMetrics.efficiencyScore = 0;
+        
+        // Reset achievement update throttling
+        this.lastLifetimeAchievementUpdate = 0;
+        this.aegisWallChecked = false;
     }
     
     /**
