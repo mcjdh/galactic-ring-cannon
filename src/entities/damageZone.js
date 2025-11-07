@@ -160,7 +160,8 @@ class DamageZone {
         const dx = entity.x - this.x;
         const dy = entity.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < this.radius + (entity.radius || 0);
+        const entityRadius = entity.radius ?? 0;
+        return distance < this.radius + entityRadius;
     }
     
     update(deltaTime, game) {
@@ -170,7 +171,11 @@ class DamageZone {
 
         // Handle expanding zones
         if (this.expandRate > 0) {
-            this.radius = this.initialRadius + (this.initialRadius * (this.expandRate - 1) * (this.timer / this.duration));
+            // Clamp to maximum expanded radius (initialRadius * expandRate)
+            this.radius = Math.min(
+                this.initialRadius * this.expandRate,
+                this.initialRadius + (this.initialRadius * (this.expandRate - 1) * (this.timer / this.duration))
+            );
         }
 
         // Check if damage zone should expire

@@ -646,7 +646,10 @@ class EnemyAbilities {
 
             // Use shared color constants from window.Game namespace
             const colors = window.Game?.DAMAGE_ZONE_TYPE_COLORS;
-            if (!colors) return; // Cannot proceed without color definitions
+            if (!colors) {
+                console.warn('DamageZone colors not available - damageZone.js may not be loaded');
+                return;
+            }
 
             const color = colors[zoneType] || colors.standard;
             const segments = zoneType === 'corrupted' ? 32 : 24;
