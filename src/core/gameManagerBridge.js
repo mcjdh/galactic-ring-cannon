@@ -395,6 +395,11 @@ class GameManagerBridge {
         // Reset StatsManager (it will sync with GameState)
         this.statsManager?.resetSession?.();
 
+        // Reset achievement run tracking (preserves progress, resets per-run trackers)
+        if (window.achievementSystem?.resetRunTracking) {
+            window.achievementSystem.resetRunTracking();
+        }
+
         // Reset DifficultyManager for new run
         this.difficultyManager?.reset?.();
 
@@ -680,6 +685,11 @@ class GameManagerBridge {
         this.gameOver = true;
         this.running = false;
 
+        // Save persistent stats for lifetime achievements
+        if (this.statsManager?.savePersistentStats) {
+            this.statsManager.savePersistentStats();
+        }
+
         // Create death effect
         if (this.game?.player) {
             this.createExplosion(this.game.player.x, this.game.player.y, 100, '#e74c3c');
@@ -720,6 +730,11 @@ class GameManagerBridge {
         this.gameWon = true;
         this.gameOver = true; // Also set gameOver to stop the game loop
         this.running = false;
+
+        // Save persistent stats for lifetime achievements
+        if (this.statsManager?.savePersistentStats) {
+            this.statsManager.savePersistentStats();
+        }
 
         // Award bonus stars for mega boss
         this.earnStarTokens(20); // 20 stars for mega boss (was 10)

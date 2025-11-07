@@ -41,6 +41,29 @@ class AchievementSystem {
         this.aegisWallStartDamage = 0;
         this.aegisWallChecking = false;
     }
+
+    /**
+     * Reset per-run tracking variables (call when starting a new game)
+     * This preserves saved achievement progress but resets run-specific tracking
+     */
+    resetRunTracking() {
+        // Reset time-based tracking
+        this.timeSinceLastDamage = 0;
+        this.maxTimeSinceLastDamage = 0;
+        this.timeSinceLastDodge = 0;
+        this.maxTimeSinceLastDodge = 0;
+
+        // Reset windowed kill tracking
+        this.recentKills = [];
+        this.novaBlitzKills = [];
+
+        // Reset Aegis Wall tracking
+        this.aegisWallStartTime = null;
+        this.aegisWallStartDamage = 0;
+        this.aegisWallChecking = false;
+
+        window.logger.log('Achievement run tracking reset');
+    }
     
     loadAchievements() {
         try {

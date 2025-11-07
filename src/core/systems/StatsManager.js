@@ -50,7 +50,8 @@ class StatsManager {
             dodges: 0,
             criticalHits: 0,
             ricochetKills: 0,
-            explosionKills: 0
+            explosionKills: 0,
+            projectilesFired: 0 // Track session projectiles for accuracy achievements
         };
         
         // Achievement tracking
@@ -199,8 +200,8 @@ class StatsManager {
                 this.achievementSystem.onLevelReached?.(player.level);
             }
 
-            // Check efficient killer achievement
-            this.achievementSystem.checkEfficientKiller?.(this.killCount, this.projectilesFired);
+            // Check efficient killer achievement (use session projectiles for accuracy)
+            this.achievementSystem.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired);
         }
     }
     
@@ -433,8 +434,8 @@ class StatsManager {
         // Track Nova Blitz achievement (75 kills in 30 seconds)
         this.achievementSystem?.onNovaBlitzKill?.(Date.now());
 
-        // Check efficient killer achievement
-        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.projectilesFired);
+        // Check efficient killer achievement (use session projectiles for accuracy)
+        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired);
 
         return killCount;
     }
@@ -542,7 +543,8 @@ class StatsManager {
      * Track projectile fired
      */
     trackProjectileFired() {
-        this.projectilesFired++;
+        this.projectilesFired++; // Lifetime counter
+        this.sessionStats.projectilesFired++; // Session counter for accuracy tracking
     }
     
     /**
@@ -776,7 +778,7 @@ class StatsManager {
             starTokensEarned: this.starTokensEarned,
             
             // Calculated stats
-            accuracy: this.projectilesFired > 0 ? (this.killCount / this.projectilesFired * 100).toFixed(1) + '%' : '0%',
+            accuracy: this.sessionStats.projectilesFired > 0 ? (this.killCount / this.sessionStats.projectilesFired * 100).toFixed(1) + '%' : '0%',
             damageRatio: this.totalDamageTaken > 0 ? (this.totalDamageDealt / this.totalDamageTaken).toFixed(2) : 'Infinite',
             survivalRating: this.calculateSurvivalRating()
         };
