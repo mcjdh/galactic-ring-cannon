@@ -600,9 +600,9 @@ class PlayerCombat {
                 this.attackRange *= rangeMultiplier;
 
                 // Show upgrade feedback with new range
-                const gm = window.gameManager || window.gameManagerBridge;
-                if (gm?.showFloatingText) {
-                    gm.showFloatingText(
+                const gmRange = window.gameManager || window.gameManagerBridge;
+                if (gmRange?.showFloatingText) {
+                    gmRange.showFloatingText(
                         `Detection Range: ${Math.round(this.attackRange)}`,
                         this.player.x, this.player.y - 60, '#00d2ff', 16
                     );
