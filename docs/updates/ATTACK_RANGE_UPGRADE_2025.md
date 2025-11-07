@@ -69,7 +69,7 @@ Added new **Long Range Sensors** upgrade to the level-up pool, providing global 
 - **20% multiplier** - Balanced increase (300 → 360 base)
 - **Uncommon rarity** - Matches power level (utility not power spike)
 - **Support build path** - Fits with magnet/regen/armor utility upgrades
-- **Stackable: true** - Allows multiple pickups with diminishing returns naturally
+- **Stackable: true** - Allows multiple pickups with compounding multiplicative scaling
 - **Synergies listed** - Explicitly shows combo potential
 
 #### 2. `src/entities/player/PlayerCombat.js`
