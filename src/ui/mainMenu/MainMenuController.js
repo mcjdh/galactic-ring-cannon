@@ -22,6 +22,12 @@
             this.menuStars = null;
             this.menuGradient = null;
 
+            // Pagination state
+            this.pagination = {
+                shop: { currentPage: 1, totalPages: 1, itemsPerPage: 1 },
+                achievements: { currentPage: 1, totalPages: 1, itemsPerPage: 1 }
+            };
+
             this.bindButtons();
             // Don't init background here - wait for show() to avoid double init
         }
@@ -51,7 +57,11 @@
                     achievementsClose: byId('achievements-close'),
                     resume: byId('resume-button'),
                     restartPause: byId('restart-button-pause'),
-                    returnPause: byId('return-button-pause')
+                    returnPause: byId('return-button-pause'),
+                    shopPrevPage: byId('shop-prev-page'),
+                    shopNextPage: byId('shop-next-page'),
+                    achievementsPrevPage: byId('achievements-prev-page'),
+                    achievementsNextPage: byId('achievements-next-page')
                 },
                 panels: {
                     settings: byId('settings-panel'),
@@ -68,7 +78,9 @@
                     lowQualityCheckbox: byId('lowquality-checkbox'),
                     difficultySelect: byId('difficulty-select'),
                     achievementsCount: byId('achievements-count'),
-                    achievementsList: byId('achievements-list')
+                    achievementsList: byId('achievements-list'),
+                    shopPageIndicator: byId('shop-page-indicator'),
+                    achievementsPageIndicator: byId('achievements-page-indicator')
                 }
             };
         }
@@ -84,18 +96,30 @@
             });
             this.addListener(buttons.shop, 'click', () => {
                 this.refreshStarDisplay();
-                this.populateShop();
                 this.showPanel('shop');
+                // Wait for panel to be visible and rendered before calculating layout
+                requestAnimationFrame(() => {
+                    this.populateShop();
+                });
             });
             this.addListener(buttons.shopClose, 'click', () => this.hidePanel('shop'));
             this.addListener(buttons.achievements, 'click', () => {
-                this.updateAchievementsUI();
                 this.showPanel('achievements');
+                // Wait for panel to be visible and rendered before calculating layout
+                requestAnimationFrame(() => {
+                    this.updateAchievementsUI();
+                });
             });
             this.addListener(buttons.achievementsClose, 'click', () => this.hidePanel('achievements'));
             this.addListener(buttons.resume, 'click', () => this.handleResumeFromPause());
             this.addListener(buttons.restartPause, 'click', () => this.handleRestartFromPause());
             this.addListener(buttons.returnPause, 'click', () => this.handleReturnToMenuFromPause());
+
+            // Pagination controls
+            this.addListener(buttons.shopPrevPage, 'click', () => this.navigateShopPage(-1));
+            this.addListener(buttons.shopNextPage, 'click', () => this.navigateShopPage(1));
+            this.addListener(buttons.achievementsPrevPage, 'click', () => this.navigateAchievementsPage(-1));
+            this.addListener(buttons.achievementsNextPage, 'click', () => this.navigateAchievementsPage(1));
         }
 
         addListener(element, event, handler, options) {
@@ -497,6 +521,14 @@
             const panel = this.resolvePanel(name);
             if (panel) {
                 panel.classList.remove('hidden');
+                // Initialize canvas backgrounds for sub-panels
+                if (name === 'settings') {
+                    this.initPanelBackground('settings-background');
+                } else if (name === 'shop') {
+                    this.initPanelBackground('shop-background');
+                } else if (name === 'achievements') {
+                    this.initPanelBackground('achievements-background');
+                }
             }
         }
 
@@ -656,19 +688,143 @@
             }
 
             if (listElement) {
+                const items = system.achievements || {};
+                const allAchievements = Object.values(items);
+                
+                // Calculate items per page dynamically using actual container dimensions
+                const minItemWidth = 280; // From CSS: minmax(clamp(280px, 36vw, 380px), 1fr)
+                const estimatedItemHeight = 100; // From CSS min-height clamp(75px, 10vh, 100px) + padding/progress
+                let itemsPerPage = this.calculateItemsPerPage(
+                    listElement,
+                    minItemWidth,
+                    estimatedItemHeight
+                );
+                // Cap at 6 items per page for achievements for optimal display
+                this.pagination.achievements.itemsPerPage = Math.min(6, itemsPerPage);
+                
+                // Calculate pagination
+                const totalItems = allAchievements.length;
+                this.pagination.achievements.totalPages = Math.ceil(totalItems / this.pagination.achievements.itemsPerPage) || 1;
+                
+                // Ensure current page is valid
+                if (this.pagination.achievements.currentPage > this.pagination.achievements.totalPages) {
+                    this.pagination.achievements.currentPage = this.pagination.achievements.totalPages;
+                }
+                
+                // Calculate start and end indices for current page
+                const startIdx = (this.pagination.achievements.currentPage - 1) * this.pagination.achievements.itemsPerPage;
+                const endIdx = Math.min(startIdx + this.pagination.achievements.itemsPerPage, totalItems);
+                const pageAchievements = allAchievements.slice(startIdx, endIdx);
+                
                 // OPTIMIZED: Use DocumentFragment to batch DOM updates (50-100ms faster)
                 const fragment = document.createDocumentFragment();
-                const items = system.achievements || {};
-                Object.values(items).forEach((achievement) => {
+                
+                pageAchievements.forEach((achievement) => {
                     const entry = document.createElement('div');
                     entry.className = 'achievement-item';
-                    const status = achievement.unlocked ? ' (Unlocked)' : '';
-                    entry.textContent = `${achievement.icon || ''} ${achievement.name}${status}`.trim();
+                    
+                    if (achievement.unlocked) {
+                        entry.classList.add('unlocked');
+                    } else {
+                        entry.classList.add('locked');
+                    }
+                    
+                    // Build achievement card with structure
+                    const icon = document.createElement('div');
+                    icon.className = 'achievement-icon';
+                    icon.textContent = achievement.icon || '?';
+                    
+                    const info = document.createElement('div');
+                    info.className = 'achievement-info';
+                    
+                    const title = document.createElement('h3');
+                    title.textContent = achievement.name;
+                    
+                    const desc = document.createElement('p');
+                    desc.className = 'achievement-description';
+                    desc.textContent = achievement.description;
+                    
+                    // Add unlock hint for locked achievements
+                    if (!achievement.unlocked) {
+                        const hint = document.createElement('p');
+                        hint.className = 'achievement-hint';
+                        hint.textContent = this.getAchievementHint(achievement);
+                        info.appendChild(title);
+                        info.appendChild(desc);
+                        info.appendChild(hint);
+                    } else {
+                        // Add ASCII decoration for unlocked achievements
+                        const badge = document.createElement('div');
+                        badge.className = 'achievement-badge';
+                        badge.innerHTML = `
+                            <div class="badge-stars">★ ★ ★</div>
+                            <div class="badge-text">UNLOCKED</div>
+                        `;
+                        info.appendChild(title);
+                        info.appendChild(desc);
+                        info.appendChild(badge);
+                    }
+                    
+                    // Add progress bar if not unlocked and has progress
+                    if (!achievement.unlocked && achievement.target > 1) {
+                        const progress = document.createElement('div');
+                        progress.className = 'achievement-progress';
+                        
+                        const progressBar = document.createElement('div');
+                        progressBar.className = 'progress-bar';
+                        
+                        const progressFill = document.createElement('div');
+                        progressFill.className = 'progress-fill';
+                        const percent = Math.min(100, (achievement.progress / achievement.target) * 100);
+                        progressFill.style.width = `${percent}%`;
+                        
+                        const progressText = document.createElement('span');
+                        progressText.textContent = `${achievement.progress}/${achievement.target}`;
+                        
+                        progressBar.appendChild(progressFill);
+                        progress.appendChild(progressBar);
+                        progress.appendChild(progressText);
+                        info.appendChild(progress);
+                    }
+                    
+                    entry.appendChild(icon);
+                    entry.appendChild(info);
                     fragment.appendChild(entry);  // Add to fragment (no reflow)
                 });
+                
                 listElement.innerHTML = '';
                 listElement.appendChild(fragment);  // Single reflow
+                
+                // Update pagination controls
+                this.updatePaginationButtons('achievements');
             }
+        }
+
+        getAchievementHint(achievement) {
+            // Map achievement IDs to helpful hints
+            const hints = {
+                'first_kill': '💡 Defeat any enemy to unlock',
+                'combo_master': '💡 Keep killing enemies without stopping',
+                'boss_slayer': '💡 Boss spawns every 3 minutes',
+                'mega_boss_slayer': '💡 Survive to meet the ultimate challenge',
+                'kill_streak': '💡 Focus on dense enemy groups',
+                'level_up': '💡 Collect XP orbs to level up',
+                'star_collector': '💡 Those green orbs count!',
+                'meta_star_collector': '💡 Earn stars from completing runs',
+                'max_upgrade': '💡 Visit the Star Vendor',
+                'dodge_master': '💡 Press SPACE to dodge',
+                'perfect_dodge': '💡 Dodge right before impact',
+                'untouchable': '💡 Master the dodge timing',
+                'survivor': '💡 Stay alive and keep moving',
+                'elite_hunter': '💡 Yellow enemies are elites',
+                'hard_mode': '💡 Change difficulty in Settings'
+            };
+            
+            const id = Object.keys(window.achievementSystem?.achievements || {}).find(
+                key => window.achievementSystem.achievements[key] === achievement
+            );
+            
+            return hints[id] || '💡 Keep playing to unlock';
         }
 
         populateShop() {
@@ -679,10 +835,35 @@
 
             this.clearDynamicListeners();
 
+            // Calculate items per page dynamically using actual container dimensions
+            const minItemWidth = 250; // From CSS: minmax(clamp(250px, 32vw, 350px), 1fr)
+            const estimatedItemHeight = 120; // From CSS min-height clamp(90px, 12vh, 120px) + padding
+            let itemsPerPage = this.calculateItemsPerPage(
+                container, 
+                minItemWidth, 
+                estimatedItemHeight
+            );
+            // Cap at 4 items per page for shop to prevent clipping
+            this.pagination.shop.itemsPerPage = Math.min(4, itemsPerPage);
+            
+            // Calculate pagination
+            const totalItems = this.metaUpgrades.length;
+            this.pagination.shop.totalPages = Math.ceil(totalItems / this.pagination.shop.itemsPerPage) || 1;
+            
+            // Ensure current page is valid
+            if (this.pagination.shop.currentPage > this.pagination.shop.totalPages) {
+                this.pagination.shop.currentPage = this.pagination.shop.totalPages;
+            }
+            
+            // Calculate start and end indices for current page
+            const startIdx = (this.pagination.shop.currentPage - 1) * this.pagination.shop.itemsPerPage;
+            const endIdx = Math.min(startIdx + this.pagination.shop.itemsPerPage, totalItems);
+            const pageItems = this.metaUpgrades.slice(startIdx, endIdx);
+
             // OPTIMIZED: Use DocumentFragment to batch DOM updates (50-100ms faster)
             const fragment = document.createDocumentFragment();
 
-            this.metaUpgrades.forEach((upgrade) => {
+            pageItems.forEach((upgrade) => {
                 const currentLevel = this.getMetaUpgradeLevel(upgrade.id);
                 const isMaxed = currentLevel >= upgrade.maxLevel;
                 const cost = upgrade.cost + (currentLevel * Math.floor(upgrade.cost * 0.5));
@@ -727,6 +908,9 @@
 
             container.innerHTML = '';
             container.appendChild(fragment);  // Single reflow
+            
+            // Update pagination controls
+            this.updatePaginationButtons('shop');
         }
 
         purchaseUpgrade(upgradeId) {
@@ -750,6 +934,8 @@
 
             this.refreshStarDisplay();
             window.gameManager.saveStarTokens?.();
+            
+            // Stay on current page after purchase
             this.populateShop();
 
             if (this.logger && typeof this.logger.log === 'function') {
@@ -833,9 +1019,14 @@
             };
             resizeCanvas();
 
-            // Only add resize listener once
+            // Only add resize listener once with debouncing for performance
             if (!this.menuResizeHandler) {
-                this.menuResizeHandler = resizeCanvas;
+                let resizeTimeout;
+                this.menuResizeHandler = () => {
+                    // Debounce resize to avoid excessive redraws on old systems
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = setTimeout(resizeCanvas, 150);
+                };
                 window.addEventListener('resize', this.menuResizeHandler);
             }
 
@@ -940,6 +1131,84 @@
             animate();
         }
 
+        initPanelBackground(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !canvas.getContext) {
+                return;
+            }
+
+            // Reuse menu stars if available, otherwise create new ones
+            if (!this.menuStars) {
+                // Create stars if they don't exist yet
+                const starCount = 150;
+                this.menuStars = [];
+                for (let i = 0; i < starCount; i++) {
+                    this.menuStars.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        size: Math.random() * 2 + 0.5,
+                        speed: Math.random() * 0.5 + 0.1,
+                        brightness: Math.random() * 0.5 + 0.5,
+                        twinkle: Math.random() * Math.PI * 2,
+                        colorCyan: 'rgba(0, 255, 255, ',
+                        colorMagenta: 'rgba(255, 0, 255, '
+                    });
+                }
+            }
+
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // Create gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#0a0a1f');
+            gradient.addColorStop(0.5, '#1a0a2f');
+            gradient.addColorStop(1, '#0a0a1f');
+
+            // Draw background
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = 'rgba(138, 0, 255, 0.1)';
+            ctx.lineWidth = 1;
+            const gridSize = 80;
+            ctx.beginPath();
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+            }
+            ctx.stroke();
+
+            // Draw stars (static snapshot - no animation for sub-panels to save performance)
+            // Use fixed time for consistent static appearance
+            const staticTime = 0;
+            this.menuStars.forEach(star => {
+                const twinkle = Math.sin(staticTime * 2 + star.twinkle) * 0.3 + 0.7;
+                const alpha = star.brightness * twinkle;
+                
+                if (star.size > 1.5) {
+                    ctx.fillStyle = star.colorMagenta + alpha + ')';
+                    ctx.shadowBlur = star.size * 3;
+                    ctx.shadowColor = ctx.fillStyle;
+                } else {
+                    ctx.fillStyle = star.colorCyan + alpha + ')';
+                }
+                
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+        }
+
         cleanup() {
             this.clearDynamicListeners();
             this.eventListeners.forEach(({ element, event, handler, options }) => {
@@ -966,6 +1235,99 @@
             // Clean up cached menu background resources
             this.menuStars = null;
             this.menuGradient = null;
+        }
+
+        // ===== PAGINATION HELPERS =====
+        
+        calculateItemsPerPage(container, minItemWidth, estimatedItemHeight) {
+            if (!container) return 4; // Default fallback
+            
+            // Get actual container dimensions (wait for layout if needed)
+            const containerWidth = container.clientWidth || 800;
+            const containerHeight = container.clientHeight || 350;
+            
+            // Use realistic gap from CSS: clamp(10px, 1.5vh, 16px)
+            const gap = 14;
+            
+            // Calculate items per row based on CSS grid minmax
+            // Account for grid gap in calculation
+            const effectiveWidth = containerWidth + gap;
+            const itemWidthWithGap = minItemWidth + gap;
+            const itemsPerRow = Math.max(1, Math.floor(effectiveWidth / itemWidthWithGap));
+            
+            // Calculate rows that fit in container height
+            // Be slightly conservative to avoid partial rows showing
+            const effectiveHeight = containerHeight - gap;
+            const itemHeightWithGap = estimatedItemHeight + gap;
+            const rowsPerPage = Math.max(1, Math.floor(effectiveHeight / itemHeightWithGap));
+            
+            const itemsPerPage = itemsPerRow * rowsPerPage;
+            
+            // Ensure at least 3 items per page for usability, but cap at reasonable max
+            return Math.min(20, Math.max(3, itemsPerPage));
+        }
+
+        navigateShopPage(direction) {
+            const newPage = this.pagination.shop.currentPage + direction;
+            if (newPage < 1 || newPage > this.pagination.shop.totalPages) {
+                return;
+            }
+            
+            this.pagination.shop.currentPage = newPage;
+            this.renderShopPage();
+        }
+
+        navigateAchievementsPage(direction) {
+            const newPage = this.pagination.achievements.currentPage + direction;
+            if (newPage < 1 || newPage > this.pagination.achievements.totalPages) {
+                return;
+            }
+            
+            this.pagination.achievements.currentPage = newPage;
+            this.renderAchievementsPage();
+        }
+
+        updatePaginationButtons(type) {
+            const state = this.pagination[type];
+            const prevBtn = this.dom.buttons[`${type}PrevPage`];
+            const nextBtn = this.dom.buttons[`${type}NextPage`];
+            const indicator = this.dom.controls[`${type}PageIndicator`];
+            
+            if (prevBtn) {
+                prevBtn.disabled = state.currentPage === 1;
+            }
+            if (nextBtn) {
+                nextBtn.disabled = state.currentPage >= state.totalPages;
+            }
+            if (indicator) {
+                indicator.textContent = `Page ${state.currentPage} of ${state.totalPages}`;
+            }
+        }
+
+        renderShopPage() {
+            const container = this.dom.shopItems;
+            if (!container) return;
+            
+            // Add fade out effect
+            container.classList.add('page-transitioning');
+            
+            setTimeout(() => {
+                this.populateShop();
+                container.classList.remove('page-transitioning');
+            }, 150);
+        }
+
+        renderAchievementsPage() {
+            const container = this.dom.controls.achievementsList;
+            if (!container) return;
+            
+            // Add fade out effect
+            container.classList.add('page-transitioning');
+            
+            setTimeout(() => {
+                this.updateAchievementsUI();
+                container.classList.remove('page-transitioning');
+            }, 150);
         }
     }
 
