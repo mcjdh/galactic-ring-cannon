@@ -298,6 +298,9 @@ class PlayerCombat {
             );
 
             if (projectile) {
+                // Track projectile fired for statistics
+                window.gameManager?.statsManager?.trackProjectileFired?.();
+                
                 if (isCrit) {
                     window.gameManager?.statsManager?.trackSpecialEvent?.('critical_hit');
                 }

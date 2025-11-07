@@ -34,6 +34,7 @@ class StatsManager {
         this.lastLifetimeAchievementUpdate = 0;
         this.lifetimeAchievementUpdateInterval = 5; // Update every 5 seconds
         this.aegisWallChecked = false; // Track if we've checked the 180-second threshold
+        this.aegisWallStarted = false; // Track if we've started Aegis Wall tracking
 
         // Update GameState combo config when available (after construction)
         // Deferred to avoid initialization order issues
@@ -185,9 +186,10 @@ class StatsManager {
             this.aegisWallChecked = true;
         }
 
-        // Start Aegis Wall tracking at game start
-        if (this.gameManager.gameTime <= 1 && this.achievementSystem) {
+        // Start Aegis Wall tracking at game start (only once)
+        if (!this.aegisWallStarted && this.gameManager.gameTime <= 1 && this.achievementSystem) {
             this.achievementSystem.startAegisWallTracking?.(this.totalDamageTaken, this.gameManager.gameTime);
+            this.aegisWallStarted = true;
         }
     }
 
@@ -447,8 +449,10 @@ class StatsManager {
         // Track Nova Blitz achievement (75 kills in 30 seconds)
         this.achievementSystem?.onNovaBlitzKill?.(Date.now());
 
-        // Check efficient killer achievement (use hits for accuracy)
-        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
+        // Check efficient killer achievement only at exactly 100 kills (use hits for accuracy)
+        if (this.killCount === 100 && !this.achievementSystem?.achievements?.efficient_killer?.unlocked) {
+            this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
+        }
 
         return killCount;
     }
@@ -858,6 +862,7 @@ class StatsManager {
         // Reset achievement update throttling
         this.lastLifetimeAchievementUpdate = 0;
         this.aegisWallChecked = false;
+        this.aegisWallStarted = false;
     }
     
     /**
