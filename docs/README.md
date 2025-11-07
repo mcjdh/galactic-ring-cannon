@@ -8,11 +8,11 @@ Welcome to the Galactic Ring Cannon documentation! This guide will help you navi
 
 ## Quick Start
 
-### 🆕 Latest Updates (v1.1.0)
+### 🆕 Latest Updates (v1.1.1)
 
-**NEW Features in v1.1.0:**
+**NEW Features in v1.1.1:**
 - **[current/WEAPONS.md](current/WEAPONS.md)** - Weapon system guide (3 weapon types!)
-- **[current/CHARACTERS.md](current/CHARACTERS.md)** - Character classes guide (3 characters!)
+- **[current/CHARACTERS.md](current/CHARACTERS.md)** - Character classes guide (4 characters!)
 
 **Previous Updates:**
 - **[updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/)** - Major balance overhaul and bug fixes (January 2025)
@@ -58,7 +58,7 @@ Essential project documentation:
 
 ### 📘 [current/](current/) - Current Reference Documentation
 
-Up-to-date documentation reflecting the current state of the codebase (as of November 2025, v1.1.0).
+Up-to-date documentation reflecting the current state of the codebase (as of November 2025, v1.1.1).
 
 | Document | Description | Version |
 |----------|-------------|---------|
@@ -66,9 +66,9 @@ Up-to-date documentation reflecting the current state of the codebase (as of Nov
 | [PROJECT_STRUCTURE.md](current/PROJECT_STRUCTURE.md) | File organization and architectural overview | ⭐ Updated v1.1 |
 | [KEY_CODE_PATTERNS.md](current/KEY_CODE_PATTERNS.md) | Established patterns and best practices | |
 | [GAMESTATE_ARCHITECTURE.md](current/GAMESTATE_ARCHITECTURE.md) | State management pattern details | |
-| [GAME_GUIDE.md](current/GAME_GUIDE.md) | Player guide - controls, characters, weapons, enemies, upgrades | ⭐ Updated v1.1 |
+| [GAME_GUIDE.md](current/GAME_GUIDE.md) | Player guide - controls, characters, weapons, enemies, upgrades | ⭐ Updated v1.1.1 |
 | [WEAPONS.md](current/WEAPONS.md) | Weapon system guide - 3 weapon types with detailed mechanics | ⭐ NEW v1.1 |
-| [CHARACTERS.md](current/CHARACTERS.md) | Character system guide - 3 classes with builds and strategies | ⭐ NEW v1.1 |
+| [CHARACTERS.md](current/CHARACTERS.md) | Character system guide - 4 classes with builds and strategies | ⭐ Updated v1.1.1 |
 | [GAME_DESIGN.md](current/GAME_DESIGN.md) | Game design philosophy and mechanics | |
 | [DEPLOYMENT.md](current/DEPLOYMENT.md) | Deployment instructions | |
 | [QUICK_START_PI5.md](current/QUICK_START_PI5.md) | Raspberry Pi 5 optimization and setup guide | |
@@ -283,12 +283,17 @@ The documentation reorganization (October 2025) was specifically done to prevent
 
 ## Recent Updates
 
+- **November 7, 2025**: v1.1.1 Documentation Update
+  - ⭐ **UPDATED**: [CHARACTERS.md](current/CHARACTERS.md) - Added 4th character: Nexus Architect (Orbital Savant)
+  - ⭐ **UPDATED**: [GAME_GUIDE.md](current/GAME_GUIDE.md) - Added Nexus Architect strategies and tips
+  - ⭐ **UPDATED**: All docs now correctly reference 4 playable characters
+  - Features: 4 playable characters, 3 weapon types, complete orbital specialist build path
+
 - **November 7, 2025**: v1.1.0 Documentation Update
   - ⭐ **NEW**: [WEAPONS.md](current/WEAPONS.md) - Complete weapon system documentation
-  - ⭐ **NEW**: [CHARACTERS.md](current/CHARACTERS.md) - Complete character system documentation
+  - ⭐ **NEW**: [CHARACTERS.md](current/CHARACTERS.md) - Complete character system documentation (initially 3, now 4)
   - ⭐ **UPDATED**: [GAME_GUIDE.md](current/GAME_GUIDE.md) - Added character/weapon sections and strategies
   - ⭐ **UPDATED**: [PROJECT_STRUCTURE.md](current/PROJECT_STRUCTURE.md) - Added v1.1.0 changes, new files
-  - Features: 3 playable characters, 3 weapon types, 7 new performance utilities
 
 - **January 4, 2025**: Added v1.0.9 update documentation (14 files in [updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/))
   - Boss balance overhaul documentation
@@ -299,5 +304,5 @@ The documentation reorganization (October 2025) was specifically done to prevent
 ---
 
 *This documentation reflects the production-ready component-based architecture as of November 2025.*
-*Version: 1.1.0*
+*Version: 1.1.1*
 *Total: 87+ markdown files organized for clarity and maintainability.*

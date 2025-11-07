@@ -1,5 +1,6 @@
 # API Documentation
-**Last Updated**: October 25, 2025
+**Last Updated**: November 7, 2025
+**Version**: 1.1.1
 **Architecture**: Component-based, Global Namespace (`window.Game`)
 
 ## Overview
@@ -287,6 +288,174 @@ Player special abilities component (dodge, abilities) (617 lines).
 
 ---
 
+## Weapon System (NEW in v1.1)
+
+### WeaponManager
+Manages player weapon selection and updates.
+
+**Location**: `src/weapons/WeaponManager.js`
+**Access**: `player.combat.weaponManager`
+
+**Constructor**: `new WeaponManager(player, combat)`
+
+**Key Methods**:
+- `equip(weaponId)` - Switch to weapon by ID, returns weapon instance
+- `update(deltaTime, game)` - Update active weapon each frame
+- `fireImmediate(game)` - Trigger immediate weapon fire
+- `applyUpgrade(upgrade)` - Route upgrade to active weapon
+- `notifyCombatStatChange()` - Notify weapon of stat changes
+- `getActiveWeaponId()` - Get currently equipped weapon ID
+
+**Static Methods**:
+- `WeaponManager.registerType(id, constructor)` - Register weapon class
+- `WeaponManager.getRegisteredTypes()` - List registered weapon IDs
+
+**Key Properties**:
+- `player` - Player reference
+- `combat` - PlayerCombat reference
+- `activeWeapon` - Currently equipped weapon instance
+- `enabled` - Whether weapon system is active
+
+---
+
+### Weapon Classes
+
+All weapon classes follow this interface:
+
+**Base Weapon Class Pattern**:
+```javascript
+class WeaponName {
+    constructor({ player, combat, definition, manager })
+    update(deltaTime, game)          // Called each frame
+    fireImmediate(game)              // Trigger attack
+    applyUpgrade(upgrade)            // Handle upgrade application
+    onEquip()                        // Called when equipped
+    onUnequip()                      // Called when unequipped
+    onCombatStatsChanged()           // Recalculate attack speed
+}
+```
+
+#### PulseCannon
+Balanced auto-targeting weapon.
+
+**Location**: `src/weapons/types/PulseCannon.js`
+**Archetype**: Generalist
+**Fire Rate**: 1.2 shots/sec
+**Projectiles**: 1 per shot
+
+#### NovaShotgun
+Close-range burst weapon with shotgun spread.
+
+**Location**: `src/weapons/types/NovaShotgun.js`
+**Archetype**: Burst
+**Fire Rate**: 0.8 shots/sec
+**Projectiles**: 5 per shot (50° spread)
+**Secondary**: Nova Knockback (6s cooldown)
+
+#### ArcBurst
+Rapid-fire twin projectiles.
+
+**Location**: `src/weapons/types/ArcBurst.js`
+**Archetype**: Control
+**Fire Rate**: 1.6 shots/sec
+**Projectiles**: 2 per shot (12° spread)
+**Secondary**: Storm Surge (12s cooldown)
+
+---
+
+### Weapon Definitions
+Weapons are data-driven, defined in `src/config/weapons.config.js`
+
+**Access**: `window.WEAPON_DEFINITIONS`
+
+**Definition Structure**:
+```javascript
+{
+    id: string,
+    name: string,
+    description: string,
+    archetype: string,
+    fireRate: number,
+    targeting: string,
+    projectileTemplate: {
+        count: number,
+        spreadDegrees: number,
+        damageMultiplier: number,
+        speedMultiplier: number
+    },
+    upgradeTags: string[],
+    secondary: object | null
+}
+```
+
+---
+
+## Character System (NEW in v1.1)
+
+### Character Definitions
+Characters are data-driven, defined in `src/config/characters.config.js`
+
+**Access**: `window.CHARACTER_DEFINITIONS`
+
+**Character Definition Structure**:
+```javascript
+{
+    id: string,
+    name: string,
+    icon: string,
+    tagline: string,
+    description: string,
+    difficulty: 'balanced' | 'aggressive' | 'control' | 'tactical',
+    weaponId: string,
+    highlights: string[],
+    modifiers: {
+        stats?: {
+            healthMultiplier?: number,
+            flatHealth?: number,
+            regeneration?: number,
+            damageReduction?: number,
+            lifesteal?: number,
+            critChance?: number,
+            critMultiplier?: number
+        },
+        combat?: {
+            attackSpeedMultiplier?: number,
+            attackDamageMultiplier?: number,
+            projectileSpeedMultiplier?: number,
+            piercing?: number,
+            critChanceBonus?: number
+        },
+        movement?: {
+            speedMultiplier?: number,
+            dodgeCooldownMultiplier?: number,
+            magnetRangeBonus?: number
+        },
+        abilities?: {
+            // Character-specific ability modifiers
+            shield?: object,
+            chainLightning?: object,
+            orbital?: object
+        }
+    },
+    preferredBuildPaths?: string[],
+    flavor: string
+}
+```
+
+### Available Characters
+
+**4 Character Classes**:
+1. **Aegis Vanguard** - Shield Sentinel (Balanced), uses Pulse Cannon
+2. **Nova Corsair** - Close-Range Raider (Aggressive), uses Nova Shotgun
+3. **Stormcaller Adept** - Arc Lance Savant (Control), uses Arc Burst
+4. **Nexus Architect** - Orbital Savant (Tactical), uses Pulse Cannon
+
+Character modifiers are applied during player initialization and affect base stats.
+
+See [CHARACTERS.md](CHARACTERS.md) for detailed character documentation.
+
+---
+
 ### Enemy
 Enemy base class with component-based architecture.
 
@@ -563,13 +732,44 @@ GAME_CONSTANTS.UI          // UI constants
 
 ---
 
+### weapons.config.js (NEW in v1.1)
+Weapon definitions and projectile templates.
+
+**Location**: `src/config/weapons.config.js`
+**Access**: `window.WEAPON_DEFINITIONS`
+
+Defines 3 weapon types:
+- Pulse Cannon (generalist)
+- Nova Shotgun (burst)
+- Arc Burst (control)
+
+Each weapon includes fire rate, projectile templates, upgrade synergies, and optional secondary abilities.
+
+---
+
+### characters.config.js (NEW in v1.1)
+Character class definitions and stat modifiers.
+
+**Location**: `src/config/characters.config.js`
+**Access**: `window.CHARACTER_DEFINITIONS`
+
+Defines 4 character classes:
+- Aegis Vanguard (balanced)
+- Nova Corsair (aggressive)
+- Stormcaller Adept (control)
+- Nexus Architect (tactical)
+
+Each character includes stat modifiers, weapon assignment, and preferred build paths.
+
+---
+
 ### upgrades.config.js
 Upgrade definitions and effects.
 
 **Location**: `src/config/upgrades.config.js`
 **Access**: `window.UPGRADE_CONFIGS`
 
-Defines all available upgrades including:
+Defines 37 available upgrades including:
 - Damage increases
 - Health boosts
 - Movement speed
@@ -578,6 +778,7 @@ Defines all available upgrades including:
 - Explosive rounds
 - Chain lightning
 - Orbital attacks
+- Shield upgrades (Aegis-specific)
 - And more...
 
 ---
@@ -588,7 +789,7 @@ Achievement definitions and unlock criteria.
 **Location**: `src/config/achievements.config.js`
 **Access**: `window.ACHIEVEMENT_CONFIGS`
 
-Defines 15+ achievements with progress tracking.
+Defines 19+ achievements with progress tracking.
 
 ---
 
@@ -598,7 +799,7 @@ Star Vendor persistent upgrade definitions.
 **Location**: `src/config/metaUpgrades.config.js`
 **Access**: `window.META_UPGRADE_CONFIGS`
 
-Defines permanent upgrades purchasable with star tokens.
+Defines 5 permanent upgrade types purchasable with star tokens.
 
 ---
 
@@ -619,6 +820,13 @@ window.Game.Projectile
 window.Game.XPOrb
 window.Game.DamageZone
 window.Game.EnemyProjectile
+
+// Weapon System (NEW in v1.1)
+window.Game.Weapons                 // Weapon registry namespace
+window.Game.Weapons.WeaponManager
+window.Game.Weapons.PulseCannon
+window.Game.Weapons.NovaShotgun
+window.Game.Weapons.ArcBurst
 
 // Systems
 window.Game.InputManager
@@ -643,6 +851,14 @@ window.Game.CollisionUtils
 window.Game.ParticleHelpers
 window.Game.logger
 window.Game.urlParams
+
+// Configuration (NEW in v1.1)
+window.WEAPON_DEFINITIONS         // Array of weapon configs
+window.CHARACTER_DEFINITIONS       // Array of character configs
+window.GAME_CONSTANTS             // Game balance constants
+window.UPGRADE_CONFIGS            // Upgrade definitions
+window.ACHIEVEMENT_CONFIGS        // Achievement definitions
+window.META_UPGRADE_CONFIGS       // Meta progression configs
 ```
 
 ---
@@ -736,11 +952,15 @@ node src/core/GameState.test.js
 
 ## Further Reading
 
+- [WEAPONS.md](WEAPONS.md) - Weapon system documentation (NEW in v1.1)
+- [CHARACTERS.md](CHARACTERS.md) - Character system documentation (NEW in v1.1)
 - [KEY_CODE_PATTERNS.md](KEY_CODE_PATTERNS.md) - Architectural patterns and best practices
 - [GAMESTATE_ARCHITECTURE.md](GAMESTATE_ARCHITECTURE.md) - State management details
 - [GAME_DESIGN.md](GAME_DESIGN.md) - Game design philosophy
+- [GAME_GUIDE.md](GAME_GUIDE.md) - Player-facing guide
 - [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - File organization
 
 ---
 
-*This documentation reflects the current component-based architecture as of October 2025.*
+*This documentation reflects the current component-based architecture as of November 2025.*
+*Version: 1.1.1 - Includes weapon system, character system, and 4 playable characters.*

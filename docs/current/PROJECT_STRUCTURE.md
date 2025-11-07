@@ -1,6 +1,6 @@
 # Galactic Ring Cannon - Project Structure
 **Last Updated**: November 7, 2025
-**Version**: 1.1.0
+**Version**: 1.1.1
 **Status**: Production Ready
 **Architecture**: Component-based, Global Namespace Pattern
 
@@ -63,6 +63,8 @@ galactic-ring-cannon/
 │   │   │       ├── TeleporterEnemy.js
 │   │   │       ├── PhantomEnemy.js
 │   │   │       ├── ShielderEnemy.js
+│   │   │       ├── SummonerEnemy.js
+│   │   │       ├── MinionEnemy.js
 │   │   │       └── BossEnemy.js
 │   │   ├── components/           # Shared entity components
 │   │   │   ├── EnemyAI.js        # AI state machine
@@ -548,9 +550,9 @@ The codebase is **production-ready** and demonstrates excellent software enginee
 - **See**: [WEAPONS.md](WEAPONS.md) for complete documentation
 
 #### Character System
-- **3 Character Classes**: Aegis Vanguard, Nova Corsair, Stormcaller Adept
+- **4 Character Classes**: Aegis Vanguard, Nova Corsair, Stormcaller Adept, Nexus Architect
 - **Stat Modifiers**: Characters modify health, damage, speed, etc.
-- **Playstyle Variety**: Tank, Glass Cannon, Crowd Control
+- **Playstyle Variety**: Tank, Glass Cannon, Crowd Control, Tactical Orbital
 - **See**: [CHARACTERS.md](CHARACTERS.md) for complete documentation
 
 #### Performance Optimizations
@@ -577,6 +579,6 @@ The codebase is **production-ready** and demonstrates excellent software enginee
 ---
 
 *Last updated: November 7, 2025*
-*Version: 1.1.0*
+*Version: 1.1.1*
 *Architecture status: Component-based, stable, production-ready*
 *Total files: 90+ JavaScript files across well-organized modules*

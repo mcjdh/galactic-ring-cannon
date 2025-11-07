@@ -9,7 +9,7 @@ Choose your character and weapon, level up by collecting XP, choose powerful upg
 
 ## 🧑‍🚀 CHARACTER CLASSES (NEW in v1.1!)
 
-Choose from **3 distinct character classes**, each with unique stats and starting weapons:
+Choose from **4 distinct character classes**, each with unique stats and starting weapons:
 
 ### 🛡️ Aegis Vanguard - Bulwark Pilot
 **Difficulty**: Balanced | **Weapon**: Pulse Cannon
@@ -38,7 +38,17 @@ Choose from **3 distinct character classes**, each with unique stats and startin
 - **Best for**: Crowd control, strategic positioning
 - **Trade-offs**: -5% damage per hit
 
-**💡 Tip**: Start with Aegis Vanguard to learn the game, then graduate to Nova Corsair or Stormcaller for advanced playstyles!
+### 🎯 Nexus Architect - Orbital Savant
+**Difficulty**: Tactical | **Weapon**: Pulse Cannon
+- **Starts with 2 orbital projectiles** - Unique starter ability!
+- **+10% orbital damage & +20% orbital speed** - Orbital specialist
+- **+10% max health** - Moderate survivability
+- **+1.2 HP/sec regeneration** - Passive healing
+- **+5% movement speed** - Better positioning
+- **Best for**: Methodical play, orbital builds, sustained combat
+- **Trade-offs**: -6% attack speed (offset by orbitals)
+
+**💡 Tip**: Start with Aegis Vanguard or Nexus Architect to learn the game, then graduate to Nova Corsair or Stormcaller for advanced playstyles!
 
 ---
 
@@ -218,6 +228,14 @@ New enemy types unlock as you survive longer (see Enemy Types section above)
 4. Prioritize Attack Speed for continuous chain procs
 5. Position to funnel enemies into tight corridors
 
+**Nexus Architect:**
+1. Always take orbital upgrades - it's your core identity!
+2. Use movement to position orbitals for maximum coverage
+3. Let orbitals handle crowds while you focus on dodging
+4. Stack Orbital Impact for massive damage multipliers
+5. Combo orbitals with support upgrades (health, regen, magnet)
+6. Circle bosses to maximize orbital hits per rotation
+
 ### Universal Tips
 - **Prioritize XP magnet** early for safer collection
 - **Balance offense and defense** - pure damage builds are risky
@@ -244,4 +262,4 @@ For more detailed information:
 ---
 
 *Last updated: November 7, 2025*
-*Version: 1.1.0 - Added character and weapon systems*
+*Version: 1.1.1 - 4 playable characters, 3 weapon types*
