@@ -173,6 +173,9 @@ class PlayerAbilities {
             }
         }
 
+        // Get game manager reference once for achievement updates
+        const gm = window.gameManager || window.gameManagerBridge;
+
         // Check for energy reflection
         if (this.shieldReflectChance > 0 && Math.random() < this.shieldReflectChance) {
             console.log(`[Shield] Energy reflection triggered!`);
@@ -180,14 +183,12 @@ class PlayerAbilities {
 
             // Track reflected damage for achievements (pass increment, not total)
             this.shieldDamageReflected += reflectedDamage;
-            const gm = window.gameManager || window.gameManagerBridge;
             if (gm?.achievementSystem?.updateShieldDamageReflected) {
                 gm.achievementSystem.updateShieldDamageReflected(reflectedDamage); // ✅ Pass increment
             }
         }
 
         // Update total damage blocked achievement (pass increment, not total)
-        const gm = window.gameManager || window.gameManagerBridge;
         if (gm?.achievementSystem?.updateShieldDamageBlocked) {
             gm.achievementSystem.updateShieldDamageBlocked(damageBlocked); // ✅ Pass increment
         }
@@ -1033,8 +1034,7 @@ class PlayerAbilities {
                     const oldCapacity = this.shieldMaxCapacity;
                     this.shieldMaxCapacity += upgrade.value;
                     this.shieldCurrent = Math.min(this.shieldCurrent + upgrade.value, this.shieldMaxCapacity);
-                    // Update base capacity to keep adaptive armor calculations accurate
-                    this.shieldBaseCapacity = this.shieldMaxCapacity;
+                    // Do not update shieldBaseCapacity here; it should remain at the original value
                     console.log(`[Shield] Capacity: ${oldCapacity} → ${this.shieldMaxCapacity} (+${upgrade.value})`);
                 }
                 if (upgrade.rechargeBonus) {

@@ -235,7 +235,7 @@ updateShieldTimeWithoutBreak(timeInSeconds) {
 |-------------|--------------|-----------|
 | **Unbreakable** | Every shield hit | ~10-30 times per second in combat |
 | **Mirror Match** | Every reflection proc | ~5-15 times per second (with reflection) |
-| **Aegis Guardian** | Every frame shield is active | ~60 times per second |
+| **Aegis Guardian** | Every frame shield is active | Once per second while shield is active |
 | **Adaptive Evolution** | Once when maxed | 1 time total |
 | **Last Stand** | Once when triggered | Very rare |
 
