@@ -56,6 +56,7 @@ class PlayerAbilities {
         this.shieldDamageReflected = 0; // Total damage reflected (for achievements)
         this.shieldHitFlash = 0;        // Visual flash timer when shield is hit
         this.shieldTimeWithoutBreak = 0; // Time shield has been active without breaking (for achievements)
+        this.shieldTimeUpdateTimer = 0; // Timer for throttling achievement updates (updates once per second)
 
         // Chain recursion depth protection
         this._chainDepth = 0;
@@ -82,11 +83,16 @@ class PlayerAbilities {
         // Track time without shield breaking (for achievements)
         if (!this.shieldBroken && this.shieldCurrent > 0) {
             this.shieldTimeWithoutBreak += deltaTime;
+            this.shieldTimeUpdateTimer += deltaTime;
 
-            // Update achievement for surviving without shield breaking
-            const gm = window.gameManager || window.gameManagerBridge;
-            if (gm?.achievementSystem?.updateShieldTimeWithoutBreak) {
-                gm.achievementSystem.updateShieldTimeWithoutBreak(this.shieldTimeWithoutBreak);
+            // Throttle achievement update to once per second to reduce overhead
+            if (this.shieldTimeUpdateTimer >= 1.0) {
+                this.shieldTimeUpdateTimer = 0;
+                
+                const gm = window.gameManager || window.gameManagerBridge;
+                if (gm?.achievementSystem?.updateShieldTimeWithoutBreak) {
+                    gm.achievementSystem.updateShieldTimeWithoutBreak(this.shieldTimeWithoutBreak);
+                }
             }
         }
 
@@ -1028,6 +1034,8 @@ class PlayerAbilities {
                     const oldCapacity = this.shieldMaxCapacity;
                     this.shieldMaxCapacity += upgrade.value;
                     this.shieldCurrent = Math.min(this.shieldCurrent + upgrade.value, this.shieldMaxCapacity);
+                    // Update base capacity to keep adaptive armor calculations accurate
+                    this.shieldBaseCapacity = this.shieldMaxCapacity;
                     console.log(`[Shield] Capacity: ${oldCapacity} → ${this.shieldMaxCapacity} (+${upgrade.value})`);
                 }
                 if (upgrade.rechargeBonus) {
