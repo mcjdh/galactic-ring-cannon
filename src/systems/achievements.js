@@ -177,19 +177,26 @@ class AchievementSystem {
     // SHIELD-SPECIFIC TRACKING (Aegis Vanguard)
     // ========================================
 
-    // Track total damage blocked by shields
-    updateShieldDamageBlocked(totalDamage) {
-        this.updateAchievement('unbreakable', Math.floor(totalDamage));
+    // Track total damage blocked by shields (CUMULATIVE across all runs)
+    updateShieldDamageBlocked(damageIncrement) {
+        const currentProgress = this.achievements.unbreakable?.progress || 0;
+        this.updateAchievement('unbreakable', currentProgress + Math.floor(damageIncrement));
     }
 
-    // Track total damage reflected by shields
-    updateShieldDamageReflected(totalDamage) {
-        this.updateAchievement('mirror_match', Math.floor(totalDamage));
+    // Track total damage reflected by shields (CUMULATIVE across all runs)
+    updateShieldDamageReflected(damageIncrement) {
+        const currentProgress = this.achievements.mirror_match?.progress || 0;
+        this.updateAchievement('mirror_match', currentProgress + Math.floor(damageIncrement));
     }
 
-    // Track time without shield breaking
+    // Track time without shield breaking (MAX value per run, not cumulative)
     updateShieldTimeWithoutBreak(timeInSeconds) {
-        this.updateAchievement('aegis_guardian', Math.floor(timeInSeconds));
+        const currentProgress = this.achievements.aegis_guardian?.progress || 0;
+        const newTime = Math.floor(timeInSeconds);
+        // Only update if this run's time is better than saved best
+        if (newTime > currentProgress) {
+            this.updateAchievement('aegis_guardian', newTime);
+        }
     }
 
     showAchievementNotification(achievement) {

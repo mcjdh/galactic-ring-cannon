@@ -173,18 +173,18 @@ class PlayerAbilities {
             console.log(`[Shield] Energy reflection triggered!`);
             const reflectedDamage = this.reflectDamage(damageBlocked);
 
-            // Track reflected damage for achievements
+            // Track reflected damage for achievements (pass increment, not total)
             this.shieldDamageReflected += reflectedDamage;
             const gm = window.gameManager || window.gameManagerBridge;
             if (gm?.achievementSystem?.updateShieldDamageReflected) {
-                gm.achievementSystem.updateShieldDamageReflected(this.shieldDamageReflected);
+                gm.achievementSystem.updateShieldDamageReflected(reflectedDamage); // ✅ Pass increment
             }
         }
 
-        // Update total damage blocked achievement
+        // Update total damage blocked achievement (pass increment, not total)
         const gm = window.gameManager || window.gameManagerBridge;
         if (gm?.achievementSystem?.updateShieldDamageBlocked) {
-            gm.achievementSystem.updateShieldDamageBlocked(this.shieldDamageBlocked);
+            gm.achievementSystem.updateShieldDamageBlocked(damageBlocked); // ✅ Pass increment
         }
 
         // Shield broke?

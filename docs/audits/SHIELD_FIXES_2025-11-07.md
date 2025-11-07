@@ -204,6 +204,46 @@ if (amount >= this.health) {
 
 ---
 
+## CRITICAL FIX: Achievement Persistence (Added Post-Commit)
+
+### Issue Discovered
+Initial implementation had a critical bug where **Unbreakable** and **Mirror Match** achievements would RESET every run instead of accumulating across sessions.
+
+**Problem:** Achievement tracking methods were receiving total per-run damage instead of increments, causing progress to be overwritten each run.
+
+**Root Cause:**
+```javascript
+// ❌ WRONG - overwrites saved progress with per-run total
+updateShieldDamageBlocked(totalDamage) {
+    this.updateAchievement('unbreakable', Math.floor(totalDamage));
+}
+```
+
+**Solution:** Changed to incremental tracking pattern (like `critical_master`):
+```javascript
+// ✅ CORRECT - adds increment to saved progress
+updateShieldDamageBlocked(damageIncrement) {
+    const currentProgress = this.achievements.unbreakable?.progress || 0;
+    this.updateAchievement('unbreakable', currentProgress + Math.floor(damageIncrement));
+}
+```
+
+### Files Modified (Additional Fix)
+1. **src/systems/achievements.js** - Fixed all 3 shield tracking methods to use incremental pattern
+2. **src/entities/player/PlayerAbilities.js** - Changed to pass damage increments instead of totals
+
+### Achievement Persistence Behavior
+
+| Achievement | Type | Persists Across Runs? | Tracking Method |
+|-------------|------|----------------------|-----------------|
+| **Unbreakable** | Cumulative | ✅ Yes | Adds damage increments to saved total |
+| **Mirror Match** | Cumulative | ✅ Yes | Adds reflected damage to saved total |
+| **Aegis Guardian** | Max Value | ✅ Yes | Saves best time achieved across all runs |
+| **Adaptive Evolution** | Binary | ✅ Yes | Once achieved, stays achieved forever |
+| **Last Stand** | Binary | ✅ Yes | Once achieved, stays achieved forever |
+
+---
+
 ## Testing Checklist
 
 ### Fix 1: Adaptive Armor
@@ -214,6 +254,14 @@ if (amount >= this.health) {
 - [ ] Verify growth caps at `shieldAdaptiveMax`
 
 ### Fix 7: Achievements
+
+#### Achievement Persistence Testing
+- [ ] Block 500 damage in first run, verify progress = 500
+- [ ] Close browser and reopen game
+- [ ] Block 300 more damage in second run, verify progress = 800 (not reset to 300!)
+- [ ] Reflect 100 damage in first run, verify progress = 100
+- [ ] Close browser and reopen game
+- [ ] Reflect 50 more damage in second run, verify progress = 150 (cumulative)
 
 #### Unbreakable
 - [ ] Block 10,000+ cumulative damage
