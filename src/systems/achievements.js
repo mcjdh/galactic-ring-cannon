@@ -276,11 +276,10 @@ class AchievementSystem {
         
         // Only update achievement if progress changed by at least 1 second or achievement is unlocked
         if (Math.floor(newMax) > Math.floor(this.maxTimeSinceLastDodge) || newMax >= 180) {
-            this.maxTimeSinceLastDodge = newMax;
-            this.updateAchievement('tank_commander', this.maxTimeSinceLastDodge);
-        } else {
-            this.maxTimeSinceLastDodge = newMax;
+            this.updateAchievement('tank_commander', newMax);
         }
+        
+        this.maxTimeSinceLastDodge = newMax;
     }
 
     // Reset dodge-free time when player dodges
