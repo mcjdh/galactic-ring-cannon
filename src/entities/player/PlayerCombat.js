@@ -437,8 +437,8 @@ class PlayerCombat {
                 }
                 case 'explosive': {
                     if (!abilities) break;
-                    const radius = abilities.explosionRadius || 90;
-                    const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.85;
+                    const radius = abilities.explosionRadius || 70;  // INCREASED from 90
+                    const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.6;  // INCREASED from 0.85
                     projectile.hasExplosive = true;
                     projectile.explosiveData = {
                         radius,
@@ -454,7 +454,7 @@ class PlayerCombat {
                         : (projectile.ricochetData ? { ...projectile.ricochetData } : { used: 0 });
 
                     ricochetData.bounces = Math.max(ricochetData.bounces || 0, abilities.ricochetBounces || 2);
-                    ricochetData.range = Math.max(ricochetData.range || 0, abilities.ricochetRange || 260);
+                    ricochetData.range = Math.max(ricochetData.range || 0, abilities.ricochetRange || 320);  // INCREASED from 260
                     // Damage multiplier dictates how much damage is retained per bounce
                     ricochetData.damageMultiplier = Math.min(1, Math.max(abilities.ricochetDamage || 0.85, 0.5));
 

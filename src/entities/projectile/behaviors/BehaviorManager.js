@@ -78,11 +78,23 @@ class ProjectileBehaviorManager {
      * Handle collision with enemy
      * This is THE core interaction logic for all projectile behaviors
      *
+     * 🎮 IMPROVED GAME FEEL: "Ricochet First" Priority System
+     * 
+     * Design Philosophy:
+     * - Ricochet on EVERY hit if possible (most fun, keeps action flowing)
+     * - Piercing as FALLBACK when no ricochet target available
+     * - Makes upgrades feel ADDITIVE rather than replacements
+     * - Prevents pierced projectiles flying offscreen (explosive triggers reliably)
+     *
      * Order of operations:
      * 1. Apply damage to target
      * 2. Trigger on-hit effects (chain lightning)
-     * 3. Check death prevention (piercing)
-     * 4. Try death recovery (ricochet)
+     * 3. Try Ricochet FIRST (if has bounces + valid target)
+     *    → Success: Bounce to new enemy, keep piercing charges
+     *    → Fail: No target, continue to step 4
+     * 4. Try Piercing as fallback (if has charges)
+     *    → Success: Pass through enemy
+     *    → Fail: Charges exhausted, projectile dies
      * 5. Trigger on-death effects (explosive)
      *
      * @returns {boolean} - True if projectile should die
@@ -108,27 +120,69 @@ class ProjectileBehaviorManager {
             }
         }
 
-        // 3. Check if any behavior prevents death (e.g., piercing)
+        // 3. TRY RICOCHET FIRST (new priority system!)
+        // This makes ricochet always attempt on every hit, keeping action flowing
+        // Ricochet only "costs" a bounce if it actually succeeds
         let shouldDie = true;
-        for (const behavior of this.behaviors) {
-            if (behavior.enabled && behavior.preventsDeath(target, engine)) {
+        let deathPreventedBy = null;
+
+        const ricochetBehavior = this.getBehavior('ricochet');
+        if (ricochetBehavior && ricochetBehavior.enabled) {
+            // Try ricochet - it will return true if it successfully bounces
+            const ricocheted = ricochetBehavior.onDeath(target, engine);
+            if (ricocheted) {
                 shouldDie = false;
-                break; // First one wins
+                deathPreventedBy = 'ricochet';
+                
+                if (window.debugProjectiles) {
+                    console.log(`[BehaviorManager] Ricochet succeeded on initial hit - projectile continues!`);
+                }
+                
+                // Ricochet succeeded! Don't check other behaviors
+                return shouldDie;
             }
         }
 
-        // 4. If dying, give behaviors a chance to prevent it (e.g., ricochet)
-        if (shouldDie) {
-            for (const behavior of this.behaviors) {
-                if (behavior.enabled) {
-                    const prevented = behavior.onDeath(target, engine);
-                    if (prevented) {
-                        shouldDie = false;
-                        break; // First successful prevention wins
-                    }
+        // 4. PIERCING AS FALLBACK
+        // Only use piercing if ricochet didn't work (no valid target or no bounces)
+        // This prevents projectiles flying offscreen after piercing through enemies
+        const piercingBehavior = this.getBehavior('piercing');
+        if (piercingBehavior && piercingBehavior.enabled) {
+            const pierced = piercingBehavior.preventsDeath(target, engine);
+            if (pierced) {
+                shouldDie = false;
+                deathPreventedBy = 'piercing';
+                
+                if (window.debugProjectiles) {
+                    console.log(`[BehaviorManager] Piercing prevented death (ricochet unavailable)`);
+                }
+                
+                return shouldDie;
+            }
+        }
+
+        // 5. Check other behaviors (if any custom ones added later)
+        // This maintains extensibility
+        for (const behavior of this.behaviors) {
+            if (behavior.enabled) {
+                const behaviorType = behavior.getType();
+                
+                // Skip ricochet and piercing (already handled with priority)
+                if (behaviorType === 'ricochet' || behaviorType === 'piercing') {
+                    continue;
+                }
+                
+                // Try other preventsDeath behaviors
+                if (behavior.preventsDeath(target, engine)) {
+                    shouldDie = false;
+                    deathPreventedBy = behaviorType;
+                    break;
                 }
             }
         }
+
+        // Note: Explosive and other death effects trigger when shouldDie=true
+        // in Projectile.handleCollision() which sets isDead=true
 
         return shouldDie;
     }

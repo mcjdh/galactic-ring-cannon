@@ -511,13 +511,13 @@ class PlayerAbilities {
                 } else if (upgrade.specialType === 'explosion') {
                     this.hasExplosiveShots = true;
                     this.explosiveChance = upgrade.explosiveChance || this.explosiveChance || 0.3;
-                    this.explosionRadius = upgrade.explosionRadius || 60;
-                    this.explosionDamage = upgrade.explosionDamage || 0.5;
+                    this.explosionRadius = upgrade.explosionRadius || 70;  // INCREASED from 60
+                    this.explosionDamage = upgrade.explosionDamage || 0.6;  // INCREASED from 0.5
                 } else if (upgrade.specialType === 'ricochet') {
                     this.hasRicochet = true;
                     this.ricochetChance = Math.min(0.9, Math.max(this.ricochetChance, upgrade.ricochetChance || 0.45));
                     this.ricochetBounces = Math.max(this.ricochetBounces, upgrade.bounces || 2);
-                    this.ricochetRange = Math.max(this.ricochetRange, upgrade.bounceRange || 260);
+                    this.ricochetRange = Math.max(this.ricochetRange, upgrade.bounceRange || 320);  // INCREASED from 260
                     this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.bounceDamage || 0.85);
                 } else if (upgrade.specialType === 'aoe') {
                     // Validate combat module exists before modifying

@@ -43,13 +43,22 @@ class ArcBurstWeapon {
     _ensureChainBaseline() {
         const abilities = this.player?.abilities;
         if (!abilities) return;
+        
+        // Enable chain lightning for this weapon
         if (!abilities.hasChainLightning) {
             abilities.hasChainLightning = true;
         }
+        
+        // Set baseline chain stats - but don't override better player upgrades
+        // This allows Arc weapon to work with ricochet/explosive upgrades nicely
         abilities.chainChance = Math.max(abilities.chainChance || 0, 0.5);
         abilities.chainDamage = Math.max(abilities.chainDamage || 0, 0.85);
         abilities.chainRange = Math.max(abilities.chainRange || 0, 240);
         abilities.maxChains = Math.max(abilities.maxChains || 0, 2);
+        
+        // NOTE: Chain range is intentionally smaller than ricochet range (320)
+        // This ensures ricochet can find targets even when chain can't
+        // Ricochet attempts first in new priority system, so this works great!
     }
 
     _recalculateCooldown(preserveProgress = true) {

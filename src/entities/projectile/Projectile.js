@@ -220,18 +220,42 @@ class Projectile {
         };
 
         // Check if flag is set and data exists
-        if (this._oldFlags[flagMap[type]] && this[dataMap[type]]) {
+        const hasFlag = this._oldFlags[flagMap[type]];
+        const hasData = this[dataMap[type]];
+        
+        if (hasFlag && hasData) {
             // Don't add if already has this behavior
-            if (this.behaviorManager.hasBehavior(type)) return;
+            if (this.behaviorManager.hasBehavior(type)) {
+                if (window.debugProjectiles) {
+                    console.log(`[Projectile ${this.id}] ${type} behavior already exists, skipping`);
+                }
+                return;
+            }
+
+            // Check if behavior class exists
+            const BehaviorClass = behaviorMap[type];
+            if (typeof BehaviorClass !== 'function') {
+                if (window.debugProjectiles) {
+                    window.logger.warn(`[Projectile ${this.id}] ${type} behavior class not found!`);
+                }
+                return;
+            }
 
             // Create and add behavior
-            const BehaviorClass = behaviorMap[type];
-            const behavior = new BehaviorClass(this, this[dataMap[type]]);
-            this.behaviorManager.addBehavior(behavior);
+            try {
+                const behavior = new BehaviorClass(this, this[dataMap[type]]);
+                this.behaviorManager.addBehavior(behavior);
 
-            if (window.debugProjectiles) {
-                console.log(`[Projectile ${this.id}] Added ${type} behavior from old flags`);
+                if (window.debugProjectiles) {
+                    console.log(`[Projectile ${this.id}] Added ${type} behavior from old flags. Data:`, this[dataMap[type]]);
+                }
+            } catch (error) {
+                if (window.debugProjectiles) {
+                    window.logger.error(`[Projectile ${this.id}] Failed to add ${type} behavior:`, error);
+                }
             }
+        } else if (window.debugProjectiles) {
+            console.log(`[Projectile ${this.id}] Not adding ${type} behavior. hasFlag: ${hasFlag}, hasData: ${hasData}`);
         }
     }
 

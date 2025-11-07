@@ -217,7 +217,7 @@ const UPGRADE_DEFINITIONS = [
         specialType: 'ricochet',
         ricochetChance: 0.60,
         bounces: 2,
-        bounceRange: 260,
+        bounceRange: 320,  // INCREASED from 260 - needs bigger range than chain to find bounce targets reliably
         bounceDamage: 0.9,
         icon: "<",
         rarity: 'rare',
@@ -231,7 +231,7 @@ const UPGRADE_DEFINITIONS = [
         description: 'Bounce one additional time with extended range and +15% trigger chance',
         type: 'ricochetBounces',
         value: 1,
-        rangeBonus: 60,
+        rangeBonus: 80,  // INCREASED from 60 - scales with larger base range
         chanceBonus: 0.15,
         icon: "<<",
         rarity: 'rare',
@@ -263,8 +263,8 @@ const UPGRADE_DEFINITIONS = [
         type: 'special',
         specialType: 'explosion',
         explosiveChance: 0.50,  // Added: was missing, defaulted to 0.3
-        explosionRadius: 60,
-        explosionDamage: 0.5,
+        explosionRadius: 70,  // INCREASED from 60 - more impactful AoE
+        explosionDamage: 0.6,  // INCREASED from 0.5 - better damage scaling
         icon: "X",
         rarity: 'rare',
         buildPath: 'explosive',
@@ -274,9 +274,9 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_2',
         name: 'Bigger Explosions',
-        description: 'Explosion radius increased by 40% and +15% trigger chance',
+        description: 'Explosion radius increased by 50% and +15% trigger chance',
         type: 'explosionSize',
-        multiplier: 1.4,
+        multiplier: 1.5,  // INCREASED from 1.4 - more noticeable upgrade
         chanceBonus: 0.15,  // Added: 50% → 65%
         icon: "X-",
         rarity: 'uncommon',

@@ -1,12 +1,17 @@
 /**
  * ExplosiveBehavior - Causes area damage when projectile dies
  * This is a death-triggered effect (doesn't prevent death)
+ * 
+ * 🎮 TUNING: Increased base radius and damage for better game feel
+ * - Radius: 70 (was 60) - more impactful AoE
+ * - Damage: 0.7 of projectile damage (was 0.7, keeping same)
+ * - With upgrades can reach 105+ radius and 65%+ trigger chance
  */
 class ExplosiveBehavior extends ProjectileBehaviorBase {
     constructor(projectile, config = {}) {
         super(projectile, config);
 
-        this.radius = config.radius || 60;
+        this.radius = config.radius || 70;  // INCREASED from 60
         this.damageMultiplier = config.damageMultiplier || 0.7;
         this.hasExploded = false;
     }

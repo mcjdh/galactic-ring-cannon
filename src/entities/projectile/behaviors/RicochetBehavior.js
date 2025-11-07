@@ -1,6 +1,11 @@
 /**
  * RicochetBehavior - Allows projectile to bounce to a new target when it would die
  * This is a death-recovery behavior
+ * 
+ * 🎮 GAME FEEL: Ricochet has LARGER range than chain lightning
+ * - Ricochet: 320 base, 400+ with upgrades (needs to find targets to save projectile!)
+ * - Chain: 180 base, 240 with Arc weapon
+ * - This ensures ricochet can find targets even when enemies are spread out
  */
 class RicochetBehavior extends ProjectileBehaviorBase {
     constructor(projectile, config = {}) {
@@ -8,7 +13,7 @@ class RicochetBehavior extends ProjectileBehaviorBase {
 
         this.bounces = config.bounces || 2;
         this.usedBounces = 0;
-        this.range = config.range || 180;
+        this.range = config.range || 320;  // INCREASED default - was 180, now matches upgrade config
         this.damageMultiplier = config.damageMultiplier || 0.8;
     }
 
@@ -37,12 +42,10 @@ class RicochetBehavior extends ProjectileBehaviorBase {
         this._bounceToTarget(newTarget);
         this.usedBounces++;
 
-        // Restore some piercing charges if projectile has piercing
-        const piercingBehavior = this.projectile.behaviorManager?.getBehavior('piercing');
-        if (piercingBehavior && piercingBehavior.isExhausted()) {
-            const restoreAmount = Math.max(1, Math.floor(piercingBehavior.maxCharges / 2));
-            piercingBehavior.restoreCharges(restoreAmount);
-        }
+        // NOTE: Piercing charges are NOT restored anymore
+        // New design: Ricochet attempts FIRST on every hit, piercing is fallback
+        // This makes upgrades feel additive rather than replacements
+        // Piercing charges are preserved when ricochet succeeds
 
         if (window.debugProjectiles) {
             console.log(`[RicochetBehavior] Projectile ${this.projectile.id} ricocheted to enemy ${newTarget.id}. Bounces used: ${this.usedBounces}/${this.bounces}`);

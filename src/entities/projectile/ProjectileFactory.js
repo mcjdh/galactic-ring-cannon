@@ -72,8 +72,8 @@ class ProjectileFactory {
         // Explosive Behavior (chance-based)
         if (abilities.hasExplosiveShots && Math.random() < (abilities.explosiveChance || 0.3)) {
             const explosiveBehavior = new ExplosiveBehavior(projectile, {
-                radius: abilities.explosionRadius || 90,
-                damageMultiplier: abilities.explosionDamage || 0.85
+                radius: abilities.explosionRadius || 70,  // INCREASED from 90 to match config
+                damageMultiplier: abilities.explosionDamage || 0.6  // INCREASED from 0.85 to match config
             });
             projectile.behaviorManager.addBehavior(explosiveBehavior);
         }
@@ -82,7 +82,7 @@ class ProjectileFactory {
         if (abilities.hasRicochet && Math.random() < (abilities.ricochetChance || 0.25)) {
             const ricochetBehavior = new RicochetBehavior(projectile, {
                 bounces: abilities.ricochetBounces || 2,
-                range: abilities.ricochetRange || 180,
+                range: abilities.ricochetRange || 320,  // INCREASED from 180 - larger search radius for bounce targets
                 damageMultiplier: 0.8
             });
             projectile.behaviorManager.addBehavior(ricochetBehavior);
