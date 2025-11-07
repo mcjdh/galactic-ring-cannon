@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * DIFFICULTY MANAGER TEST SUITE
  * Tests difficulty scaling, progression curves, and adaptive balancing
@@ -107,7 +109,6 @@ function runTests() {
             },
 
             increaseDifficulty() {
-                const oldFactor = this.difficultyFactor;
                 const timeMinutes = this.gameManager.gameTime / 60;
                 const baseIncrease = 0.2;
                 const timeMultiplier = Math.min(2.0, 1 + (timeMinutes * 0.1));
@@ -253,10 +254,8 @@ function runTests() {
     });
 
     test('Difficulty increase: time multiplier calculation', () => {
-        const dm1 = createMockDifficultyManager({ gameTime: 0 });
         const timeMultiplier1 = Math.min(2.0, 1 + (0 * 0.1));
 
-        const dm2 = createMockDifficultyManager({ gameTime: 60 });
         const timeMultiplier2 = Math.min(2.0, 1 + (1 * 0.1));
 
         assert(timeMultiplier1 === 1.0, 'Time multiplier should be 1.0 at start');
@@ -264,7 +263,6 @@ function runTests() {
     });
 
     test('Difficulty increase: time multiplier capped at 2.0', () => {
-        const dm = createMockDifficultyManager({ gameTime: 3600 }); // 60 minutes
         const timeMinutes = 60;
         const timeMultiplier = Math.min(2.0, 1 + (timeMinutes * 0.1));
 
@@ -594,8 +592,13 @@ function runTests() {
 
 // Run tests if executed directly
 if (require.main === module) {
-    const results = runTests();
-    process.exit(results.failed > 0 ? 1 : 0);
+    try {
+        const results = runTests();
+        process.exit(results.failed > 0 ? 1 : 0);
+    } catch (err) {
+        console.error('[FATAL] Uncaught error during test execution:', err && err.stack ? err.stack : err);
+        process.exit(1);
+    }
 }
 
 module.exports = { runTests };
