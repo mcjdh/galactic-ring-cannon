@@ -1,3 +1,12 @@
+// Shared constants for damage zone types
+const DAMAGE_ZONE_TYPE_COLORS = {
+    standard: '#e74c3c',
+    burst: '#ff6b35',
+    persistent: '#c0392b',
+    expanding: '#e67e22',
+    corrupted: '#8e44ad'
+};
+
 /**
  * Telegraph - Warning indicator before damage zone spawns
  */
@@ -13,14 +22,7 @@ class DamageZoneTelegraph {
         this.zoneType = zoneType;
 
         // Visual properties based on zone type
-        const typeColors = {
-            standard: '#e74c3c',
-            burst: '#ff6b35',
-            persistent: '#c0392b',
-            expanding: '#e67e22',
-            corrupted: '#8e44ad'
-        };
-        this.color = typeColors[zoneType] || '#e74c3c';
+        this.color = DAMAGE_ZONE_TYPE_COLORS[zoneType] || DAMAGE_ZONE_TYPE_COLORS.standard;
     }
 
     update(deltaTime, game) {
@@ -89,33 +91,50 @@ class DamageZone {
         this.maxRadius = radius;
     }
 
+    /**
+     * Configures this damage zone's properties based on the specified zone type.
+     *
+     * @param {string} zoneType - The type of the damage zone. Valid values are:
+     *   - 'standard': Standard damage zone.
+     *   - 'burst': Burst damage zone with faster pulse.
+     *   - 'persistent': Persistent damage zone with slower pulse.
+     *   - 'expanding': Expanding damage zone with increasing radius.
+     *   - 'corrupted': Corrupted zone that can damage enemies at reduced rate.
+     *
+     * This method initializes or overrides the following properties on the instance:
+     *   - color: Visual color of the zone.
+     *   - damageEnemies: Whether the zone damages enemies.
+     *   - enemyDamageMultiplier: Damage multiplier applied to enemies.
+     *   - pulseRate: How quickly the zone pulses (if applicable).
+     *   - expandRate: How quickly the zone expands (if applicable).
+     */
     _initializeZoneType(zoneType) {
         const typeConfigs = {
             standard: {
-                color: '#e74c3c',
+                color: DAMAGE_ZONE_TYPE_COLORS.standard,
                 damageEnemies: false,
                 enemyDamageMultiplier: 0
             },
             burst: {
-                color: '#ff6b35',
+                color: DAMAGE_ZONE_TYPE_COLORS.burst,
                 damageEnemies: false,
                 enemyDamageMultiplier: 0,
                 pulseRate: 2.5
             },
             persistent: {
-                color: '#c0392b',
+                color: DAMAGE_ZONE_TYPE_COLORS.persistent,
                 damageEnemies: false,
                 enemyDamageMultiplier: 0,
                 pulseRate: 1.0
             },
             expanding: {
-                color: '#e67e22',
+                color: DAMAGE_ZONE_TYPE_COLORS.expanding,
                 damageEnemies: false,
                 enemyDamageMultiplier: 0,
                 expandRate: 1.3 // Multiplier per second
             },
             corrupted: {
-                color: '#8e44ad',
+                color: DAMAGE_ZONE_TYPE_COLORS.corrupted,
                 damageEnemies: true,
                 enemyDamageMultiplier: 0.5, // Enemies take 50% damage
                 pulseRate: 2.0
@@ -137,10 +156,7 @@ class DamageZone {
 
         // Handle expanding zones
         if (this.expandRate > 0) {
-            this.radius = Math.min(
-                this.maxRadius * this.expandRate,
-                this.initialRadius + (this.initialRadius * (this.expandRate - 1) * (this.timer / this.duration))
-            );
+            this.radius = this.initialRadius + (this.initialRadius * (this.expandRate - 1) * (this.timer / this.duration));
         }
 
         // Check if damage zone should expire
@@ -179,11 +195,16 @@ class DamageZone {
 
                 enemies.forEach(enemy => {
                     if (enemy && !enemy.isDead && enemy.takeDamage) {
-                        const tickDamage = this.damagePerSecond * this.tickInterval * this.enemyDamageMultiplier;
-                        enemy.takeDamage(tickDamage);
+                        const dx = enemy.x - this.x;
+                        const dy = enemy.y - this.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < this.radius + (enemy.radius || 0)) {
+                            const tickDamage = this.damagePerSecond * this.tickInterval * this.enemyDamageMultiplier;
+                            enemy.takeDamage(tickDamage);
 
-                        if (gm?.createHitEffect) {
-                            gm.createHitEffect(enemy.x, enemy.y, tickDamage);
+                            if (gm?.createHitEffect) {
+                                gm.createHitEffect(enemy.x, enemy.y, tickDamage);
+                            }
                         }
                     }
                 });
@@ -329,8 +350,26 @@ class DamageZone {
  * Creates interesting spawn patterns instead of just "under player"
  */
 class DamageZonePatterns {
+    // Pattern distance constants
+    static MIN_SPEED_FOR_PREDICTION = 10;
+    static SCATTER_MIN_DIST = 80;
+    static SCATTER_MAX_DIST = 200;
+    static SPIRAL_START_DIST = 100;
+    static SPIRAL_SPACING = 40;
+    static BARRIER_SPACING = 90;
+    static CLUSTER_RADIUS = 50;
+    static CHASE_MIN_DIST = 60;
+    static CHASE_SPACING = 80;
+    static RING_RADIUS = 150;
+
     /**
-     * Predictive - spawns where player is moving towards
+     * Predictive - spawns where player is moving towards.
+     * Calculates player velocity and predicts their position 0.7-1.5 seconds ahead.
+     *
+     * @param {Object} game - The game instance containing player and enemy data.
+     * @param {Object} enemy - The enemy spawning the damage zone.
+     * @param {number} count - Number of zones to spawn.
+     * @returns {Array<{x: number, y: number}>} Array of position objects with x, y properties.
      */
     static predictive(game, enemy, count = 1) {
         if (!game.player) return [];
@@ -343,7 +382,7 @@ class DamageZonePatterns {
         const vy = player.vy || 0;
         const speed = Math.sqrt(vx * vx + vy * vy);
 
-        if (speed > 10) {
+        if (speed > this.MIN_SPEED_FOR_PREDICTION) {
             // Predict where player will be in 0.5-1.5 seconds
             for (let i = 0; i < count; i++) {
                 const predictionTime = 0.7 + (i * 0.4);
@@ -361,19 +400,23 @@ class DamageZonePatterns {
     }
 
     /**
-     * Scatter - multiple zones randomly around player
+     * Scatter - multiple zones randomly around player.
+     * Creates a random spread of zones at varying distances from the player.
+     *
+     * @param {Object} game - The game instance containing player and enemy data.
+     * @param {Object} enemy - The enemy spawning the damage zone.
+     * @param {number} count - Number of zones to spawn (default: 3).
+     * @returns {Array<{x: number, y: number}>} Array of position objects with x, y properties.
      */
     static scatter(game, enemy, count = 3) {
         if (!game.player) return [];
 
         const player = game.player;
         const positions = [];
-        const minDist = 80;
-        const maxDist = 200;
 
         for (let i = 0; i < count; i++) {
             const angle = (Math.random() * Math.PI * 2);
-            const distance = minDist + Math.random() * (maxDist - minDist);
+            const distance = this.SCATTER_MIN_DIST + Math.random() * (this.SCATTER_MAX_DIST - this.SCATTER_MIN_DIST);
 
             positions.push({
                 x: player.x + Math.cos(angle) * distance,
@@ -385,7 +428,13 @@ class DamageZonePatterns {
     }
 
     /**
-     * Spiral - zones in spiral pattern from boss
+     * Spiral - zones in spiral pattern from boss.
+     * Creates an elegant spiral pattern emanating from the enemy toward the player.
+     *
+     * @param {Object} game - The game instance containing player and enemy data.
+     * @param {Object} enemy - The enemy spawning the damage zone.
+     * @param {number} count - Number of zones to spawn (default: 5).
+     * @returns {Array<{x: number, y: number}>} Array of position objects with x, y properties.
      */
     static spiral(game, enemy, count = 5) {
         if (!game.player) return [];
@@ -395,7 +444,7 @@ class DamageZonePatterns {
 
         for (let i = 0; i < count; i++) {
             const angle = startAngle + (i * Math.PI * 0.4);
-            const distance = 100 + (i * 40);
+            const distance = this.SPIRAL_START_DIST + (i * this.SPIRAL_SPACING);
 
             positions.push({
                 x: enemy.x + Math.cos(angle) * distance,
@@ -407,7 +456,13 @@ class DamageZonePatterns {
     }
 
     /**
-     * Barrier - line of zones to cut off escape routes
+     * Barrier - line of zones to cut off escape routes.
+     * Creates a perpendicular line of zones between the enemy and player.
+     *
+     * @param {Object} game - The game instance containing player and enemy data.
+     * @param {Object} enemy - The enemy spawning the damage zone.
+     * @param {number} count - Number of zones to spawn (default: 4).
+     * @returns {Array<{x: number, y: number}>} Array of position objects with x, y properties.
      */
     static barrier(game, enemy, count = 4) {
         if (!game.player) return [];
@@ -421,14 +476,13 @@ class DamageZonePatterns {
         const angle = Math.atan2(dy, dx);
         const perpAngle = angle + Math.PI / 2;
 
-        const spacing = 90;
-        const startX = player.x - Math.cos(perpAngle) * (spacing * (count - 1) / 2);
-        const startY = player.y - Math.sin(perpAngle) * (spacing * (count - 1) / 2);
+        const startX = player.x - Math.cos(perpAngle) * (this.BARRIER_SPACING * (count - 1) / 2);
+        const startY = player.y - Math.sin(perpAngle) * (this.BARRIER_SPACING * (count - 1) / 2);
 
         for (let i = 0; i < count; i++) {
             positions.push({
-                x: startX + Math.cos(perpAngle) * spacing * i,
-                y: startY + Math.sin(perpAngle) * spacing * i
+                x: startX + Math.cos(perpAngle) * this.BARRIER_SPACING * i,
+                y: startY + Math.sin(perpAngle) * this.BARRIER_SPACING * i
             });
         }
 
@@ -436,20 +490,25 @@ class DamageZonePatterns {
     }
 
     /**
-     * Cluster - tight group at player position
+     * Cluster - tight group at player position.
+     * Forces player to reposition by creating a tight cluster of zones.
+     *
+     * @param {Object} game - The game instance containing player and enemy data.
+     * @param {Object} enemy - The enemy spawning the damage zone.
+     * @param {number} count - Number of zones to spawn (default: 3).
+     * @returns {Array<{x: number, y: number}>} Array of position objects with x, y properties.
      */
     static cluster(game, enemy, count = 3) {
         if (!game.player) return [];
 
         const player = game.player;
         const positions = [];
-        const clusterRadius = 50;
 
         for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2;
             positions.push({
-                x: player.x + Math.cos(angle) * clusterRadius,
-                y: player.y + Math.sin(angle) * clusterRadius
+                x: player.x + Math.cos(angle) * this.CLUSTER_RADIUS,
+                y: player.y + Math.sin(angle) * this.CLUSTER_RADIUS
             });
         }
 
@@ -457,7 +516,13 @@ class DamageZonePatterns {
     }
 
     /**
-     * Chase - spawn behind player's movement
+     * Chase - spawn behind player's movement.
+     * Spawns zones in the direction opposite to player movement, chasing them.
+     *
+     * @param {Object} game - The game instance containing player and enemy data.
+     * @param {Object} enemy - The enemy spawning the damage zone.
+     * @param {number} count - Number of zones to spawn (default: 2).
+     * @returns {Array<{x: number, y: number}>} Array of position objects with x, y properties.
      */
     static chase(game, enemy, count = 2) {
         if (!game.player) return [];
@@ -470,12 +535,12 @@ class DamageZonePatterns {
         const vy = player.vy || 0;
         const speed = Math.sqrt(vx * vx + vy * vy);
 
-        if (speed > 10) {
+        if (speed > this.MIN_SPEED_FOR_PREDICTION) {
             // Spawn behind movement
             const angle = Math.atan2(vy, vx) + Math.PI; // Opposite direction
 
             for (let i = 0; i < count; i++) {
-                const distance = 60 + (i * 80);
+                const distance = this.CHASE_MIN_DIST + (i * this.CHASE_SPACING);
                 positions.push({
                     x: player.x + Math.cos(angle) * distance,
                     y: player.y + Math.sin(angle) * distance
@@ -490,20 +555,25 @@ class DamageZonePatterns {
     }
 
     /**
-     * Ring - zones in circle around player
+     * Ring - zones in circle around player.
+     * Creates a ring of zones encircling the player at a fixed radius.
+     *
+     * @param {Object} game - The game instance containing player and enemy data.
+     * @param {Object} enemy - The enemy spawning the damage zone.
+     * @param {number} count - Number of zones to spawn (default: 6).
+     * @returns {Array<{x: number, y: number}>} Array of position objects with x, y properties.
      */
     static ring(game, enemy, count = 6) {
         if (!game.player) return [];
 
         const player = game.player;
         const positions = [];
-        const radius = 150;
 
         for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2;
             positions.push({
-                x: player.x + Math.cos(angle) * radius,
-                y: player.y + Math.sin(angle) * radius
+                x: player.x + Math.cos(angle) * this.RING_RADIUS,
+                y: player.y + Math.sin(angle) * this.RING_RADIUS
             });
         }
 
@@ -517,6 +587,7 @@ if (typeof window !== 'undefined') {
     window.Game.DamageZone = DamageZone;
     window.Game.DamageZoneTelegraph = DamageZoneTelegraph;
     window.Game.DamageZonePatterns = DamageZonePatterns;
+    window.Game.DAMAGE_ZONE_TYPE_COLORS = DAMAGE_ZONE_TYPE_COLORS;
 }
 
 DamageZone._alphaColorCache = new Map();
