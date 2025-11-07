@@ -1,5 +1,6 @@
 # Galactic Ring Cannon - Project Structure
-**Last Updated**: October 25, 2025
+**Last Updated**: November 7, 2025
+**Version**: 1.1.0
 **Status**: Production Ready
 **Architecture**: Component-based, Global Namespace Pattern
 
@@ -13,12 +14,14 @@ This document describes the current file organization and architectural structur
 
 ```
 galactic-ring-cannon/
-├── src/                          # Source code (78 JavaScript files)
+├── src/                          # Source code (90+ JavaScript files)
 │   ├── config/                   # Configuration files
 │   │   ├── gameConstants.js       # All game balance constants
 │   │   ├── upgrades.config.js    # Upgrade definitions
 │   │   ├── achievements.config.js # Achievement definitions
-│   │   └── metaUpgrades.config.js # Meta progression upgrades
+│   │   ├── metaUpgrades.config.js # Meta progression upgrades
+│   │   ├── weapons.config.js     # Weapon definitions (NEW in v1.1)
+│   │   └── characters.config.js  # Character definitions (NEW in v1.1)
 │   ├── core/                      # Core game engine
 │   │   ├── bootstrap.js           # Game initialization
 │   │   ├── gameEngine.js          # Main game loop (2120 lines)
@@ -99,12 +102,25 @@ galactic-ring-cannon/
 │   │   ├── hudEventHandlers.js   # HUD interaction
 │   │   ├── scriptErrorHandler.js # Error management
 │   │   └── loadDebugProjectiles.js # Dev utilities
+│   ├── weapons/                  # Weapon system (NEW in v1.1)
+│   │   ├── WeaponManager.js      # Weapon manager
+│   │   └── types/                # Weapon implementations
+│   │       ├── PulseCannon.js    # Balanced auto-targeting cannon
+│   │       ├── NovaShotgun.js    # Close-range burst shotgun
+│   │       └── ArcBurst.js       # Rapid chain-linked bolts
 │   └── utils/                    # Utility modules
 │       ├── MathUtils.js          # Math helpers
+│       ├── FastMath.js           # ARM-optimized math (NEW in v1.1)
 │       ├── CollisionUtils.js     # Collision detection
+│       ├── CollisionCache.js     # Collision caching (NEW in v1.1)
 │       ├── ParticleHelpers.js    # Particle creation
 │       ├── Logger.js             # Console logging
 │       ├── URLParams.js          # URL parameter parsing
+│       ├── PerformanceProfiler.js # Performance monitoring (NEW in v1.1)
+│       ├── PerformanceCache.js   # Performance caching (NEW in v1.1)
+│       ├── GPUMemoryManager.js   # GPU memory optimization (NEW in v1.1)
+│       ├── TrigCache.js          # Trigonometry caching (NEW in v1.1)
+│       ├── StorageManager.js     # Local storage management (NEW in v1.1)
 │       └── debug.js              # Debug utilities
 ├── assets/
 │   └── css/
@@ -117,7 +133,9 @@ galactic-ring-cannon/
 │   │   ├── DEPLOYMENT.md          # Deployment guide
 │   │   ├── GAMESTATE_ARCHITECTURE.md # State management
 │   │   ├── PROJECT_STRUCTURE.md   # This file
-│   │   └── KEY_CODE_PATTERNS.md   # Architectural patterns
+│   │   ├── KEY_CODE_PATTERNS.md   # Architectural patterns
+│   │   ├── WEAPONS.md             # Weapon system guide (NEW in v1.1)
+│   │   └── CHARACTERS.md          # Character system guide (NEW in v1.1)
 │   ├── development-history/      # Historical development notes
 │   │   ├── phase-1-resonance/     # Multi-agent phase 1
 │   │   ├── phase-2-integration/   # Integration phase 2
@@ -375,7 +393,8 @@ Optional: Use module bundler for production optimization.
 ### Current Status
 - **Largest file**: `gameEngine.js` (2120 lines) - acceptable for main loop
 - **Average component**: ~300-500 lines
-- **Total JavaScript**: 78 files, ~15,000+ lines
+- **Total JavaScript**: 90+ files, ~17,000+ lines
+- **Version**: 1.1.0 (added weapons & characters system)
 
 ---
 
@@ -518,6 +537,46 @@ The codebase is **production-ready** and demonstrates excellent software enginee
 
 ---
 
-*Last updated: October 25, 2025*
+## Version 1.1.0 Updates (November 2025)
+
+### New Features
+
+#### Weapon System
+- **3 Weapon Types**: Pulse Cannon, Nova Shotgun, Arc Burst
+- **WeaponManager**: Coordinates weapon selection and updates
+- **Data-Driven**: Weapons defined in `weapons.config.js`
+- **See**: [WEAPONS.md](WEAPONS.md) for complete documentation
+
+#### Character System
+- **3 Character Classes**: Aegis Vanguard, Nova Corsair, Stormcaller Adept
+- **Stat Modifiers**: Characters modify health, damage, speed, etc.
+- **Playstyle Variety**: Tank, Glass Cannon, Crowd Control
+- **See**: [CHARACTERS.md](CHARACTERS.md) for complete documentation
+
+#### Performance Optimizations
+- **FastMath**: ARM-optimized math operations
+- **TrigCache**: Pre-computed trigonometry lookups
+- **CollisionCache**: Caching for collision detection
+- **PerformanceProfiler**: Real-time performance monitoring
+- **PerformanceCache**: General-purpose caching system
+- **GPUMemoryManager**: GPU memory optimization
+- **StorageManager**: Enhanced local storage handling
+
+### Architecture Changes
+
+#### New Directories
+- `src/config/` - Added `weapons.config.js` and `characters.config.js`
+- `src/weapons/` - New weapon system (WeaponManager + weapon types)
+- `src/utils/` - Added 7 new performance/caching utilities
+
+#### File Count Changes
+- **v1.0.9**: 78 JavaScript files
+- **v1.1.0**: 90+ JavaScript files (+15% growth)
+- **Lines of Code**: ~17,000+ lines (+13% growth)
+
+---
+
+*Last updated: November 7, 2025*
+*Version: 1.1.0*
 *Architecture status: Component-based, stable, production-ready*
-*Total files: 78 JavaScript files across well-organized modules*
+*Total files: 90+ JavaScript files across well-organized modules*

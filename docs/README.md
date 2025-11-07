@@ -1,5 +1,6 @@
 # Documentation Guide
-**Last Updated**: January 4, 2025
+**Last Updated**: November 7, 2025
+**Version**: 1.1.0
 
 Welcome to the Galactic Ring Cannon documentation! This guide will help you navigate the documentation structure.
 
@@ -7,9 +8,14 @@ Welcome to the Galactic Ring Cannon documentation! This guide will help you navi
 
 ## Quick Start
 
-### 🆕 Latest Updates
+### 🆕 Latest Updates (v1.1.0)
 
-**[updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/)** - Major balance overhaul and bug fixes (January 2025)
+**NEW Features in v1.1.0:**
+- **[current/WEAPONS.md](current/WEAPONS.md)** - Weapon system guide (3 weapon types!)
+- **[current/CHARACTERS.md](current/CHARACTERS.md)** - Character classes guide (3 characters!)
+
+**Previous Updates:**
+- **[updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/)** - Major balance overhaul and bug fixes (January 2025)
 
 ### For Developers
 
@@ -18,12 +24,16 @@ Start here to understand the codebase:
 1. **[current/PROJECT_STRUCTURE.md](current/PROJECT_STRUCTURE.md)** - Overview of file organization and architecture
 2. **[current/API_DOCUMENTATION.md](current/API_DOCUMENTATION.md)** - Complete API reference for all classes
 3. **[current/KEY_CODE_PATTERNS.md](current/KEY_CODE_PATTERNS.md)** - Architectural patterns and best practices
+4. **[current/WEAPONS.md](current/WEAPONS.md)** - Weapon system architecture ⭐ NEW
+5. **[current/CHARACTERS.md](current/CHARACTERS.md)** - Character system architecture ⭐ NEW
 
 ### For Players
 
-1. **[current/GAME_GUIDE.md](current/GAME_GUIDE.md)** - How to play, controls, enemy types, upgrades
-2. **[current/GAME_DESIGN.md](current/GAME_DESIGN.md)** - Game design philosophy and mechanics
-3. **[updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/)** - What's new in v1.0.9
+1. **[current/GAME_GUIDE.md](current/GAME_GUIDE.md)** - How to play, controls, characters, weapons, enemy types, upgrades ⭐ UPDATED
+2. **[current/WEAPONS.md](current/WEAPONS.md)** - Detailed weapon guide ⭐ NEW
+3. **[current/CHARACTERS.md](current/CHARACTERS.md)** - Character builds and strategies ⭐ NEW
+4. **[current/GAME_DESIGN.md](current/GAME_DESIGN.md)** - Game design philosophy and mechanics
+5. **[updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/)** - What's new in v1.0.9
 
 ### For DevOps/Deployment
 
@@ -48,18 +58,20 @@ Essential project documentation:
 
 ### 📘 [current/](current/) - Current Reference Documentation
 
-Up-to-date documentation reflecting the current state of the codebase (as of October 2025).
+Up-to-date documentation reflecting the current state of the codebase (as of November 2025, v1.1.0).
 
-| Document | Description |
-|----------|-------------|
-| [API_DOCUMENTATION.md](current/API_DOCUMENTATION.md) | Complete API reference for all classes and systems |
-| [PROJECT_STRUCTURE.md](current/PROJECT_STRUCTURE.md) | File organization and architectural overview |
-| [KEY_CODE_PATTERNS.md](current/KEY_CODE_PATTERNS.md) | Established patterns and best practices |
-| [GAMESTATE_ARCHITECTURE.md](current/GAMESTATE_ARCHITECTURE.md) | State management pattern details |
-| [GAME_GUIDE.md](current/GAME_GUIDE.md) | Player guide - controls, enemies, upgrades |
-| [GAME_DESIGN.md](current/GAME_DESIGN.md) | Game design philosophy and mechanics |
-| [DEPLOYMENT.md](current/DEPLOYMENT.md) | Deployment instructions |
-| [QUICK_START_PI5.md](current/QUICK_START_PI5.md) | Raspberry Pi 5 optimization and setup guide |
+| Document | Description | Version |
+|----------|-------------|---------|
+| [API_DOCUMENTATION.md](current/API_DOCUMENTATION.md) | Complete API reference for all classes and systems | |
+| [PROJECT_STRUCTURE.md](current/PROJECT_STRUCTURE.md) | File organization and architectural overview | ⭐ Updated v1.1 |
+| [KEY_CODE_PATTERNS.md](current/KEY_CODE_PATTERNS.md) | Established patterns and best practices | |
+| [GAMESTATE_ARCHITECTURE.md](current/GAMESTATE_ARCHITECTURE.md) | State management pattern details | |
+| [GAME_GUIDE.md](current/GAME_GUIDE.md) | Player guide - controls, characters, weapons, enemies, upgrades | ⭐ Updated v1.1 |
+| [WEAPONS.md](current/WEAPONS.md) | Weapon system guide - 3 weapon types with detailed mechanics | ⭐ NEW v1.1 |
+| [CHARACTERS.md](current/CHARACTERS.md) | Character system guide - 3 classes with builds and strategies | ⭐ NEW v1.1 |
+| [GAME_DESIGN.md](current/GAME_DESIGN.md) | Game design philosophy and mechanics | |
+| [DEPLOYMENT.md](current/DEPLOYMENT.md) | Deployment instructions | |
+| [QUICK_START_PI5.md](current/QUICK_START_PI5.md) | Raspberry Pi 5 optimization and setup guide | |
 
 **When to use**: Learning the codebase, implementing features, understanding architecture, deploying to specific platforms.
 
@@ -271,6 +283,13 @@ The documentation reorganization (October 2025) was specifically done to prevent
 
 ## Recent Updates
 
+- **November 7, 2025**: v1.1.0 Documentation Update
+  - ⭐ **NEW**: [WEAPONS.md](current/WEAPONS.md) - Complete weapon system documentation
+  - ⭐ **NEW**: [CHARACTERS.md](current/CHARACTERS.md) - Complete character system documentation
+  - ⭐ **UPDATED**: [GAME_GUIDE.md](current/GAME_GUIDE.md) - Added character/weapon sections and strategies
+  - ⭐ **UPDATED**: [PROJECT_STRUCTURE.md](current/PROJECT_STRUCTURE.md) - Added v1.1.0 changes, new files
+  - Features: 3 playable characters, 3 weapon types, 7 new performance utilities
+
 - **January 4, 2025**: Added v1.0.9 update documentation (14 files in [updates/v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/))
   - Boss balance overhaul documentation
   - Special types fix and balance documentation
@@ -279,5 +298,6 @@ The documentation reorganization (October 2025) was specifically done to prevent
 
 ---
 
-*This documentation reflects the production-ready component-based architecture as of January 2025.*
-*Total: 85+ markdown files organized for clarity and maintainability.*
+*This documentation reflects the production-ready component-based architecture as of November 2025.*
+*Version: 1.1.0*
+*Total: 87+ markdown files organized for clarity and maintainability.*
