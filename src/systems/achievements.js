@@ -9,6 +9,12 @@ class AchievementSystem {
             this.achievements = {};
         }
 
+        // Throttle save mechanism to prevent localStorage spam
+        this.lastSaveTime = 0;
+        this.saveThrottleMs = 2000; // Save at most once every 2 seconds
+        this.pendingSave = false;
+        this.saveTimeoutId = null;
+
         this.initializeTracking();
         this.loadAchievements(); // Load AFTER initializing to preserve saved max values
     }
@@ -99,9 +105,56 @@ class AchievementSystem {
                 };
             }
             window.StorageManager.setJSON('achievements', saveData);
+            this.lastSaveTime = Date.now();
+            this.pendingSave = false;
         } catch (error) {
             window.logger.error('Error saving achievements:', error);
         }
+    }
+
+    /**
+     * Throttled save - only saves at most once every saveThrottleMs
+     * Use this for frequent progress updates to avoid localStorage spam
+     */
+    saveAchievementsThrottled() {
+        const now = Date.now();
+        const timeSinceLastSave = now - this.lastSaveTime;
+
+        // If enough time has passed, save immediately
+        if (timeSinceLastSave >= this.saveThrottleMs) {
+            this.saveAchievements();
+            if (this.saveTimeoutId) {
+                clearTimeout(this.saveTimeoutId);
+                this.saveTimeoutId = null;
+            }
+            return;
+        }
+
+        // Otherwise, schedule a save for later (if not already scheduled)
+        if (!this.pendingSave) {
+            this.pendingSave = true;
+            const remainingTime = this.saveThrottleMs - timeSinceLastSave;
+
+            if (this.saveTimeoutId) {
+                clearTimeout(this.saveTimeoutId);
+            }
+
+            this.saveTimeoutId = setTimeout(() => {
+                this.saveAchievements();
+                this.saveTimeoutId = null;
+            }, remainingTime);
+        }
+    }
+
+    /**
+     * Force immediate save (call on game over, achievement unlock, etc.)
+     */
+    saveAchievementsImmediate() {
+        if (this.saveTimeoutId) {
+            clearTimeout(this.saveTimeoutId);
+            this.saveTimeoutId = null;
+        }
+        this.saveAchievements();
     }
     
     updateAchievement(key, value) {
@@ -110,33 +163,37 @@ class AchievementSystem {
             window.logger.warn(`Achievement '${key}' not found`);
             return;
         }
-        
+
         const achievement = this.achievements[key];
         const oldProgress = achievement.progress;
         achievement.progress = Math.min(value, achievement.target);
-        
+
         // Only show notification and save if progress actually changed
         if (oldProgress !== achievement.progress) {
             if (!achievement.unlocked && achievement.progress >= achievement.target) {
                 achievement.unlocked = true;
                 this.showAchievementNotification(achievement);
-                
+
                 // Award bonus stars for achievements
                 if (window.gameManager) {
                     // Important achievements award more stars
                     const starBonus = achievement.important ? 3 : 1;
                     window.gameManager.earnStarTokens(starBonus);
                     if (window.gameManager.showFloatingText && window.gameManager.game?.player) {
-                        window.gameManager.showFloatingText(`Achievement Bonus: +${starBonus} ⭐`, 
-                            window.gameManager.game.player.x, 
-                            window.gameManager.game.player.y - 50, 
-                            '#f1c40f', 
+                        window.gameManager.showFloatingText(`Achievement Bonus: +${starBonus} ⭐`,
+                            window.gameManager.game.player.x,
+                            window.gameManager.game.player.y - 50,
+                            '#f1c40f',
                             20);
                     }
                 }
+
+                // Save immediately when achievement is unlocked (critical event)
+                this.saveAchievementsImmediate();
+            } else {
+                // For progress updates, use throttled save to reduce localStorage writes
+                this.saveAchievementsThrottled();
             }
-            
-            this.saveAchievements();
         }
     }
     

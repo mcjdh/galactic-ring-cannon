@@ -690,6 +690,11 @@ class GameManagerBridge {
             this.statsManager.savePersistentStats();
         }
 
+        // Force immediate save of achievements (flush any pending throttled saves)
+        if (window.achievementSystem?.saveAchievementsImmediate) {
+            window.achievementSystem.saveAchievementsImmediate();
+        }
+
         // Create death effect
         if (this.game?.player) {
             this.createExplosion(this.game.player.x, this.game.player.y, 100, '#e74c3c');
@@ -734,6 +739,11 @@ class GameManagerBridge {
         // Save persistent stats for lifetime achievements
         if (this.statsManager?.savePersistentStats) {
             this.statsManager.savePersistentStats();
+        }
+
+        // Force immediate save of achievements (flush any pending throttled saves)
+        if (window.achievementSystem?.saveAchievementsImmediate) {
+            window.achievementSystem.saveAchievementsImmediate();
         }
 
         // Award bonus stars for mega boss
