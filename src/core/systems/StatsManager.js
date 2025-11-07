@@ -155,7 +155,11 @@ class StatsManager {
         // Update session time
         this.sessionStats.gameTime = this.gameManager.gameTime;
 
+        // Update untouchable achievement (damage-free time)
         this.achievementSystem?.updateUntouchable?.(deltaTime);
+        
+        // Update survivor achievement (total survival time)
+        this.achievementSystem?.updateAchievement?.('survivor', this.gameManager.gameTime);
     }
 
     bindAchievementSystem() {
@@ -512,8 +516,10 @@ class StatsManager {
                 break;
             case 'perfect_dodge':
                 this.sessionStats.perfectDodges++;
-                this.achievementSystem?.updateAchievement?.('dodge_master', this.sessionStats.perfectDodges);
+                // Perfect dodge counts as both a dodge AND a perfect dodge
+                this.sessionStats.dodges++;
                 this.achievementSystem?.updateAchievement?.('perfect_dodge', 1);
+                this.achievementSystem?.updateAchievement?.('dodge_master', this.sessionStats.dodges);
                 break;
             case 'dodge':
                 this.sessionStats.dodges++;

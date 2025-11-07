@@ -817,7 +817,11 @@
                 'untouchable': '💡 Master the dodge timing',
                 'survivor': '💡 Stay alive and keep moving',
                 'elite_hunter': '💡 Yellow enemies are elites',
-                'hard_mode': '💡 Change difficulty in Settings'
+                'wave_master': '💡 Each 3 minutes is a new wave',
+                'critical_master': '💡 Upgrade crit chance for more crits',
+                'chain_reaction': '💡 Chain Lightning weapon required',
+                'ricochet_master': '💡 Get Multi-Bounce upgrade for 3 hits',
+                'orbital_master': '💡 Get Triple Orbit upgrade'
             };
             
             const id = Object.keys(window.achievementSystem?.achievements || {}).find(

@@ -29,6 +29,10 @@
                 stormcaller: {
                     core: '#8a2be2',
                     glow: '#da70d6'
+                },
+                nexus_architect: {
+                    core: '#4169e1',  // Royal blue
+                    glow: '#87ceeb'   // Sky blue
                 }
             },
 

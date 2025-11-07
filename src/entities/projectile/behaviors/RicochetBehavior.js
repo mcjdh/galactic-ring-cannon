@@ -42,13 +42,20 @@ class RicochetBehavior extends ProjectileBehaviorBase {
         this._bounceToTarget(newTarget);
         this.usedBounces++;
 
+        // Track ricochet for achievements (total bounces + 1 for initial hit)
+        const totalHits = this.usedBounces + 1;
+        const gm = window.gameManager || window.gameManagerBridge;
+        if (gm && typeof gm.onRicochetHit === 'function') {
+            gm.onRicochetHit(totalHits);
+        }
+
         // NOTE: Piercing charges are NOT restored anymore
         // New design: Ricochet attempts FIRST on every hit, piercing is fallback
         // This makes upgrades feel additive rather than replacements
         // Piercing charges are preserved when ricochet succeeds
 
         if (window.debugProjectiles) {
-            console.log(`[RicochetBehavior] Projectile ${this.projectile.id} ricocheted to enemy ${newTarget.id}. Bounces used: ${this.usedBounces}/${this.bounces}`);
+            console.log(`[RicochetBehavior] Projectile ${this.projectile.id} ricocheted to enemy ${newTarget.id}. Bounces used: ${this.usedBounces}/${this.bounces}. Total hits: ${totalHits}`);
         }
 
         return true; // Death prevented!

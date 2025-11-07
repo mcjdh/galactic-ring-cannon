@@ -138,9 +138,6 @@ class PlayerStats {
         this.xp -= this.xpToNextLevel;
         this.xpToNextLevel = Math.floor(this.xpToNextLevel * 1.12); // Smoother XP scaling (12% instead of 15%)
 
-        // Heal player on level up
-        this.heal(this.maxHealth * 0.3); // Heal 30% of max health
-
         // Update UI
         this._updateLevelDisplayUI(true);
         this._updateXPBarUI(true);
@@ -192,6 +189,22 @@ class PlayerStats {
                 window.gameManager.showFloatingText(`DODGE!`, this.player.x, this.player.y - 20, '#3498db', 18);
             }
             return;
+        }
+
+        // NEW: Shield absorbs damage before health
+        if (this.player.abilities && this.player.abilities.hasShield) {
+            const penetratedDamage = this.player.abilities.absorbDamage(amount);
+            
+            if (penetratedDamage <= 0) {
+                // Shield absorbed all damage, show feedback
+                if (window.gameManager && window.gameManager.showFloatingText) {
+                    window.gameManager.showFloatingText(`BLOCKED`, this.player.x, this.player.y - 20, '#00ffff', 18);
+                }
+                return; // No health damage taken
+            }
+            
+            // Shield absorbed some but not all damage
+            amount = penetratedDamage;
         }
 
         this.health = Math.max(0, this.health - amount);

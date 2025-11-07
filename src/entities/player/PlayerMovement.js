@@ -218,21 +218,20 @@ class PlayerMovement {
 
         const C = PlayerMovement.MOVEMENT_CONSTANTS;
 
-        // Check for perfect dodge (dodging just before being hit)
+        // Check for perfect dodge (dodging when very close to enemies)
+        // Perfect dodge = dodging within close range of any enemy
         let wasPerfectDodge = false;
         if (window.gameManager && window.gameManager.game) {
             const enemies = window.gameManager.game.getEnemiesWithinRadius?.(
                 this.player.x,
                 this.player.y,
-                C.PERFECT_DODGE_DETECTION_RADIUS,
+                C.PERFECT_DODGE_DISTANCE, // Use smaller radius for perfect dodge detection
                 { includeDead: false }
             ) ?? [];
 
-            for (const enemy of enemies) {
-                if (enemy.isAttacking && this.player.distanceTo(enemy) < C.PERFECT_DODGE_DISTANCE) {
-                    wasPerfectDodge = true;
-                    break;
-                }
+            // Perfect dodge if there are enemies very close (within ~50px)
+            if (enemies.length > 0) {
+                wasPerfectDodge = true;
             }
         }
 
@@ -250,12 +249,14 @@ class PlayerMovement {
         // Visual effect for dodge
         const gm = window.gameManager || window.gameManagerBridge;
         if (gm && typeof gm.showFloatingText === 'function') {
+            const text = wasPerfectDodge ? "PERFECT DODGE!" : "Dodge!";
+            const color = wasPerfectDodge ? '#f1c40f' : (this.player.glowColor || '#3498db');
             gm.showFloatingText(
-                "Dodge!",
+                text,
                 this.player.x,
                 this.player.y + C.DODGE_TEXT_OFFSET_Y,
-                this.player.glowColor || '#3498db',
-                18
+                color,
+                wasPerfectDodge ? 22 : 18
             );
         }
 

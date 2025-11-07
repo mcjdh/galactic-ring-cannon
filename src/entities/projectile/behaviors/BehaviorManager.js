@@ -64,12 +64,23 @@ class ProjectileBehaviorManager {
     }
 
     /**
-     * Update all behaviors (called each frame)
+     * Update all behaviors each frame
      */
-    update(deltaTime, game) {
+    update(deltaTime, engine) {
         for (const behavior of this.behaviors) {
             if (behavior.enabled) {
-                behavior.update(deltaTime, game);
+                behavior.update(deltaTime, engine);
+            }
+        }
+    }
+
+    /**
+     * Called when projectile is destroyed - notify all behaviors for cleanup/tracking
+     */
+    onDestroy(engine) {
+        for (const behavior of this.behaviors) {
+            if (behavior.enabled && typeof behavior.onDestroy === 'function') {
+                behavior.onDestroy(engine);
             }
         }
     }

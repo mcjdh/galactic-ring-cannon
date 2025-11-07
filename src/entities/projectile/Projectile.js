@@ -283,6 +283,7 @@ class Projectile {
 
         // Check lifetime
         if (this.age >= this.lifetime) {
+            this.behaviorManager.onDestroy(game);
             this.isDead = true;
             return;
         }
@@ -333,6 +334,7 @@ class Projectile {
         }
 
         if (shouldDie) {
+            this.behaviorManager.onDestroy(engine);
             this.isDead = true;
         }
     }

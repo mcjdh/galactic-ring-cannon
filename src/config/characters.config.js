@@ -25,6 +25,17 @@
  *     magnetRangeBonus
  *   }
  * - abilities: structured hints for PlayerAbilities adjustments
+ * 
+ * Build Path Integration (NEW):
+ * - preferredBuildPaths: Array of build path IDs that synergize with this character
+ *   Available paths: 'core', 'chain', 'orbit', 'ricochet', 'explosive', 'support'
+ *   These paths receive +40% weight during upgrade selection for this character
+ *   
+ *   Character Synergies:
+ *   - Aegis Vanguard: ['support', 'core'] - Shield specialist with barrier tech (reworked v1.1.2)
+ *   - Nova Corsair: ['ricochet', 'explosive'] - Aggressive, burst damage
+ *   - Stormcaller: ['chain'] - Amplifies built-in chain lightning
+ *   - Nexus Architect: ['orbit', 'support'] - Orbital specialist (NEW v1.1.1)
  */
 
 const CHARACTER_DEFINITIONS = [
@@ -32,14 +43,14 @@ const CHARACTER_DEFINITIONS = [
         id: 'aegis_vanguard',
         name: 'Aegis Vanguard',
         icon: '#',
-        tagline: 'Bulwark Pilot',
-        description: 'Frontline defender whose reinforced hull shrugs off punishment. Prefers the dependable Pulse Cannon.',
+        tagline: 'Shield Sentinel',
+        description: 'Master of barrier technology who absorbs punishment and reflects it back. Fights with protective energy fields and the reliable Pulse Cannon.',
         difficulty: 'balanced',
         weaponId: 'pulse_cannon',
         highlights: [
-            '+30% max hull integrity',
-            '+12% flat damage mitigation',
-            'Regenerates armor over time'
+            'Starts with 50HP barrier shield',
+            '+30% max hull & +12% armor',
+            'Passive shield recharges over time'
         ],
         modifiers: {
             stats: {
@@ -48,13 +59,24 @@ const CHARACTER_DEFINITIONS = [
                 regeneration: 1.8
             },
             combat: {
-                attackSpeedMultiplier: 0.92
+                attackSpeedMultiplier: 0.96,
+                attackDamageMultiplier: 1.05
             },
             movement: {
-                speedMultiplier: 0.95
+                speedMultiplier: 1.0
+            },
+            abilities: {
+                shield: {
+                    starterCapacity: 50,        // Starts with 50HP shield
+                    rechargeTime: 5.0,          // 5 second recharge after break (reduced from 7s for better feel with combat interrupt)
+                    capacityMultiplier: 1.0,    // No bonus to shield capacity upgrades
+                    rechargeMultiplier: 1.2     // 20% faster shield recharge (increased from 15%)
+                }
             }
         },
-        flavor: '“Hold the line. The stars are watching.”'
+        // Build path preferences - these paths get +40% weight bonus for this character
+        preferredBuildPaths: ['support', 'core'],
+        flavor: '"They break against my shields. Every. Single. Time."'
     },
     {
         id: 'nova_corsair',
@@ -84,7 +106,9 @@ const CHARACTER_DEFINITIONS = [
                 magnetRangeBonus: 90
             }
         },
-        flavor: '“If you’re not inside their formation, you’re doing it wrong.”'
+        // Build path preferences - these paths get +40% weight bonus for this character
+        preferredBuildPaths: ['ricochet', 'explosive'],
+        flavor: '"If you\'re not inside their formation, you\'re doing it wrong."'
     },
     {
         id: 'stormcaller',
@@ -118,7 +142,47 @@ const CHARACTER_DEFINITIONS = [
                 }
             }
         },
-        flavor: '“The void hums with resonance—listen, and strike.”'
+        // Build path preferences - these paths get +40% weight bonus for this character
+        preferredBuildPaths: ['chain'],
+        flavor: '"The void hums with resonance—listen, and strike."'
+    },
+    {
+        id: 'nexus_architect',
+        name: 'Nexus Architect',
+        icon: '@',
+        tagline: 'Orbital Savant',
+        description: 'Commands a constellation of orbital weapons that dance in perfect harmony. Master of sustained, methodical combat.',
+        difficulty: 'tactical',
+        weaponId: 'pulse_cannon',  // Uses balanced pulse cannon
+        highlights: [
+            'Starts with 2 free orbital projectiles',
+            '+10% orbital damage & +20% orbital speed',
+            'Reduced orbital collision radius for precision'
+        ],
+        modifiers: {
+            stats: {
+                healthMultiplier: 1.1,  // Slight tankiness
+                regeneration: 1.2       // Moderate regen
+            },
+            combat: {
+                attackSpeedMultiplier: 0.94,  // -6% attack speed (relies on orbitals)
+                projectileSpeedMultiplier: 1.1 // +10% projectile speed
+            },
+            movement: {
+                speedMultiplier: 1.05   // +5% movement (positioning is key)
+            },
+            abilities: {
+                orbital: {
+                    starterCount: 2,           // Begins with 2 orbitals (increased from 1)
+                    damageMultiplier: 1.1,     // +10% orbital damage
+                    speedMultiplier: 1.2,      // +20% orbital speed
+                    radiusMultiplier: 0.9      // -10% radius (tighter orbit, harder to hit but safer)
+                }
+            }
+        },
+        // Build path preferences - orbitals are core identity
+        preferredBuildPaths: ['orbit', 'support'],
+        flavor: '"Precision is not perfection. It is the path to it."'
     }
 ];
 

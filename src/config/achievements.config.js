@@ -190,7 +190,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         description: 'Have 5 orbital projectiles at once',
         icon: 'o-',
         progress: 0,
-        target: 5,
+        target: 5,  // Achievable with Penta Orbit upgrade
         unlocked: false
     }
 };

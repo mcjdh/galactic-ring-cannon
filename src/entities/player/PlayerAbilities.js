@@ -39,6 +39,21 @@ class PlayerAbilities {
         this.homingTurnSpeed = 3.0;
         this.homingRange = 250;
 
+        // Shield properties (Aegis Vanguard specialty)
+        this.hasShield = false;
+        this.shieldMaxCapacity = 0;
+        this.shieldCurrent = 0;
+        this.shieldRechargeTime = 5.0;  // Time in seconds to recharge after break (reduced from 6s for better feel)
+        this.shieldRechargeTimer = 0;   // Current recharge countdown
+        this.shieldBroken = false;      // Whether shield is currently broken
+        this.shieldReflectChance = 0;   // Chance to reflect damage back
+        this.shieldExplosionDamage = 0; // Damage dealt when shield breaks
+        this.shieldExplosionRadius = 0; // Radius of explosion on shield break
+        this.shieldAdaptiveGrowth = 0;  // Growth rate for adaptive armor
+        this.shieldAdaptiveMax = 0;     // Max growth cap
+        this.shieldDamageBlocked = 0;   // Total damage blocked (for adaptive armor)
+        this.shieldHitFlash = 0;        // Visual flash timer when shield is hit
+
         // Chain recursion depth protection
         this._chainDepth = 0;
     }
@@ -49,6 +64,352 @@ class PlayerAbilities {
             this.collisionRadius = this.player.radius;
         }
         this.updateOrbitalAttacks(deltaTime, game);
+        this.updateShield(deltaTime, game);
+    }
+
+    updateShield(deltaTime, game) {
+        if (!this.hasShield) return;
+
+        // Decay hit flash
+        if (this.shieldHitFlash > 0) {
+            this.shieldHitFlash -= deltaTime * 5;  // Fast decay
+            if (this.shieldHitFlash < 0) this.shieldHitFlash = 0;
+        }
+
+        // If shield is broken, count down recharge timer
+        if (this.shieldBroken) {
+            this.shieldRechargeTimer -= deltaTime;
+            
+            if (this.shieldRechargeTimer <= 0) {
+                // Shield recharged!
+                this.shieldBroken = false;
+                this.shieldCurrent = this.shieldMaxCapacity;
+                this.shieldRechargeTimer = 0;
+                
+                // Visual/audio feedback for shield recharge
+                if (window.optimizedParticles) {
+                    this.createShieldRechargeEffect();
+                }
+                if (window.audioSystem?.play) {
+                    window.audioSystem.play('shieldRecharge', 0.4);
+                }
+            }
+        }
+    }
+
+    /**
+     * Absorb damage with shield
+     * Returns the amount of damage that penetrated the shield (overflow)
+     */
+    absorbDamage(incomingDamage) {
+        if (!this.hasShield || this.shieldBroken || this.shieldCurrent <= 0) {
+            // If shield is recharging and player takes damage, restart recharge timer
+            if (this.hasShield && this.shieldBroken && this.shieldRechargeTimer > 0) {
+                this.shieldRechargeTimer = this.shieldRechargeTime;
+                console.log(`[Shield] Recharge interrupted by damage! Timer reset to ${this.shieldRechargeTime}s`);
+            }
+            return incomingDamage; // Shield can't help, return full damage
+        }
+
+        const damageBlocked = Math.min(incomingDamage, this.shieldCurrent);
+        const damagePenetrated = incomingDamage - damageBlocked;
+
+        this.shieldCurrent -= damageBlocked;
+        this.shieldDamageBlocked += damageBlocked;
+
+        console.log(`[Shield] Absorbed ${damageBlocked.toFixed(1)} damage, ${this.shieldCurrent.toFixed(1)}/${this.shieldMaxCapacity} remaining`);
+
+        // Trigger visual hit flash
+        if (damageBlocked > 0) {
+            this.shieldHitFlash = 1.0;  // Full flash intensity
+        }
+
+        // Play shield hit sound when damage absorbed
+        if (damageBlocked > 0 && window.audioSystem?.play) {
+            window.audioSystem.play('shieldHit', 0.4);
+        }
+
+        // Check for adaptive armor growth
+        if (this.shieldAdaptiveGrowth > 0 && this.shieldAdaptiveMax > 0) {
+            const growthIncrement = Math.floor(this.shieldDamageBlocked / 100) * this.shieldAdaptiveGrowth;
+            const currentGrowth = this.shieldMaxCapacity - (this.hasShield ? 50 : 0); // Assume 50 base
+            const newGrowth = Math.min(growthIncrement, this.shieldAdaptiveMax);
+            
+            if (newGrowth > currentGrowth) {
+                const added = newGrowth - currentGrowth;
+                this.shieldMaxCapacity += added;
+                console.log(`[Shield] Adaptive armor grew! +${added} max capacity`);
+                // Visual feedback for shield evolution
+                if (window.optimizedParticles) {
+                    this.createShieldEvolveEffect();
+                }
+            }
+        }
+
+        // Check for energy reflection
+        if (this.shieldReflectChance > 0 && Math.random() < this.shieldReflectChance) {
+            console.log(`[Shield] Energy reflection triggered!`);
+            this.reflectDamage(damageBlocked);
+        }
+
+        // Shield broke?
+        if (this.shieldCurrent <= 0) {
+            this.shieldCurrent = 0;
+            this.shieldBroken = true;
+            this.shieldRechargeTimer = this.shieldRechargeTime;
+
+            console.log(`[Shield] Shield broke! Recharging in ${this.shieldRechargeTime}s. Explosion: ${this.shieldExplosionDamage > 0}`);
+
+            // Aegis Protocol: Shield explosion on break
+            if (this.shieldExplosionDamage > 0 && this.shieldExplosionRadius > 0) {
+                this.triggerShieldExplosion();
+            }
+
+            // Visual/audio feedback for shield break
+            if (window.optimizedParticles) {
+                this.createShieldBreakEffect();
+            }
+            if (window.audioSystem?.play) {
+                window.audioSystem.play('shieldBreak', 0.6);
+            }
+        }
+
+        return damagePenetrated;
+    }
+
+    /**
+     * Reflect damage back to nearby enemies
+     */
+    reflectDamage(damageAmount) {
+        if (!window.gameManager?.game) return;
+
+        const reflectionDamage = damageAmount * 0.5; // Reflect 50% of blocked damage
+        const reflectionRadius = 200;  // Increased from 150 for better area coverage
+
+        // Find enemies in range
+        const nearbyEnemies = window.gameManager.game.enemies.filter(enemy => {
+            if (enemy.isDead) return false;
+            const dx = enemy.x - this.player.x;
+            const dy = enemy.y - this.player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            return dist <= reflectionRadius;
+        });
+
+        // Damage them
+        nearbyEnemies.forEach(enemy => {
+            if (enemy.takeDamage) {
+                enemy.takeDamage(reflectionDamage, { label: 'reflected', showText: true });
+            }
+        });
+
+        // Visual effect for reflection
+        if (window.optimizedParticles && nearbyEnemies.length > 0) {
+            this.createReflectionEffect();
+        }
+    }
+
+    /**
+     * Trigger shield explosion (Aegis Protocol)
+     */
+    triggerShieldExplosion() {
+        if (!window.gameManager?.game) return;
+
+        const enemies = window.gameManager.game.enemies.filter(enemy => {
+            if (enemy.isDead) return false;
+            const dx = enemy.x - this.player.x;
+            const dy = enemy.y - this.player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            return dist <= this.shieldExplosionRadius;
+        });
+
+        if (enemies.length > 0) {
+            console.log(`[Shield] Aegis Protocol triggered! Damaging ${enemies.length} enemies for ${this.shieldExplosionDamage} each`);
+        }
+
+        enemies.forEach(enemy => {
+            if (enemy.takeDamage) {
+                enemy.takeDamage(this.shieldExplosionDamage, { label: 'AEGIS', showText: true, isCritical: false });
+            }
+        });
+
+        // Visual explosion effect - ENHANCED with expanding rings and screen shake!
+        if (window.optimizedParticles) {
+            this.createShieldBurstEffect();
+        }
+        
+        // Screen shake for impact
+        if (window.gameManager?.addScreenShake) {
+            window.gameManager.addScreenShake(8, 0.4);  // Strong shake for powerful explosion
+        }
+        
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('explosion', 0.7);  // Louder explosion
+        }
+    }
+
+    // Shield visual effects
+    createShieldRechargeEffect() {
+        // Converging energy spiraling into shield
+        const segments = 32;
+        const radius = (this.player.radius || 20) + 20;
+        
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const x = this.player.x + Math.cos(angle) * radius;
+            const y = this.player.y + Math.sin(angle) * radius;
+            
+            window.optimizedParticles.spawnParticle({
+                x, y,
+                vx: Math.cos(angle) * -40,  // Inward motion
+                vy: Math.sin(angle) * -40,
+                size: 3,
+                color: '#00ffff',
+                life: 0.7,
+                type: 'spark'
+            });
+            
+            // Additional sparkle layer
+            if (i % 2 === 0) {
+                window.optimizedParticles.spawnParticle({
+                    x, y,
+                    vx: Math.cos(angle) * -30,
+                    vy: Math.sin(angle) * -30,
+                    size: 2,
+                    color: '#88ffff',
+                    life: 0.5,
+                    type: 'spark'
+                });
+            }
+        }
+    }
+
+    createShieldBreakEffect() {
+        // Shattering glass effect with expanding fragments
+        const segments = 48;  // More fragments for dramatic effect
+        const radius = (this.player.radius || 20) + 15;
+        
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const x = this.player.x + Math.cos(angle) * radius;
+            const y = this.player.y + Math.sin(angle) * radius;
+            const speed = 120 + Math.random() * 80;
+            
+            window.optimizedParticles.spawnParticle({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 3 + Math.random() * 2,
+                color: i % 3 === 0 ? '#ff00ff' : (i % 3 === 1 ? '#ff00aa' : '#aa00ff'),
+                life: 0.8 + Math.random() * 0.4,
+                type: 'spark'
+            });
+        }
+        
+        // Screen shake for impact
+        if (window.gameManager?.addScreenShake) {
+            window.gameManager.addScreenShake(4, 0.25);
+        }
+    }
+
+    createShieldBurstEffect() {
+        // Expanding ring waves for powerful visual
+        const ringCount = 3;
+        const radius = this.shieldExplosionRadius;
+        
+        // Capture player position (player moves during setTimeout delays)
+        const playerX = this.player.x;
+        const playerY = this.player.y;
+        
+        for (let ring = 0; ring < ringCount; ring++) {
+            const delay = ring * 50; // Stagger rings
+            const segments = 36;
+            
+            setTimeout(() => {
+                for (let i = 0; i < segments; i++) {
+                    const angle = (i / segments) * Math.PI * 2;
+                    const x = playerX + Math.cos(angle) * (radius * 0.3);
+                    const y = playerY + Math.sin(angle) * (radius * 0.3);
+                    
+                    window.optimizedParticles.spawnParticle({
+                        x, y,
+                        vx: Math.cos(angle) * (200 + ring * 50),  // Faster outer rings
+                        vy: Math.sin(angle) * (200 + ring * 50),
+                        size: 6 - ring,  // Smaller for outer rings
+                        color: ring === 0 ? '#00ffff' : (ring === 1 ? '#00aaff' : '#0088ff'),
+                        life: 0.8 - ring * 0.15,
+                        type: 'explosion'
+                    });
+                }
+            }, delay);
+        }
+        
+        // Central explosion burst
+        const burstParticles = 24;
+        for (let i = 0; i < burstParticles; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 100 + Math.random() * 100;
+            
+            window.optimizedParticles.spawnParticle({
+                x: playerX,
+                y: playerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 4 + Math.random() * 3,
+                color: '#ffffff',
+                life: 0.6 + Math.random() * 0.4,
+                type: 'spark'
+            });
+        }
+    }
+
+    createReflectionEffect() {
+        // Lightning-like reflection bolts radiating outward
+        const segments = 24;
+        const radius = (this.player.radius || 20) + 12;
+        
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const x = this.player.x + Math.cos(angle) * radius;
+            const y = this.player.y + Math.sin(angle) * radius;
+            
+            // Double particle trail for lightning effect
+            for (let j = 0; j < 2; j++) {
+                const offset = (j - 0.5) * 0.2;
+                window.optimizedParticles.spawnParticle({
+                    x, y,
+                    vx: Math.cos(angle + offset) * (100 + j * 20),
+                    vy: Math.sin(angle + offset) * (100 + j * 20),
+                    size: 4 - j,
+                    color: j === 0 ? '#ff00ff' : '#ff88ff',
+                    life: 0.6,
+                    type: 'spark'
+                });
+            }
+        }
+        
+        // Small screen shake
+        if (window.gameManager?.addScreenShake) {
+            window.gameManager.addScreenShake(2, 0.15);
+        }
+    }
+
+    createShieldEvolveEffect() {
+        const segments = 20;
+        const radius = (this.player.radius || 20) + 18;
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const x = this.player.x + Math.cos(angle) * radius;
+            const y = this.player.y + Math.sin(angle) * radius;
+            window.optimizedParticles.spawnParticle({
+                x, y,
+                vx: 0,
+                vy: -40,
+                size: 4,
+                color: '#00ff00',
+                life: 1.0,
+                type: 'spark'
+            });
+        }
     }
 
     updateOrbitalAttacks(deltaTime, game) {
@@ -519,6 +880,14 @@ class PlayerAbilities {
                     this.ricochetBounces = Math.max(this.ricochetBounces, upgrade.bounces || 2);
                     this.ricochetRange = Math.max(this.ricochetRange, upgrade.bounceRange || 320);  // INCREASED from 260
                     this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.bounceDamage || 0.85);
+                } else if (upgrade.specialType === 'shield') {
+                    // NEW: Shield ability (Aegis Vanguard specialty)
+                    this.hasShield = true;
+                    this.shieldMaxCapacity = upgrade.shieldCapacity || 75;
+                    this.shieldCurrent = this.shieldMaxCapacity;
+                    this.shieldRechargeTime = upgrade.shieldRechargeTime || 6.0;
+                    this.shieldBroken = false;
+                    this.shieldRechargeTimer = 0;
                 } else if (upgrade.specialType === 'aoe') {
                     // Validate combat module exists before modifying
                     if (this.player?.combat) {
@@ -606,6 +975,43 @@ class PlayerAbilities {
                 if (upgrade.chanceBonus) {
                     this.ricochetChance = Math.min(0.95, (this.ricochetChance || 0.45) + upgrade.chanceBonus);
                 }
+                break;
+
+            // Shield upgrade types
+            case 'shieldCapacity':
+                if (upgrade.value) {
+                    const oldCapacity = this.shieldMaxCapacity;
+                    this.shieldMaxCapacity += upgrade.value;
+                    this.shieldCurrent = Math.min(this.shieldCurrent + upgrade.value, this.shieldMaxCapacity);
+                    console.log(`[Shield] Capacity: ${oldCapacity} → ${this.shieldMaxCapacity} (+${upgrade.value})`);
+                }
+                if (upgrade.rechargeBonus) {
+                    const oldTime = this.shieldRechargeTime;
+                    this.shieldRechargeTime *= (1 - upgrade.rechargeBonus);
+                    console.log(`[Shield] Recharge time: ${oldTime.toFixed(2)}s → ${this.shieldRechargeTime.toFixed(2)}s (${(upgrade.rechargeBonus * 100).toFixed(0)}% faster)`);
+                }
+                break;
+
+            case 'shieldReflection':
+                this.shieldReflectChance = Math.min(0.75, (this.shieldReflectChance || 0) + (upgrade.value || 0.35));
+                break;
+
+            case 'shieldAdaptive':
+                this.shieldAdaptiveGrowth = upgrade.growthRate || 2;
+                this.shieldAdaptiveMax = upgrade.maxGrowth || 50;
+                break;
+
+            case 'shieldRecharge':
+                if (upgrade.value) {
+                    const oldTime = this.shieldRechargeTime;
+                    this.shieldRechargeTime *= (1 - upgrade.value);
+                    console.log(`[Shield] Recharge time: ${oldTime.toFixed(2)}s → ${this.shieldRechargeTime.toFixed(2)}s (${(upgrade.value * 100).toFixed(0)}% faster)`);
+                }
+                break;
+
+            case 'shieldExplosion':
+                this.shieldExplosionDamage = upgrade.explosionDamage || 60;
+                this.shieldExplosionRadius = upgrade.explosionRadius || 120;
                 break;
         }
     }

@@ -149,6 +149,15 @@ class AudioSystem {
                 case 'aoeAttack':
                     this.playAOEAttackSound(adjustedVolume);
                     break;
+                case 'shieldHit':
+                    this.playShieldHitSound(adjustedVolume);
+                    break;
+                case 'shieldBreak':
+                    this.playShieldBreakSound(adjustedVolume);
+                    break;
+                case 'shieldRecharge':
+                    this.playShieldRechargeSound(adjustedVolume);
+                    break;
                 case 'explosion':
                     // Map generic 'explosion' to enemy death explosion sound
                     this.playEnemyDeathSound(adjustedVolume);
@@ -557,6 +566,156 @@ class AudioSystem {
         noise.start(now);
         oscillator.stop(now + 0.4);
         noise.stop(now + 0.4);
+    }
+    
+    // Shield hit sound - high-pitched deflect
+    playShieldHitSound(volume) {
+        const now = this.audioContext.currentTime;
+        
+        // High-pitched metallic ping
+        const oscillator = this.audioContext.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(2000, now);
+        oscillator.frequency.exponentialRampToValueAtTime(1500, now + 0.08);
+        
+        // Short noise burst for impact texture
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.08);
+        
+        // Configure gain nodes
+        const gainOsc = this.audioContext.createGain();
+        gainOsc.gain.setValueAtTime(volume * 0.2, now);
+        gainOsc.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        
+        const gainNoise = this.audioContext.createGain();
+        gainNoise.gain.setValueAtTime(volume * 0.1, now);
+        gainNoise.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        // High-pass filter for crystalline sound
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 800;
+        
+        // Connect nodes
+        oscillator.connect(gainOsc);
+        gainOsc.connect(this.masterGain);
+        
+        noise.connect(filter);
+        filter.connect(gainNoise);
+        gainNoise.connect(this.masterGain);
+        
+        // Play sound
+        oscillator.start(now);
+        noise.start(now);
+        oscillator.stop(now + 0.08);
+        noise.stop(now + 0.08);
+    }
+    
+    // Shield break sound - glass shatter + whoosh
+    playShieldBreakSound(volume) {
+        const now = this.audioContext.currentTime;
+        
+        // Glass shatter (high-frequency noise burst)
+        const shatterNoise = this.audioContext.createBufferSource();
+        shatterNoise.buffer = this.createNoiseBuffer(0.2);
+        
+        // Descending tone for power failure
+        const oscillator = this.audioContext.createOscillator();
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(800, now);
+        oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+        
+        // Whoosh (filtered noise)
+        const whooshNoise = this.audioContext.createBufferSource();
+        whooshNoise.buffer = this.createNoiseBuffer(0.4);
+        
+        // Configure gain nodes
+        const gainShatter = this.audioContext.createGain();
+        gainShatter.gain.setValueAtTime(volume * 0.3, now);
+        gainShatter.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        
+        const gainOsc = this.audioContext.createGain();
+        gainOsc.gain.setValueAtTime(volume * 0.25, now);
+        gainOsc.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        
+        const gainWhoosh = this.audioContext.createGain();
+        gainWhoosh.gain.setValueAtTime(volume * 0.15, now);
+        gainWhoosh.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        
+        // Filters
+        const shatterFilter = this.audioContext.createBiquadFilter();
+        shatterFilter.type = 'highpass';
+        shatterFilter.frequency.value = 1200;
+        
+        const whooshFilter = this.audioContext.createBiquadFilter();
+        whooshFilter.type = 'bandpass';
+        whooshFilter.frequency.setValueAtTime(200, now);
+        whooshFilter.frequency.exponentialRampToValueAtTime(1000, now + 0.4);
+        whooshFilter.Q.value = 1.0;
+        
+        // Connect nodes
+        shatterNoise.connect(shatterFilter);
+        shatterFilter.connect(gainShatter);
+        gainShatter.connect(this.masterGain);
+        
+        oscillator.connect(gainOsc);
+        gainOsc.connect(this.masterGain);
+        
+        whooshNoise.connect(whooshFilter);
+        whooshFilter.connect(gainWhoosh);
+        gainWhoosh.connect(this.masterGain);
+        
+        // Play sound
+        shatterNoise.start(now);
+        oscillator.start(now);
+        whooshNoise.start(now);
+        shatterNoise.stop(now + 0.2);
+        oscillator.stop(now + 0.3);
+        whooshNoise.stop(now + 0.4);
+    }
+    
+    // Shield recharge sound - power-up chime
+    playShieldRechargeSound(volume) {
+        const now = this.audioContext.currentTime;
+        
+        // Ascending chord sequence
+        const frequencies = [440, 554, 659, 880]; // A4, C#5, E5, A5 (A major chord)
+        
+        for (let i = 0; i < frequencies.length; i++) {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(frequencies[i], now + i * 0.08);
+            
+            gainNode.gain.setValueAtTime(0.001, now + i * 0.08);
+            gainNode.gain.exponentialRampToValueAtTime(volume * 0.15, now + i * 0.08 + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.masterGain);
+            
+            oscillator.start(now + i * 0.08);
+            oscillator.stop(now + i * 0.08 + 0.3);
+        }
+        
+        // Add shimmer effect with high-frequency oscillator
+        const shimmer = this.audioContext.createOscillator();
+        const shimmerGain = this.audioContext.createGain();
+        
+        shimmer.type = 'sine';
+        shimmer.frequency.setValueAtTime(2640, now); // E7
+        shimmer.frequency.exponentialRampToValueAtTime(3520, now + 0.3); // A7
+        
+        shimmerGain.gain.setValueAtTime(0.001, now);
+        shimmerGain.gain.exponentialRampToValueAtTime(volume * 0.08, now + 0.1);
+        shimmerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        
+        shimmer.connect(shimmerGain);
+        shimmerGain.connect(this.masterGain);
+        
+        shimmer.start(now);
+        shimmer.stop(now + 0.4);
     }
     
     // Utility function to create noise

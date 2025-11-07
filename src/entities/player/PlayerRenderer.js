@@ -8,6 +8,9 @@ class PlayerRenderer {
         // Draw player body
         this.renderPlayerBody(ctx);
 
+        // Draw shield barrier (if active)
+        this.renderShieldBarrier(ctx);
+
         // Draw dodge cooldown indicator
         this.player.movement.renderDodgeIndicator(ctx);
 
@@ -83,6 +86,148 @@ class PlayerRenderer {
             x - sprites.base.halfSize,
             y - sprites.base.halfSize
         );
+    }
+
+    renderShieldBarrier(ctx) {
+        const abilities = this.player.abilities;
+        if (!abilities.hasShield) return;
+
+        const x = this.player.x;
+        const y = this.player.y;
+        const radius = this.player.radius;
+        const shieldRadius = radius + 15;
+
+                // Shield active - draw hexagonal barrier
+        if (abilities.shieldCurrent > 0) {
+            ctx.save();
+            
+            // Calculate alpha based on shield strength (0.3 to 0.7)
+            const shieldStrength = abilities.shieldCurrent / abilities.shieldMaxCapacity;
+            let alpha = 0.3 + (shieldStrength * 0.4);
+            
+            // Add hit flash pulse
+            if (abilities.shieldHitFlash > 0) {
+                alpha += abilities.shieldHitFlash * 0.4;  // Bright flash on hit
+                // Add white flash tint
+                ctx.shadowColor = '#ffffff';
+                ctx.shadowBlur = 15 * abilities.shieldHitFlash;
+            }
+            
+            ctx.globalAlpha = Math.min(alpha, 1.0);
+            
+            // Outer glow
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 10;
+            
+            // Draw hexagon
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 6;
+                const px = x + Math.cos(angle) * shieldRadius;
+                const py = y + Math.sin(angle) * shieldRadius;
+                if (i === 0) {
+                    ctx.moveTo(px, py);
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            // Inner glow (brighter on hit)
+            ctx.globalAlpha = (alpha * 0.3) + (abilities.shieldHitFlash * 0.3);
+            ctx.fillStyle = abilities.shieldHitFlash > 0.5 ? '#ffffff' : '#00ffff';
+            ctx.fill();
+
+            ctx.restore();
+
+            // Shield capacity bar above player
+            this.renderShieldBar(ctx, x, y - radius - 25, abilities.shieldCurrent, abilities.shieldMaxCapacity);
+        }
+        // Shield recharging - show progress
+        else if (abilities.shieldBroken) {
+            const rechargeProgress = 1 - (abilities.shieldRechargeTimer / abilities.shieldRechargeTime);
+            
+            // Pulsing recharge effect
+            if (rechargeProgress > 0) {
+                ctx.save();
+                const pulseAlpha = 0.1 + (Math.sin(Date.now() / 200) * 0.05);
+                ctx.globalAlpha = pulseAlpha;
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 2;
+                
+                // Partial hexagon based on recharge progress
+                ctx.beginPath();
+                const arcLength = (Math.PI * 2) * rechargeProgress;
+                for (let i = 0; i < 6; i++) {
+                    const segmentStart = (Math.PI / 3) * i - Math.PI / 6;
+                    const segmentEnd = segmentStart + (Math.PI / 3);
+                    
+                    if (segmentStart < arcLength) {
+                        const actualEnd = Math.min(segmentEnd, arcLength);
+                        const px1 = x + Math.cos(segmentStart) * shieldRadius;
+                        const py1 = y + Math.sin(segmentStart) * shieldRadius;
+                        const px2 = x + Math.cos(actualEnd) * shieldRadius;
+                        const py2 = y + Math.sin(actualEnd) * shieldRadius;
+                        
+                        if (i === 0) {
+                            ctx.moveTo(px1, py1);
+                        }
+                        ctx.lineTo(px2, py2);
+                    }
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                // Recharge progress bar
+                this.renderRechargeBar(ctx, x, y - radius - 25, rechargeProgress);
+            }
+        }
+    }
+
+    renderShieldBar(ctx, x, y, current, max) {
+        const barWidth = 40;
+        const barHeight = 4;
+        const barX = x - barWidth / 2;
+
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, y, barWidth, barHeight);
+
+        // Shield amount
+        const fillWidth = (current / max) * barWidth;
+        const gradient = ctx.createLinearGradient(barX, y, barX + barWidth, y);
+        gradient.addColorStop(0, '#00ffff');
+        gradient.addColorStop(1, '#0088ff');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(barX, y, fillWidth, barHeight);
+
+        // Border
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, y, barWidth, barHeight);
+    }
+
+    renderRechargeBar(ctx, x, y, progress) {
+        const barWidth = 40;
+        const barHeight = 4;
+        const barX = x - barWidth / 2;
+
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, y, barWidth, barHeight);
+
+        // Recharge progress
+        const fillWidth = progress * barWidth;
+        ctx.fillStyle = '#00ffff';
+        ctx.fillRect(barX, y, fillWidth, barHeight);
+
+        // Border
+        ctx.strokeStyle = '#00aaff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, y, barWidth, barHeight);
     }
 
     _ensureSprites() {

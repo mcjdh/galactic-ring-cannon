@@ -220,6 +220,68 @@ class Player {
                     this.abilities.maxChains = Math.max(this.abilities.maxChains || 0, chain.maxChains);
                 }
             }
+            
+            // NEW: Orbital ability modifiers
+            if (abilityMods.orbital) {
+                const orbital = abilityMods.orbital;
+                
+                // Grant starter orbital(s)
+                if (typeof orbital.starterCount === 'number' && orbital.starterCount > 0) {
+                    this.abilities.hasOrbitalAttack = true;
+                    this.abilities.orbitCount = orbital.starterCount;
+                    
+                    // Set orbital base stats (will be used when orbits are created)
+                    if (!this.abilities.orbitDamage) {
+                        this.abilities.orbitDamage = 0.5; // Base orbital damage multiplier
+                    }
+                    if (!this.abilities.orbitSpeed) {
+                        this.abilities.orbitSpeed = 2.0; // Base orbital rotation speed
+                    }
+                    if (!this.abilities.orbitRadius) {
+                        this.abilities.orbitRadius = 100; // Base orbital radius
+                    }
+                }
+                
+                // Apply orbital stat multipliers
+                if (typeof orbital.damageMultiplier === 'number' && this.abilities.orbitDamage) {
+                    this.abilities.orbitDamage *= orbital.damageMultiplier;
+                }
+                if (typeof orbital.speedMultiplier === 'number' && this.abilities.orbitSpeed) {
+                    this.abilities.orbitSpeed *= orbital.speedMultiplier;
+                }
+                if (typeof orbital.radiusMultiplier === 'number' && this.abilities.orbitRadius) {
+                    this.abilities.orbitRadius *= orbital.radiusMultiplier;
+                }
+            }
+            
+            // NEW: Shield ability modifiers
+            if (abilityMods.shield) {
+                const shield = abilityMods.shield;
+                
+                // Grant starter shield
+                if (typeof shield.starterCapacity === 'number' && shield.starterCapacity > 0) {
+                    this.abilities.hasShield = true;
+                    this.abilities.shieldMaxCapacity = shield.starterCapacity;
+                    this.abilities.shieldCurrent = shield.starterCapacity; // Start at full capacity
+                    
+                    // Set shield base stats
+                    if (!this.abilities.shieldRechargeTime) {
+                        this.abilities.shieldRechargeTime = 6.0; // Base recharge time in seconds
+                    }
+                }
+                
+                // Apply shield stat multipliers
+                if (typeof shield.capacityMultiplier === 'number' && this.abilities.shieldMaxCapacity) {
+                    this.abilities.shieldMaxCapacity *= shield.capacityMultiplier;
+                    this.abilities.shieldCurrent = this.abilities.shieldMaxCapacity; // Refill on capacity increase
+                }
+                if (typeof shield.rechargeTime === 'number') {
+                    this.abilities.shieldRechargeTime = shield.rechargeTime;
+                }
+                if (typeof shield.rechargeMultiplier === 'number' && this.abilities.shieldRechargeTime) {
+                    this.abilities.shieldRechargeTime /= shield.rechargeMultiplier; // Higher multiplier = faster recharge
+                }
+            }
         }
 
         this.characterHighlights = Array.isArray(definition.highlights)

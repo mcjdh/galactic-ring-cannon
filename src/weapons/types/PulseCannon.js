@@ -97,19 +97,17 @@ class PulseCannonWeapon {
             window.audioSystem.playBossBeat();
         }
 
-        // Build overrides - use additionalProjectiles if template specifies count
+        // Build overrides
         const overrides = {
-            spreadDegrees: this.definition?.projectileTemplate?.spreadDegrees,
+            // Don't set spreadDegrees - let fireProjectile calculate it automatically
+            // based on projectile count (allows split shot to fan correctly)
             damageMultiplier: this.definition?.projectileTemplate?.damageMultiplier,
             speedMultiplier: this.definition?.projectileTemplate?.speedMultiplier,
             applyBehaviors: this.definition?.projectileTemplate?.appliesBehaviors !== false
         };
 
-        // If template defines projectile count, add it to player's count instead of replacing
-        const templateCount = this.definition?.projectileTemplate?.count;
-        if (templateCount !== undefined && templateCount > 1) {
-            overrides.additionalProjectiles = templateCount - 1;
-        }
+        // Pulse Cannon doesn't add extra projectiles - it relies on player's projectileCount
+        // This allows Split Shot upgrades to work properly with automatic spread!
 
         this.combat.fireProjectile(game, baseAngle, overrides);
 

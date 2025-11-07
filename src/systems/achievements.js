@@ -9,8 +9,8 @@ class AchievementSystem {
             this.achievements = {};
         }
 
-        this.loadAchievements();
         this.initializeTracking();
+        this.loadAchievements(); // Load AFTER initializing to preserve saved max values
     }
     
     initializeTracking() {
@@ -22,10 +22,10 @@ class AchievementSystem {
         this.recentKills = [];
         this.killStreakWindow = 10; // seconds
         
-        // Track chain lightning hits
+        // Track chain lightning hits (will be restored from saved progress in loadAchievements)
         this.currentChainHits = 0;
         
-        // Track ricochet hits
+        // Track ricochet hits (will be restored from saved progress in loadAchievements)
         this.currentRicochetHits = 0;
     }
     
@@ -41,6 +41,10 @@ class AchievementSystem {
                     }
                 }
             }
+            
+            // Initialize tracking variables from saved progress to maintain max values across sessions
+            this.currentChainHits = this.achievements.chain_reaction?.progress || 0;
+            this.currentRicochetHits = this.achievements.ricochet_master?.progress || 0;
         } catch (error) {
             window.logger.error('Error loading achievements:', error);
             // Clear corrupted data

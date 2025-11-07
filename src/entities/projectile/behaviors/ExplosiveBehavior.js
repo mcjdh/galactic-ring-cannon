@@ -81,50 +81,87 @@ class ExplosiveBehavior extends ProjectileBehaviorBase {
     }
 
     /**
-     * Create visual explosion particles
+     * Create visual explosion particles - ENHANCED with shockwave rings!
      */
     _createExplosionVisual() {
-        if (window.optimizedParticles) {
-            // Outer ring
-            for (let i = 0; i < 16; i++) {
-                const angle = (Math.PI * 2 * i) / 16;
-                const speed = 120 + Math.random() * 80;
+        if (!window.optimizedParticles) return;
 
-                window.optimizedParticles.spawnParticle({
-                    x: this.projectile.x,
-                    y: this.projectile.y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    size: 6 + Math.random() * 3,
-                    color: '#ff6b35',
-                    life: 0.6,
-                    type: 'explosion'
-                });
-            }
+        // Capture position at explosion time (projectile may be destroyed during setTimeout)
+        const explosionX = this.projectile.x;
+        const explosionY = this.projectile.y;
 
-            // Inner burst
-            for (let i = 0; i < 8; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 60 + Math.random() * 40;
+        // EXPANDING SHOCKWAVE RINGS - staggered for depth effect
+        const ringCount = 3;
+        for (let ring = 0; ring < ringCount; ring++) {
+            const delay = ring * 50; // 50ms stagger
+            setTimeout(() => {
+                const ringRadius = this.radius * 0.4 + (ring * this.radius * 0.2);
+                const particlesInRing = 24 + (ring * 8); // More particles in outer rings
+                
+                for (let i = 0; i < particlesInRing; i++) {
+                    const angle = (Math.PI * 2 * i) / particlesInRing;
+                    const x = explosionX + Math.cos(angle) * ringRadius;
+                    const y = explosionY + Math.sin(angle) * ringRadius;
+                    
+                    window.optimizedParticles.spawnParticle({
+                        x, y,
+                        vx: Math.cos(angle) * (80 - ring * 20), // Slower outer rings
+                        vy: Math.sin(angle) * (80 - ring * 20),
+                        size: 8 - ring * 2,  // Smaller outer rings
+                        color: ring === 0 ? '#ff6b35' : (ring === 1 ? '#ff8c42' : '#ffaa52'),
+                        life: 0.8 - ring * 0.15,
+                        type: 'explosion'
+                    });
+                }
+            }, delay);
+        }
 
-                window.optimizedParticles.spawnParticle({
-                    x: this.projectile.x,
-                    y: this.projectile.y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    size: 4,
-                    color: '#ffd93d',
-                    life: 0.4,
-                    type: 'spark'
-                });
-            }
+        // RADIAL BURST - bright fiery particles
+        const burstCount = 32; // More particles for impact
+        for (let i = 0; i < burstCount; i++) {
+            const angle = (Math.PI * 2 * i) / burstCount;
+            const speed = 100 + Math.random() * 120;
+
+            window.optimizedParticles.spawnParticle({
+                x: explosionX,
+                y: explosionY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 5 + Math.random() * 4,
+                color: i % 2 === 0 ? '#ffd93d' : '#ffaa00', // Bright yellow/orange
+                life: 0.7 + Math.random() * 0.3,
+                type: 'spark'
+            });
+        }
+
+        // CENTRAL FLASH - white-hot core
+        for (let i = 0; i < 12; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 40 + Math.random() * 60;
+
+            window.optimizedParticles.spawnParticle({
+                x: explosionX,
+                y: explosionY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 6,
+                color: '#ffffff', // Bright white core
+                life: 0.5,
+                type: 'spark'
+            });
+        }
+
+        // SCREEN SHAKE for impact
+        if (window.gameManager?.addScreenShake) {
+            const shakeIntensity = Math.min(8, this.radius / 15); // Scaled to explosion size
+            window.gameManager.addScreenShake(shakeIntensity, 0.3);
         }
 
         // Flash effect through game manager
         if (window.gameManager?.createExplosion) {
             window.gameManager.createExplosion(
-                this.projectile.x,
-                this.projectile.y,
+                explosionX,
+                explosionY,
                 this.radius,
                 '#ff6b35'
             );

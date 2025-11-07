@@ -151,6 +151,20 @@ const UPGRADE_DEFINITIONS = [
         specialEffect: 'chain_visual_enhanced' // Enhanced lightning visuals
     },
     {
+        id: 'chain_lightning_3',
+        name: 'Storm Chains',
+        description: 'Chain chance increased to 85% and can hit six targets',
+        type: 'chain',
+        value: 0.85,
+        maxChains: 6,
+        rangeBonus: 60,
+        icon: "***",
+        rarity: 'epic',
+        requires: ['chain_lightning_2'],
+        buildPath: 'chain',
+        specialEffect: 'chain_storm' // Massive lightning storm effect
+    },
+    {
         id: 'chain_damage',
         name: 'Conductive Strike',
         description: 'Chain lightning deals 110% of the original damage',
@@ -192,6 +206,42 @@ const UPGRADE_DEFINITIONS = [
         requires: ['orbit_attack_1'],
         buildPath: 'orbit',
         specialEffect: 'orbit_sync' // Orbits sync for double damage
+    },
+    {
+        id: 'orbit_attack_3',
+        name: 'Triple Orbit',
+        description: 'Add a third orbiting projectile',
+        type: 'orbit',
+        value: 1,
+        icon: "@@@",
+        rarity: 'epic',
+        requires: ['orbit_attack_2'],
+        buildPath: 'orbit',
+        specialEffect: 'orbit_shield' // Creates defensive orbit pattern
+    },
+    {
+        id: 'orbit_attack_4',
+        name: 'Quad Orbit',
+        description: 'Add a fourth orbiting projectile for complete coverage',
+        type: 'orbit',
+        value: 1,
+        icon: "@@@@",
+        rarity: 'epic',
+        requires: ['orbit_attack_3'],
+        buildPath: 'orbit',
+        specialEffect: 'orbit_fortress' // Enhanced defensive pattern
+    },
+    {
+        id: 'orbit_attack_5',
+        name: 'Penta Orbit',
+        description: 'Add a fifth orbiting projectile - ultimate orbital defense',
+        type: 'orbit',
+        value: 1,
+        icon: "@@@@@",
+        rarity: 'epic',
+        requires: ['orbit_attack_4'],
+        buildPath: 'orbit',
+        specialEffect: 'orbit_star' // Star formation pattern
     },
     {
         id: 'orbit_damage',
@@ -388,6 +438,94 @@ const UPGRADE_DEFINITIONS = [
         rarity: 'uncommon',
         buildPath: 'support',
         specialEffect: 'armor_visual' // Shows damage reduction effect
+    },
+
+    // ========================================
+    // SHIELD BUILD PATH (Aegis Specialty)
+    // Restricted to Aegis Vanguard - shield specialist
+    // ========================================
+    {
+        id: 'barrier_shield_1',
+        name: 'Barrier Shield',
+        description: 'Generate a shield that absorbs 100 damage before breaking. Recharges after 5s',
+        type: 'special',
+        specialType: 'shield',
+        shieldCapacity: 100,  // Increased from 75 - more impactful starting upgrade
+        shieldRechargeTime: 5.0,
+        icon: "[]",
+        rarity: 'rare',
+        buildPath: 'support',
+        characterRestriction: 'aegis_vanguard',  // Only Aegis can get shield upgrades
+        synergies: ['damage_reduction_1', 'regeneration_1'],
+        specialEffect: 'shield_activate' // Shows shield generation effect
+    },
+    {
+        id: 'barrier_shield_2',
+        name: 'Reinforced Barriers',
+        description: 'Shield capacity increased by 150 and recharges 25% faster',
+        type: 'shieldCapacity',
+        value: 150,  // Increased from 100 - more powerful scaling
+        rechargeBonus: 0.25,  // Reduces recharge time by 25%
+        icon: "[=]",
+        rarity: 'uncommon',
+        requires: ['barrier_shield_1'],
+        buildPath: 'support',
+        characterRestriction: 'aegis_vanguard',
+        specialEffect: 'shield_strengthen' // Enhanced shield visuals
+    },
+    {
+        id: 'energy_reflection',
+        name: 'Energy Reflection',
+        description: 'Shield reflects 50% of blocked damage back at nearby attackers',
+        type: 'shieldReflection',
+        value: 0.50,  // Increased from 0.35 (35% → 50%)
+        icon: "[<]",
+        rarity: 'rare',
+        requires: ['barrier_shield_1'],
+        buildPath: 'support',
+        characterRestriction: 'aegis_vanguard',
+        specialEffect: 'shield_reflect' // Reflection particle effect
+    },
+    {
+        id: 'adaptive_armor',
+        name: 'Adaptive Armor',
+        description: 'Shield gains +3 max capacity for every 100 damage blocked (caps at +100)',
+        type: 'shieldAdaptive',
+        growthRate: 3,    // Increased from 2 - faster growth
+        maxGrowth: 100,   // Increased from 50 - higher cap
+        icon: "[^]",
+        rarity: 'epic',
+        requires: ['barrier_shield_2'],
+        buildPath: 'support',
+        characterRestriction: 'aegis_vanguard',
+        specialEffect: 'shield_evolve' // Evolution visual when growing
+    },
+    {
+        id: 'rapid_recharge',
+        name: 'Rapid Recharge',
+        description: 'Shield recharge time reduced by 50%',
+        type: 'shieldRecharge',
+        value: 0.50,
+        icon: "[>>]",
+        rarity: 'uncommon',
+        requires: ['barrier_shield_1'],
+        buildPath: 'support',
+        characterRestriction: 'aegis_vanguard',
+        specialEffect: 'shield_charge' // Charging particle effect
+    },
+    {
+        id: 'aegis_protocol',
+        name: 'Aegis Protocol',
+        description: 'When shield breaks, release a devastating shockwave dealing 250 damage in 220px radius',
+        type: 'shieldExplosion',
+        explosionDamage: 250,  // Increased from 150 - devastatingly powerful!
+        explosionRadius: 220,  // Increased from 180 - huge area
+        icon: "[*]",
+        rarity: 'epic',
+        requires: ['barrier_shield_1'],
+        buildPath: 'support',
+        characterRestriction: 'aegis_vanguard',
+        specialEffect: 'shield_burst' // Explosion effect on shield break
     }
 ];
 

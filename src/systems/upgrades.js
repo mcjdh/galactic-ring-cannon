@@ -253,8 +253,9 @@ class UpgradeSystem {
     
     // Enhanced method to get better quality random upgrades with build path consideration
     getRandomUpgrades(count) {
-        // Get all available upgrades that player can select
-        const activeWeaponId = window.gameManager?.game?.player?.combat?.weaponManager?.getActiveWeaponId?.();
+        // Get player and weapon info
+        const player = window.gameManager?.game?.player;
+        const activeWeaponId = player?.combat?.weaponManager?.getActiveWeaponId?.();
         const weaponDefinitions = typeof window !== 'undefined' ? (window.WEAPON_DEFINITIONS || {}) : {};
         const activeWeaponDefinition = activeWeaponId ? weaponDefinitions[activeWeaponId] : null;
         const activeWeaponTags = Array.isArray(activeWeaponDefinition?.upgradeTags)
@@ -262,6 +263,14 @@ class UpgradeSystem {
             : [];
 
         const availableUpgrades = this.availableUpgrades.filter(upgrade => {
+            // NEW: Character restriction filtering
+            if (upgrade.characterRestriction) {
+                const playerCharacterId = player?.characterDefinition?.id;
+                if (playerCharacterId !== upgrade.characterRestriction) {
+                    return false; // This upgrade is locked to a different character
+                }
+            }
+            
             // Exclude any non-stackable upgrade already selected
             if (!upgrade.stackable && this.isUpgradeSelected(upgrade.id)) {
                 return false;
@@ -309,18 +318,33 @@ class UpgradeSystem {
         
         // Weight upgrades by rarity and build path
         const weightedOptions = [];
+        
+        // Get player's character for build path preferences
+        const characterDefinition = player?.characterDefinition;
+        const preferredPaths = characterDefinition?.preferredBuildPaths || [];
+        
         availableUpgrades.forEach(upgrade => {
             let weight = this.getBaseWeight(upgrade);
             
             // Increase weight for upgrades in the same build path
             const currentPath = this.getCurrentBuildPath();
             if (currentPath && upgrade.buildPath === currentPath) {
-                weight *= 1.5;
+                weight *= 2.5;  // Increased from 1.5x to make build paths more visible
+            }
+            
+            // NEW: Character build path preference bonus
+            if (preferredPaths.length > 0 && upgrade.buildPath && preferredPaths.includes(upgrade.buildPath)) {
+                weight *= 1.4;  // +40% weight for character-preferred build paths
             }
             
             // Increase weight for synergistic upgrades
             if (upgrade.synergies && upgrade.synergies.some(syn => this.isUpgradeSelected(syn))) {
-                weight *= 1.3;
+                weight *= 1.5;  // Increased from 1.3x
+            }
+            
+            // STRONG boost for upgrades that have prerequisites met (progression paths)
+            if (upgrade.requires && upgrade.requires.every(reqId => this.isUpgradeSelected(reqId))) {
+                weight *= 3.0;  // NEW: Major boost for unlocked progression upgrades
             }
             
             // Increase weight for combo effects
@@ -364,9 +388,9 @@ class UpgradeSystem {
         const rarity = upgrade.rarity || 'common';
         switch (rarity) {
             case 'common': return 100;
-            case 'uncommon': return 50;
-            case 'rare': return 25;
-            case 'epic': return 10;
+            case 'uncommon': return 70;  // Increased from 50
+            case 'rare': return 50;       // Increased from 25 (2x more likely)
+            case 'epic': return 30;       // Increased from 10 (3x more likely)
             default: return 10;
         }
     }
