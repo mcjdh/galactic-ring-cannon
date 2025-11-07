@@ -485,6 +485,19 @@ class PlayerCombat {
         }
     }
 
+    // Helper method to apply crit damage with diminishing returns
+    applyScaledCritDamage(baseCritDamageIncrease) {
+        let scaledCritDamageIncrease = baseCritDamageIncrease;
+
+        // Apply diminishing returns if crit multiplier gets very high
+        if (this.critMultiplier > 4.0) {
+            const excessMultiplier = (this.critMultiplier - 4.0) / 2.0;
+            scaledCritDamageIncrease *= Math.max(0.3, 1 - excessMultiplier);
+        }
+
+        this.critMultiplier += scaledCritDamageIncrease;
+    }
+
     // Upgrade application for combat-related upgrades
     applyCombatUpgrade(upgrade) {
         switch (upgrade.type) {
@@ -569,31 +582,15 @@ class PlayerCombat {
 
                 // Also apply crit damage bonus if this upgrade provides it (dual-stat upgrade)
                 if (upgrade.critDamageBonus && typeof upgrade.critDamageBonus === 'number') {
-                    const baseCritDamageIncrease = upgrade.critDamageBonus;
-                    let scaledCritDamageIncrease = baseCritDamageIncrease;
-
-                    // Apply diminishing returns if crit multiplier gets very high
-                    if (this.critMultiplier > 4.0) {
-                        const excessMultiplier = (this.critMultiplier - 4.0) / 2.0;
-                        scaledCritDamageIncrease *= Math.max(0.3, 1 - excessMultiplier);
-                    }
-
-                    this.critMultiplier += scaledCritDamageIncrease;
+                    const critDamageBonusValue = upgrade.critDamageBonus;
+                    this.applyScaledCritDamage(critDamageBonusValue);
                 }
                 break;
 
             case 'critDamage':
                 // Crit damage with gradual diminishing returns for extreme values
                 const baseCritDamageIncrease = upgrade.value;
-                let scaledCritIncrease = baseCritDamageIncrease;
-
-                // Apply diminishing returns if crit multiplier gets very high
-                if (this.critMultiplier > 4.0) {
-                    const excessMultiplier = (this.critMultiplier - 4.0) / 2.0; // Scale factor
-                    scaledCritIncrease *= Math.max(0.3, 1 - excessMultiplier);
-                }
-
-                this.critMultiplier += scaledCritIncrease;
+                this.applyScaledCritDamage(baseCritDamageIncrease);
                 break;
         }
 
