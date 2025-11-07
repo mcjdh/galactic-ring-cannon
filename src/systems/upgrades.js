@@ -476,6 +476,19 @@ class UpgradeSystem {
                 // Create armor effect
                 effectsManager?.createSpecialEffect?.('circle', player.x, player.y, 50, '#95a5a6');
                 break;
+            case 'range_indicator': {
+                // Create range indicator effect showing attack range
+                const attackRange = player.combat?.attackRange || 300;
+                const FastMath = window.Game?.FastMath;
+                for (let i = 0; i < 16; i++) {
+                    const angle = (i / 16) * Math.PI * 2;
+                    const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                    const x = player.x + cos * attackRange;
+                    const y = player.y + sin * attackRange;
+                    effectsManager?.createSpecialEffect?.('circle', x, y, 8, '#00d2ff');
+                }
+                break;
+            }
         }
     }
 
