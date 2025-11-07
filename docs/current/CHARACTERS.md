@@ -1,11 +1,11 @@
 # Character System Documentation
 **Last Updated**: November 7, 2025
-**Version**: 1.1.0
+**Version**: 1.1.1
 **Status**: Production Ready
 
 ## Overview
 
-The Galactic Ring Cannon features a **character class system** that provides distinct playstyles through starting weapons and stat modifiers. Each character offers unique strengths, weaknesses, and strategic approaches to survival.
+The Galactic Ring Cannon features a **character class system** that provides distinct playstyles through starting weapons and stat modifiers. With **4 unique characters** to choose from, each offers unique strengths, weaknesses, and strategic approaches to survival.
 
 ---
 
@@ -229,6 +229,73 @@ Trade-offs:
 
 ---
 
+### 4. Nexus Architect 🎯
+
+**Tagline**: Orbital Savant
+**Difficulty**: Tactical
+**Starting Weapon**: Pulse Cannon
+**Archetype**: Orbital Specialist / Methodical Control
+
+#### Stats
+- **+10% max health** (1.1x health multiplier)
+- **1.2 HP/sec regeneration** (passive healing)
+- **-6% attack speed** (0.94x multiplier)
+- **+10% projectile speed** (1.1x multiplier)
+- **+5% movement speed** (1.05x multiplier)
+
+#### Special Abilities
+- **Starts with 2 orbital projectiles** (normally requires upgrade)
+  - +10% orbital damage (1.1x multiplier)
+  - +20% orbital speed (1.2x multiplier)
+  - -10% orbital radius (0.9x - tighter, more precise)
+
+#### Highlights
+- Only character that starts with orbitals
+- Passive damage while focusing on positioning
+- Excellent for methodical, sustained combat
+- Orbital bonuses scale with upgrades
+- Balanced weapon with reliable damage
+
+#### Playstyle
+The Nexus Architect is the **orbital specialist** - commands a constellation of weapons that circle protectively. Starting with 2 free orbitals provides constant passive damage, allowing focus on positioning and dodging. Methodical playstyle that rewards patience and precision.
+
+Trade-offs:
+- Slightly slower attack speed (offset by orbitals)
+- Requires understanding of orbital mechanics
+- Less burst damage than aggressive characters
+- Relies on positioning for orbital effectiveness
+
+#### Strategic Tips
+1. **Always take orbital upgrades** - it's your core identity
+2. **Use movement to aim orbitals** - they follow your position
+3. **Focus on positioning** - let orbitals do the work
+4. **Stack orbital damage** - multiplicative with your bonuses
+5. **Prioritize survival** - orbitals work better when you're alive
+6. **Combo with support upgrades** - regen, health, magnet range
+
+#### Best Upgrades
+- 🔄 **Orbital Upgrades** (Double/Triple/Quad/Penta Orbit)
+- 🎯 Orbital Impact (+40% orbital damage)
+- ❤️ Max Health (survive longer = more orbital damage)
+- 🔄 Regeneration (sustain for extended fights)
+- 🧲 Magnet Range (safer XP collection)
+- 🏃 Move Speed (better orbital positioning)
+
+#### Advanced Tactics
+- **Orbital weaving**: Move in circles to create orbital "walls"
+- **Defensive orbiting**: Stay behind orbitals while kiting
+- **Orbital saturation**: With 5 orbitals, create an impenetrable ring
+- **Hybrid offense**: Use Pulse Cannon for single-target, orbitals for crowds
+- **Boss strategy**: Circle bosses to maximize orbital hits per rotation
+- **Upgrade synergy**: Orbital Impact + 5 orbitals + damage modifiers = absurd DPS
+
+#### Character Identity
+- **Early Game**: ★★★★☆ (2 free orbitals give early advantage)
+- **Mid Game**: ★★★★★ (orbital upgrades stack beautifully)
+- **Late Game**: ★★★★★ (highest potential with full orbital build)
+
+---
+
 ## Character Selection
 
 ### How to Choose
@@ -237,12 +304,14 @@ Characters are selected at game start through the main menu.
 
 **For New Players:**
 - Start with **Aegis Vanguard** - forgiving and balanced
+- Or try **Nexus Architect** - methodical and rewards planning
 - Learn core mechanics without high punishment
 - Graduate to aggressive characters once comfortable
 
 **For Experienced Players:**
 - **Nova Corsair** - skill-based, high-ceiling gameplay
 - **Stormcaller Adept** - strategic positioning and planning
+- **Nexus Architect** - orbital mastery and sustained combat
 
 ### Difficulty Ratings
 
@@ -251,6 +320,7 @@ Characters are selected at game start through the main menu.
 | Aegis Vanguard | Balanced | Low | Medium |
 | Nova Corsair | Aggressive | High | Very High |
 | Stormcaller Adept | Control | Medium | High |
+| Nexus Architect | Tactical | Low-Medium | Very High |
 
 ---
 
@@ -263,6 +333,7 @@ Characters are selected at game start through the main menu.
 | Aegis Vanguard | Pulse Cannon | ⭐⭐⭐⭐⭐ Perfect |
 | Nova Corsair | Nova Shotgun | ⭐⭐⭐⭐⭐ Perfect |
 | Stormcaller Adept | Arc Burst | ⭐⭐⭐⭐⭐ Perfect |
+| Nexus Architect | Pulse Cannon | ⭐⭐⭐⭐⭐ Perfect |
 
 *Currently, each character's weapon is optimized for their playstyle.*
 
@@ -288,6 +359,13 @@ Characters are selected at game start through the main menu.
 3. Ion Thrusters (positioning)
 4. Stellar Fortune (scaling)
 5. Reinforced Hull (durability)
+
+**Nexus Architect:**
+1. Enhanced Firepower (boost orbital damage!)
+2. Ion Thrusters (positioning is critical)
+3. Reinforced Hull (survive to maximize orbital uptime)
+4. Stellar Fortune (long game scaling)
+5. Lightning Mastery (situational, if taking chains)
 
 ---
 
@@ -343,16 +421,19 @@ Characters are balanced for **different skill levels and playstyles**, not for e
 - Aegis Vanguard: ★★★★★ (tankiness shines)
 - Nova Corsair: ★★★☆☆ (risky without upgrades)
 - Stormcaller: ★★★★☆ (chains effective early)
+- Nexus Architect: ★★★★☆ (2 free orbitals give edge)
 
 **Mid Game (Levels 10-20):**
 - Aegis Vanguard: ★★★★☆ (solid scaling)
 - Nova Corsair: ★★★★★ (upgrades unlock potential)
 - Stormcaller: ★★★★★ (chain scaling peaks)
+- Nexus Architect: ★★★★★ (orbital build coming online)
 
 **Late Game (Boss 3+):**
 - Aegis Vanguard: ★★★★☆ (survivability critical)
 - Nova Corsair: ★★★★★ (max DPS with skill)
 - Stormcaller: ★★★★☆ (scaling depends on upgrades)
+- Nexus Architect: ★★★★★ (full orbital build is devastating)
 
 ---
 
@@ -459,4 +540,4 @@ Characters are balanced for **different skill levels and playstyles**, not for e
 
 *Last updated: November 7, 2025*
 *Architecture: Data-driven character system with stat modifiers*
-*Status: Production ready, 3 characters implemented*
+*Status: Production ready, 4 characters implemented*
