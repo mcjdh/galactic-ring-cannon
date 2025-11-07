@@ -25,6 +25,17 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 
 ## 🌟 Features
 
+### New in v1.1.0!
+- **🧑‍🚀 3 Playable Characters**: Choose from distinct classes with unique playstyles
+  - 🛡️ Aegis Vanguard (Tank) - High survivability, balanced gameplay
+  - ⚡ Nova Corsair (Glass Cannon) - High risk, high reward burst damage
+  - ⚡️🔗 Stormcaller Adept (Control) - Chain lightning specialist
+- **⚔️ 3 Weapon Types**: Each character has a signature weapon
+  - Pulse Cannon - Balanced auto-targeting
+  - Nova Shotgun - Close-range spread with knockback
+  - Arc Burst - Rapid chain-linked projectiles
+
+### Core Features
 - **Loopable Runs**: Face escalating waves across successive boss encounters
 - **Dynamic Upgrades**: Choose from 12+ unique upgrade types each level
 - **Boss Battles**: Multi-phase boss encounters with special mechanics
@@ -45,6 +56,14 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 **See:** [docs/audits/FINAL_STATUS.md](docs/audits/FINAL_STATUS.md) for complete optimization details.
 
 ## 🎯 Gameplay
+
+### Character Selection
+Choose your pilot at game start:
+- **🛡️ Aegis Vanguard**: +30% health, tanky and forgiving - perfect for beginners
+- **⚡ Nova Corsair**: +18% attack speed, glass cannon - for skilled players
+- **⚡️🔗 Stormcaller Adept**: Built-in chain lightning - crowd control specialist
+
+See [docs/current/CHARACTERS.md](docs/current/CHARACTERS.md) for detailed builds and strategies!
 
 ### Controls
 - **WASD/Arrow Keys**: Move your character
@@ -100,8 +119,17 @@ galactic-ring-cannon/
 3. Open project in VS Code
 4. Right-click `index.html` → "Open with Live Server"
 
-### Code Architecture & Patterns
-📋 **For developers**: See [docs/current/KEY_CODE_PATTERNS.md](docs/current/KEY_CODE_PATTERNS.md) for essential architectural patterns, component design principles, and development guidelines established through collaborative AI development.
+### Documentation
+
+📋 **For players**:
+- [docs/current/GAME_GUIDE.md](docs/current/GAME_GUIDE.md) - Complete player guide ⭐ Updated v1.1
+- [docs/current/CHARACTERS.md](docs/current/CHARACTERS.md) - Character builds & strategies ⭐ NEW v1.1
+- [docs/current/WEAPONS.md](docs/current/WEAPONS.md) - Weapon mechanics & synergies ⭐ NEW v1.1
+
+📋 **For developers**:
+- [docs/current/KEY_CODE_PATTERNS.md](docs/current/KEY_CODE_PATTERNS.md) - Essential architectural patterns
+- [docs/current/PROJECT_STRUCTURE.md](docs/current/PROJECT_STRUCTURE.md) - Codebase architecture ⭐ Updated v1.1
+- [docs/current/API_DOCUMENTATION.md](docs/current/API_DOCUMENTATION.md) - Complete API reference
 
 📚 **Full documentation**: See [docs/README.md](docs/README.md) for complete documentation navigation.
 
@@ -185,7 +213,8 @@ Contributions are welcome! Please see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.m
 
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for complete version history and release notes.
 
-**Latest:** v1.0.9 (Jan 2025) - Boss balance overhaul and critical bug fixes
+**Latest:** v1.1.0 (Nov 2025) - Character & weapon systems, performance optimizations
+**Previous:** v1.0.9 (Jan 2025) - Boss balance overhaul and critical bug fixes
 
 ## 🏆 Credits
 
