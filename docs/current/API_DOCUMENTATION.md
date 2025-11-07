@@ -769,7 +769,7 @@ Upgrade definitions and effects.
 **Location**: `src/config/upgrades.config.js`
 **Access**: `window.UPGRADE_CONFIGS`
 
-Defines 40+ available upgrades including:
+Defines 37 available upgrades including:
 - Damage increases
 - Health boosts
 - Movement speed
