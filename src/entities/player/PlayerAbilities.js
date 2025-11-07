@@ -87,12 +87,11 @@ class PlayerAbilities {
 
             // Throttle achievement update to once per second to reduce overhead
             if (this.shieldTimeUpdateTimer >= 1.0) {
-                this.shieldTimeUpdateTimer = 0;
-                
                 const gm = window.gameManager || window.gameManagerBridge;
                 if (gm?.achievementSystem?.updateShieldTimeWithoutBreak) {
                     gm.achievementSystem.updateShieldTimeWithoutBreak(this.shieldTimeWithoutBreak);
                 }
+                this.shieldTimeUpdateTimer = 0;
             }
         }
 
