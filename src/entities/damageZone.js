@@ -148,6 +148,20 @@ class DamageZone {
         this.pulseRate = config.pulseRate || 1.5;
         this.expandRate = config.expandRate || 0;
     }
+
+    /**
+     * Checks if an entity is within the damage zone's radius.
+     *
+     * @param {Object} entity - The entity to check (must have x, y, and optionally radius properties).
+     * @returns {boolean} True if the entity is within the zone's radius.
+     */
+    _isEntityWithinRadius(entity) {
+        if (!entity) return false;
+        const dx = entity.x - this.x;
+        const dy = entity.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < this.radius + (entity.radius || 0);
+    }
     
     update(deltaTime, game) {
         // Update timers
@@ -173,11 +187,7 @@ class DamageZone {
 
             // Damage player
             if (game.player && !game.player.isDead) {
-                const dx = game.player.x - this.x;
-                const dy = game.player.y - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < this.radius + game.player.radius) {
+                if (this._isEntityWithinRadius(game.player)) {
                     const tickDamage = this.damagePerSecond * this.tickInterval;
                     game.player.takeDamage(tickDamage);
 
@@ -195,10 +205,7 @@ class DamageZone {
 
                 enemies.forEach(enemy => {
                     if (enemy && !enemy.isDead && enemy.takeDamage) {
-                        const dx = enemy.x - this.x;
-                        const dy = enemy.y - this.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        if (distance < this.radius + (enemy.radius || 0)) {
+                        if (this._isEntityWithinRadius(enemy)) {
                             const tickDamage = this.damagePerSecond * this.tickInterval * this.enemyDamageMultiplier;
                             enemy.takeDamage(tickDamage);
 

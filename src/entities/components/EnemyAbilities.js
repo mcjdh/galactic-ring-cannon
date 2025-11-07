@@ -644,13 +644,9 @@ class EnemyAbilities {
         try {
             if (!window.optimizedParticles) return;
 
-            const colors = window.Game?.DAMAGE_ZONE_TYPE_COLORS || {
-                standard: '#e74c3c',
-                burst: '#ff6b35',
-                persistent: '#c0392b',
-                expanding: '#e67e22',
-                corrupted: '#8e44ad'
-            };
+            // Use shared color constants from window.Game namespace
+            const colors = window.Game?.DAMAGE_ZONE_TYPE_COLORS;
+            if (!colors) return; // Cannot proceed without color definitions
 
             const color = colors[zoneType] || colors.standard;
             const segments = zoneType === 'corrupted' ? 32 : 24;
