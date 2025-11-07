@@ -238,3 +238,8 @@ const CollisionUtils = {
         return this.pointInCircle(closestX, closestY, circle);
     }
 };
+
+// Export for Node.js (tests) while keeping browser compatibility
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = CollisionUtils;
+}

@@ -253,3 +253,8 @@ if (typeof window !== 'undefined') {
     if (!window.Game) window.Game = {};
     window.Game.MathUtils = MathUtils;
 }
+
+// Export for Node.js (tests) while keeping browser compatibility
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = MathUtils;
+}
