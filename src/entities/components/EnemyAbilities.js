@@ -4,6 +4,9 @@
  * Handles all special abilities: dash, teleport, phase, range attacks, boss abilities, etc.
  */
 
+// Constants for damage zone abilities
+const TELEGRAPH_DURATION_MS = 700; // Match the 0.7 second telegraph duration
+
 class EnemyAbilities {
     constructor(enemy) {
         this.enemy = enemy;
@@ -470,29 +473,221 @@ class EnemyAbilities {
     }
     
     /**
-     * Create damage zone (boss ability)
+     * Create damage zone (boss ability) - ENHANCED VERSION
      */
     createDamageZone(game) {
         if (!this.canCreateDamageZones || !game.addEntity) return;
+        if (!game.player || game.player.isDead) return;
 
-        // Create damage zone at player location
-        if (game.player && !game.player.isDead) {
-            const DamageZone = window.Game?.DamageZone;
-            if (typeof DamageZone !== 'function') return;
+        const DamageZone = window.Game?.DamageZone;
+        const DamageZoneTelegraph = window.Game?.DamageZoneTelegraph;
+        const Patterns = window.Game?.DamageZonePatterns;
 
-            const damageZone = new DamageZone(
-                game.player.x,
-                game.player.y,
-                60, // radius
-                this.enemy.damage * 0.8, // damage
-                3.0 // duration
-            );
-            
-            game.addEntity(damageZone);
-            
-            // Create warning effect
-            this.createDamageZoneWarning(game.player.x, game.player.y);
+        if (!DamageZone || !DamageZoneTelegraph || !Patterns) return;
+
+        // Determine boss phase (based on health percentage)
+        const healthPercent = this.enemy.health / this.enemy.maxHealth;
+        const isMegaBoss = this.enemy.isMegaBoss;
+
+        // Select pattern based on boss phase and type
+        let pattern, zoneCount, zoneType;
+
+        if (healthPercent > 0.7) {
+            // Phase 1: Easy patterns, standard zones
+            pattern = Math.random() < 0.5 ? 'predictive' : 'scatter';
+            zoneCount = 1;
+            zoneType = 'standard';
+        } else if (healthPercent > 0.4) {
+            // Phase 2: More aggressive, introduce burst zones
+            pattern = this._selectRandomPattern(['predictive', 'scatter', 'chase', 'cluster']);
+            zoneCount = isMegaBoss ? 2 : 1;
+            zoneType = Math.random() < 0.3 ? 'burst' : 'standard';
+        } else if (healthPercent > 0.15) {
+            // Phase 3: Complex patterns, more zones, persistent types
+            pattern = this._selectRandomPattern(['spiral', 'barrier', 'scatter', 'ring']);
+            zoneCount = isMegaBoss ? 4 : 3;
+            zoneType = this._selectRandomPattern(['standard', 'burst', 'persistent', 'expanding']);
+        } else {
+            // Phase 4: FINAL PHASE - Maximum chaos, corrupted zones
+            pattern = this._selectRandomPattern(['spiral', 'barrier', 'ring', 'scatter']);
+            zoneCount = isMegaBoss ? 6 : 4;
+            zoneType = this._selectRandomPattern(['burst', 'expanding', 'corrupted']);
         }
+
+        // Get positions from pattern
+        const positions = Patterns[pattern]?.(game, this.enemy, zoneCount) || [];
+
+        if (positions.length === 0) return;
+
+        // Zone type specific parameters
+        const zoneParams = this._getDamageZoneParams(zoneType);
+
+        // Spawn telegraphs first, then zones after delay
+        positions.forEach((pos, index) => {
+            // Spawn telegraph
+            const telegraph = new DamageZoneTelegraph(
+                pos.x,
+                pos.y,
+                zoneParams.radius,
+                0.7, // warning duration
+                zoneType
+            );
+            game.addEntity(telegraph);
+
+            // Schedule zone spawn after telegraph
+            setTimeout(() => {
+                if (this.enemy.isDead) return; // Don't spawn if boss died
+
+                const zone = new DamageZone(
+                    pos.x,
+                    pos.y,
+                    zoneParams.radius,
+                    this.enemy.damage * zoneParams.damageMultiplier,
+                    zoneParams.duration,
+                    zoneType
+                );
+                game.addEntity(zone);
+
+                // Create spawn effect
+                this.createDamageZoneSpawnEffect(pos.x, pos.y, zoneType);
+            }, TELEGRAPH_DURATION_MS);
+        });
+
+        // Show floating text for special patterns
+        if (window.gameManager && (zoneCount >= 3 || zoneType === 'corrupted')) {
+            const messages = {
+                corrupted: 'CORRUPTED ZONES!',
+                barrier: 'ZONE BARRIER!',
+                spiral: 'SPIRAL ATTACK!',
+                ring: 'ZONE RING!'
+            };
+            const message = messages[zoneType] || messages[pattern] || 'DANGER ZONES!';
+
+            window.gameManager.showFloatingText(
+                message,
+                this.enemy.x,
+                this.enemy.y - 40,
+                zoneType === 'corrupted' ? '#8e44ad' : '#e74c3c',
+                20
+            );
+        }
+    }
+
+    /**
+     * Helper method to select a random pattern from an array of patterns.
+     *
+     * @param {Array<string>} patterns - Array of pattern names to choose from.
+     * @returns {string} A randomly selected pattern name.
+     */
+    _selectRandomPattern(patterns) {
+        return patterns[Math.floor(Math.random() * patterns.length)];
+    }
+
+    /**
+     * Returns configuration parameters for a damage zone based on the specified type.
+     *
+     * @param {string} zoneType - The type of damage zone. Valid values are:
+     *   'standard', 'burst', 'persistent', 'expanding', 'corrupted'.
+     *   If an invalid value is provided, falls back to 'standard'.
+     * @returns {{radius: number, duration: number, damageMultiplier: number}} An object containing:
+     *   - radius: The radius of the zone in pixels.
+     *   - duration: The duration of the zone in seconds.
+     *   - damageMultiplier: The damage multiplier applied within the zone.
+     */
+    _getDamageZoneParams(zoneType) {
+        const params = {
+            standard: {
+                radius: 60,
+                duration: 3.0,
+                damageMultiplier: 0.8
+            },
+            burst: {
+                radius: 50,
+                duration: 1.5,
+                damageMultiplier: 1.2
+            },
+            persistent: {
+                radius: 70,
+                duration: 6.0,
+                damageMultiplier: 0.4
+            },
+            expanding: {
+                radius: 40, // starts small
+                duration: 4.0,
+                damageMultiplier: 0.7
+            },
+            corrupted: {
+                radius: 65,
+                duration: 3.5,
+                damageMultiplier: 0.9
+            }
+        };
+
+        return params[zoneType] || params.standard;
+    }
+
+    /**
+     * Creates particle effects when a damage zone spawns.
+     *
+     * The visual effect varies depending on the zone type:
+     * - "standard": Red sparks in a circular burst.
+     * - "burst": Orange sparks with higher speed.
+     * - "persistent": Darker red sparks.
+     * - "expanding": Orange sparks.
+     * - "corrupted": Purple sparks and additional smoke particles.
+     *
+     * @param {number} x - The x-coordinate of the zone's center.
+     * @param {number} y - The y-coordinate of the zone's center.
+     * @param {string} zoneType - The type of the damage zone ("standard", "burst", "persistent", "expanding", or "corrupted").
+     */
+    createDamageZoneSpawnEffect(x, y, zoneType) {
+        try {
+            if (!window.optimizedParticles) return;
+
+            // Use shared color constants from window.Game namespace
+            const colors = window.Game?.DAMAGE_ZONE_TYPE_COLORS;
+            if (!colors) {
+                console.warn('DamageZone colors not available - damageZone.js may not be loaded');
+                return;
+            }
+
+            const color = colors[zoneType] || colors.standard;
+            const segments = zoneType === 'corrupted' ? 32 : 24;
+
+            // Burst effect on spawn
+            for (let i = 0; i < segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                const speed = zoneType === 'burst' ? 180 : 120;
+
+                window.optimizedParticles.spawnParticle({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random(),
+                    color: color,
+                    life: 0.5,
+                    type: 'spark'
+                });
+            }
+
+            // Additional effect for corrupted zones
+            if (zoneType === 'corrupted') {
+                for (let i = 0; i < 12; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    window.optimizedParticles.spawnParticle({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * 60,
+                        vy: Math.sin(angle) * 60,
+                        size: 3,
+                        color: '#5b2c6f',
+                        life: 0.8,
+                        type: 'smoke'
+                    });
+                }
+            }
+        } catch (_) { /* no-op */ }
     }
     
     /**
@@ -633,29 +828,6 @@ class EnemyAbilities {
         } catch (_) { /* no-op */ }
     }
 
-    createDamageZoneWarning(x, y) {
-        try {
-            if (!window.optimizedParticles) return;
-            // Draw a quick warning ring at target location
-            const segments = 24;
-            const radius = 60;
-            for (let i = 0; i < segments; i++) {
-                const angle = (i / segments) * Math.PI * 2;
-                const px = x + Math.cos(angle) * radius;
-                const py = y + Math.sin(angle) * radius;
-                window.optimizedParticles.spawnParticle({
-                    x: px,
-                    y: py,
-                    vx: 0,
-                    vy: 0,
-                    size: 2,
-                    color: '#e74c3c',
-                    life: 0.4,
-                    type: 'spark'
-                });
-            }
-        } catch (_) { /* no-op */ }
-    }
     createMuzzleFlash(angle) {
         if (window.optimizedParticles) {
             for (let i = 0; i < 3; i++) {
