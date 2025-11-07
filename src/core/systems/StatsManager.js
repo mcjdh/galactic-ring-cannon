@@ -801,7 +801,7 @@ class StatsManager {
             starTokensEarned: this.starTokensEarned,
             
             // Calculated stats
-            accuracy: this.sessionStats.projectilesFired > 0 ? (this.killCount / this.sessionStats.projectilesFired * 100).toFixed(1) + '%' : '0%',
+            accuracy: this.sessionStats.projectilesFired > 0 ? (this.sessionStats.projectileHits / this.sessionStats.projectilesFired * 100).toFixed(1) + '%' : '0%',
             damageRatio: this.totalDamageTaken > 0 ? (this.totalDamageDealt / this.totalDamageTaken).toFixed(2) : 'Infinite',
             survivalRating: this.calculateSurvivalRating()
         };
