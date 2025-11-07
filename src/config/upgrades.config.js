@@ -102,6 +102,20 @@ const UPGRADE_DEFINITIONS = [
         comboEffects: ['chain', 'explosive'],
         specialEffect: 'chain_through_pierced' // Can chain through pierced enemies
     },
+    {
+        id: 'critical_strike_1',
+        name: 'Precision Targeting',
+        description: '+12% crit chance, +0.3 crit multiplier',
+        type: 'critChance',
+        value: 0.12, // Crit chance increase (12%)
+        critDamageBonus: 0.3, // Crit multiplier increase (+0.3 to multiplier)
+        icon: "⊕",
+        rarity: 'uncommon',
+        buildPath: 'core',
+        synergies: ['attack_speed_1', 'multi_shot_1'],
+        stackable: true,
+        specialEffect: 'crit_visual' // Enhanced crit visual feedback
+    },
 
     // ========================================
     // CHAIN LIGHTNING BUILD PATH
