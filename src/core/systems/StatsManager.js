@@ -565,9 +565,6 @@ class StatsManager {
      */
     trackProjectileHit() {
         this.sessionStats.projectileHits++;
-        
-        // Check efficient killer achievement (use hits for accuracy)
-        this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
     }
     
     /**
