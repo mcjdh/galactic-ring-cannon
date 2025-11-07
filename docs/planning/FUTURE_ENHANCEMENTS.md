@@ -9,8 +9,8 @@ This document contains **wishlist items** and **nice-to-have features** that wou
 ## 🎮 Gameplay Enhancements
 
 ### Enemy System
-- **More enemy types**: Additional enemy variety beyond the current 10+ types
-  - Summoner enemies that spawn minions
+- **More enemy types**: Additional enemy variety beyond the current 13 types
+  - ~~Summoner enemies that spawn minions~~ ✅ **IMPLEMENTED** (v1.1.0 - SummonerEnemy + MinionEnemy)
   - Berserker enemies with rage mechanics
   - Support enemies that buff other enemies
 
@@ -104,5 +104,5 @@ When implementing features from this list:
 
 ---
 
-**Last Updated**: 2025-10-02
+**Last Updated**: 2025-11-07
 **Maintained By**: Development team
