@@ -192,6 +192,52 @@ const ACHIEVEMENT_DEFINITIONS = {
         progress: 0,
         target: 5,  // Achievable with Penta Orbit upgrade
         unlocked: false
+    },
+
+    // ========================================
+    // SHIELD ACHIEVEMENTS (Aegis Vanguard)
+    // ========================================
+    'unbreakable': {
+        name: 'Unbreakable',
+        description: 'Block 10000 damage with shields',
+        icon: '[]',
+        progress: 0,
+        target: 10000,
+        unlocked: false,
+        important: true
+    },
+    'mirror_match': {
+        name: 'Mirror Match',
+        description: 'Reflect 1000 damage back to enemies',
+        icon: '[<]',
+        progress: 0,
+        target: 1000,
+        unlocked: false
+    },
+    'adaptive_evolution': {
+        name: 'Adaptive Evolution',
+        description: 'Reach maximum adaptive armor growth',
+        icon: '[^]',
+        progress: 0,
+        target: 1,  // Binary achievement - either maxed or not
+        unlocked: false
+    },
+    'aegis_guardian': {
+        name: 'Aegis Guardian',
+        description: 'Survive 5 minutes without shield breaking',
+        icon: '[=]',
+        progress: 0,
+        target: 300,  // 5 minutes in seconds
+        unlocked: false,
+        important: true
+    },
+    'last_stand': {
+        name: 'Last Stand',
+        description: 'Shield saves you from a lethal hit',
+        icon: '[*]',
+        progress: 0,
+        target: 1,
+        unlocked: false
     }
 };
 

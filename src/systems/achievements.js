@@ -172,7 +172,26 @@ class AchievementSystem {
     onUpgradeMaxed() {
         this.updateAchievement('max_upgrade', 1);
     }
-    
+
+    // ========================================
+    // SHIELD-SPECIFIC TRACKING (Aegis Vanguard)
+    // ========================================
+
+    // Track total damage blocked by shields
+    updateShieldDamageBlocked(totalDamage) {
+        this.updateAchievement('unbreakable', Math.floor(totalDamage));
+    }
+
+    // Track total damage reflected by shields
+    updateShieldDamageReflected(totalDamage) {
+        this.updateAchievement('mirror_match', Math.floor(totalDamage));
+    }
+
+    // Track time without shield breaking
+    updateShieldTimeWithoutBreak(timeInSeconds) {
+        this.updateAchievement('aegis_guardian', Math.floor(timeInSeconds));
+    }
+
     showAchievementNotification(achievement) {
         try {
             const notification = document.createElement('div');
