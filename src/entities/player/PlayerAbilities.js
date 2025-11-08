@@ -41,6 +41,7 @@ class PlayerAbilities {
 
         // Shield properties (Aegis Vanguard specialty)
         this.hasShield = false;
+        this.shieldBaseCapacity = 0;    // Initial capacity when first acquired (for adaptive armor tracking)
         this.shieldMaxCapacity = 0;
         this.shieldCurrent = 0;
         this.shieldRechargeTime = 5.0;  // Time in seconds to recharge after break (reduced from 6s for better feel)
@@ -52,7 +53,10 @@ class PlayerAbilities {
         this.shieldAdaptiveGrowth = 0;  // Growth rate for adaptive armor
         this.shieldAdaptiveMax = 0;     // Max growth cap
         this.shieldDamageBlocked = 0;   // Total damage blocked (for adaptive armor)
+        this.shieldDamageReflected = 0; // Total damage reflected (for achievements)
         this.shieldHitFlash = 0;        // Visual flash timer when shield is hit
+        this.shieldTimeWithoutBreak = 0; // Time shield has been active without breaking (for achievements)
+        this.shieldTimeUpdateTimer = 0; // Timer for throttling achievement updates (updates once per second)
 
         // Chain recursion depth protection
         this._chainDepth = 0;
@@ -76,16 +80,31 @@ class PlayerAbilities {
             if (this.shieldHitFlash < 0) this.shieldHitFlash = 0;
         }
 
+        // Track time without shield breaking (for achievements)
+        if (!this.shieldBroken && this.shieldCurrent > 0) {
+            this.shieldTimeWithoutBreak += deltaTime;
+            this.shieldTimeUpdateTimer += deltaTime;
+
+            // Throttle achievement update to once per second to reduce overhead
+            if (this.shieldTimeUpdateTimer >= 1.0) {
+                const gm = window.gameManager || window.gameManagerBridge;
+                if (gm?.achievementSystem?.updateShieldTimeWithoutBreak) {
+                    gm.achievementSystem.updateShieldTimeWithoutBreak(this.shieldTimeWithoutBreak);
+                }
+                this.shieldTimeUpdateTimer = 0;
+            }
+        }
+
         // If shield is broken, count down recharge timer
         if (this.shieldBroken) {
             this.shieldRechargeTimer -= deltaTime;
-            
+
             if (this.shieldRechargeTimer <= 0) {
                 // Shield recharged!
                 this.shieldBroken = false;
                 this.shieldCurrent = this.shieldMaxCapacity;
                 this.shieldRechargeTimer = 0;
-                
+
                 // Visual/audio feedback for shield recharge
                 if (window.optimizedParticles) {
                     this.createShieldRechargeEffect();
@@ -132,24 +151,46 @@ class PlayerAbilities {
         // Check for adaptive armor growth
         if (this.shieldAdaptiveGrowth > 0 && this.shieldAdaptiveMax > 0) {
             const growthIncrement = Math.floor(this.shieldDamageBlocked / 100) * this.shieldAdaptiveGrowth;
-            const currentGrowth = this.shieldMaxCapacity - (this.hasShield ? 50 : 0); // Assume 50 base
+            const currentGrowth = this.shieldMaxCapacity - this.shieldBaseCapacity; // Use tracked base capacity
             const newGrowth = Math.min(growthIncrement, this.shieldAdaptiveMax);
-            
+
             if (newGrowth > currentGrowth) {
                 const added = newGrowth - currentGrowth;
                 this.shieldMaxCapacity += added;
-                console.log(`[Shield] Adaptive armor grew! +${added} max capacity`);
+                console.log(`[Shield] Adaptive armor grew! +${added} max capacity (total growth: ${newGrowth}/${this.shieldAdaptiveMax})`);
                 // Visual feedback for shield evolution
                 if (window.optimizedParticles) {
                     this.createShieldEvolveEffect();
                 }
+
+                // Check achievement for max adaptive armor
+                if (newGrowth >= this.shieldAdaptiveMax) {
+                    const gm = window.gameManager || window.gameManagerBridge;
+                    if (gm?.achievementSystem?.updateAchievement) {
+                        gm.achievementSystem.updateAchievement('adaptive_evolution', 1);
+                    }
+                }
             }
         }
+
+        // Get game manager reference once for achievement updates
+        const gm = window.gameManager || window.gameManagerBridge;
 
         // Check for energy reflection
         if (this.shieldReflectChance > 0 && Math.random() < this.shieldReflectChance) {
             console.log(`[Shield] Energy reflection triggered!`);
-            this.reflectDamage(damageBlocked);
+            const reflectedDamage = this.reflectDamage(damageBlocked);
+
+            // Track reflected damage for achievements (pass increment, not total)
+            this.shieldDamageReflected += reflectedDamage;
+            if (gm?.achievementSystem?.updateShieldDamageReflected) {
+                gm.achievementSystem.updateShieldDamageReflected(reflectedDamage); // ✅ Pass increment
+            }
+        }
+
+        // Update total damage blocked achievement (pass increment, not total)
+        if (gm?.achievementSystem?.updateShieldDamageBlocked) {
+            gm.achievementSystem.updateShieldDamageBlocked(damageBlocked); // ✅ Pass increment
         }
 
         // Shield broke?
@@ -159,6 +200,9 @@ class PlayerAbilities {
             this.shieldRechargeTimer = this.shieldRechargeTime;
 
             console.log(`[Shield] Shield broke! Recharging in ${this.shieldRechargeTime}s. Explosion: ${this.shieldExplosionDamage > 0}`);
+
+            // Reset time without break counter
+            this.shieldTimeWithoutBreak = 0;
 
             // Aegis Protocol: Shield explosion on break
             if (this.shieldExplosionDamage > 0 && this.shieldExplosionRadius > 0) {
@@ -179,9 +223,10 @@ class PlayerAbilities {
 
     /**
      * Reflect damage back to nearby enemies
+     * Returns the total damage reflected to all enemies
      */
     reflectDamage(damageAmount) {
-        if (!window.gameManager?.game) return;
+        if (!window.gameManager?.game) return 0;
 
         const reflectionDamage = damageAmount * 0.5; // Reflect 50% of blocked damage
         const reflectionRadius = 200;  // Increased from 150 for better area coverage
@@ -196,9 +241,11 @@ class PlayerAbilities {
         });
 
         // Damage them
+        let totalReflected = 0;
         nearbyEnemies.forEach(enemy => {
             if (enemy.takeDamage) {
                 enemy.takeDamage(reflectionDamage, { label: 'reflected', showText: true });
+                totalReflected += reflectionDamage;
             }
         });
 
@@ -206,6 +253,8 @@ class PlayerAbilities {
         if (window.optimizedParticles && nearbyEnemies.length > 0) {
             this.createReflectionEffect();
         }
+
+        return totalReflected;
     }
 
     /**
@@ -883,11 +932,13 @@ class PlayerAbilities {
                 } else if (upgrade.specialType === 'shield') {
                     // NEW: Shield ability (Aegis Vanguard specialty)
                     this.hasShield = true;
-                    this.shieldMaxCapacity = upgrade.shieldCapacity || 75;
+                    this.shieldBaseCapacity = upgrade.shieldCapacity || 75; // Track base for adaptive armor
+                    this.shieldMaxCapacity = this.shieldBaseCapacity;
                     this.shieldCurrent = this.shieldMaxCapacity;
                     this.shieldRechargeTime = upgrade.shieldRechargeTime || 6.0;
                     this.shieldBroken = false;
                     this.shieldRechargeTimer = 0;
+                    console.log(`[Shield] Initialized with base capacity: ${this.shieldBaseCapacity}`);
                 } else if (upgrade.specialType === 'aoe') {
                     // Validate combat module exists before modifying
                     if (this.player?.combat) {
@@ -983,6 +1034,7 @@ class PlayerAbilities {
                     const oldCapacity = this.shieldMaxCapacity;
                     this.shieldMaxCapacity += upgrade.value;
                     this.shieldCurrent = Math.min(this.shieldCurrent + upgrade.value, this.shieldMaxCapacity);
+                    // Do not update shieldBaseCapacity here; it should remain at the original value
                     console.log(`[Shield] Capacity: ${oldCapacity} → ${this.shieldMaxCapacity} (+${upgrade.value})`);
                 }
                 if (upgrade.rechargeBonus) {

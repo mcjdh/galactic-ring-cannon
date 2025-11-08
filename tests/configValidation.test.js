@@ -120,7 +120,7 @@ function runTests() {
             .forEach(upgrade => {
                 assert(typeof upgrade.specialType === 'string',
                     `Special upgrade "${upgrade.id}" should have specialType`);
-                const validSpecialTypes = ['chain', 'orbit', 'ricochet', 'explosion'];
+                const validSpecialTypes = ['chain', 'orbit', 'ricochet', 'explosion', 'shield'];
                 assert(validSpecialTypes.includes(upgrade.specialType),
                     `Special upgrade "${upgrade.id}" has invalid specialType: ${upgrade.specialType}`);
             });

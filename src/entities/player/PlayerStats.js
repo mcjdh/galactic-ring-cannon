@@ -194,15 +194,25 @@ class PlayerStats {
         // NEW: Shield absorbs damage before health
         if (this.player.abilities && this.player.abilities.hasShield) {
             const penetratedDamage = this.player.abilities.absorbDamage(amount);
-            
+
             if (penetratedDamage <= 0) {
                 // Shield absorbed all damage, show feedback
                 if (window.gameManager && window.gameManager.showFloatingText) {
                     window.gameManager.showFloatingText(`BLOCKED`, this.player.x, this.player.y - 20, '#00ffff', 18);
                 }
+
+                // Check if shield saved player from lethal damage (Last Stand achievement)
+                if (amount >= this.health) {
+                    const gm = window.gameManager || window.gameManagerBridge;
+                    if (gm?.achievementSystem?.updateAchievement) {
+                        gm.achievementSystem.updateAchievement('last_stand', 1);
+                        console.log('[Achievement] Last Stand! Shield saved player from lethal damage');
+                    }
+                }
+
                 return; // No health damage taken
             }
-            
+
             // Shield absorbed some but not all damage
             amount = penetratedDamage;
         }
