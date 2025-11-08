@@ -6,6 +6,52 @@ All notable changes to Galactic Ring Cannon are documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-11-07 (v1.1.1 - Nexus Architect Character + Documentation Update)
+
+#### New Features 🎯
+- **4th Playable Character: Nexus Architect**
+  - Orbital Savant - Tactical difficulty character
+  - Starts with 2 free orbital projectiles
+  - +10% orbital damage, +20% orbital speed
+  - +10% max health, +1.2 HP/sec regeneration
+  - +5% movement speed, -6% attack speed
+  - Uses Pulse Cannon weapon
+  - Preferred build paths: Orbit, Support
+  - Flavor: "Precision is not perfection. It is the path to it."
+
+#### Documentation Updates 📚
+- **Updated CHARACTERS.md** - Added complete Nexus Architect documentation
+  - Character stats, playstyle, strategic tips
+  - Best upgrades, advanced tactics, power curve
+  - Updated difficulty ratings table
+  - Updated meta upgrade priorities
+- **Updated GAME_GUIDE.md** - Added Nexus Architect section
+  - Character overview with stats and highlights
+  - Character-specific strategy tips
+  - Updated version to 1.1.1
+- **Updated GAME_DESIGN.md** - Added v1.1.0 features
+  - Added Character System section with all 4 characters
+  - Added Weapon System section with all 3 weapons
+  - Updated special abilities to include character-specific ones
+  - Updated future enhancements section
+- **Updated API_DOCUMENTATION.md** - Added v1.1.0/v1.1.1 systems
+  - Added Weapon System section (WeaponManager, weapon classes)
+  - Added Character System section (character definitions, modifiers)
+  - Updated configuration files section
+  - Updated global namespace with weapon and character configs
+  - Version updated to 1.1.1
+- **Updated docs/README.md** - Corrected character count to 4
+  - Updated v1.1.1 section with Nexus Architect addition
+  - Updated all references from "3 characters" to "4 characters"
+  - Version updated to 1.1.1
+
+#### Technical Notes
+- No code changes - purely documentation update
+- All character/weapon system code was already implemented
+- Docs now accurately reflect actual codebase state
+
+---
+
 ### Added - 2025-11-05 (Performance Optimization - Pi5 Cache Systems)
 
 #### Performance Improvements 🚀

@@ -1,16 +1,18 @@
 # Game Design Document
 
 ## 🎯 Core Concept
-**Galactic Ring: Cannon** is a 2D survival game where players fight waves of enemies while upgrading their abilities. The game combines bullet-hell mechanics with RPG progression in a space-themed setting.
+**Galactic Ring: Cannon** is a 2D survival game where players choose from 4 unique character classes, each with signature weapons, and fight waves of enemies while upgrading their abilities. The game combines bullet-hell mechanics with RPG progression and roguelite elements in a space-themed setting.
 
 ## 🎮 Gameplay Loop
 
 ### Core Mechanics
-1. **Movement**: WASD/Arrow keys for 8-directional movement
-2. **Combat**: Automatic projectile firing at nearest enemies
-3. **Survival**: Avoid enemy contact and projectiles
-4. **Progression**: Collect XP orbs to level up and choose upgrades
-5. **Special Abilities**: Dodge roll with cooldown
+1. **Character Selection**: Choose from 4 distinct character classes with unique stats and starting weapons
+2. **Weapon Systems**: 3 unique weapon types with different firing patterns and strategies
+3. **Movement**: WASD/Arrow keys for 8-directional movement
+4. **Combat**: Automatic projectile firing with weapon-specific behaviors
+5. **Survival**: Avoid enemy contact and projectiles
+6. **Progression**: Collect XP orbs to level up and choose upgrades
+7. **Special Abilities**: Dodge roll with cooldown, character-specific abilities
 
 ### Run Structure
 
@@ -47,6 +49,69 @@
 - **Scaling Difficulty**: Each boss is 20% stronger than the previous (+health, +damage)
 - **Infinite Encounters**: Bosses continue spawning indefinitely with increasing difficulty
 
+## 🧑‍🚀 Character System
+
+### Character Classes (4 Total)
+Players choose from 4 distinct character archetypes, each with unique playstyles:
+
+1. **Aegis Vanguard** - Shield Sentinel (Balanced)
+   - Highest survivability with shield technology
+   - +30% health, +12% damage reduction, passive regen
+   - Forgiving for new players
+   - Uses Pulse Cannon
+
+2. **Nova Corsair** - Close-Range Raider (Aggressive)
+   - High-risk, high-reward glass cannon
+   - +18% attack speed, +8% damage, 5% lifesteal
+   - Fast movement and frequent dodges
+   - Uses Nova Shotgun
+
+3. **Stormcaller Adept** - Arc Lance Savant (Control)
+   - Crowd control specialist with built-in chain lightning
+   - 60% base chain chance, +1 piercing
+   - Strategic positioning focus
+   - Uses Arc Burst
+
+4. **Nexus Architect** - Orbital Savant (Tactical)
+   - Orbital specialist starting with 2 free orbitals
+   - +10% orbital damage, +20% orbital speed
+   - Methodical, sustained combat
+   - Uses Pulse Cannon
+
+### Design Philosophy
+- **Distinct identities**: Each character has a clear role and playstyle
+- **Build synergies**: Characters favor specific upgrade paths
+- **Skill expression**: Different skill floors and ceilings
+- **Accessibility**: Multiple viable characters for different player types
+
+## ⚔️ Weapon System
+
+### Weapon Types (3 Total)
+Each character begins with a signature weapon optimized for their playstyle:
+
+1. **Pulse Cannon** - Generalist (1.2 fire rate)
+   - Balanced, reliable single-target damage
+   - Works with all upgrade types
+   - Used by: Aegis Vanguard, Nexus Architect
+
+2. **Nova Shotgun** - Burst (0.8 fire rate)
+   - 5-projectile cone spread for close-range devastation
+   - Secondary: Nova Knockback (crowd control)
+   - Synergizes with explosive upgrades
+   - Used by: Nova Corsair
+
+3. **Arc Burst** - Control (1.6 fire rate)
+   - Rapid-fire twin projectiles
+   - Secondary: Storm Surge (AoE chain pulse)
+   - Exceptional chain lightning synergy
+   - Used by: Stormcaller Adept
+
+### Weapon Design Goals
+- **Data-driven**: All weapons defined in config files
+- **Upgrade compatibility**: Universal upgrades work with all weapons
+- **Distinct feel**: Each weapon plays differently
+- **Strategic depth**: Weapon choice affects optimal build paths
+
 ## ⚡ Upgrade System
 
 ### Core Upgrades
@@ -57,10 +122,12 @@
 - **Utility**: XP magnet range, attack speed, critical hits
 
 ### Special Abilities
-- **Chain Lightning**: Electricity jumps between enemies
-- **Orbital Attacks**: Projectiles orbit around player
-- **Lifesteal**: Damage heals player
+- **Chain Lightning**: Electricity jumps between enemies (built-in for Stormcaller)
+- **Orbital Attacks**: Projectiles orbit around player (built-in for Nexus Architect)
+- **Shield System**: Absorbs damage and can reflect/explode (Aegis Vanguard)
+- **Lifesteal**: Damage heals player (built-in for Nova Corsair)
 - **Ricochet**: Projectiles bounce to additional targets
+- **Weapon Secondaries**: Nova Knockback (shotgun), Storm Surge (arc burst)
 
 ### Meta Progression (Star Vendor)
 - Permanent upgrades purchased with star currency
@@ -162,10 +229,13 @@
 ## 🔮 Future Enhancements
 
 ### Potential Features
-- **Additional Weapons**: Different base weapon types
-- **More Enemy Variety**: New enemy types and behaviors  
+- **More Characters**: Additional character archetypes (support, summoner, etc.)
+- **Weapon Switching**: Mid-run weapon changes
+- **More Weapons**: Sniper, beam, missile types
+- **More Enemy Variety**: New enemy types and behaviors
 - **Environmental Hazards**: Map obstacles and dangers
 - **Power-ups**: Temporary ability boosts
+- **Character Progression**: Unlock system, character-specific achievements
 - **Multiplayer**: Co-op or competitive modes
 - **Mobile Support**: Touch controls and responsive design
 

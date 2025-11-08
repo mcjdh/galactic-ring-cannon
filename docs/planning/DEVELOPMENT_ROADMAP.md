@@ -67,9 +67,11 @@
 - Player engagement
 
 #### New Features:
-- [ ] 3+ new enemy types (Shielder, Teleporter, Summoner)
+- [ ] 3+ new enemy types (~~Shielder~~ ✅ v1.1.0, Teleporter, ~~Summoner~~ ✅ v1.1.0)
+  - Already implemented: Shielder, Summoner (with Minions), Phantom
+  - Potential new: Teleporter, Support, Berserker
 - [ ] Environmental hazards (Asteroid fields, Black holes)
-- [ ] New weapon types (Laser, Shotgun, Plasma)
+- [ ] New weapon types (~~Shotgun~~ ✅ v1.1.0 Nova Shotgun, Laser, Plasma, Sniper)
 - [ ] Challenge modes (Speed run, Pacifist, etc.)
 - [ ] Daily missions system
 

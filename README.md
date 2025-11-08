@@ -26,10 +26,11 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 ## 🌟 Features
 
 ### New in v1.1.0!
-- **🧑‍🚀 3 Playable Characters**: Choose from distinct classes with unique playstyles
+- **🧑‍🚀 4 Playable Characters**: Choose from distinct classes with unique playstyles
   - 🛡️ Aegis Vanguard (Tank) - High survivability, balanced gameplay
   - ⚡ Nova Corsair (Glass Cannon) - High risk, high reward burst damage
   - ⚡️🔗 Stormcaller Adept (Control) - Chain lightning specialist
+  - 🎯 Nexus Architect (Tactical) - Orbital specialist with sustained damage
 - **⚔️ 3 Weapon Types**: Each character has a signature weapon
   - Pulse Cannon - Balanced auto-targeting
   - Nova Shotgun - Close-range spread with knockback
@@ -37,10 +38,10 @@ A fast-paced 2D survival game built with vanilla JavaScript and HTML5 Canvas. Fi
 
 ### Core Features
 - **Loopable Runs**: Face escalating waves across successive boss encounters
-- **Dynamic Upgrades**: Choose from 12+ unique upgrade types each level
+- **Dynamic Upgrades**: Choose from 37 unique upgrades each level
 - **Boss Battles**: Multi-phase boss encounters with special mechanics
 - **Meta Progression**: Permanent upgrades via the Star Vendor system
-- **Achievement System**: 15+ achievements to unlock
+- **Achievement System**: 19 achievements to unlock
 - **Performance Optimized**: 60 FPS on Raspberry Pi 5 (+44-70 FPS improvement)
 - **Mobile Friendly**: Responsive design with touch support
 
@@ -62,6 +63,7 @@ Choose your pilot at game start:
 - **🛡️ Aegis Vanguard**: +30% health, tanky and forgiving - perfect for beginners
 - **⚡ Nova Corsair**: +18% attack speed, glass cannon - for skilled players
 - **⚡️🔗 Stormcaller Adept**: Built-in chain lightning - crowd control specialist
+- **🎯 Nexus Architect**: Starts with 2 orbitals - orbital specialist with tactical playstyle
 
 See [docs/current/CHARACTERS.md](docs/current/CHARACTERS.md) for detailed builds and strategies!
 
@@ -213,8 +215,8 @@ Contributions are welcome! Please see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.m
 
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for complete version history and release notes.
 
-**Latest:** v1.1.0 (Nov 2025) - Character & weapon systems, performance optimizations
-**Previous:** v1.0.9 (Jan 2025) - Boss balance overhaul and critical bug fixes
+**Latest:** v1.1.1 (Nov 2025) - Added 4th character (Nexus Architect), documentation updates
+**Previous:** v1.1.0 (Nov 2025) - Character & weapon systems, performance optimizations
 
 ## 🏆 Credits
 
