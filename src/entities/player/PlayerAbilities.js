@@ -73,6 +73,7 @@ class PlayerAbilities {
 
     updateShield(deltaTime, game) {
         if (!this.hasShield) return;
+        const achievementSystem = window.achievementSystem || window.gameManager?.achievementSystem || window.gameManagerBridge?.achievementSystem;
 
         // Decay hit flash
         if (this.shieldHitFlash > 0) {
@@ -87,9 +88,8 @@ class PlayerAbilities {
 
             // Throttle achievement update to once per second to reduce overhead
             if (this.shieldTimeUpdateTimer >= 1.0) {
-                const gm = window.gameManager || window.gameManagerBridge;
-                if (gm?.achievementSystem?.updateShieldTimeWithoutBreak) {
-                    gm.achievementSystem.updateShieldTimeWithoutBreak(this.shieldTimeWithoutBreak);
+                if (achievementSystem?.updateShieldTimeWithoutBreak) {
+                    achievementSystem.updateShieldTimeWithoutBreak(this.shieldTimeWithoutBreak);
                 }
                 this.shieldTimeUpdateTimer = 0;
             }
@@ -148,6 +148,8 @@ class PlayerAbilities {
             window.audioSystem.play('shieldHit', 0.4);
         }
 
+        const achievementSystem = window.achievementSystem || window.gameManager?.achievementSystem || window.gameManagerBridge?.achievementSystem;
+
         // Check for adaptive armor growth
         if (this.shieldAdaptiveGrowth > 0 && this.shieldAdaptiveMax > 0) {
             const growthIncrement = Math.floor(this.shieldDamageBlocked / 100) * this.shieldAdaptiveGrowth;
@@ -165,16 +167,12 @@ class PlayerAbilities {
 
                 // Check achievement for max adaptive armor
                 if (newGrowth >= this.shieldAdaptiveMax) {
-                    const gm = window.gameManager || window.gameManagerBridge;
-                    if (gm?.achievementSystem?.updateAchievement) {
-                        gm.achievementSystem.updateAchievement('adaptive_evolution', 1);
+                    if (achievementSystem?.updateAchievement) {
+                        achievementSystem.updateAchievement('adaptive_evolution', 1);
                     }
                 }
             }
         }
-
-        // Get game manager reference once for achievement updates
-        const gm = window.gameManager || window.gameManagerBridge;
 
         // Check for energy reflection
         if (this.shieldReflectChance > 0 && Math.random() < this.shieldReflectChance) {
@@ -183,14 +181,14 @@ class PlayerAbilities {
 
             // Track reflected damage for achievements (pass increment, not total)
             this.shieldDamageReflected += reflectedDamage;
-            if (gm?.achievementSystem?.updateShieldDamageReflected) {
-                gm.achievementSystem.updateShieldDamageReflected(reflectedDamage); // ✅ Pass increment
+            if (achievementSystem?.updateShieldDamageReflected) {
+                achievementSystem.updateShieldDamageReflected(reflectedDamage); // ✅ Pass increment
             }
         }
 
         // Update total damage blocked achievement (pass increment, not total)
-        if (gm?.achievementSystem?.updateShieldDamageBlocked) {
-            gm.achievementSystem.updateShieldDamageBlocked(damageBlocked); // ✅ Pass increment
+        if (achievementSystem?.updateShieldDamageBlocked) {
+            achievementSystem.updateShieldDamageBlocked(damageBlocked); // ✅ Pass increment
         }
 
         // Shield broke?

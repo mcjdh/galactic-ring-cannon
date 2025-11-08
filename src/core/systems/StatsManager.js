@@ -24,6 +24,7 @@ class StatsManager {
         this.totalDamageTaken = 0;
         this.projectilesFired = 0;
         this.distanceTraveled = 0;
+        this.lastPlayerPosition = null;
         
         // Combo configuration
         this.comboTimeout = (COMBO_CONFIG && COMBO_CONFIG.TIMEOUT != null) ? COMBO_CONFIG.TIMEOUT : 0.8;
@@ -162,6 +163,25 @@ class StatsManager {
 
         // Update session time
         this.sessionStats.gameTime = this.gameManager.gameTime;
+
+        // Track player travel distance for lifetime achievements
+        const player = this.gameManager?.game?.player;
+        if (player && typeof player.x === 'number' && typeof player.y === 'number') {
+            if (!this.lastPlayerPosition) {
+                this.lastPlayerPosition = { x: player.x, y: player.y };
+            } else {
+                const dx = player.x - this.lastPlayerPosition.x;
+                const dy = player.y - this.lastPlayerPosition.y;
+                const distance = Math.hypot(dx, dy);
+                if (Number.isFinite(distance)) {
+                    this.distanceTraveled += distance;
+                }
+                this.lastPlayerPosition.x = player.x;
+                this.lastPlayerPosition.y = player.y;
+            }
+        } else {
+            this.lastPlayerPosition = null;
+        }
 
         // Update untouchable achievement (damage-free time)
         this.achievementSystem?.updateUntouchable?.(deltaTime);
@@ -345,9 +365,6 @@ class StatsManager {
                     `${minutes}:${seconds.toString().padStart(2, '0')} SURVIVED!` :
                     `${minutes} MINUTE${minutes > 1 ? 'S' : ''} SURVIVED!`;
                 color = 'heal';
-                if (value >= 600) {
-                    this.achievementSystem?.updateAchievement?.('survivor', value);
-                }
                 break;
             case 'bosses':
                 message = `${value} BOSS${value > 1 ? 'ES' : ''} DEFEATED!`;
@@ -449,8 +466,8 @@ class StatsManager {
         // Track Nova Blitz achievement (75 kills in 30 seconds)
         this.achievementSystem?.onNovaBlitzKill?.(Date.now());
 
-        // Check efficient killer achievement only at exactly 100 kills (use hits for accuracy)
-        if (this.killCount === 100 && !this.achievementSystem?.achievements?.efficient_killer?.unlocked) {
+        // Check efficient killer achievement once kill count crosses threshold (use hits for accuracy)
+        if (this.killCount >= 100 && !this.achievementSystem?.achievements?.efficient_killer?.unlocked) {
             this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
         }
 
@@ -863,6 +880,7 @@ class StatsManager {
         this.lastLifetimeAchievementUpdate = 0;
         this.aegisWallChecked = false;
         this.aegisWallStarted = false;
+        this.lastPlayerPosition = null;
     }
     
     /**

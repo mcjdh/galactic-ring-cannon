@@ -63,10 +63,6 @@ class AchievementSystem {
         this.recentKills = [];
         this.novaBlitzKills = [];
 
-        // Reset per-run chain/ricochet hit tracking
-        this.currentChainHits = 0;
-        this.currentRicochetHits = 0;
-
         // Reset Aegis Wall tracking
         this.aegisWallStartTime = null;
         this.aegisWallStartDamage = 0;

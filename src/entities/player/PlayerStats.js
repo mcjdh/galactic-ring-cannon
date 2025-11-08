@@ -203,9 +203,9 @@ class PlayerStats {
 
                 // Check if shield saved player from lethal damage (Last Stand achievement)
                 if (amount >= this.health) {
-                    const gm = window.gameManager || window.gameManagerBridge;
-                    if (gm?.achievementSystem?.updateAchievement) {
-                        gm.achievementSystem.updateAchievement('last_stand', 1);
+                    const achievementSystem = window.achievementSystem || window.gameManager?.achievementSystem;
+                    if (achievementSystem?.updateAchievement) {
+                        achievementSystem.updateAchievement('last_stand', 1);
                         console.log('[Achievement] Last Stand! Shield saved player from lethal damage');
                     }
                 }
@@ -217,7 +217,12 @@ class PlayerStats {
             amount = penetratedDamage;
         }
 
-        this.health = Math.max(0, this.health - amount);
+        const previousHealth = this.health;
+        this.health = Math.max(0, previousHealth - amount);
+        const damageApplied = Math.max(0, previousHealth - this.health);
+        if (damageApplied > 0) {
+            window.gameManager?.statsManager?.trackDamageTaken?.(damageApplied);
+        }
 
         // Notify game manager for achievement tracking
         if (window.gameManager) {
@@ -225,8 +230,8 @@ class PlayerStats {
         }
 
         // Show damage text
-        if (window.gameManager && window.gameManager.showFloatingText) {
-            window.gameManager.showFloatingText(`-${Math.round(amount)}`, this.player.x, this.player.y - 20, '#e74c3c', 18);
+        if (window.gameManager && window.gameManager.showFloatingText && damageApplied > 0) {
+            window.gameManager.showFloatingText(`-${Math.round(damageApplied)}`, this.player.x, this.player.y - 20, '#e74c3c', 18);
         }
 
         // Update health bar
