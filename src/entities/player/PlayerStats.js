@@ -201,15 +201,6 @@ class PlayerStats {
                     window.gameManager.showFloatingText(`BLOCKED`, this.player.x, this.player.y - 20, '#00ffff', 18);
                 }
 
-                // Check if shield saved player from lethal damage (Last Stand achievement)
-                if (amount >= this.health) {
-                    const achievementSystem = window.achievementSystem || window.gameManager?.achievementSystem;
-                    if (achievementSystem?.updateAchievement) {
-                        achievementSystem.updateAchievement('last_stand', 1);
-                        console.log('[Achievement] Last Stand! Shield saved player from lethal damage');
-                    }
-                }
-
                 return; // No health damage taken
             }
 

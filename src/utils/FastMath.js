@@ -327,4 +327,6 @@ const FastMath = {
 
 if (typeof window !== 'undefined') {
     window.FastMath = FastMath;
+    window.Game = window.Game || {};
+    window.Game.FastMath = FastMath;
 }

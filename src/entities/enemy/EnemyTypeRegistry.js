@@ -20,6 +20,7 @@ class EnemyTypeRegistry {
         'phantom': PhantomEnemy,
         'shielder': ShielderEnemy,
         'summoner': SummonerEnemy,
+        'berserker': BerserkerEnemy,
         'minion': MinionEnemy,
         'boss': BossEnemy
     };

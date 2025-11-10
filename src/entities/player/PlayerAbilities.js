@@ -179,10 +179,15 @@ class PlayerAbilities {
             console.log(`[Shield] Energy reflection triggered!`);
             const reflectedDamage = this.reflectDamage(damageBlocked);
 
-            // Track reflected damage for achievements (pass increment, not total)
-            this.shieldDamageReflected += reflectedDamage;
-            if (achievementSystem?.updateShieldDamageReflected) {
-                achievementSystem.updateShieldDamageReflected(reflectedDamage); // ✅ Pass increment
+            if (reflectedDamage > 0) {
+                this.shieldDamageReflected += reflectedDamage;
+                // Actual reflected hits are tracked via EnemyStats to ensure accuracy
+            } else {
+                // No enemies in range – award half the blocked damage as dispersed energy
+                const fallback = damageBlocked * 0.5;
+                if (fallback > 0) {
+                    this.shieldDamageReflected += fallback;
+                }
             }
         }
 
@@ -224,13 +229,15 @@ class PlayerAbilities {
      * Returns the total damage reflected to all enemies
      */
     reflectDamage(damageAmount) {
-        if (!window.gameManager?.game) return 0;
+        const gm = window.gameManager || window.gameManagerBridge;
+        const game = gm?.game;
+        if (!game || !Array.isArray(game.enemies)) return 0;
 
         const reflectionDamage = damageAmount * 0.5; // Reflect 50% of blocked damage
         const reflectionRadius = 200;  // Increased from 150 for better area coverage
 
         // Find enemies in range
-        const nearbyEnemies = window.gameManager.game.enemies.filter(enemy => {
+        const nearbyEnemies = game.enemies.filter(enemy => {
             if (enemy.isDead) return false;
             const dx = enemy.x - this.player.x;
             const dy = enemy.y - this.player.y;
@@ -259,9 +266,11 @@ class PlayerAbilities {
      * Trigger shield explosion (Aegis Protocol)
      */
     triggerShieldExplosion() {
-        if (!window.gameManager?.game) return;
+        const gm = window.gameManager || window.gameManagerBridge;
+        const game = gm?.game;
+        if (!game || !Array.isArray(game.enemies)) return;
 
-        const enemies = window.gameManager.game.enemies.filter(enemy => {
+        const enemies = game.enemies.filter(enemy => {
             if (enemy.isDead) return false;
             const dx = enemy.x - this.player.x;
             const dy = enemy.y - this.player.y;

@@ -47,6 +47,11 @@ class EnemyStats {
         const actualDamage = Math.max(1, Math.floor(amount)); // Minimum 1 damage
         enemy.health = Math.max(0, enemy.health - actualDamage);
 
+        // Track cumulative damage for achievements/stats
+        const gm = window.gameManager || window.gameManagerBridge;
+        gm?.statsManager?.trackDamageDealt?.(actualDamage);
+        // Mirror Match achievement removed; reflected hits still tracked via stats if needed
+
         // Trigger damage flash effect
         enemy.damageFlashTimer = 100; // 100ms flash
 

@@ -1593,7 +1593,6 @@ class GameEngine {
             const actualDamage = preHealth !== null && currentHealth !== null
                 ? Math.max(0, preHealth - currentHealth)
                 : projectile.damage;
-            window.gameManager?.statsManager?.trackDamageDealt?.(actualDamage ?? projectile.damage);
             if (window.gameManager) window.gameManager.createHitEffect(enemy.x, enemy.y, actualDamage ?? projectile.damage);
             if (window.audioSystem?.play) window.audioSystem.play('hit', 0.2);
         }

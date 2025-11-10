@@ -149,15 +149,6 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 10,
         unlocked: false
     },
-    'efficient_killer': {
-        name: 'Efficient Killer',
-        description: 'Achieve 100 kills with 80%+ accuracy in a single run',
-        icon: '>>',
-        progress: 0,
-        target: 100,
-        unlocked: false
-    },
-
     // ========================================
     // LIFETIME/CUMULATIVE ACHIEVEMENTS
     // ========================================
@@ -198,20 +189,12 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 75,
         unlocked: false
     },
-    'aegis_wall': {
-        name: 'Aegis Wall',
-        description: 'Take less than 300 damage in a 3-minute run',
-        icon: '=',
-        progress: 0,
-        target: 1,
-        unlocked: false
-    },
     'storm_surge': {
         name: 'Storm Surge',
-        description: 'Hit 8 enemies with a single chain lightning',
+        description: 'Hit 6 enemies with a single chain lightning',
         icon: '*',
         progress: 0,
-        target: 8,
+        target: 6,
         unlocked: false
     },
 
@@ -263,14 +246,6 @@ const ACHIEVEMENT_DEFINITIONS = {
         unlocked: false,
         important: true
     },
-    'mirror_match': {
-        name: 'Mirror Match',
-        description: 'Reflect 1000 damage back to enemies',
-        icon: '[<]',
-        progress: 0,
-        target: 1000,
-        unlocked: false
-    },
     'adaptive_evolution': {
         name: 'Adaptive Evolution',
         description: 'Reach maximum adaptive armor growth',
@@ -281,20 +256,12 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'aegis_guardian': {
         name: 'Aegis Guardian',
-        description: 'Survive 5 minutes without shield breaking',
+        description: 'Survive 1 minute without shield breaking',
         icon: '[=]',
         progress: 0,
-        target: 300,  // 5 minutes in seconds
+        target: 60,
         unlocked: false,
         important: true
-    },
-    'last_stand': {
-        name: 'Last Stand',
-        description: 'Shield saves you from a lethal hit',
-        icon: '[*]',
-        progress: 0,
-        target: 1,
-        unlocked: false
     }
 };
 

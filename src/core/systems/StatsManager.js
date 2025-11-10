@@ -34,8 +34,6 @@ class StatsManager {
         // Throttle achievement updates to reduce processing overhead
         this.lastLifetimeAchievementUpdate = 0;
         this.lifetimeAchievementUpdateInterval = 5; // Update every 5 seconds
-        this.aegisWallChecked = false; // Track if we've checked the 180-second threshold
-        this.aegisWallStarted = false; // Track if we've started Aegis Wall tracking
 
         // Update GameState combo config when available (after construction)
         // Deferred to avoid initialization order issues
@@ -200,17 +198,7 @@ class StatsManager {
         // Update Tank Commander achievement (time without dodging)
         this.achievementSystem?.updateTankCommander?.(deltaTime);
 
-        // Check Aegis Wall achievement only once when crossing the 180-second threshold
-        if (!this.aegisWallChecked && currentTime >= 180) {
-            this.achievementSystem?.checkAegisWall?.(this.totalDamageTaken, currentTime);
-            this.aegisWallChecked = true;
-        }
-
-        // Start Aegis Wall tracking at game start (only once)
-        if (!this.aegisWallStarted && this.gameManager.gameTime <= 1 && this.achievementSystem) {
-            this.achievementSystem.startAegisWallTracking?.(this.totalDamageTaken, this.gameManager.gameTime);
-            this.aegisWallStarted = true;
-        }
+        // No additional Aegis-specific tracking required
     }
 
     bindAchievementSystem() {
@@ -235,8 +223,6 @@ class StatsManager {
                 this.achievementSystem.onLevelReached?.(player.level);
             }
 
-            // Check efficient killer achievement (use hits for accuracy)
-            this.achievementSystem.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
         }
     }
     
@@ -466,11 +452,6 @@ class StatsManager {
         // Track Nova Blitz achievement (75 kills in 30 seconds)
         this.achievementSystem?.onNovaBlitzKill?.(Date.now());
 
-        // Check efficient killer achievement once kill count crosses threshold (use hits for accuracy)
-        if (this.killCount >= 100 && !this.achievementSystem?.achievements?.efficient_killer?.unlocked) {
-            this.achievementSystem?.checkEfficientKiller?.(this.killCount, this.sessionStats.projectilesFired, this.sessionStats.projectileHits);
-        }
-
         return killCount;
     }
 
@@ -655,6 +636,10 @@ class StatsManager {
      * Earn star tokens
      */
     earnStarTokens(amount) {
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return;
+        }
+
         this.bindAchievementSystem();
         // Apply Stellar Fortune bonus from Star Vendor
         let stellarFortuneLevel = 0;
@@ -678,7 +663,17 @@ class StatsManager {
         // 🌊 USE GAME STATE
         if (this.state && this.state.earnStarTokens) {
             this.state.earnStarTokens(finalAmount);
+            this.starTokens = this.state.meta?.starTokens ?? (this.starTokens + finalAmount);
+        } else {
+            this.starTokens += finalAmount;
+            try {
+                window.StorageManager.setItem('starTokens', this.starTokens.toString());
+            } catch (error) {
+                window.logger.warn('Failed to save star tokens:', error);
+            }
         }
+
+        this.starTokensEarned += finalAmount;
 
         this.achievementSystem?.updateAchievement?.('meta_star_collector', this.starTokens);
 
@@ -711,29 +706,45 @@ class StatsManager {
      * Spend star tokens
      */
     spendStarTokens(amount) {
-        if (this.starTokens >= amount) {
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return true;
+        }
+
+        let succeeded = false;
+
+        if (this.state && typeof this.state.spendStarTokens === 'function') {
+            succeeded = this.state.spendStarTokens(amount);
+            if (succeeded) {
+                this.starTokens = this.state.meta?.starTokens ?? Math.max(0, this.starTokens - amount);
+            }
+        } else if (this.starTokens >= amount) {
             this.starTokens -= amount;
+            succeeded = true;
             try {
                 window.StorageManager.setItem('starTokens', this.starTokens.toString());
             } catch (error) {
                 window.logger.warn('Failed to save star tokens:', error);
             }
-
-            // Sync with GameManager metaStars and update UI
-            if (this.gameManager) {
-                this.gameManager.metaStars = this.starTokens;
-                if (typeof this.gameManager.updateStarDisplay === 'function') {
-                    this.gameManager.updateStarDisplay();
-                }
-                if (typeof this.gameManager.saveStarTokens === 'function') {
-                    this.gameManager.saveStarTokens();
-                }
-            }
-            return true;
         }
-        return false;
+
+        if (!succeeded) {
+            return false;
+        }
+
+        // Sync with GameManager metaStars and update UI
+        if (this.gameManager) {
+            this.gameManager.metaStars = this.starTokens;
+            if (typeof this.gameManager.updateStarDisplay === 'function') {
+                this.gameManager.updateStarDisplay();
+            }
+            if (typeof this.gameManager.saveStarTokens === 'function') {
+                this.gameManager.saveStarTokens();
+            }
+        }
+
+        return true;
     }
-    
+
     /**
      * Load persistent statistics
      */
@@ -878,8 +889,6 @@ class StatsManager {
         
         // Reset achievement update throttling
         this.lastLifetimeAchievementUpdate = 0;
-        this.aegisWallChecked = false;
-        this.aegisWallStarted = false;
         this.lastPlayerPosition = null;
     }
     

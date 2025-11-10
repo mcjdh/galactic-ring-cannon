@@ -28,6 +28,18 @@
                 achievements: { currentPage: 1, totalPages: 1, itemsPerPage: 1 }
             };
 
+            // Use a shared formatter so huge progress numbers stay readable
+            if (typeof Intl !== 'undefined' && typeof Intl.NumberFormat === 'function') {
+                try {
+                    this.achievementNumberFormatter = new Intl.NumberFormat('en-US');
+                } catch (error) {
+                    this.logger?.warn?.('Failed to initialize number formatter', error);
+                    this.achievementNumberFormatter = null;
+                }
+            } else {
+                this.achievementNumberFormatter = null;
+            }
+
             this.bindButtons();
             // Don't init background here - wait for show() to avoid double init
         }
@@ -689,7 +701,7 @@
 
             if (listElement) {
                 const items = system.achievements || {};
-                const allAchievements = Object.values(items);
+                const allEntries = Object.entries(items);
                 
                 // Calculate items per page dynamically using actual container dimensions
                 const minItemWidth = 280; // From CSS: minmax(clamp(280px, 36vw, 380px), 1fr)
@@ -703,7 +715,7 @@
                 this.pagination.achievements.itemsPerPage = Math.min(6, itemsPerPage);
                 
                 // Calculate pagination
-                const totalItems = allAchievements.length;
+                const totalItems = allEntries.length;
                 this.pagination.achievements.totalPages = Math.ceil(totalItems / this.pagination.achievements.itemsPerPage) || 1;
                 
                 // Ensure current page is valid
@@ -714,14 +726,23 @@
                 // Calculate start and end indices for current page
                 const startIdx = (this.pagination.achievements.currentPage - 1) * this.pagination.achievements.itemsPerPage;
                 const endIdx = Math.min(startIdx + this.pagination.achievements.itemsPerPage, totalItems);
-                const pageAchievements = allAchievements.slice(startIdx, endIdx);
-                
+                const pageAchievements = allEntries.slice(startIdx, endIdx);
+
+                // Reset inline sizing before recalculating so scrollHeight reflects actual content
+                listElement.style.minHeight = '';
+                listElement.style.maxHeight = '';
+
+                // Adjust layout when only a few entries are visible (keeps final page centered)
+                const compactLayout = pageAchievements.length > 0 && pageAchievements.length <= 3;
+                listElement.classList.toggle('achievements-list--compact', compactLayout);
+
                 // OPTIMIZED: Use DocumentFragment to batch DOM updates (50-100ms faster)
                 const fragment = document.createDocumentFragment();
                 
-                pageAchievements.forEach((achievement) => {
+                pageAchievements.forEach(([id, achievement]) => {
                     const entry = document.createElement('div');
                     entry.className = 'achievement-item';
+                    entry.dataset.achievementId = id;
                     
                     if (achievement.unlocked) {
                         entry.classList.add('unlocked');
@@ -748,7 +769,7 @@
                     if (!achievement.unlocked) {
                         const hint = document.createElement('p');
                         hint.className = 'achievement-hint';
-                        hint.textContent = this.getAchievementHint(achievement);
+                        hint.textContent = this.getAchievementHint(id);
                         info.appendChild(title);
                         info.appendChild(desc);
                         info.appendChild(hint);
@@ -779,7 +800,7 @@
                         progressFill.style.width = `${percent}%`;
                         
                         const progressText = document.createElement('span');
-                        progressText.textContent = `${achievement.progress}/${achievement.target}`;
+                        progressText.textContent = this.formatAchievementProgressText(id, achievement);
                         
                         progressBar.appendChild(progressFill);
                         progress.appendChild(progressBar);
@@ -794,13 +815,62 @@
                 
                 listElement.innerHTML = '';
                 listElement.appendChild(fragment);  // Single reflow
-                
+
+                // Lock the list height to the rendered content to avoid clipping
+                const measuredHeight = Math.max(estimatedItemHeight, listElement.scrollHeight);
+                const heightPx = `${measuredHeight}px`;
+                listElement.style.minHeight = heightPx;
+                listElement.style.maxHeight = heightPx;
+
                 // Update pagination controls
                 this.updatePaginationButtons('achievements');
             }
         }
 
-        getAchievementHint(achievement) {
+        formatAchievementNumber(value) {
+            if (typeof value !== 'number' || !Number.isFinite(value)) {
+                return '0';
+            }
+
+            const floored = Math.max(0, Math.floor(value));
+            if (this.achievementNumberFormatter) {
+                try {
+                    return this.achievementNumberFormatter.format(floored);
+                } catch (_) {
+                    // Formatter failed, fall through to default string conversion
+                }
+            }
+            return floored.toString();
+        }
+
+        formatSeconds(totalSeconds) {
+            if (typeof totalSeconds !== 'number' || !Number.isFinite(totalSeconds)) {
+                totalSeconds = 0;
+            }
+            const clamped = Math.max(0, Math.floor(totalSeconds));
+            const minutes = Math.floor(clamped / 60);
+            const seconds = clamped % 60;
+            if (minutes <= 0) {
+                return `${seconds}s`;
+            }
+            return `${minutes}:${seconds.toString().padStart(2, '0')}s`;
+        }
+
+        formatAchievementProgressText(id, achievement) {
+            if (!achievement) {
+                return '0/0';
+            }
+            const progress = Number.isFinite(achievement.progress) ? achievement.progress : 0;
+            const target = Number.isFinite(achievement.target) ? achievement.target : 0;
+
+            if (id === 'aegis_guardian') {
+                return `${this.formatSeconds(progress)}/${this.formatSeconds(target)}`;
+            }
+
+            return `${this.formatAchievementNumber(progress)}/${this.formatAchievementNumber(target)}`;
+        }
+
+        getAchievementHint(achievementId) {
             // Map achievement IDs to helpful hints
             const hints = {
                 'first_kill': '💡 Defeat any enemy to unlock',
@@ -817,12 +887,10 @@
                 'tank_commander': '💡 Stay alive without dodging - defensive builds help!',
                 'speed_runner': '💡 Choose damage and XP upgrades early',
                 'elite_hunter': '💡 Yellow enemies are elites',
-                'efficient_killer': '💡 Upgrade accuracy and piercing',
                 'cosmic_veteran': '💡 Deal damage across all runs - persistent progress!',
                 'galactic_explorer': '💡 Keep moving across all runs - persistent progress!',
                 'trigger_happy': '💡 Fire often across all runs - persistent progress!',
                 'nova_blitz': '💡 High attack speed builds excel here',
-                'aegis_wall': '💡 Aegis Vanguard with defense upgrades',
                 'storm_surge': '💡 Chain Lightning with arc upgrades',
                 'critical_master': '💡 Upgrade crit chance for more crits',
                 'chain_reaction': '💡 Chain Lightning weapon required',
@@ -830,11 +898,7 @@
                 'orbital_master': '💡 Get Triple Orbit upgrade'
             };
             
-            const id = Object.keys(window.achievementSystem?.achievements || {}).find(
-                key => window.achievementSystem.achievements[key] === achievement
-            );
-            
-            return hints[id] || '💡 Keep playing to unlock';
+            return hints[achievementId] || '💡 Keep playing to unlock';
         }
 
         populateShop() {

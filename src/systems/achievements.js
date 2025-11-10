@@ -34,6 +34,9 @@ class AchievementSystem {
         // Track ricochet hits (will be restored from saved progress in loadAchievements)
         this.currentRicochetHits = 0;
 
+        // Track best chain lightning burst for Storm Surge
+        this.maxStormSurgeHits = 0;
+
         // Track time without dodging for 'Tank Commander' achievement
         this.timeSinceLastDodge = 0;
         this.maxTimeSinceLastDodge = 0;
@@ -42,10 +45,6 @@ class AchievementSystem {
         this.novaBlitzKills = [];
         this.novaBlitzWindow = 30; // seconds
 
-        // Track Aegis Wall damage tracking
-        this.aegisWallStartTime = null;
-        this.aegisWallStartDamage = 0;
-        this.aegisWallChecking = false;
     }
 
     /**
@@ -62,11 +61,6 @@ class AchievementSystem {
         // Reset windowed kill tracking
         this.recentKills = [];
         this.novaBlitzKills = [];
-
-        // Reset Aegis Wall tracking
-        this.aegisWallStartTime = null;
-        this.aegisWallStartDamage = 0;
-        this.aegisWallChecking = false;
 
         window.logger.log('Achievement run tracking reset');
     }
@@ -87,6 +81,7 @@ class AchievementSystem {
             // Initialize tracking variables from saved progress to maintain max values across sessions
             this.currentChainHits = this.achievements.chain_reaction?.progress || 0;
             this.currentRicochetHits = this.achievements.ricochet_master?.progress || 0;
+            this.maxStormSurgeHits = this.achievements.storm_surge?.progress || 0;
         } catch (error) {
             window.logger.error('Error loading achievements:', error);
             // Clear corrupted data
@@ -296,43 +291,24 @@ class AchievementSystem {
         this.updateAchievement('nova_blitz', this.novaBlitzKills.length);
     }
 
-    // Track Aegis Wall (less than 300 damage in 3 minutes)
-    startAegisWallTracking(currentDamage, currentTime) {
-        if (!this.aegisWallChecking) {
-            this.aegisWallStartDamage = currentDamage;
-            this.aegisWallStartTime = currentTime;
-            this.aegisWallChecking = true;
-        }
-    }
-
-    checkAegisWall(currentDamage, currentTime) {
-        if (this.aegisWallChecking && this.aegisWallStartTime) {
-            const elapsedTime = currentTime - this.aegisWallStartTime;
-            const damageTaken = currentDamage - this.aegisWallStartDamage;
-
-            // Check if 3 minutes have passed
-            if (elapsedTime >= 180) {
-                if (damageTaken < 300) {
-                    this.updateAchievement('aegis_wall', 1);
-                }
-                // Reset tracking
-                this.aegisWallChecking = false;
-                this.aegisWallStartTime = null;
-            }
-        }
-    }
-
     // Track lifetime achievements (cumulative across runs)
-    updateLifetimeAchievements(stats) {
-        if (stats.totalDamageDealt != null) {
-            this.updateAchievement('cosmic_veteran', stats.totalDamageDealt);
+    updateLifetimeAchievements(stats = {}) {
+        this.updateMonotonicAchievement('cosmic_veteran', stats.totalDamageDealt);
+        this.updateMonotonicAchievement('galactic_explorer', stats.distanceTraveled);
+        this.updateMonotonicAchievement('trigger_happy', stats.projectilesFired);
+    }
+
+    /**
+     * Ensure achievements that should only increase never regress even if stats snapshot resets.
+     */
+    updateMonotonicAchievement(key, candidateValue) {
+        if (candidateValue == null || !Number.isFinite(candidateValue)) {
+            return;
         }
-        if (stats.distanceTraveled != null) {
-            this.updateAchievement('galactic_explorer', stats.distanceTraveled);
-        }
-        if (stats.projectilesFired != null) {
-            this.updateAchievement('trigger_happy', stats.projectilesFired);
-        }
+        const integerValue = Math.max(0, Math.floor(candidateValue));
+        const currentProgress = this.achievements[key]?.progress ?? 0;
+        const safeValue = Math.max(currentProgress, integerValue);
+        this.updateAchievement(key, safeValue);
     }
 
     // Track Speed Runner (reach level 15 in single run)
@@ -342,33 +318,24 @@ class AchievementSystem {
 
     // Track Storm Surge (hit 8 enemies with chain lightning)
     onStormSurgeHit(hitCount) {
-        this.updateAchievement('storm_surge', hitCount);
+        if (!Number.isFinite(hitCount)) {
+            return;
+        }
+        this.maxStormSurgeHits = Math.max(this.maxStormSurgeHits || 0, hitCount);
+        this.updateAchievement('storm_surge', this.maxStormSurgeHits);
     }
 
-    // Track Efficient Killer (100 kills with 80%+ accuracy)
-    checkEfficientKiller(kills, projectilesFired, projectileHits) {
-        if (kills >= 100 && projectilesFired > 0) {
-            const accuracy = projectileHits / projectilesFired;
-            if (accuracy >= 0.8) {
-                this.updateAchievement('efficient_killer', kills);
-            }
-        }
-    }
-    
     // ========================================
     // SHIELD-SPECIFIC TRACKING (Aegis Vanguard)
     // ========================================
 
     // Track total damage blocked by shields (CUMULATIVE across all runs)
     updateShieldDamageBlocked(damageIncrement) {
+        if (!Number.isFinite(damageIncrement) || damageIncrement <= 0) {
+            return;
+        }
         const currentProgress = this.achievements.unbreakable?.progress || 0;
-        this.updateAchievement('unbreakable', currentProgress + Math.floor(damageIncrement));
-    }
-
-    // Track total damage reflected by shields (CUMULATIVE across all runs)
-    updateShieldDamageReflected(damageIncrement) {
-        const currentProgress = this.achievements.mirror_match?.progress || 0;
-        this.updateAchievement('mirror_match', currentProgress + Math.floor(damageIncrement));
+        this.updateAchievement('unbreakable', currentProgress + damageIncrement);
     }
 
     // Track time without shield breaking (MAX value per run, not cumulative)
