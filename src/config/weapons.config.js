@@ -80,6 +80,32 @@ const WEAPON_DEFINITIONS = {
             cooldown: 12.0,
             description: 'Unleash a wide arc pulse that shocks nearby targets.'
         }
+    },
+    constellation_array: {
+        id: 'constellation_array',
+        name: 'Constellation Array',
+        description: 'Synchronizes orbitals into rotating volleys that wash the battlefield.',
+        archetype: 'orbit',
+        fireRate: 0.95,
+        startupDelay: 0,
+        targeting: 'omni',
+        projectileTemplate: {
+            count: 3,
+            spreadDegrees: 0,
+            damageMultiplier: 0.95,
+            speedMultiplier: 0.9,
+            appliesBehaviors: true
+        },
+        volley: {
+            min: 2,
+            max: 8
+        },
+        upgradeTags: ['orbit', 'support', 'core'],
+        secondary: {
+            id: 'orbital_flux',
+            cooldown: 10.0,
+            description: 'Critical hits briefly overcharge the array, increasing volley size.'
+        }
     }
 };
 

@@ -3,6 +3,12 @@
  * Starter class archetypes: weapon, stat modifiers, flavor text.
  *
  * Modifiers schema (all optional):
+ * - unlockRequirement (optional):
+ *     {
+ *         type: 'achievement',
+ *         ids: ['achievement_id'],
+ *         hint: 'UI hint text shown when locked'
+ *     }
  * - stats: {
  *     healthMultiplier,
  *     flatHealth,
@@ -108,6 +114,11 @@ const CHARACTER_DEFINITIONS = [
         },
         // Build path preferences - these paths get +40% weight bonus for this character
         preferredBuildPaths: ['ricochet', 'explosive'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['split_shot_specialist'],
+            hint: 'Keep drafting Split Shot until the Corsair answers the call.'
+        },
         flavor: '"If you\'re not inside their formation, you\'re doing it wrong."'
     },
     {
@@ -144,6 +155,11 @@ const CHARACTER_DEFINITIONS = [
         },
         // Build path preferences - these paths get +40% weight bonus for this character
         preferredBuildPaths: ['chain'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['storm_surge'],
+            hint: 'Unleash the Storm Surge achievement to access this adept.'
+        },
         flavor: '"The void hums with resonance—listen, and strike."'
     },
     {
@@ -153,11 +169,12 @@ const CHARACTER_DEFINITIONS = [
         tagline: 'Orbital Savant',
         description: 'Commands a constellation of orbital weapons that dance in perfect harmony. Master of sustained, methodical combat.',
         difficulty: 'tactical',
-        weaponId: 'pulse_cannon',  // Uses balanced pulse cannon
+        weaponId: 'constellation_array',
         highlights: [
             'Starts with 2 free orbital projectiles',
             '+10% orbital damage & +20% orbital speed',
-            'Reduced orbital collision radius for precision'
+            'Reduced orbital collision radius for precision',
+            'Unique Constellation Array weapon syncs orbitals into volleys'
         ],
         modifiers: {
             stats: {
@@ -182,6 +199,11 @@ const CHARACTER_DEFINITIONS = [
         },
         // Build path preferences - orbitals are core identity
         preferredBuildPaths: ['orbit', 'support'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['orbital_master'],
+            hint: 'Command five orbitals at once to unlock the Architect.'
+        },
         flavor: '"Precision is not perfection. It is the path to it."'
     }
 ];

@@ -42,6 +42,11 @@
 
             this.bindButtons();
             // Don't init background here - wait for show() to avoid double init
+
+            this.achievementUnlockHandler = (event) => this.handleExternalAchievementUnlock(event);
+            if (typeof window !== 'undefined' && window.addEventListener) {
+                window.addEventListener('achievementUnlocked', this.achievementUnlockHandler);
+            }
         }
 
         captureDomRefs() {
@@ -265,8 +270,16 @@
                 state?.flow?.selectedCharacter ||
                 window.StorageManager.getItem('selectedCharacter');
 
-            if (stored && definitions.some(def => def.id === stored)) {
-                return stored;
+            if (stored) {
+                const storedDefinition = definitions.find(def => def.id === stored);
+                if (storedDefinition && this.isCharacterUnlocked(storedDefinition)) {
+                    return stored;
+                }
+            }
+
+            const fallback = definitions.find(def => this.isCharacterUnlocked(def));
+            if (fallback) {
+                return fallback.id;
             }
 
             return definitions[0].id;
@@ -331,7 +344,11 @@
             }
 
             const initialCharacterId = this.resolveInitialCharacterId(definitions);
-            const initialDefinition = definitions.find(def => def.id === initialCharacterId) || definitions[0];
+            const initialDefinition =
+                definitions.find(def => def.id === initialCharacterId) ||
+                definitions.find(def => this.isCharacterUnlocked(def)) ||
+                definitions[0];
+
             this.selectedCharacterId = initialDefinition?.id || initialCharacterId;
             this.selectedWeaponId = initialDefinition?.weaponId || this.selectedWeaponId;
 
@@ -355,12 +372,17 @@
                     button.dataset.characterId = def.id;
                     const icon = def.icon ? `<span class="button-icon">${def.icon}</span>` : '';
                     button.innerHTML = `${icon}<span class="button-text">${def.name || def.id}</span>`;
-                    button.title = def.tagline || def.description || def.name || def.id;
                     this.addListener(button, 'click', () => this.handleCharacterSelect(def.id));
                     container.appendChild(button);
                     this.characterButtons.set(def.id, button);
                 });
             }
+
+            // Ensure button state reflects latest unlock information
+            definitions.forEach(def => {
+                const button = this.characterButtons.get(def.id);
+                this.updateCharacterButtonLockState(button, def);
+            });
 
             this.highlightSelectedCharacter(this.selectedCharacterId);
             this.updateLoadoutDescription(this.selectedCharacterId);
@@ -384,8 +406,11 @@
 
             if (!character) {
                 descriptionEl.textContent = 'Select a pilot to tailor your run.';
+                descriptionEl.classList.remove('is-locked');
                 return;
             }
+
+            const isUnlocked = this.isCharacterUnlocked(character);
 
             // IMPROVED: Structure description with HTML for better readability
             // SECURITY: Use DOM methods to prevent XSS instead of innerHTML
@@ -423,9 +448,17 @@
                 fragment.appendChild(ul);
             }
 
+            if (!isUnlocked && character.unlockRequirement) {
+                const lockedNotice = document.createElement('div');
+                lockedNotice.className = 'char-desc-locked';
+                lockedNotice.textContent = this.getUnlockRequirementText(character.unlockRequirement, character);
+                fragment.appendChild(lockedNotice);
+            }
+
             // Clear and append (single reflow)
             descriptionEl.textContent = '';
             descriptionEl.appendChild(fragment);
+            descriptionEl.classList.toggle('is-locked', !isUnlocked);
         }
 
         formatWeaponSummary(def) {
@@ -466,12 +499,185 @@
             return '';
         }
 
+        isCharacterUnlocked(definition) {
+            if (!definition?.unlockRequirement) {
+                return true;
+            }
+            return this.areRequirementsSatisfied(definition.unlockRequirement);
+        }
+
+        areRequirementsSatisfied(requirement) {
+            if (!requirement) {
+                return true;
+            }
+            const ids = this.normalizeRequirementIds(requirement);
+            if (!ids.length) {
+                return true;
+            }
+            return ids.every(id => this.isAchievementUnlocked(id));
+        }
+
+        normalizeRequirementIds(requirement) {
+            if (!requirement) {
+                return [];
+            }
+            if (Array.isArray(requirement.ids) && requirement.ids.length) {
+                return requirement.ids.filter(Boolean);
+            }
+            if (typeof requirement.id === 'string' && requirement.id.trim()) {
+                return [requirement.id.trim()];
+            }
+            return [];
+        }
+
+        isAchievementUnlocked(achievementId) {
+            if (typeof achievementId !== 'string' || !achievementId.trim()) {
+                return false;
+            }
+            const id = achievementId.trim();
+            const state = this.getGameState();
+            if (state?.isAchievementUnlocked?.(id)) {
+                return true;
+            }
+            const achievementSet = state?.meta?.achievements;
+            if (achievementSet instanceof Set && achievementSet.has(id)) {
+                return true;
+            }
+            if (Array.isArray(achievementSet) && achievementSet.includes(id)) {
+                return true;
+            }
+            const achievement = window.achievementSystem?.achievements?.[id];
+            return Boolean(achievement?.unlocked);
+        }
+
+        getUnlockRequirementText(requirement, character) {
+            if (!requirement) {
+                return 'Locked';
+            }
+            if (typeof requirement.hint === 'string' && requirement.hint.trim()) {
+                return requirement.hint;
+            }
+            const ids = this.normalizeRequirementIds(requirement);
+            if (!ids.length) {
+                return 'Locked - Complete specific achievements.';
+            }
+            const achievementNames = ids.map(id => {
+                const def = this.getAchievementDefinition(id);
+                return def?.name || id;
+            });
+            const plural = achievementNames.length > 1 ? 'achievements' : 'achievement';
+            const subject = character?.name || 'this pilot';
+            return `Locked - Unlock ${plural} ${achievementNames.join(', ')} to recruit ${subject}.`;
+        }
+
+        getLockBadgeText(requirement) {
+            if (!requirement) {
+                return '🔒 Locked';
+            }
+            if (typeof requirement.badge === 'string') {
+                return requirement.badge;
+            }
+            const ids = this.normalizeRequirementIds(requirement);
+            if (ids.length === 1) {
+                const def = this.getAchievementDefinition(ids[0]);
+                if (def?.name) {
+                    return `🔒 ${def.name}`;
+                }
+            }
+            return '🔒 Locked';
+        }
+
+        getAchievementDefinition(id) {
+            if (!id || typeof window === 'undefined') {
+                return null;
+            }
+            const definitions = window.ACHIEVEMENT_DEFINITIONS || {};
+            return definitions[id] || null;
+        }
+
+        getAchievementUnlockText(characterId) {
+            if (!characterId) {
+                return '';
+            }
+            const character = this.getCharacterDefinitions().find(def => def.id === characterId);
+            const name = character?.name || characterId;
+            return `Unlocks: ${name}`;
+        }
+
+        flashLockedCharacterButton(characterId) {
+            const button = this.characterButtons.get(characterId);
+            if (!button) {
+                return;
+            }
+            button.classList.add('loadout-option-locked-flash');
+            setTimeout(() => {
+                button.classList.remove('loadout-option-locked-flash');
+            }, 600);
+        }
+
+        updateCharacterButtonLockState(button, definition) {
+            if (!button || !definition) {
+                return;
+            }
+
+            const isUnlocked = this.isCharacterUnlocked(definition);
+            const baseTitle = definition.tagline || definition.description || definition.name || definition.id;
+            const lockHint = (!isUnlocked && definition.unlockRequirement)
+                ? this.getUnlockRequirementText(definition.unlockRequirement, definition)
+                : '';
+            button.title = lockHint ? `${baseTitle} • ${lockHint}` : baseTitle;
+
+            button.dataset.locked = isUnlocked ? 'false' : 'true';
+            button.setAttribute('aria-disabled', isUnlocked ? 'false' : 'true');
+            button.classList.toggle('loadout-option-locked', !isUnlocked);
+
+            let lockTag = button.querySelector(':scope > .loadout-lock-tag');
+            if (!isUnlocked) {
+                if (!lockTag) {
+                    lockTag = document.createElement('span');
+                    lockTag.className = 'loadout-lock-tag';
+                    button.appendChild(lockTag);
+                }
+                lockTag.textContent = this.getLockBadgeText(definition.unlockRequirement);
+            } else if (lockTag?.parentNode === button) {
+                button.removeChild(lockTag);
+            }
+        }
+
+        handleExternalAchievementUnlock(event) {
+            this.initializeLoadoutSelector();
+            const achievementsPanel = this.dom.panels?.achievements;
+            if (achievementsPanel && achievementsPanel.classList && !achievementsPanel.classList.contains('hidden')) {
+                this.updateAchievementsUI();
+            }
+        }
+
         handleCharacterSelect(characterId) {
-            if (!characterId || this.selectedCharacterId === characterId) {
+            if (!characterId) {
                 return;
             }
             const definitions = this.getCharacterDefinitions();
             const character = definitions.find(def => def.id === characterId);
+
+            if (!character) {
+                return;
+            }
+
+            if (this.selectedCharacterId === characterId) {
+                // Refresh description/highlight even if selection didn't change
+                this.highlightSelectedCharacter(characterId);
+                this.updateLoadoutDescription(characterId);
+                return;
+            }
+
+             if (!this.isCharacterUnlocked(character)) {
+                 this.updateLoadoutDescription(characterId);
+                 this.flashLockedCharacterButton(characterId);
+                 if (this.logger && typeof this.logger.info === 'function') {
+                     this.logger.info(`Character ${characterId} is locked; selection ignored.`);
+                 }
+                 return;
+             }
 
             this.selectedCharacterId = characterId;
             this.syncCharacterState(characterId);
@@ -785,6 +991,13 @@
                         info.appendChild(desc);
                         info.appendChild(badge);
                     }
+
+                    if (achievement.unlocksCharacter) {
+                        const unlockNote = document.createElement('p');
+                        unlockNote.className = 'achievement-unlock-note';
+                        unlockNote.textContent = this.getAchievementUnlockText(achievement.unlocksCharacter);
+                        info.appendChild(unlockNote);
+                    }
                     
                     // Add progress bar if not unlocked and has progress
                     if (!achievement.unlocked && achievement.target > 1) {
@@ -895,7 +1108,8 @@
                 'critical_master': '💡 Upgrade crit chance for more crits',
                 'chain_reaction': '💡 Chain Lightning weapon required',
                 'ricochet_master': '💡 Get Multi-Bounce upgrade for 3 hits',
-                'orbital_master': '💡 Get Triple Orbit upgrade'
+                'orbital_master': '💡 Stack orbital upgrades until five are spinning',
+                'split_shot_specialist': '💡 Keep drafting Split Shot every time it appears'
             };
             
             return hints[achievementId] || '💡 Keep playing to unlock';
@@ -1304,6 +1518,11 @@
             if (this.menuResizeHandler) {
                 window.removeEventListener('resize', this.menuResizeHandler);
                 this.menuResizeHandler = null;
+            }
+
+            if (this.achievementUnlockHandler && typeof window !== 'undefined' && window.removeEventListener) {
+                window.removeEventListener('achievementUnlocked', this.achievementUnlockHandler);
+                this.achievementUnlockHandler = null;
             }
 
             // Clean up cached menu background resources

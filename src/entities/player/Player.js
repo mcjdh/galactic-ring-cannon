@@ -129,14 +129,18 @@ class Player {
             };
         };
 
+        const isUnlocked = (def) => this.isCharacterUnlocked(def);
+        const unlockedPool = definitions.filter(isUnlocked);
+
         if (characterId) {
             const match = definitions.find(def => def.id === characterId);
-            if (match) {
+            if (match && isUnlocked(match)) {
                 return cloneDefinition(match);
             }
         }
 
-        return cloneDefinition(definitions[0]);
+        const fallback = unlockedPool[0] || definitions[0];
+        return cloneDefinition(fallback);
     }
 
     applyCharacterDefinition(definition) {
@@ -240,6 +244,10 @@ class Player {
                     if (!this.abilities.orbitRadius) {
                         this.abilities.orbitRadius = 100; // Base orbital radius
                     }
+                    if (!this.abilities.maxOrbitalRange) {
+                        const baseRange = window.GAME_CONSTANTS?.PLAYER?.BASE_ATTACK_RANGE || 320;
+                        this.abilities.maxOrbitalRange = Math.max(baseRange, this.abilities.orbitRadius + 80);
+                    }
                 }
                 
                 // Apply orbital stat multipliers
@@ -321,6 +329,62 @@ class Player {
             const particle = new Particle(x, y, vx, vy, size, color, life);
             window.gameManager.addParticleViaEffectsManager(particle);
         }
+    }
+
+    isCharacterUnlocked(definition) {
+        if (!definition?.unlockRequirement) {
+            return true;
+        }
+        return this.isRequirementSatisfied(definition.unlockRequirement);
+    }
+
+    isRequirementSatisfied(requirement) {
+        if (!requirement) {
+            return true;
+        }
+
+        const ids = this.normalizeRequirementIds(requirement);
+        if (!ids.length) {
+            return true;
+        }
+
+        return ids.every(id => this.isAchievementUnlocked(id));
+    }
+
+    normalizeRequirementIds(requirement) {
+        if (!requirement) {
+            return [];
+        }
+        if (Array.isArray(requirement.ids) && requirement.ids.length) {
+            return requirement.ids.filter(Boolean);
+        }
+        if (typeof requirement.id === 'string' && requirement.id.trim()) {
+            return [requirement.id.trim()];
+        }
+        return [];
+    }
+
+    isAchievementUnlocked(achievementId) {
+        if (typeof achievementId !== 'string' || !achievementId.trim()) {
+            return false;
+        }
+        const id = achievementId.trim();
+
+        if (this.gameState?.isAchievementUnlocked?.(id)) {
+            return true;
+        }
+
+        const metaAchievements = this.gameState?.meta?.achievements;
+        if (metaAchievements instanceof Set && metaAchievements.has(id)) {
+            return true;
+        }
+
+        const achievementSystem = window.achievementSystem;
+        if (achievementSystem?.achievements?.[id]?.unlocked) {
+            return true;
+        }
+
+        return false;
     }
 
     // === STAT DELEGATION METHODS ===

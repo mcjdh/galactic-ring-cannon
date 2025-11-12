@@ -176,6 +176,7 @@ class UpgradeSystem {
 
         // Track stats
         window.gameManager?.statsManager?.trackSpecialEvent?.('upgrade_chosen');
+        window.achievementSystem?.onUpgradeSelected?.(upgradeInstance?.id);
     }
 
     /**

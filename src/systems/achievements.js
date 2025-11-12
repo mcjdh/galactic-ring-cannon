@@ -17,6 +17,7 @@ class AchievementSystem {
 
         this.initializeTracking();
         this.loadAchievements(); // Load AFTER initializing to preserve saved max values
+        this.syncUnlockedAchievementsWithGameState();
     }
     
     initializeTracking() {
@@ -45,6 +46,9 @@ class AchievementSystem {
         this.novaBlitzKills = [];
         this.novaBlitzWindow = 30; // seconds
 
+        // Track Split Shot selections in current run
+        this.splitShotSelections = 0;
+
     }
 
     /**
@@ -61,6 +65,7 @@ class AchievementSystem {
         // Reset windowed kill tracking
         this.recentKills = [];
         this.novaBlitzKills = [];
+        this.splitShotSelections = 0;
 
         window.logger.log('Achievement run tracking reset');
     }
@@ -189,11 +194,76 @@ class AchievementSystem {
 
                 // Save immediately when achievement is unlocked (critical event)
                 this.saveAchievementsImmediate();
+                this.handleAchievementUnlocked(key);
             } else {
                 // For progress updates, use throttled save to reduce localStorage writes
                 this.saveAchievementsThrottled();
             }
         }
+    }
+
+    syncUnlockedAchievementsWithGameState() {
+        const state = window.gameManager?.game?.state || window.gameManager?.state || null;
+        if (!state?.unlockAchievement) {
+            return;
+        }
+
+        try {
+            Object.entries(this.achievements).forEach(([key, achievement]) => {
+                if (!achievement?.unlocked) {
+                    return;
+                }
+                const alreadyUnlocked =
+                    state.isAchievementUnlocked?.(key) ||
+                    (state.meta?.achievements instanceof Set && state.meta.achievements.has(key));
+                if (!alreadyUnlocked) {
+                    state.unlockAchievement(key);
+                }
+            });
+        } catch (error) {
+            window.logger.warn('Failed to sync achievements with GameState:', error);
+        }
+    }
+
+    handleAchievementUnlocked(key) {
+        if (!key) {
+            return;
+        }
+
+        try {
+            const state = window.gameManager?.game?.state || window.gameManager?.state || null;
+            state?.unlockAchievement?.(key);
+        } catch (error) {
+            window.logger.warn('Failed to persist achievement unlock with GameState:', error);
+        }
+
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+            const CustomEventCtor = window.CustomEvent || this._getFallbackCustomEvent();
+            if (CustomEventCtor) {
+                try {
+                    const event = new CustomEventCtor('achievementUnlocked', {
+                        detail: { id: key }
+                    });
+                    window.dispatchEvent(event);
+                } catch (error) {
+                    window.logger.warn('Failed to dispatch achievementUnlocked event:', error);
+                }
+            }
+        }
+    }
+
+    _getFallbackCustomEvent() {
+        if (typeof document === 'undefined') {
+            return null;
+        }
+        function FallbackCustomEvent(event, params) {
+            params = params || { bubbles: false, cancelable: false, detail: null };
+            const evt = document.createEvent('CustomEvent');
+            evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+            return evt;
+        }
+        FallbackCustomEvent.prototype = window.Event?.prototype || {};
+        return FallbackCustomEvent;
     }
     
     // Track damage-free time
@@ -323,6 +393,18 @@ class AchievementSystem {
         }
         this.maxStormSurgeHits = Math.max(this.maxStormSurgeHits || 0, hitCount);
         this.updateAchievement('storm_surge', this.maxStormSurgeHits);
+    }
+
+    onUpgradeSelected(upgradeId) {
+        if (typeof upgradeId !== 'string' || !upgradeId.trim()) {
+            return;
+        }
+
+        const normalized = upgradeId.trim();
+        if (normalized.startsWith('multi_shot')) {
+            this.splitShotSelections = (this.splitShotSelections || 0) + 1;
+            this.updateAchievement('split_shot_specialist', this.splitShotSelections);
+        }
     }
 
     // ========================================

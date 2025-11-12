@@ -38,6 +38,8 @@ class Projectile {
         this.radius = this.isCrit ? 6.5 : 5;
         this.type = 'projectile';
         this.isDead = false;
+        this.rangeLimit = null;
+        this.distanceTraveled = 0;
 
         // Lifetime management
         this.initialSpeed = Math.sqrt(vx * vx + vy * vy);
@@ -291,6 +293,16 @@ class Projectile {
         // Update position
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
+
+        if (Number.isFinite(this.rangeLimit) && this.rangeLimit > 0) {
+            const deltaDistance = Math.hypot(this.vx * deltaTime, this.vy * deltaTime);
+            this.distanceTraveled += deltaDistance;
+            if (this.distanceTraveled >= this.rangeLimit) {
+                this.behaviorManager.onDestroy(game);
+                this.isDead = true;
+                return;
+            }
+        }
 
         // Update trail using circular buffer (O(1) instead of O(n))
         this.trail[this.trailIndex] = { x: this.x, y: this.y };

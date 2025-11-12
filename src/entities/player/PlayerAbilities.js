@@ -3,6 +3,8 @@ class PlayerAbilities {
         this.player = player;
 
         // Orbital attack properties
+        const globalScope = typeof window !== 'undefined' ? window : globalThis;
+        const PLAYER_CONSTANTS = globalScope?.GAME_CONSTANTS?.PLAYER || {};
         this.hasOrbitalAttack = false;
         this.orbitProjectiles = [];
         this.orbitCount = 0;
@@ -10,6 +12,7 @@ class PlayerAbilities {
         this.orbitSpeed = 0;
         this.orbitRadius = 0;
         this.orbitAngle = 0;
+        this.maxOrbitalRange = PLAYER_CONSTANTS.BASE_ATTACK_RANGE || 320;
         this.collisionRadius = player?.radius ?? 20;
 
         // Chain lightning properties
@@ -500,6 +503,14 @@ class PlayerAbilities {
             }
         }
 
+        const maxShotDistance =
+            this.maxOrbitalRange ||
+            this.player?.combat?.attackRange ||
+            window.GAME_CONSTANTS?.PLAYER?.BASE_ATTACK_RANGE ||
+            320;
+
+        const detectionRadius = Math.max(this.orbitRadius + 40, maxShotDistance);
+
         // Update orbit positions and check for collisions
         const FastMath = window.Game?.FastMath;
         for (let i = 0; i < Math.min(this.orbitProjectiles.length, this.orbitCount); i++) {
@@ -526,7 +537,7 @@ class PlayerAbilities {
             }
 
             // Check for enemy collisions
-            const searchRadius = this.collisionRadius + 60;
+            const searchRadius = detectionRadius;
             const candidates = game?.getEnemiesWithinRadius?.(
                 orb.x,
                 orb.y,
@@ -543,6 +554,9 @@ class PlayerAbilities {
                 const dy = enemy.y - orb.y;
                 const distanceSquared = dx * dx + dy * dy;
                 const collisionRadius = enemy.radius + 10;
+
+                const distanceFromPlayer = Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y);
+                if (distanceFromPlayer > maxShotDistance) continue;
 
                 if (distanceSquared < collisionRadius * collisionRadius) {
                     // Calculate damage
@@ -919,6 +933,11 @@ class PlayerAbilities {
                     this.orbitDamage = upgrade.damage || 0.4;
                     this.orbitSpeed = upgrade.orbitSpeed || 2;
                     this.orbitRadius = upgrade.orbitRadius || 80;
+                    const desiredRange = Math.max(
+                        this.orbitRadius + 80,
+                        upgrade.orbitRange || this.player?.combat?.attackRange || this.maxOrbitalRange || 320
+                    );
+                    this.maxOrbitalRange = Math.max(this.maxOrbitalRange || 0, desiredRange);
                 } else if (upgrade.specialType === 'chain') {
                     this.hasChainLightning = true;
                     this.chainChance = Math.min(0.85, Math.max(this.chainChance, upgrade.value || 0.5));
@@ -972,6 +991,17 @@ class PlayerAbilities {
 
             case 'orbitSize':
                 this.orbitRadius += upgrade.value || 0;
+                if (upgrade.rangeBonus) {
+                    this.maxOrbitalRange = Math.max(this.maxOrbitalRange || 0, this.orbitRadius + upgrade.rangeBonus);
+                } else {
+                    this.maxOrbitalRange = Math.max(this.maxOrbitalRange || 0, this.orbitRadius + 80);
+                }
+                break;
+
+            case 'orbitRange':
+                if (upgrade.value) {
+                    this.maxOrbitalRange = Math.max(this.maxOrbitalRange || 0, upgrade.value);
+                }
                 break;
 
             case 'chain':

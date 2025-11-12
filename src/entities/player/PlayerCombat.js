@@ -298,6 +298,9 @@ class PlayerCombat {
             );
 
             if (projectile) {
+                if (Number.isFinite(overrides.maxDistance) && overrides.maxDistance > 0) {
+                    projectile.rangeLimit = overrides.maxDistance;
+                }
                 // Track projectile fired for statistics
                 window.gameManager?.statsManager?.trackProjectileFired?.();
                 

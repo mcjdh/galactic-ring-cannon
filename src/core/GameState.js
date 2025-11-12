@@ -466,6 +466,16 @@ class GameState {
         }
     }
 
+    /**
+     * Check whether an achievement id has been unlocked
+     */
+    isAchievementUnlocked(achievementId) {
+        if (typeof achievementId !== 'string' || !achievementId.trim()) {
+            return false;
+        }
+        return this.meta.achievements.has(achievementId.trim());
+    }
+
     // ===== RESET METHODS =====
 
     /**

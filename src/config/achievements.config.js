@@ -17,6 +17,7 @@
  * - target: Goal value to unlock
  * - unlocked: Whether unlocked (tracked at runtime)
  * - important: Awards bonus stars if true
+ * - unlocksCharacter: Optional character id rewarded on unlock
  */
 
 const ACHIEVEMENT_DEFINITIONS = {
@@ -195,7 +196,8 @@ const ACHIEVEMENT_DEFINITIONS = {
         icon: '*',
         progress: 0,
         target: 6,
-        unlocked: false
+        unlocked: false,
+        unlocksCharacter: 'stormcaller'
     },
 
     // ========================================
@@ -230,8 +232,18 @@ const ACHIEVEMENT_DEFINITIONS = {
         description: 'Have 5 orbital projectiles at once',
         icon: 'o-',
         progress: 0,
-        target: 5,  // Achievable with Penta Orbit upgrade
-        unlocked: false
+        target: 5,
+        unlocked: false,
+        unlocksCharacter: 'nexus_architect'
+    },
+    'split_shot_specialist': {
+        name: 'Split Shot Specialist',
+        description: 'Draft Split Shot four times in a single run',
+        icon: '≡',
+        progress: 0,
+        target: 4,
+        unlocked: false,
+        unlocksCharacter: 'nova_corsair'
     },
 
     // ========================================

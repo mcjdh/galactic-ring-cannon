@@ -46,7 +46,18 @@ function setupGlobalEnvironment() {
         StorageManager,
         localStorage,
         addEventListener() {},
-        removeEventListener() {}
+        removeEventListener() {},
+        __dispatchedEvents: [],
+        dispatchEvent(event) {
+            this.__dispatchedEvents.push(event);
+            return true;
+        },
+        CustomEvent: class CustomEvent {
+            constructor(type, params = {}) {
+                this.type = type;
+                this.detail = params.detail;
+            }
+        }
     };
 
     windowStub.window = windowStub;
@@ -75,9 +86,43 @@ function assert(condition, message) {
     }
 }
 
-function createSystem() {
+function createGameManagerStub() {
+    const state = {
+        meta: { achievements: new Set(), starTokens: 0 },
+        unlockAchievementCalls: [],
+        unlockAchievement(id) {
+            if (!id) {
+                return;
+            }
+            this.meta.achievements.add(id);
+            this.unlockAchievementCalls.push(id);
+        },
+        isAchievementUnlocked(id) {
+            return this.meta.achievements.has(id);
+        }
+    };
+
+    return {
+        game: { state },
+        state
+    };
+}
+
+function createSystem(savedAchievements = null) {
     window.StorageManager.clear();
-    return new AchievementSystem();
+    if (savedAchievements) {
+        window.StorageManager.setJSON('achievements', savedAchievements);
+    }
+    window.gameManager = createGameManagerStub();
+    window.__dispatchedEvents = [];
+    window.dispatchEvent = (event) => {
+        window.__dispatchedEvents.push(event);
+        return true;
+    };
+    window.achievementSystem = null;
+    const system = new AchievementSystem();
+    window.achievementSystem = system;
+    return system;
 }
 
 function testLifetimeProgressDoesNotRegress() {
@@ -165,12 +210,63 @@ function testGalacticExplorerStoresIntegerProgress() {
         'Galactic Explorer progress should not regress when snapshot decreases');
 }
 
+function testUnlockDispatchesEventAndPersists() {
+    const system = createSystem();
+    const target = system.achievements.combo_master.target;
+    system.updateAchievement('combo_master', target);
+
+    const state = window.gameManager.game.state;
+    assert(state.meta.achievements.has('combo_master'),
+        'GameState did not record unlocked achievement');
+
+    const event = window.__dispatchedEvents.find(evt => evt?.type === 'achievementUnlocked');
+    assert(event && event.detail && event.detail.id === 'combo_master',
+        'achievementUnlocked event not dispatched with correct detail');
+}
+
+function testSavedUnlocksSyncToGameState() {
+    const saved = {
+        nova_blitz: { progress: 75, unlocked: true },
+        combo_master: { progress: 5, unlocked: false }
+    };
+    const system = createSystem(saved);
+    const state = window.gameManager.game.state;
+
+    assert(state.meta.achievements.has('nova_blitz'),
+        'Loaded unlocked achievements should sync to GameState');
+    assert(!state.meta.achievements.has('combo_master'),
+        'Locked achievements should not be added to GameState meta set');
+
+    // Ensure system still has reference to saved unlock
+    assert(system.achievements.nova_blitz.unlocked === true,
+        'Achievement system failed to load unlocked state from storage');
+}
+
+function testSplitShotSpecialistUnlocksViaUpgradeSelection() {
+    const system = createSystem();
+    for (let i = 0; i < 4; i++) {
+        system.onUpgradeSelected('multi_shot_1');
+    }
+
+    assert(system.achievements.split_shot_specialist.progress === 4,
+        'Split Shot Specialist progress should match number of selections');
+    assert(system.achievements.split_shot_specialist.unlocked === true,
+        'Split Shot Specialist should unlock after four selections');
+
+    const state = window.gameManager.game.state;
+    assert(state.meta.achievements.has('split_shot_specialist'),
+        'GameState should record Split Shot Specialist unlock');
+}
+
 function runTests() {
     const tests = [
         ['Lifetime achievements do not regress with smaller stats snapshot', testLifetimeProgressDoesNotRegress],
         ['Shield achievements accumulate fractional increments', testShieldFractionalProgressAccumulates],
         ['Storm Surge captures the largest simultaneous hit count', testStormSurgeTracksBestHitCluster],
-        ['Galactic Explorer stores integer progress values', testGalacticExplorerStoresIntegerProgress]
+        ['Galactic Explorer stores integer progress values', testGalacticExplorerStoresIntegerProgress],
+        ['Achievement unlock dispatches event and persists to GameState', testUnlockDispatchesEventAndPersists],
+        ['Saved unlocks sync to GameState on load', testSavedUnlocksSyncToGameState],
+        ['Split Shot Specialist unlocks via upgrade selection', testSplitShotSpecialistUnlocksViaUpgradeSelection]
     ];
 
     let failures = 0;
