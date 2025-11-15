@@ -50,12 +50,16 @@ class UpgradeSystem {
     }
     
     showUpgradeOptions() {
-        // Get three random upgrades
         const options = this.getRandomUpgrades(3);
+
+        if (!Array.isArray(options) || options.length === 0) {
+            this.handleMissingUpgradeOptions();
+            return;
+        }
 
         // Auto-level: immediately select random upgrade if enabled
         // Do this BEFORE setting any state to avoid blocking input
-        if (this.autoLevelEnabled && options.length > 0) {
+        if (this.autoLevelEnabled) {
             const randomIndex = Math.floor(Math.random() * options.length);
             const selectedUpgrade = options[randomIndex];
 
@@ -318,71 +322,24 @@ class UpgradeSystem {
         });
         
         // Weight upgrades by rarity and build path
-        const weightedOptions = [];
-        
-        // Get player's character for build path preferences
+        const weightedPool = [];
         const characterDefinition = player?.characterDefinition;
         const preferredPaths = characterDefinition?.preferredBuildPaths || [];
         
+        const currentPath = this.getCurrentBuildPath();
         availableUpgrades.forEach(upgrade => {
-            let weight = this.getBaseWeight(upgrade);
-            
-            // Increase weight for upgrades in the same build path
-            const currentPath = this.getCurrentBuildPath();
-            if (currentPath && upgrade.buildPath === currentPath) {
-                weight *= 2.5;  // Increased from 1.5x to make build paths more visible
-            }
-            
-            // NEW: Character build path preference bonus
-            if (preferredPaths.length > 0 && upgrade.buildPath && preferredPaths.includes(upgrade.buildPath)) {
-                weight *= 1.4;  // +40% weight for character-preferred build paths
-            }
-            
-            // Increase weight for synergistic upgrades
-            if (upgrade.synergies && upgrade.synergies.some(syn => this.isUpgradeSelected(syn))) {
-                weight *= 1.5;  // Increased from 1.3x
-            }
-            
-            // STRONG boost for upgrades that have prerequisites met (progression paths)
-            if (upgrade.requires && upgrade.requires.every(reqId => this.isUpgradeSelected(reqId))) {
-                weight *= 3.0;  // NEW: Major boost for unlocked progression upgrades
-            }
-            
-            // Increase weight for combo effects
-            if (upgrade.comboEffects && upgrade.comboEffects.some(effect => 
-                this.comboEffects.has(effect))) {
-                weight *= 1.2;
-            }
-
-            if (upgrade.weaponTags && upgrade.weaponTags.length > 0 && activeWeaponDefinition) {
-                weight *= 1.8;
-            }
-            
-            // Add weighted copies to the pool
-            for (let i = 0; i < weight; i++) {
-                weightedOptions.push(upgrade);
+            const weight = this.calculateUpgradeWeight({
+                upgrade,
+                currentPath,
+                preferredPaths,
+                activeWeaponDefinition
+            });
+            if (weight > 0) {
+                weightedPool.push({ upgrade, weight });
             }
         });
         
-        // Shuffle and select unique upgrades
-        const shuffled = this.shuffleArray([...weightedOptions]);
-        const selected = [];
-        const selectedIds = new Set();
-        
-        for (const upgrade of shuffled) {
-            // For stackable upgrades, we want to still ensure variety in options
-            // by not offering the same upgrade twice in one level-up choice
-            if (!selectedIds.has(upgrade.id)) {
-                selected.push(upgrade);
-                selectedIds.add(upgrade.id);
-                
-                if (selected.length >= count) {
-                    break;
-                }
-            }
-        }
-        
-        return selected;
+        return this.selectWeightedUpgrades(weightedPool, count);
     }
     
     getBaseWeight(upgrade) {
@@ -394,6 +351,105 @@ class UpgradeSystem {
             case 'epic': return 30;       // Increased from 10 (3x more likely)
             default: return 10;
         }
+    }
+    
+    handleMissingUpgradeOptions() {
+        const fallbackUpgrade = this.getFallbackUpgrade();
+        if (!fallbackUpgrade) {
+            window.logger.error('No upgrade definitions available; unable to grant level-up reward.');
+            return;
+        }
+
+        this._applyUpgradeCore(fallbackUpgrade);
+
+        const player = window.gameManager?.game?.player;
+        if (player && window.gameManager?.showFloatingText) {
+            window.gameManager.showFloatingText(
+                `${fallbackUpgrade.icon || ''} ${fallbackUpgrade.name || 'Upgrade'} (Auto-granted)`,
+                player.x,
+                player.y - 60,
+                '#ff6b6b',
+                20
+            );
+        }
+
+        window.audioSystem?.play?.('levelUp', 0.25);
+    }
+    
+    getFallbackUpgrade() {
+        if (!Array.isArray(this.availableUpgrades) || this.availableUpgrades.length === 0) {
+            return null;
+        }
+
+        const preferred = this.availableUpgrades.find(upgrade => {
+            return upgrade && (upgrade.stackable || !this.isUpgradeSelected(upgrade.id));
+        });
+
+        return preferred || this.availableUpgrades[0];
+    }
+
+    calculateUpgradeWeight({ upgrade, currentPath, preferredPaths, activeWeaponDefinition }) {
+        let weight = this.getBaseWeight(upgrade);
+        if (!Number.isFinite(weight) || weight <= 0) {
+            return 0;
+        }
+
+        if (currentPath && upgrade.buildPath === currentPath) {
+            weight *= 2.5;
+        }
+
+        if (preferredPaths.length > 0 && upgrade.buildPath && preferredPaths.includes(upgrade.buildPath)) {
+            weight *= 1.4;
+        }
+
+        if (upgrade.synergies && upgrade.synergies.some(syn => this.isUpgradeSelected(syn))) {
+            weight *= 1.5;
+        }
+
+        if (upgrade.requires && upgrade.requires.every(reqId => this.isUpgradeSelected(reqId))) {
+            weight *= 3.0;
+        }
+
+        if (upgrade.comboEffects && upgrade.comboEffects.some(effect => this.comboEffects.has(effect))) {
+            weight *= 1.2;
+        }
+
+        if (upgrade.weaponTags && upgrade.weaponTags.length > 0 && activeWeaponDefinition) {
+            weight *= 1.8;
+        }
+
+        return weight;
+    }
+
+    selectWeightedUpgrades(weightedPool, count) {
+        const pool = Array.isArray(weightedPool) ? [...weightedPool] : [];
+        const selected = [];
+        const selectedIds = new Set();
+
+        while (pool.length > 0 && selected.length < count) {
+            const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
+            if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+                break;
+            }
+
+            let pick = Math.random() * totalWeight;
+            let chosenIndex = 0;
+            for (let i = 0; i < pool.length; i++) {
+                pick -= pool[i].weight;
+                if (pick <= 0) {
+                    chosenIndex = i;
+                    break;
+                }
+            }
+
+            const [entry] = pool.splice(chosenIndex, 1);
+            if (entry && entry.upgrade && !selectedIds.has(entry.upgrade.id)) {
+                selected.push(entry.upgrade);
+                selectedIds.add(entry.upgrade.id);
+            }
+        }
+
+        return selected;
     }
     
     getCurrentBuildPath() {

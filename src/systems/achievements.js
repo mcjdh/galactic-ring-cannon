@@ -182,8 +182,11 @@ class AchievementSystem {
                 if (window.gameManager) {
                     // Important achievements award more stars
                     const starBonus = achievement.important ? 3 : 1;
-                    window.gameManager.earnStarTokens(starBonus);
-                    if (window.gameManager.showFloatingText && window.gameManager.game?.player) {
+                    if (typeof window.gameManager.earnStarTokens === 'function') {
+                        window.gameManager.earnStarTokens(starBonus);
+                    }
+
+                    if (typeof window.gameManager.showFloatingText === 'function' && window.gameManager.game?.player) {
                         window.gameManager.showFloatingText(`Achievement Bonus: +${starBonus} ⭐`,
                             window.gameManager.game.player.x,
                             window.gameManager.game.player.y - 50,
@@ -401,7 +404,7 @@ class AchievementSystem {
         }
 
         const normalized = upgradeId.trim();
-        if (normalized.startsWith('multi_shot')) {
+        if (normalized.startsWith('multi_shot') || normalized.includes('split_shot')) {
             this.splitShotSelections = (this.splitShotSelections || 0) + 1;
             this.updateAchievement('split_shot_specialist', this.splitShotSelections);
         }

@@ -3,6 +3,9 @@
         constructor() {
             this.systemReadyCheckId = null;
             this.mainMenu = null;
+            this.pendingFatalError = null;
+            this._fatalErrorShown = false;
+            this._errorHandlersRegistered = false;
 
             // Load meta upgrade definitions from config
             // Fallback to empty array if config not loaded yet
@@ -14,6 +17,7 @@
             }
 
             const ready = document.readyState === 'loading';
+            this.registerGlobalErrorHandlers();
             if (ready) {
                 document.addEventListener('DOMContentLoaded', () => this.handleDomLoaded());
             } else {
@@ -61,6 +65,9 @@
 
         async handleDomLoaded() {
             try {
+                if (this._fatalErrorShown) {
+                    return;
+                }
                 this.log('🌊 DOM loaded, initializing game bridge...');
 
                 const classesReady = await this.waitForCoreClasses(20, 100);
@@ -78,6 +85,12 @@
                 } else {
                     this.info('+ All core systems available!');
                 }
+                
+                this.assertConfigDefinitionsLoaded();
+                if (this.pendingFatalError) {
+                    this.showFatalError(this.pendingFatalError);
+                    return;
+                }
 
                 this.initGameManager();
                 this.initSystems();
@@ -85,6 +98,7 @@
                 this.checkSystemsReady();
             } catch (err) {
                 this.error('! Error initializing game systems:', err);
+                this.showFatalError(err?.message || 'Failed to initialize game systems.');
                 alert('Failed to initialize game. Error: ' + (err?.message || err));
             }
         }
@@ -189,6 +203,82 @@
             this.initPerformanceManager();
             this.initAchievementSystem();
             this.initHUDEventHandlers();
+        }
+        
+        registerGlobalErrorHandlers() {
+            if (this._errorHandlersRegistered || typeof window === 'undefined') {
+                return;
+            }
+            this._errorHandlersRegistered = true;
+            const captureError = (message) => {
+                const text = typeof message === 'string'
+                    ? message
+                    : (message?.message || 'Unexpected error occurred');
+                if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                    this.showFatalError(text);
+                } else {
+                    this.pendingFatalError = text;
+                }
+            };
+
+            window.addEventListener('error', (event) => {
+                if (!event) return;
+                captureError(event.error || event.message);
+            });
+            window.addEventListener('unhandledrejection', (event) => {
+                if (!event) return;
+                const reason = event.reason;
+                captureError(typeof reason === 'string' ? reason : reason?.message);
+            });
+        }
+        
+        assertConfigDefinitionsLoaded() {
+            const missing = [];
+
+            if (!Array.isArray(window.CHARACTER_DEFINITIONS) || window.CHARACTER_DEFINITIONS.length === 0) {
+                missing.push('Character definitions');
+            }
+            const hasWeaponDefinitions = window.WEAPON_DEFINITIONS &&
+                Object.keys(window.WEAPON_DEFINITIONS).length > 0;
+            if (!hasWeaponDefinitions) {
+                missing.push('Weapon definitions');
+            }
+            if (!Array.isArray(window.UPGRADE_DEFINITIONS) || window.UPGRADE_DEFINITIONS.length === 0) {
+                missing.push('Upgrade definitions');
+            }
+            if (!Array.isArray(window.META_UPGRADE_DEFINITIONS) || window.META_UPGRADE_DEFINITIONS.length === 0) {
+                missing.push('Meta upgrade definitions');
+            }
+
+            if (missing.length > 0) {
+                throw new Error(`Missing required configuration: ${missing.join(', ')}`);
+            }
+        }
+
+        showFatalError(message) {
+            this._fatalErrorShown = true;
+            this.pendingFatalError = null;
+            const overlay = document.getElementById('fatal-error-overlay');
+            const msgNode = document.getElementById('fatal-error-message');
+            if (!overlay || !msgNode) {
+                this.pendingFatalError = message;
+                return;
+            }
+
+            overlay.classList.remove('hidden');
+            msgNode.textContent = message || 'Unexpected error occurred.';
+
+            const restartButton = document.getElementById('fatal-error-restart');
+            if (restartButton && !restartButton.dataset.boundRestart) {
+                restartButton.dataset.boundRestart = 'true';
+                restartButton.addEventListener('click', () => {
+                    window.location.reload();
+                });
+            }
+
+            // Hide other panels to keep focus on recovery UI
+            document.getElementById('main-menu')?.classList?.add('hidden');
+            document.getElementById('game-container')?.classList?.add('hidden');
         }
 
         initInputManager() {

@@ -37,13 +37,30 @@ class UnifiedUIManager {
             showPlayerWorldHealthBar: false
         };
 
-        // Floating Text System (World Space)
-        this.floatingTexts = [];
-        this.textPool = [];
-        this.maxFloatingTexts = 150;
-        this.textPoolSize = 200;
-        this.initializeTextPool();
+        // Floating Text System (World Space) - typed array storage
+        this.maxFloatingTexts = 200;
+        this._freeTextIndices = [];
+        for (let i = this.maxFloatingTexts - 1; i >= 0; i--) {
+            this._freeTextIndices.push(i);
+        }
+        this._activeTextIndices = [];
+        this._textX = new Float32Array(this.maxFloatingTexts);
+        this._textY = new Float32Array(this.maxFloatingTexts);
+        this._textVX = new Float32Array(this.maxFloatingTexts);
+        this._textVY = new Float32Array(this.maxFloatingTexts);
+        this._textAge = new Float32Array(this.maxFloatingTexts);
+        this._textLifetime = new Float32Array(this.maxFloatingTexts);
+        this._textOpacity = new Float32Array(this.maxFloatingTexts);
+        this._textSize = new Float32Array(this.maxFloatingTexts);
+        this._textStrings = new Array(this.maxFloatingTexts);
+        this._textColors = new Array(this.maxFloatingTexts);
         this._fontCache = new Map();
+        this._glyphCache = new Map();
+        this._glyphCacheLimit = 300;
+        this._glyphMeasureCanvas = (typeof OffscreenCanvas !== 'undefined')
+            ? new OffscreenCanvas(1, 1)
+            : (typeof document !== 'undefined' ? document.createElement('canvas') : null);
+        this._glyphMeasureCtx = this._glyphMeasureCanvas ? this._glyphMeasureCanvas.getContext('2d') : null;
         
         // Health Bar System
         this.healthBarCache = new Map(); // Cache for entity health bar data
@@ -58,22 +75,7 @@ class UnifiedUIManager {
         // Visual settings were moved earlier in constructor to ensure availability
     }
     
-    initializeTextPool() {
-        for (let i = 0; i < this.textPoolSize; i++) {
-            this.textPool.push({
-                active: false,
-                text: '',
-                x: 0, y: 0,
-                vx: 0, vy: -this.settings.floatingTextSpeed,
-                color: '#ffffff',
-                size: 16,
-                age: 0,
-                lifetime: this.settings.floatingTextLifetime,
-                opacity: 1.0,
-                layer: this.layers.WORLD_EFFECTS
-            });
-        }
-    }
+    initializeTextPool() {}
     
     /**
      * Update all UI systems
@@ -103,38 +105,37 @@ class UnifiedUIManager {
      */
     updateFloatingTexts(deltaTime) {
         if (!this.settings.enableFloatingText) return;
-        const texts = this.floatingTexts;
-        let writeIndex = 0;
+        const active = this._activeTextIndices;
+        if (!active.length) return;
 
-        for (let i = 0; i < texts.length; i++) {
-            const text = texts[i];
-            
-            // Update position and age
-            text.x += text.vx * deltaTime;
-            text.y += text.vy * deltaTime;
-            text.age += deltaTime;
-            
-            // Update opacity based on age
-            const ageRatio = text.age / text.lifetime;
-            text.opacity = Math.max(0, 1 - (ageRatio * ageRatio)); // Quadratic fade
-            
-            // Remove expired texts
-            if (text.age >= text.lifetime) {
-                text.active = false;
-                if (this.textPool.length < this.textPoolSize) {
-                    this.textPool.push(text);
-                }
+        const xArr = this._textX;
+        const yArr = this._textY;
+        const vxArr = this._textVX;
+        const vyArr = this._textVY;
+        const ageArr = this._textAge;
+        const lifeArr = this._textLifetime;
+        const opacityArr = this._textOpacity;
+
+        let writeIndex = 0;
+        for (let i = 0; i < active.length; i++) {
+            const idx = active[i];
+            xArr[idx] += vxArr[idx] * deltaTime;
+            yArr[idx] += vyArr[idx] * deltaTime;
+            ageArr[idx] += deltaTime;
+            const life = lifeArr[idx] || 0.0001;
+            const ratio = ageArr[idx] / life;
+            opacityArr[idx] = Math.max(0, 1 - (ratio * ratio));
+
+            if (ageArr[idx] >= life) {
+                this._freeTextIndices.push(idx);
                 continue;
             }
 
-            if (writeIndex !== i) {
-                texts[writeIndex] = text;
-            }
-            writeIndex++;
+            active[writeIndex++] = idx;
         }
 
-        if (writeIndex < texts.length) {
-            texts.length = writeIndex;
+        if (writeIndex < active.length) {
+            active.length = writeIndex;
         }
     }
     
@@ -144,35 +145,27 @@ class UnifiedUIManager {
     cullInvisibleElements() {
         if (!this.settings.enableUIOptimization) return;
         
-        // Cull floating texts outside viewport
-        const texts = this.floatingTexts;
+        const active = this._activeTextIndices;
+        if (!active.length) return;
         const bounds = this.viewportBounds;
+        const xArr = this._textX;
+        const yArr = this._textY;
+
         let writeIndex = 0;
-
-        for (let i = 0; i < texts.length; i++) {
-            const text = texts[i];
-            const withinBounds =
-                text.x >= bounds.left &&
-                text.x <= bounds.right &&
-                text.y >= bounds.top &&
-                text.y <= bounds.bottom;
-
+        for (let i = 0; i < active.length; i++) {
+            const idx = active[i];
+            const x = xArr[idx];
+            const y = yArr[idx];
+            const withinBounds = x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
             if (!withinBounds) {
-                text.active = false;
-                if (this.textPool.length < this.textPoolSize) {
-                    this.textPool.push(text);
-                }
+                this._freeTextIndices.push(idx);
                 continue;
             }
-
-            if (writeIndex !== i) {
-                texts[writeIndex] = text;
-            }
-            writeIndex++;
+            active[writeIndex++] = idx;
         }
 
-        if (writeIndex < texts.length) {
-            texts.length = writeIndex;
+        if (writeIndex < active.length) {
+            active.length = writeIndex;
         }
     }
     
@@ -281,35 +274,44 @@ class UnifiedUIManager {
      * Render floating texts and damage numbers
      */
     renderFloatingTexts() {
-        if (this.floatingTexts.length === 0) return;
+        const active = this._activeTextIndices;
+        if (!active.length) return;
         
         const ctx = this.ctx;
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        for (const text of this.floatingTexts) {
-            if (!this.isPositionVisible(text.x, text.y)) continue;
-            
-            ctx.globalAlpha = text.opacity;
-            ctx.fillStyle = text.color;
-            ctx.font = this._getFont(text.size);
-
-            // OPTIMIZED: Use shadow instead of stroke+fill (20-30% faster rendering)
-            // Performance Analysis:
-            // - OLD: strokeText() + fillText() = 2 draw calls per text
-            // - NEW: fillText() with shadow = 1 draw call per text
-            // - Result: 50% fewer draw calls for floating text rendering
-            // - Measured: 20-30% faster on mobile (especially impactful with 20+ damage numbers)
-            // - Visual: Shadow offset provides similar readability to stroke outline
-            ctx.shadowColor = '#000000';
-            ctx.shadowBlur = 3;
-            ctx.shadowOffsetX = 1;
-            ctx.shadowOffsetY = 1;
-            ctx.fillText(text.text, text.x, text.y);  // Single render pass
-            ctx.shadowColor = 'transparent';  // Reset shadow
-        }
+        const xArr = this._textX;
+        const yArr = this._textY;
+        const opacityArr = this._textOpacity;
+        const textArr = this._textStrings;
+        const colorArr = this._textColors;
+        const sizeArr = this._textSize;
         
+        for (let i = 0; i < active.length; i++) {
+            const idx = active[i];
+            const x = xArr[idx];
+            const y = yArr[idx];
+            if (!this.isPositionVisible(x, y)) continue;
+            ctx.globalAlpha = opacityArr[idx];
+            const size = sizeArr[idx] || 16;
+            const color = colorArr[idx] || '#ffffff';
+            const glyph = this._getGlyphImage(textArr[idx], size, color);
+            if (glyph && glyph.image) {
+                ctx.drawImage(glyph.image, x - glyph.width / 2, y - glyph.height / 2);
+            } else {
+                ctx.fillStyle = color;
+                ctx.font = this._getFont(size);
+                ctx.shadowColor = '#000000';
+                ctx.shadowBlur = 3;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                ctx.fillText(textArr[idx], x, y);
+                ctx.shadowColor = 'transparent';
+            }
+        }
+
         ctx.restore();
     }
 
@@ -321,6 +323,57 @@ class UnifiedUIManager {
         const font = `bold ${size}px Arial`;
         this._fontCache.set(size, font);
         return font;
+    }
+
+    _getGlyphImage(text, size, color) {
+        if (!this._glyphMeasureCtx) {
+            return null;
+        }
+
+        const key = `${text}|${size}|${color}`;
+        if (this._glyphCache.has(key)) {
+            return this._glyphCache.get(key);
+        }
+
+        const measureCtx = this._glyphMeasureCtx;
+        measureCtx.font = this._getFont(size);
+        const metrics = measureCtx.measureText(text);
+        const width = Math.max(1, Math.ceil((metrics.width + size * 0.4) + 4));
+        const height = Math.max(1, Math.ceil(size * 1.6));
+
+        let canvas;
+        if (typeof OffscreenCanvas !== 'undefined') {
+            canvas = new OffscreenCanvas(width, height);
+        } else if (typeof document !== 'undefined') {
+            canvas = document.createElement('canvas');
+        } else {
+            return null;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return null;
+        }
+
+        ctx.font = this._getFont(size);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText(text, width / 2, height / 2);
+
+        const glyph = { image: canvas, width, height };
+        this._glyphCache.set(key, glyph);
+        if (this._glyphCache.size > this._glyphCacheLimit) {
+            const firstKey = this._glyphCache.keys().next().value;
+            this._glyphCache.delete(firstKey);
+        }
+        return glyph;
     }
     
     /**
@@ -344,32 +397,28 @@ class UnifiedUIManager {
      */
     addFloatingText(text, x, y, options = {}) {
         if (!this.settings.enableFloatingText) return;
-        if (this.floatingTexts.length >= this.maxFloatingTexts) return;
-        
-        let textObj = this.textPool.pop();
-        if (!textObj) {
-            textObj = {
-                active: false,
-                text: '', x: 0, y: 0, vx: 0, vy: 0,
-                color: '#ffffff', size: 16, age: 0,
-                lifetime: this.settings.floatingTextLifetime, opacity: 1.0
-            };
+        if (!this._freeTextIndices.length && !this._activeTextIndices.length) return;
+
+        let idx = this._freeTextIndices.pop();
+        if (typeof idx !== 'number') {
+            idx = this._activeTextIndices.shift();
+            if (typeof idx !== 'number') {
+                return;
+            }
         }
-        
-        // Configure text object
-        textObj.active = true;
-        textObj.text = text;
-        textObj.x = x + (Math.random() - 0.5) * 10; // Small random offset
-        textObj.y = y;
-        textObj.vx = (Math.random() - 0.5) * 20; // Slight horizontal drift
-        textObj.vy = options.vy || -this.settings.floatingTextSpeed;
-        textObj.color = options.color || '#ffffff';
-        textObj.size = options.size || 16;
-        textObj.age = 0;
-        textObj.lifetime = options.lifetime || this.settings.floatingTextLifetime;
-        textObj.opacity = 1.0;
-        
-        this.floatingTexts.push(textObj);
+
+        this._textStrings[idx] = text;
+        this._textColors[idx] = options.color || '#ffffff';
+        this._textX[idx] = x + (Math.random() - 0.5) * 10;
+        this._textY[idx] = y;
+        this._textVX[idx] = (Math.random() - 0.5) * 20;
+        this._textVY[idx] = options.vy || -this.settings.floatingTextSpeed;
+        this._textSize[idx] = options.size || 16;
+        this._textAge[idx] = 0;
+        this._textLifetime[idx] = options.lifetime || this.settings.floatingTextLifetime;
+        this._textOpacity[idx] = 1;
+
+        this._activeTextIndices.push(idx);
     }
     
     /**
@@ -392,7 +441,10 @@ class UnifiedUIManager {
      * Add healing number
      */
     addHealingNumber(healing, x, y) {
-        this.addFloatingText(`+${Math.round(healing)}`, x, y, {
+        if (!Number.isFinite(healing) || healing <= 0) return;
+        const amount = Math.round(healing);
+        if (amount <= 0) return;
+        this.addFloatingText(`+${amount}`, x, y, {
             color: '#2ecc71',
             size: 18,
             vy: -50,
@@ -457,11 +509,9 @@ class UnifiedUIManager {
      * Clear all floating text (useful for game reset)
      */
     clearAllFloatingText() {
-        for (const text of this.floatingTexts) {
-            text.active = false;
-            this.textPool.push(text);
+        while (this._activeTextIndices.length) {
+            this._freeTextIndices.push(this._activeTextIndices.pop());
         }
-        this.floatingTexts = [];
     }
     
     /**
@@ -469,8 +519,8 @@ class UnifiedUIManager {
      */
     getDebugInfo() {
         return {
-            activeFloatingTexts: this.floatingTexts.length,
-            textPoolSize: this.textPool.length,
+            activeFloatingTexts: this._activeTextIndices.length,
+            freeFloatingSlots: this._freeTextIndices.length,
             viewportBounds: this.viewportBounds,
             settings: this.settings
         };

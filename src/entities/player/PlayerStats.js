@@ -39,6 +39,10 @@ class PlayerStats {
         };
         this._nextUiLookupTs = 0;
         this._uiLookupIntervalMs = 750;
+
+        this._pendingHealText = 0;
+        this._lastHealTextTime = 0;
+        this._healTextThrottleMs = 180;
     }
 
     update(deltaTime) {
@@ -86,10 +90,24 @@ class PlayerStats {
         if (oldHealth !== this.health) {
             this._updateHealthBarUI();
 
-            // Show healing text
-            const gm = window.gameManager || window.gameManagerBridge;
-            if (gm && gm.showFloatingText) {
-                gm.showFloatingText(`+${Math.round(this.health - oldHealth)}`, this.player.x, this.player.y - 30, '#2ecc71', 16);
+            const healedAmount = this.health - oldHealth;
+            if (healedAmount > 0) {
+                const gm = window.gameManager || window.gameManagerBridge;
+                if (gm && typeof gm.showFloatingText === 'function') {
+                    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+                        ? performance.now()
+                        : Date.now();
+                    this._pendingHealText += healedAmount;
+                    const shouldDisplay = this._pendingHealText >= 1 || (now - this._lastHealTextTime) >= this._healTextThrottleMs;
+                    if (shouldDisplay) {
+                        const amountToShow = Math.round(this._pendingHealText);
+                        if (amountToShow > 0) {
+                            gm.showFloatingText(`+${amountToShow}`, this.player.x, this.player.y - 30, '#2ecc71', 16);
+                            this._pendingHealText = 0;
+                            this._lastHealTextTime = now;
+                        }
+                    }
+                }
             }
         }
     }

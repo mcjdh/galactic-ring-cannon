@@ -909,37 +909,17 @@
                 const items = system.achievements || {};
                 const allEntries = Object.entries(items);
                 
-                // Calculate items per page dynamically using actual container dimensions
-                const minItemWidth = 280; // From CSS: minmax(clamp(280px, 36vw, 380px), 1fr)
-                const estimatedItemHeight = 100; // From CSS min-height clamp(75px, 10vh, 100px) + padding/progress
-                let itemsPerPage = this.calculateItemsPerPage(
-                    listElement,
-                    minItemWidth,
-                    estimatedItemHeight
-                );
-                // Cap at 6 items per page for achievements for optimal display
-                this.pagination.achievements.itemsPerPage = Math.min(6, itemsPerPage);
-                
-                // Calculate pagination
                 const totalItems = allEntries.length;
-                this.pagination.achievements.totalPages = Math.ceil(totalItems / this.pagination.achievements.itemsPerPage) || 1;
-                
-                // Ensure current page is valid
+                const itemsPerPage = this.getAchievementItemsPerPage();
+                this.pagination.achievements.itemsPerPage = itemsPerPage;
+                this.pagination.achievements.totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
                 if (this.pagination.achievements.currentPage > this.pagination.achievements.totalPages) {
                     this.pagination.achievements.currentPage = this.pagination.achievements.totalPages;
                 }
-                
-                // Calculate start and end indices for current page
-                const startIdx = (this.pagination.achievements.currentPage - 1) * this.pagination.achievements.itemsPerPage;
-                const endIdx = Math.min(startIdx + this.pagination.achievements.itemsPerPage, totalItems);
+                const startIdx = (this.pagination.achievements.currentPage - 1) * itemsPerPage;
+                const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
                 const pageAchievements = allEntries.slice(startIdx, endIdx);
-
-                // Reset inline sizing before recalculating so scrollHeight reflects actual content
-                listElement.style.minHeight = '';
-                listElement.style.maxHeight = '';
-
-                // Adjust layout when only a few entries are visible (keeps final page centered)
-                const compactLayout = pageAchievements.length > 0 && pageAchievements.length <= 3;
+                const compactLayout = pageAchievements.length <= Math.min(3, itemsPerPage - 1);
                 listElement.classList.toggle('achievements-list--compact', compactLayout);
 
                 // OPTIMIZED: Use DocumentFragment to batch DOM updates (50-100ms faster)
@@ -966,7 +946,28 @@
                     
                     const title = document.createElement('h3');
                     title.textContent = achievement.name;
-                    
+
+                    const titleRow = document.createElement('div');
+                    titleRow.className = 'achievement-title-row';
+                    titleRow.appendChild(title);
+
+                    const progressPercent = achievement.target > 0
+                        ? Math.min(100, Math.floor((achievement.progress / achievement.target) * 100))
+                        : 0;
+                    const statusPill = document.createElement('span');
+                    statusPill.className = 'achievement-status';
+                    if (achievement.unlocked) {
+                        statusPill.dataset.state = 'unlocked';
+                        statusPill.textContent = 'Unlocked';
+                    } else if (progressPercent > 0) {
+                        statusPill.dataset.state = 'progress';
+                        statusPill.textContent = `${progressPercent}%`;
+                    } else {
+                        statusPill.dataset.state = 'locked';
+                        statusPill.textContent = 'Locked';
+                    }
+                    titleRow.appendChild(statusPill);
+
                     const desc = document.createElement('p');
                     desc.className = 'achievement-description';
                     desc.textContent = achievement.description;
@@ -976,20 +977,12 @@
                         const hint = document.createElement('p');
                         hint.className = 'achievement-hint';
                         hint.textContent = this.getAchievementHint(id);
-                        info.appendChild(title);
+                        info.appendChild(titleRow);
                         info.appendChild(desc);
                         info.appendChild(hint);
                     } else {
-                        // Add ASCII decoration for unlocked achievements
-                        const badge = document.createElement('div');
-                        badge.className = 'achievement-badge';
-                        badge.innerHTML = `
-                            <div class="badge-stars">★ ★ ★</div>
-                            <div class="badge-text">UNLOCKED</div>
-                        `;
-                        info.appendChild(title);
+                        info.appendChild(titleRow);
                         info.appendChild(desc);
-                        info.appendChild(badge);
                     }
 
                     if (achievement.unlocksCharacter) {
@@ -999,6 +992,24 @@
                         info.appendChild(unlockNote);
                     }
                     
+                    const metaRow = document.createElement('div');
+                    metaRow.className = 'achievement-meta-row';
+                    if (achievement.important) {
+                        const chip = document.createElement('span');
+                        chip.className = 'achievement-chip chip-important';
+                        chip.textContent = 'Bonus Star';
+                        metaRow.appendChild(chip);
+                    }
+                    if (achievement.unlocksCharacter) {
+                        const chip = document.createElement('span');
+                        chip.className = 'achievement-chip';
+                        chip.textContent = this.getAchievementUnlockText(achievement.unlocksCharacter);
+                        metaRow.appendChild(chip);
+                    }
+                    if (metaRow.childNodes.length > 0) {
+                        info.appendChild(metaRow);
+                    }
+
                     // Add progress bar if not unlocked and has progress
                     if (!achievement.unlocked && achievement.target > 1) {
                         const progress = document.createElement('div');
@@ -1029,11 +1040,8 @@
                 listElement.innerHTML = '';
                 listElement.appendChild(fragment);  // Single reflow
 
-                // Lock the list height to the rendered content to avoid clipping
-                const measuredHeight = Math.max(estimatedItemHeight, listElement.scrollHeight);
-                const heightPx = `${measuredHeight}px`;
-                listElement.style.minHeight = heightPx;
-                listElement.style.maxHeight = heightPx;
+                listElement.style.removeProperty('min-height');
+                listElement.style.removeProperty('max-height');
 
                 // Update pagination controls
                 this.updatePaginationButtons('achievements');
@@ -1531,33 +1539,38 @@
         }
 
         // ===== PAGINATION HELPERS =====
-        
-        calculateItemsPerPage(container, minItemWidth, estimatedItemHeight) {
-            if (!container) return 4; // Default fallback
+        calculateItemsPerPage(container, minItemWidth, estimatedItemHeight, fallbackHeight = null, minItems = 3, maxItems = 20) {
+            if (!container && !fallbackHeight) return minItems;
             
-            // Get actual container dimensions (wait for layout if needed)
-            const containerWidth = container.clientWidth || 800;
-            const containerHeight = container.clientHeight || 350;
-            
-            // Use realistic gap from CSS: clamp(10px, 1.5vh, 16px)
+            const viewportWidth = typeof window !== 'undefined' ? (window.innerWidth || 1024) : 1024;
+            const fallbackWidth = container?.parentElement?.clientWidth || viewportWidth * 0.75;
+            const containerWidth = container?.clientWidth || fallbackWidth || viewportWidth;
+            const fallbackContainerHeight = fallbackHeight || Math.max(estimatedItemHeight * 2, 320);
+            const containerHeight = container?.clientHeight || fallbackContainerHeight;
+
             const gap = 14;
-            
-            // Calculate items per row based on CSS grid minmax
-            // Account for grid gap in calculation
             const effectiveWidth = containerWidth + gap;
             const itemWidthWithGap = minItemWidth + gap;
             const itemsPerRow = Math.max(1, Math.floor(effectiveWidth / itemWidthWithGap));
-            
-            // Calculate rows that fit in container height
-            // Be slightly conservative to avoid partial rows showing
+
             const effectiveHeight = containerHeight - gap;
             const itemHeightWithGap = estimatedItemHeight + gap;
             const rowsPerPage = Math.max(1, Math.floor(effectiveHeight / itemHeightWithGap));
-            
+
             const itemsPerPage = itemsPerRow * rowsPerPage;
-            
-            // Ensure at least 3 items per page for usability, but cap at reasonable max
-            return Math.min(20, Math.max(3, itemsPerPage));
+            return Math.min(maxItems, Math.max(minItems, itemsPerPage));
+        }
+
+        getAchievementItemsPerPage() {
+            const viewportHeight = typeof window !== 'undefined' ? (window.innerHeight || 900) : 900;
+            const viewportWidth = typeof window !== 'undefined' ? (window.innerWidth || 1200) : 1200;
+            if (viewportHeight >= 950 && viewportWidth >= 1100) {
+                return 8;
+            }
+            if (viewportHeight >= 780) {
+                return 6;
+            }
+            return 4;
         }
 
         navigateShopPage(direction) {

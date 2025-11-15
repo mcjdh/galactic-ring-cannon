@@ -34,6 +34,23 @@ class CosmicBackground {
             { stars: [], count: 50, speed: 0.7, size: 2, brightness: 0.9 }      // Near stars (faster parallax)
         ];
 
+        // Star rendering cache (uses RAM to offload CPU/GPU draw calls)
+        this._starBuffer = null;
+        this._starBufferCtx = null;
+        this._starBufferDirty = true;
+        this._starBufferWidth = 0;
+        this._starBufferHeight = 0;
+
+        // Grid rendering cache (reduces per-frame draw cost)
+        this._gridBuffer = null;
+        this._gridBufferCtx = null;
+        this._gridBufferWidth = 0;
+        this._gridBufferHeight = 0;
+        this._gridBufferDirty = true;
+        this._lastGridPlayerX = 0;
+        this._lastGridPlayerY = 0;
+        this._gridDirtyThreshold = 16; // pixels of movement to force redraw
+
         // Track last player position for proper parallax
         this.lastPlayerX = 0;
         this.lastPlayerY = 0;
@@ -111,6 +128,8 @@ class CosmicBackground {
         this._pendingParallaxY = 0;
         this._frameAccumulator = 0;
 
+        this._gridBufferDirty = true;
+
         // Generate nebula clouds
         this.nebulaClouds.length = 0;
         
@@ -140,6 +159,8 @@ class CosmicBackground {
         // [PERFORMANCE] Defer nebula sprite pre-warming to avoid early-game lag
         // Pre-warm on first render instead of initialization
         this._needsPreWarm = true;
+
+        this._starBufferDirty = true;
     }
 
     /**
@@ -175,6 +196,7 @@ class CosmicBackground {
             this._lastCanvasHeight = currentHeight;
             // Redistribute stars when canvas resizes
             this.initialize();
+            this._gridBufferDirty = true;
             if (window.debugManager?.enabled) {
                 console.log(`[C] CosmicBackground resized (${currentWidth}x${currentHeight})`);
             }
@@ -264,6 +286,7 @@ class CosmicBackground {
             const spanX = wrap.spanX;
             const spanY = wrap.spanY;
 
+            let starsShifted = false;
             for (const layer of this.starLayers) {
                 const stars = layer.stars;
                 if (!stars || stars.length === 0) continue;
@@ -271,6 +294,8 @@ class CosmicBackground {
                 const parallaxX = cameraDeltaX * layer.speed;
                 const parallaxY = cameraDeltaY * layer.speed;
                 if (parallaxX === 0 && parallaxY === 0) continue;
+
+                starsShifted = true;
 
                 const updateX = parallaxX !== 0;
                 const updateY = parallaxY !== 0;
@@ -299,6 +324,14 @@ class CosmicBackground {
                         star.y = newY;
                     }
                 }
+            }
+
+            if (starsShifted) {
+                this._starBufferDirty = true;
+            }
+
+            if (Math.abs(cameraDeltaX) > this._gridDirtyThreshold || Math.abs(cameraDeltaY) > this._gridDirtyThreshold) {
+                this._gridBufferDirty = true;
             }
 
             // Update nebula clouds with parallax (they're farther than stars)
@@ -468,26 +501,79 @@ class CosmicBackground {
     }
 
     renderStars() {
-        const ctx = this.ctx;
         const skipTwinkle = this.lowQuality;
 
-        // Performance: Update twinkle values only every N frames
         this._twinkleUpdateCounter++;
         const shouldUpdateTwinkle = !skipTwinkle && ((this._twinkleUpdateCounter % this._twinkleUpdateFrequency) === 0);
 
-        const width = this.canvas.width;
-        const height = this.canvas.height;
+        const width = this.canvas.width || 1;
+        const height = this.canvas.height || 1;
 
-        // Culling bounds with margin
+        if (shouldUpdateTwinkle) {
+            this._starBufferDirty = true;
+        }
+
+        const buffer = this._ensureStarBuffer(width, height);
+
+        if (buffer && buffer.ctx) {
+            if (this._starBufferDirty) {
+                buffer.ctx.clearRect(0, 0, width, height);
+                this._drawStarsToContext(buffer.ctx, width, height, skipTwinkle, shouldUpdateTwinkle);
+                this._starBufferDirty = false;
+            }
+            this.ctx.drawImage(buffer.canvas, 0, 0, width, height);
+        } else {
+            this._drawStarsToContext(this.ctx, width, height, skipTwinkle, shouldUpdateTwinkle);
+        }
+    }
+
+    _ensureStarBuffer(width, height) {
+        if (typeof OffscreenCanvas === 'undefined' && typeof document === 'undefined') {
+            return null;
+        }
+
+        const safeWidth = Math.max(1, Math.floor(width));
+        const safeHeight = Math.max(1, Math.floor(height));
+        const needsNewBuffer = !this._starBuffer ||
+            this._starBufferWidth !== safeWidth ||
+            this._starBufferHeight !== safeHeight;
+
+        if (needsNewBuffer) {
+            if (typeof OffscreenCanvas !== 'undefined') {
+                this._starBuffer = new OffscreenCanvas(safeWidth, safeHeight);
+            } else if (typeof document !== 'undefined') {
+                const canvas = document.createElement('canvas');
+                canvas.width = safeWidth;
+                canvas.height = safeHeight;
+                this._starBuffer = canvas;
+            } else {
+                this._starBuffer = null;
+            }
+
+            this._starBufferCtx = this._starBuffer ? this._starBuffer.getContext('2d') : null;
+            this._starBufferWidth = safeWidth;
+            this._starBufferHeight = safeHeight;
+            this._starBufferDirty = true;
+        }
+
+        if (!this._starBuffer || !this._starBufferCtx) {
+            return null;
+        }
+
+        return { canvas: this._starBuffer, ctx: this._starBufferCtx };
+    }
+
+    _drawStarsToContext(ctx, width, height, skipTwinkle, shouldUpdateTwinkle) {
+        if (!ctx) return;
+
         const cullMarginFactor = 0.05;
         const cullMargin = Math.max(width, height) * cullMarginFactor;
         const minX = -cullMargin;
         const maxX = width + cullMargin;
         const minY = -cullMargin;
         const maxY = height + cullMargin;
-
         const time = this.time;
-        
+
         for (const layer of this.starLayers) {
             const layerStars = layer.stars;
             if (!layerStars || layerStars.length === 0) continue;
@@ -495,13 +581,11 @@ class CosmicBackground {
             const size = layer.size;
             const brightness = layer.brightness;
 
-            // > OPTIMIZATION 1: Use fillRect for small stars (much faster than arc)
             if (size < 2) {
                 ctx.fillStyle = '#ffffff';
                 const baseAlpha = brightness * (skipTwinkle ? 0.7 : 0.8);
                 ctx.globalAlpha = baseAlpha;
 
-                // Batch all small stars with fillRect
                 for (let i = 0; i < layerStars.length; i++) {
                     const star = layerStars[i];
                     if (!star) continue;
@@ -509,17 +593,14 @@ class CosmicBackground {
                     const x = star.x;
                     const y = star.y;
 
-                    // Branchless culling check (faster on ARM/Pi5)
                     if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
                         ctx.fillRect(x - size * 0.5, y - size * 0.5, size, size);
                     }
                 }
             } else {
-                // > OPTIMIZATION 2: Batch all arcs in single path for larger stars
                 ctx.fillStyle = '#ffffff';
-                ctx.beginPath(); // Only ONE beginPath for entire layer
+                ctx.beginPath();
 
-                // Use fast LCG for twinkle calculation when updating
                 let seed = shouldUpdateTwinkle ? ((layer.seed || 0) + (time * layer.twinkleSpeedScalar || time)) : 0;
 
                 for (let i = 0; i < layerStars.length; i++) {
@@ -529,40 +610,97 @@ class CosmicBackground {
                     const x = star.x;
                     const y = star.y;
 
-                    // Branchless culling
                     if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-                        // Update cached twinkle value periodically (not every frame)
                         if (shouldUpdateTwinkle) {
                             seed = (seed * 1664525 + 1013904223) | 0;
                             const phase = ((seed >>> 16) & 0xffff) / 0xffff;
-                            // Use simple phase value instead of sqrt (faster on ARM)
                             star.cachedTwinkle = phase;
                         }
-                        
-                        // All stars in layer share same alpha - average it
-                        // (Trade-off: slightly less variation for much better performance)
+
                         ctx.moveTo(x + size, y);
                         ctx.arc(x, y, size, 0, Math.PI * 2);
                     }
                 }
 
-                // Single alpha for the layer (averaged)
                 ctx.globalAlpha = brightness * (skipTwinkle ? 0.7 : 0.8);
-                ctx.fill(); // Only ONE fill for entire layer
+                ctx.fill();
             }
         }
 
-        ctx.globalAlpha = 1.0; // Reset once at end
+        ctx.globalAlpha = 1.0;
     }
 
     renderGrid(player) {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const width = this.canvas.width || 1;
+        const height = this.canvas.height || 1;
+        const playerX = player && typeof player.x === 'number' ? player.x : 0;
+        const playerY = player && typeof player.y === 'number' ? player.y : 0;
+
+        if (Math.abs(playerX - this._lastGridPlayerX) > this._gridDirtyThreshold ||
+            Math.abs(playerY - this._lastGridPlayerY) > this._gridDirtyThreshold) {
+            this._gridBufferDirty = true;
+        }
+
+        const buffer = this._ensureGridBuffer(width, height);
+
+        if (buffer && buffer.ctx) {
+            if (this._gridBufferDirty) {
+                buffer.ctx.clearRect(0, 0, width, height);
+                this._drawGridToContext(buffer.ctx, width, height, player);
+                this._gridBufferDirty = false;
+                this._lastGridPlayerX = playerX;
+                this._lastGridPlayerY = playerY;
+            }
+            this.ctx.drawImage(buffer.canvas, 0, 0, width, height);
+        } else {
+            this._drawGridToContext(this.ctx, width, height, player);
+            this._lastGridPlayerX = playerX;
+            this._lastGridPlayerY = playerY;
+            this._gridBufferDirty = false;
+        }
+    }
+
+    _ensureGridBuffer(width, height) {
+        if (typeof OffscreenCanvas === 'undefined' && typeof document === 'undefined') {
+            return null;
+        }
+
+        const safeWidth = Math.max(1, Math.floor(width));
+        const safeHeight = Math.max(1, Math.floor(height));
+        const needsNewBuffer = !this._gridBuffer ||
+            this._gridBufferWidth !== safeWidth ||
+            this._gridBufferHeight !== safeHeight;
+
+        if (needsNewBuffer) {
+            if (typeof OffscreenCanvas !== 'undefined') {
+                this._gridBuffer = new OffscreenCanvas(safeWidth, safeHeight);
+            } else if (typeof document !== 'undefined') {
+                const canvas = document.createElement('canvas');
+                canvas.width = safeWidth;
+                canvas.height = safeHeight;
+                this._gridBuffer = canvas;
+            } else {
+                this._gridBuffer = null;
+            }
+            this._gridBufferCtx = this._gridBuffer ? this._gridBuffer.getContext('2d') : null;
+            this._gridBufferWidth = safeWidth;
+            this._gridBufferHeight = safeHeight;
+            this._gridBufferDirty = true;
+        }
+
+        if (!this._gridBuffer || !this._gridBufferCtx) {
+            return null;
+        }
+
+        return { canvas: this._gridBuffer, ctx: this._gridBufferCtx };
+    }
+
+    _drawGridToContext(ctx, w, h, player) {
+        if (!ctx) return;
+
         const horizonY = h * this.grid.horizonY;
         const spacing = this.grid.spacing;
 
-        // Low-quality mode: fewer lines for better performance
         const maxHorizontalLines = this.lowQuality ? 15 : 25;
         const numVerticalLines = this.lowQuality ? 15 : 25;
 
@@ -570,73 +708,58 @@ class CosmicBackground {
         ctx.strokeStyle = this.hexToRgba(this.colors.gridColor, 0.2);
         ctx.lineWidth = 1.5;
 
-        // Calculate grid offset based on player position (scrolling grid effect)
-        const offsetX = player ? (-player.x * 0.3) % spacing : 0;
-        const offsetY = player ? (-player.y * 0.3) % spacing : 0;
+        const playerX = player && typeof player.x === 'number' ? player.x : 0;
+        const playerY = player && typeof player.y === 'number' ? player.y : 0;
 
-        // > OPTIMIZATION: Batch all grid lines into single path
-        ctx.beginPath(); // Only ONE beginPath for entire grid
+        const offsetX = (-playerX * 0.3) % spacing;
+        const offsetY = (-playerY * 0.3) % spacing;
 
-        // === UPPER GRID (subtle, integrates with stars) ===
+        ctx.beginPath();
+
         if (this.grid.showUpperGrid) {
             const upperSpacing = spacing * 1.5;
-            const upperOffsetX = player ? (-player.x * 0.15) % upperSpacing : 0;
-            const upperOffsetY = player ? (-player.y * 0.15) % upperSpacing : 0;
+            const upperOffsetX = (-playerX * 0.15) % upperSpacing;
+            const upperOffsetY = (-playerY * 0.15) % upperSpacing;
 
-            // Subtle horizontal lines in upper area
             for (let i = 0; i < 8; i++) {
                 const y = (i * upperSpacing + upperOffsetY) % horizonY;
                 if (y < 0 || y > horizonY) continue;
-
                 ctx.moveTo(0, y);
                 ctx.lineTo(w, y);
             }
 
-            // Subtle vertical lines in upper area
             const upperVerticalLines = this.lowQuality ? 8 : 12;
             for (let i = -upperVerticalLines; i <= upperVerticalLines; i++) {
                 const x = w * 0.5 + (i * upperSpacing) + upperOffsetX;
                 if (x < 0 || x > w) continue;
-
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, horizonY);
             }
         }
 
-        // === LOWER PERSPECTIVE GRID (main grid) ===
-        // Horizontal lines with perspective (moving with player)
         const gridStartY = horizonY + offsetY;
         for (let i = 0; i < maxHorizontalLines; i++) {
             const yOffset = i * spacing * 0.7;
             const y = gridStartY + yOffset;
-
             if (y < horizonY || y > h) continue;
-
             const progress = (y - horizonY) / (h - horizonY);
             const perspectiveScale = progress;
-
             const leftX = w * 0.5 - (w * perspectiveScale);
             const rightX = w * 0.5 + (w * perspectiveScale);
             ctx.moveTo(leftX, y);
             ctx.lineTo(rightX, y);
         }
 
-        // Vertical lines with perspective (moving with player)
         for (let i = -numVerticalLines; i <= numVerticalLines; i++) {
             const x = w * 0.5 + (i * spacing) + offsetX;
-
             if (x < 0 || x > w) continue;
-
-            // Lines angle toward vanishing point at horizon
             const vanishingX = w * 0.5;
             const perspectiveAngle = (x - vanishingX) * 0.1;
-            
             ctx.moveTo(x, horizonY);
             ctx.lineTo(x + perspectiveAngle, h);
         }
 
-        // > OPTIMIZATION: Single stroke for ALL grid lines (80% faster)
-        ctx.globalAlpha = 0.15; // Unified alpha for grid
+        ctx.globalAlpha = 0.15;
         ctx.stroke();
         ctx.restore();
     }
@@ -751,6 +874,7 @@ class CosmicBackground {
         if (this.lowQuality === enabled) return; // No change needed
 
         this.lowQuality = enabled;
+        this._starBufferDirty = true;
         
         // [R] FIX: Track if counts actually changed to avoid unnecessary reinitialization
         // This prevents nebula flashing when _applyBackgroundQuality() is called repeatedly

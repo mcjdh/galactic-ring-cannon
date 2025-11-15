@@ -10,6 +10,17 @@ class MinimapSystem {
         this.ctx = null;
         this.enabled = true;
         this.lastUpdate = 0;
+
+        this._maxEnemyMarkers = options.maxEnemyMarkers ?? 256;
+        this._enemyMarkerPositions = new Float32Array(this._maxEnemyMarkers * 2);
+        this._enemyMarkerTypes = new Uint8Array(this._maxEnemyMarkers);
+        this._enemyMarkerCount = 0;
+
+        this._maxXpMarkers = options.maxXpMarkers ?? 256;
+        this._xpMarkerPositions = new Float32Array(this._maxXpMarkers * 2);
+        this._xpMarkerCount = 0;
+
+        this._bossIndicatorCache = { x: 0, y: 0, dxWorld: 0, dyWorld: 0, distSq: Infinity, inBounds: false };
     }
 
     setGame(game) {
@@ -98,56 +109,74 @@ class MinimapSystem {
         ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        let closestBoss = null;
-        let closestBossDist = Infinity;
+        this._enemyMarkerCount = 0;
+        this._xpMarkerCount = 0;
+        const bossCache = this._bossIndicatorCache;
+        bossCache.distSq = Infinity;
+        bossCache.inBounds = false;
 
         const enemies = this.game.getEnemies?.() ?? [];
         if (Array.isArray(enemies) && enemies.length > 0) {
+            const enemyPositions = this._enemyMarkerPositions;
+            const enemyTypes = this._enemyMarkerTypes;
+            const maxMarkers = this._maxEnemyMarkers;
+            let markerCount = 0;
             for (const enemy of enemies) {
                 if (!enemy || enemy.isDead) continue;
-
                 const dxWorld = enemy.x - player.x;
                 const dyWorld = enemy.y - player.y;
                 const x = Math.round(centerX + dxWorld * scale);
                 const y = Math.round(centerY + dyWorld * scale);
-
+                const inBounds = x >= 0 && x <= width && y >= 0 && y <= height;
                 if (enemy.isBoss) {
                     const distSq = dxWorld * dxWorld + dyWorld * dyWorld;
-                    if (distSq < closestBossDist) {
-                        closestBossDist = distSq;
-                        closestBoss = { x, y, dxWorld, dyWorld };
+                    if (distSq < bossCache.distSq) {
+                        bossCache.distSq = distSq;
+                        bossCache.dxWorld = dxWorld;
+                        bossCache.dyWorld = dyWorld;
+                        bossCache.x = x;
+                        bossCache.y = y;
+                        bossCache.inBounds = inBounds;
                     }
                 }
-
-                if (x < 0 || x > width || y < 0 || y > height) continue;
-
-                ctx.fillStyle = enemy.isBoss ? '#f1c40f' : (enemy.isElite ? '#e67e22' : '#e74c3c');
-                if (enemy.isBoss) {
-                    ctx.beginPath();
-                    ctx.arc(x, y, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(x - 1, y - 1, 2, 2);
+                if (!inBounds || markerCount >= maxMarkers) {
+                    continue;
                 }
+                const baseIndex = markerCount * 2;
+                enemyPositions[baseIndex] = x;
+                enemyPositions[baseIndex + 1] = y;
+                enemyTypes[markerCount] = enemy.isBoss ? 2 : (enemy.isElite ? 1 : 0);
+                markerCount++;
             }
-        }
-
-        if (closestBoss) {
-            this._drawBossIndicator(ctx, closestBoss, width, height, centerX, centerY);
+            this._enemyMarkerCount = markerCount;
         }
 
         const xpOrbs = this.game.getXPOrbs?.() ?? [];
         if (Array.isArray(xpOrbs) && xpOrbs.length > 0) {
-            ctx.fillStyle = '#2ecc71';
+            const xpPositions = this._xpMarkerPositions;
+            const maxXp = this._maxXpMarkers;
+            let xpCount = 0;
             for (const orb of xpOrbs) {
                 if (!orb || orb.isDead) continue;
+                if (xpCount >= maxXp) break;
                 const dx = (orb.x - player.x) * scale;
                 const dy = (orb.y - player.y) * scale;
                 const x = Math.round(centerX + dx);
                 const y = Math.round(centerY + dy);
                 if (x < 0 || x > width || y < 0 || y > height) continue;
-                ctx.fillRect(x, y, 1, 1);
+                const baseIndex = xpCount * 2;
+                xpPositions[baseIndex] = x;
+                xpPositions[baseIndex + 1] = y;
+                xpCount++;
             }
+            this._xpMarkerCount = xpCount;
+        }
+
+        this._drawEnemyMarkers(ctx);
+        this._drawXpMarkers(ctx);
+
+        if (bossCache.distSq !== Infinity) {
+            this._drawBossIndicator(ctx, bossCache, width, height, centerX, centerY);
         }
     }
 
@@ -155,9 +184,65 @@ class MinimapSystem {
         this.ctx = null;
     }
 
+    _drawEnemyMarkers(ctx) {
+        const count = this._enemyMarkerCount;
+        if (!count) return;
+        const positions = this._enemyMarkerPositions;
+        const types = this._enemyMarkerTypes;
+
+        ctx.fillStyle = '#e74c3c';
+        for (let i = 0; i < count; i++) {
+            if (types[i] !== 0) continue;
+            const base = i * 2;
+            const x = positions[base];
+            const y = positions[base + 1];
+            ctx.fillRect(x - 1, y - 1, 2, 2);
+        }
+
+        ctx.fillStyle = '#e67e22';
+        for (let i = 0; i < count; i++) {
+            if (types[i] !== 1) continue;
+            const base = i * 2;
+            const x = positions[base];
+            const y = positions[base + 1];
+            ctx.fillRect(x - 1, y - 1, 2, 2);
+        }
+
+        let bossPathStarted = false;
+        ctx.fillStyle = '#f1c40f';
+        for (let i = 0; i < count; i++) {
+            if (types[i] !== 2) continue;
+            const base = i * 2;
+            const x = positions[base];
+            const y = positions[base + 1];
+            if (!bossPathStarted) {
+                ctx.beginPath();
+                bossPathStarted = true;
+            }
+            ctx.moveTo(x + 3, y);
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+        }
+        if (bossPathStarted) {
+            ctx.fill();
+        }
+    }
+
+    _drawXpMarkers(ctx) {
+        const count = this._xpMarkerCount;
+        if (!count) return;
+        const positions = this._xpMarkerPositions;
+        ctx.fillStyle = '#2ecc71';
+        for (let i = 0; i < count; i++) {
+            const base = i * 2;
+            const x = positions[base];
+            const y = positions[base + 1];
+            ctx.fillRect(x, y, 1, 1);
+        }
+    }
+
     _drawBossIndicator(ctx, bossData, width, height, centerX, centerY) {
         const { x, y, dxWorld, dyWorld } = bossData;
-        const inBounds = x >= 0 && x <= width && y >= 0 && y <= height;
+        const inBounds = bossData.inBounds;
         const angle = Math.atan2(dyWorld, dxWorld);
         ctx.save();
         ctx.fillStyle = '#f1c40f';

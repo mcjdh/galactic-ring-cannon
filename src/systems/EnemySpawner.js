@@ -1,3 +1,48 @@
+// Spawn ring cache - reuses precomputed angles/types to shift work from CPU to RAM.
+const SpawnRingCache = (() => {
+    const TABLE_SIZE = 8192;
+    const TABLE_MASK = TABLE_SIZE - 1;
+    const TWO_PI = Math.PI * 2;
+    const cosTable = new Float32Array(TABLE_SIZE);
+    const sinTable = new Float32Array(TABLE_SIZE);
+    const radiusNoise = new Float32Array(TABLE_SIZE);
+    const generalNoise = new Float32Array(TABLE_SIZE);
+
+    for (let i = 0; i < TABLE_SIZE; i++) {
+        const angle = (i / TABLE_SIZE) * TWO_PI;
+        cosTable[i] = Math.cos(angle);
+        sinTable[i] = Math.sin(angle);
+        radiusNoise[i] = Math.random();
+        generalNoise[i] = Math.random();
+    }
+
+    let generalCursor = 0;
+    const nextNoiseValue = () => {
+        generalCursor = (generalCursor + 1) & TABLE_MASK;
+        return generalNoise[generalCursor];
+    };
+
+    const nextIndex = () => ((nextNoiseValue() * TABLE_SIZE) | 0) & TABLE_MASK;
+
+    return {
+        nextVector() {
+            const idx = nextIndex();
+            return { cos: cosTable[idx], sin: sinTable[idx] };
+        },
+        nextRadiusNoise() {
+            return radiusNoise[nextIndex()];
+        },
+        nextEnemyIndex(listLength) {
+            if (!listLength || listLength <= 1) return 0;
+            const scaled = nextNoiseValue() * listLength;
+            return Math.min(listLength - 1, scaled | 0);
+        },
+        nextNoise() {
+            return nextNoiseValue();
+        }
+    };
+})();
+
 /**
  * Enemy Spawner - Manages enemy spawning, waves, and difficulty progression
  * Extracted from enemy.js for better organization
@@ -529,7 +574,7 @@ class EnemySpawner {
     createEnemy(type, x, y) {
         const enemy = new Enemy(x, y, type);
         this.applyDifficultyScaling(enemy);
-        if (Math.random() < this.eliteChance) {
+        if (SpawnRingCache.nextNoise() < this.eliteChance) {
             this.makeElite(enemy);
         }
         return enemy;
@@ -555,7 +600,7 @@ class EnemySpawner {
             return { x: fallbackX, y: fallbackY };
         }
 
-        const angle = Math.random() * Math.PI * 2;
+        const cachedVector = SpawnRingCache.nextVector();
 
         const globalWindow = (typeof window !== 'undefined') ? window : undefined;
         const canvasWidth = this.game.canvas?.width || globalWindow?.innerWidth || 1280;
@@ -571,13 +616,11 @@ class EnemySpawner {
             ? this.spawnRadius
             : minDistance + 250;
         const maxDistance = Math.max(minDistance + 120, maxDistanceConfig);
-        const distance = minDistance + Math.random() * (maxDistance - minDistance);
 
-        // Use FastMath.sincos for 5x speedup on ARM
-        const FastMath = window.Game?.FastMath;
-        const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
-        const x = this.game.player.x + cos * distance;
-        const y = this.game.player.y + sin * distance;
+        const radiusNoise = SpawnRingCache.nextRadiusNoise();
+        const distance = minDistance + radiusNoise * (maxDistance - minDistance);
+        const x = this.game.player.x + cachedVector.cos * distance;
+        const y = this.game.player.y + cachedVector.sin * distance;
 
         // Final validation - ensure no NaN or Infinity values
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -599,7 +642,8 @@ class EnemySpawner {
      * @returns {string} Enemy type
      */
     getRandomEnemyType() {
-        return this.enemyTypes[Math.floor(Math.random() * this.enemyTypes.length)];
+        const idx = SpawnRingCache.nextEnemyIndex(this.enemyTypes.length);
+        return this.enemyTypes[idx] || this.enemyTypes[0];
     }
     
     /**

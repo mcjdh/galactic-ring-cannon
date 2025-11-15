@@ -26,6 +26,14 @@ class EffectsManager {
         // Particle management
         this.particleManager = null;
         this.particles = []; // Fallback array
+        this._fallbackParticlePool = [];
+        this._fallbackParticleCapacity = (EFFECTS_GC.PARTICLES?.FALLBACK_POOL_SIZE) || 256;
+        const ParticleClass = typeof Particle !== 'undefined' ? Particle : window.Game?.Particle;
+        if (ParticleClass) {
+            for (let i = 0; i < Math.min(32, this._fallbackParticleCapacity); i++) {
+                this._fallbackParticlePool.push(new ParticleClass(0, 0, 0, 0, 1, '#ffffff', 1));
+            }
+        }
         this.maxParticles = EFFECTS_GC.PARTICLES && EFFECTS_GC.PARTICLES.MAX_PARTICLES_NORMAL
             ? EFFECTS_GC.PARTICLES.MAX_PARTICLES_NORMAL
             : 150;
@@ -45,6 +53,8 @@ class EffectsManager {
 
         // Temp lightning arcs for quick visual flashes
         this.activeLightningArcs = [];
+        this._lightningArcPool = [];
+        this._arcPointPool = [];
         
         // Initialize particle system
         this.initializeParticleSystem();
@@ -60,27 +70,9 @@ class EffectsManager {
             return true;
         }
 
-        // Fallback particle object update handled during updateFallbackParticles
-        this.particles.push({
-            x,
-            y,
-            vx,
-            vy,
-            size,
-            color,
-            life,
-            lifetime: life,
-            age: 0,
-            type,
-            update(deltaTime) {
-                this.x += this.vx * deltaTime;
-                this.y += this.vy * deltaTime;
-                this.age += deltaTime;
-                if (this.age >= this.lifetime) {
-                    this.isDead = true;
-                }
-            }
-        });
+        const particle = this._acquireFallbackParticle();
+        this._configureFallbackParticle(particle, { x, y, vx, vy, size, color, life });
+        this.particles.push(particle);
         return true;
     }
     
@@ -137,6 +129,7 @@ class EffectsManager {
                 const arc = this.activeLightningArcs[i];
                 arc.timeRemaining -= deltaTime;
                 if (arc.timeRemaining <= 0) {
+                    this._releaseLightningArc(arc);
                     this.activeLightningArcs.splice(i, 1);
                 }
             }
@@ -197,27 +190,34 @@ class EffectsManager {
      */
     updateFallbackParticles(deltaTime) {
         if (!this.particles || this.particles.length === 0) return;
-        
-        // Enforce particle limit
-        if (this.particles.length > this.maxParticles) {
-            this.particles.splice(0, this.particles.length - this.maxParticles);
-        }
-        
-        // Update and remove dead particles
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const particle = this.particles[i];
-            if (!particle) {
-                this.particles.splice(i, 1);
-                continue;
+        const maxParticles = this.maxParticles;
+        if (this.particles.length > maxParticles) {
+            const excess = this.particles.length - maxParticles;
+            for (let i = 0; i < excess; i++) {
+                this._releaseFallbackParticle(this.particles[i]);
             }
-            
+            this.particles.splice(0, excess);
+        }
+
+        const list = this.particles;
+        let writeIndex = 0;
+        for (let i = 0; i < list.length; i++) {
+            const particle = list[i];
+            if (!particle) continue;
             if (typeof particle.update === 'function') {
                 particle.update(deltaTime);
             }
-            
             if (particle.isDead || particle.lifetime <= 0) {
-                this.particles.splice(i, 1);
+                this._releaseFallbackParticle(particle);
+                continue;
             }
+            if (writeIndex !== i) {
+                list[writeIndex] = particle;
+            }
+            writeIndex++;
+        }
+        if (writeIndex < list.length) {
+            list.length = writeIndex;
         }
     }
     
@@ -572,31 +572,38 @@ class EffectsManager {
         const jitter = options.jitter ?? 26;
         const maxSegments = options.segments ?? Math.max(4, Math.floor(Math.hypot(toX - fromX, toY - fromY) / 45));
 
-        const points = [];
+        const arc = this._lightningArcPool.pop() || {};
+        const arcPoints = arc.points || [];
+        if (arcPoints.length < maxSegments + 1) {
+            arcPoints.length = maxSegments + 1;
+        }
         for (let i = 0; i <= maxSegments; i++) {
+            const point = this._acquireArcPoint();
             const ratio = i / maxSegments;
             const baseX = fromX + (toX - fromX) * ratio;
             const baseY = fromY + (toY - fromY) * ratio;
 
             if (i === 0 || i === maxSegments) {
-                points.push({ x: baseX, y: baseY });
+                point.x = baseX;
+                point.y = baseY;
             } else {
-                const offsetX = (Math.random() - 0.5) * jitter;
-                const offsetY = (Math.random() - 0.5) * jitter;
-                points.push({ x: baseX + offsetX, y: baseY + offsetY });
+                point.x = baseX + (Math.random() - 0.5) * jitter;
+                point.y = baseY + (Math.random() - 0.5) * jitter;
             }
+            arcPoints[i] = point;
         }
 
-        this.activeLightningArcs.push({
-            points,
-            timeRemaining: duration,
-            duration,
-            thickness: options.thickness ?? 4,
-            colorStops: options.colorStops || [
-                { stop: 0, color: 'rgba(164, 227, 255, 0.9)' },
-                { stop: 1, color: 'rgba(80, 174, 255, 0.9)' }
-            ]
-        });
+        arc.points = arcPoints;
+        arc.timeRemaining = duration;
+        arc.duration = duration;
+        arc.thickness = options.thickness ?? 4;
+        arc.colorStops = options.colorStops || [
+            { stop: 0, color: 'rgba(164, 227, 255, 0.9)' },
+            { stop: 1, color: 'rgba(80, 174, 255, 0.9)' }
+        ];
+        arc.pointCount = maxSegments + 1;
+
+        this.activeLightningArcs.push(arc);
     }
     
     /**
@@ -618,10 +625,58 @@ class EffectsManager {
         // Floating text
         this.showCombatText('BOSS DEFEATED!', x, y - 50, 'critical', 32);
     }
-    
+
     /**
      * Fallback effect implementations
      */
+    _acquireFallbackParticle() {
+        if (this._fallbackParticlePool.length > 0) {
+            return this._fallbackParticlePool.pop();
+        }
+        const ParticleClass = typeof Particle !== 'undefined' ? Particle : window.Game?.Particle;
+        if (ParticleClass) {
+            return new ParticleClass(0, 0, 0, 0, 1, '#ffffff', 1);
+        }
+        return {
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            size: 1,
+            color: '#ffffff',
+            lifetime: 1,
+            age: 0,
+            isDead: false,
+            update() { this.age += 0; },
+            render() {}
+        };
+    }
+
+    _releaseFallbackParticle(particle) {
+        if (!particle) return;
+        if (this._fallbackParticlePool.length < this._fallbackParticleCapacity) {
+            this._fallbackParticlePool.push(particle);
+        }
+    }
+
+    _configureFallbackParticle(particle, config) {
+        particle.x = config.x || 0;
+        particle.y = config.y || 0;
+        particle.vx = config.vx || 0;
+        particle.vy = config.vy || 0;
+        const size = config.size || 2;
+        particle.size = size;
+        particle.startSize = size;
+        particle.color = config.color || '#ffffff';
+        const life = config.life || 0.4;
+        particle.lifetime = life;
+        particle.age = 0;
+        particle.isDead = false;
+        particle.alpha = 1;
+        particle.gravity = typeof config.gravity === 'number' ? config.gravity : 0;
+        particle.friction = typeof config.friction === 'number' ? config.friction : 0.95;
+    }
+
     createFallbackHitEffect(x, y, damage) {
         const particleCount = Math.min(8, Math.floor(damage / 5));
         for (let i = 0; i < particleCount; i++) {
@@ -640,14 +695,16 @@ class EffectsManager {
                     type: 'spark'
                 });
             } else {
-                const particle = new Particle(
-                    x, y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
-                    1 + Math.random() * 3,
-                    '#e74c3c',
-                    0.3 + Math.random() * 0.3
-                );
+                const particle = this._acquireFallbackParticle();
+                this._configureFallbackParticle(particle, {
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 1 + Math.random() * 3,
+                    color: '#e74c3c',
+                    life: 0.3 + Math.random() * 0.3
+                });
                 this.particles.push(particle);
             }
         }
@@ -671,14 +728,16 @@ class EffectsManager {
                     type: 'spark'
                 });
             } else {
-                const particle = new Particle(
-                    x, y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
-                    2 + Math.random() * 4,
+                const particle = this._acquireFallbackParticle();
+                this._configureFallbackParticle(particle, {
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 4,
                     color,
-                    0.5 + Math.random() * 0.5
-                );
+                    life: 0.5 + Math.random() * 0.5
+                });
                 this.particles.push(particle);
             }
         }
@@ -701,17 +760,36 @@ class EffectsManager {
                     type: 'spark'
                 });
             } else {
-                const particle = new Particle(
-                    x, y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
-                    2 + Math.random() * 4,
-                    '#f39c12',
-                    1 + Math.random() * 0.5
-                );
+                const particle = this._acquireFallbackParticle();
+                this._configureFallbackParticle(particle, {
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 4,
+                    color: '#f39c12',
+                    life: 1 + Math.random() * 0.5
+                });
                 this.particles.push(particle);
             }
         }
+    }
+
+    _releaseLightningArc(arc) {
+        if (!arc || !arc.points) return;
+        for (let i = 0; i < arc.pointCount; i++) {
+            const point = arc.points[i];
+            if (point) {
+                this._arcPointPool.push(point);
+            }
+        }
+        arc.points.length = 0;
+        arc.pointCount = 0;
+        this._lightningArcPool.push(arc);
+    }
+
+    _acquireArcPoint() {
+        return this._arcPointPool.length ? this._arcPointPool.pop() : { x: 0, y: 0 };
     }
     
     /**
@@ -727,13 +805,13 @@ class EffectsManager {
             ctx.lineJoin = 'round';
 
             this.activeLightningArcs.forEach(arc => {
-                if (!arc.points || arc.points.length < 2) return;
+                if (!arc.points || arc.pointCount < 2) return;
 
                 const t = Math.max(0, Math.min(1, arc.timeRemaining / arc.duration));
                 const width = (arc.thickness || 4) * (0.6 + 0.4 * t);
 
                 const start = arc.points[0];
-                const end = arc.points[arc.points.length - 1];
+                const end = arc.points[arc.pointCount - 1];
                 const gradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
                 (arc.colorStops || []).forEach(stop => {
                     const alphaColor = stop.color.replace(/rgba?\(([^)]+)\)/, (match, inner) => {
@@ -751,7 +829,7 @@ class EffectsManager {
                 ctx.lineWidth = width;
                 ctx.beginPath();
                 ctx.moveTo(start.x, start.y);
-                for (let i = 1; i < arc.points.length; i++) {
+                for (let i = 1; i < arc.pointCount; i++) {
                     ctx.lineTo(arc.points[i].x, arc.points[i].y);
                 }
                 ctx.stroke();
@@ -803,11 +881,23 @@ class EffectsManager {
         if (this.particleManager && this.particleManager.clear) {
             this.particleManager.clear();
         }
-        this.particles = [];
+        if (this.particles && this.particles.length) {
+            for (const particle of this.particles) {
+                this._releaseFallbackParticle(particle);
+            }
+            this.particles.length = 0;
+        }
         
         // Clear floating text
         if (this.floatingText && this.floatingText.clear) {
             this.floatingText.clear();
+        }
+
+        if (this.activeLightningArcs.length) {
+            for (const arc of this.activeLightningArcs) {
+                this._releaseLightningArc(arc);
+            }
+            this.activeLightningArcs.length = 0;
         }
     }
     

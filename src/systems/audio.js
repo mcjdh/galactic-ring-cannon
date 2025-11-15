@@ -12,6 +12,9 @@ class AudioSystem {
             
             // Initialize audio context on first user interaction
             this.initialized = false;
+            this.hasUserInteracted = false;
+            this.pendingSounds = [];
+            this.maxPendingSounds = 8;
             
             // Add fallback for browsers without Web Audio API
             if (!this.isWebAudioSupported) {
@@ -85,19 +88,73 @@ class AudioSystem {
     
     // Play sound with error handling
     play(soundName, volume = 0.5) {
-        if (this.isMuted) return;
-        
-        // Try Web Audio API first
-        if (this.isWebAudioSupported) {
-            try {
-                this.playWithWebAudio(soundName, volume);
-            } catch (error) {
-                window.logger.error("Error playing sound with Web Audio API:", error);
-                this.isWebAudioSupported = false;
+        if (this.isMuted || !soundName) {
+            return;
+        }
+
+        if (!this.isWebAudioSupported) {
+            return;
+        }
+
+        try {
+            if (!this.audioContext) {
+                this.initializeAudioContext();
             }
+
+            const contextState = this.audioContext?.state;
+            const awaitingGesture = contextState === 'suspended' && !this.hasUserInteracted;
+            if (awaitingGesture) {
+                this.queuePendingSound(soundName, volume);
+                return;
+            }
+
+            // Attempt to resume immediately; if the browser defers until user input,
+            // queue the sound so it plays once audio is unlocked.
+            const resumeResult = this.resumeAudioContext();
+            if (resumeResult && typeof resumeResult.then === 'function') {
+                resumeResult.then(() => this.flushPendingSounds()).catch(() => {});
+            }
+
+            if (this.audioContext?.state === 'suspended') {
+                this.queuePendingSound(soundName, volume);
+                return;
+            }
+
+            this.playWithWebAudio(soundName, volume);
+        } catch (error) {
+            window.logger.error("Error playing sound with Web Audio API:", error);
+            this.isWebAudioSupported = false;
         }
     }
     
+    queuePendingSound(soundName, volume) {
+        if (!this.pendingSounds) {
+            this.pendingSounds = [];
+        }
+        this.pendingSounds.push({ soundName, volume });
+        if (this.pendingSounds.length > this.maxPendingSounds) {
+            this.pendingSounds.shift();
+        }
+    }
+
+    flushPendingSounds() {
+        if (!Array.isArray(this.pendingSounds) || this.pendingSounds.length === 0) {
+            return;
+        }
+        if (!this.audioContext || this.audioContext.state === 'suspended') {
+            return;
+        }
+
+        const queue = this.pendingSounds.splice(0, this.pendingSounds.length);
+        queue.forEach(({ soundName, volume }) => {
+            try {
+                this.playWithWebAudio(soundName, volume);
+            } catch (error) {
+                window.logger.warn('Failed to flush queued sound:', error);
+            }
+        });
+    }
+
     // Play sound using Web Audio API with error handling
     playWithWebAudio(soundName, volume) {
         if (!this.audioContext) {
@@ -202,10 +259,19 @@ class AudioSystem {
     // Initialize audio context on user interaction with error handling
     handleUserInteraction() {
         try {
+            this.hasUserInteracted = true;
             if (!this.audioContext) {
                 this.initializeAudioContext();
-            } else if (this.audioContext.state === 'suspended') {
-                this.audioContext.resume();
+            }
+            if (this.audioContext?.state === 'suspended') {
+                const resumeResult = this.audioContext.resume();
+                if (resumeResult?.then) {
+                    resumeResult.then(() => this.flushPendingSounds()).catch(() => {});
+                } else {
+                    this.flushPendingSounds();
+                }
+            } else {
+                this.flushPendingSounds();
             }
         } catch (error) {
             window.logger.error('Error handling user interaction:', error);
@@ -748,9 +814,10 @@ try {
     // Add event listeners for user interactions to initialize audio
     // Use { once: true } so listener auto-removes after first click (prevents memory leak)
     if (typeof document !== 'undefined') {
-        document.addEventListener('click', () => {
-            audioSystem.handleUserInteraction();
-        }, { once: true });
+        const unlockAudio = () => audioSystem.handleUserInteraction();
+        ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(eventName => {
+            document.addEventListener(eventName, unlockAudio, { once: true, passive: true });
+        });
     }
 } catch (error) {
     window.logger.error('Error creating audio system:', error);

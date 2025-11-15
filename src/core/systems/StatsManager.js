@@ -38,7 +38,7 @@ class StatsManager {
         // Update GameState combo config when available (after construction)
         // Deferred to avoid initialization order issues
         setTimeout(() => {
-            if (this.state) {
+            if (this.state && this.state.combo) {
                 this.state.combo.timeout = this.comboTimeout;
             }
         }, 0);

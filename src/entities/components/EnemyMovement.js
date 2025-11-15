@@ -1,3 +1,94 @@
+// Movement pattern cache - trades RAM for fewer trig/random calls per frame.
+const MovementPatternCache = (() => {
+    const TABLE_SIZE = 4096;
+    const TABLE_MASK = TABLE_SIZE - 1;
+    const TWO_PI = Math.PI * 2;
+    const INV_TWO_PI = 1 / TWO_PI;
+
+    const sinTable = new Float32Array(TABLE_SIZE);
+    const cosTable = new Float32Array(TABLE_SIZE);
+    const randomTable = new Float32Array(TABLE_SIZE);
+    const vectorTable = new Float32Array(TABLE_SIZE * 2);
+
+    for (let i = 0; i < TABLE_SIZE; i++) {
+        const angle = (i / TABLE_SIZE) * TWO_PI;
+        const sin = Math.sin(angle);
+        const cos = Math.cos(angle);
+        sinTable[i] = sin;
+        cosTable[i] = cos;
+        randomTable[i] = Math.random();
+        vectorTable[i * 2] = cos;
+        vectorTable[i * 2 + 1] = sin;
+    }
+
+    let randomIndex = 0;
+    let vectorIndex = 0;
+
+    const hasPerfCache = () => typeof window !== 'undefined' && window.perfCache;
+
+    const normalizeAngle = (angle) => {
+        if (!Number.isFinite(angle)) return 0;
+        let normalized = angle % TWO_PI;
+        if (normalized < 0) normalized += TWO_PI;
+        return normalized;
+    };
+
+    const getIndex = (angle) => {
+        const normalized = normalizeAngle(angle);
+        const scaled = normalized * INV_TWO_PI * TABLE_SIZE;
+        return scaled & TABLE_MASK;
+    };
+
+    const sin = (angle) => sinTable[getIndex(angle)];
+    const cos = (angle) => cosTable[getIndex(angle)];
+    const sincos = (angle) => {
+        const idx = getIndex(angle);
+        return { sin: sinTable[idx], cos: cosTable[idx] };
+    };
+
+    const nextRandom = () => {
+        if (hasPerfCache()) {
+            return window.perfCache.random();
+        }
+        const value = randomTable[randomIndex];
+        randomIndex = (randomIndex + 1) & TABLE_MASK;
+        return value;
+    };
+
+    const randomRange = (min, max) => min + nextRandom() * (max - min);
+    const randomAngle = () => nextRandom() * TWO_PI;
+
+    const sampleUnitVector = () => {
+        vectorIndex = (vectorIndex + 1) & TABLE_MASK;
+        const base = vectorIndex << 1;
+        return {
+            x: vectorTable[base],
+            y: vectorTable[base + 1]
+        };
+    };
+
+    const fastSqrt = (value) => {
+        if (value <= 0) return 0;
+        return hasPerfCache() ? window.perfCache.sqrt(value) : Math.sqrt(value);
+    };
+
+    const fastMagnitude = (x, y) => fastSqrt(x * x + y * y);
+
+    return {
+        sin,
+        cos,
+        sincos,
+        random: nextRandom,
+        randomRange,
+        randomAngle,
+        sampleUnitVector,
+        fastMagnitude,
+        fastSqrt,
+        normalizeAngle,
+        TWO_PI
+    };
+})();
+
 /**
  * EnemyMovement Component
  * [A] RESONANT NOTE: Extracted from massive Enemy.js to improve maintainability
@@ -22,7 +113,7 @@ class EnemyMovement {
         
         // Movement patterns
         this.movementPattern = 'direct'; // direct, circular, zigzag, random
-        this.patternTimer = Math.random() * 2.0; // Randomize initial timer to desync movement patterns
+        this.patternTimer = MovementPatternCache.randomRange(0, 2.0); // Randomize initial timer to desync movement patterns
         this.patternData = {}; // Pattern-specific data
         
         // Collision detection
@@ -154,15 +245,18 @@ class EnemyMovement {
         }
 
         let desiredDirection = { x: baseDirection.x, y: baseDirection.y };
-        let desiredMagnitude = Math.hypot(desiredDirection.x, desiredDirection.y);
+        let desiredMagnitude = MovementPatternCache.fastMagnitude(desiredDirection.x, desiredDirection.y);
 
-        const lastMagnitude = Math.hypot(this.lastNonZeroDirection.x, this.lastNonZeroDirection.y);
+        const lastMagnitude = MovementPatternCache.fastMagnitude(
+            this.lastNonZeroDirection.x,
+            this.lastNonZeroDirection.y
+        );
         if (desiredMagnitude < 0.02 && lastMagnitude > 0.01) {
             desiredDirection = {
                 x: this.lastNonZeroDirection.x * 0.7,
                 y: this.lastNonZeroDirection.y * 0.7
             };
-            desiredMagnitude = Math.hypot(desiredDirection.x, desiredDirection.y);
+            desiredMagnitude = MovementPatternCache.fastMagnitude(desiredDirection.x, desiredDirection.y);
         }
 
         if (desiredMagnitude > 1) {
@@ -184,7 +278,10 @@ class EnemyMovement {
         this.currentDirection.x = Math.max(-1, Math.min(1, this.currentDirection.x));
         this.currentDirection.y = Math.max(-1, Math.min(1, this.currentDirection.y));
 
-        const currentMagnitude = Math.hypot(this.currentDirection.x, this.currentDirection.y);
+        const currentMagnitude = MovementPatternCache.fastMagnitude(
+            this.currentDirection.x,
+            this.currentDirection.y
+        );
         if (currentMagnitude > 1) {
             this.currentDirection.x /= currentMagnitude;
             this.currentDirection.y /= currentMagnitude;
@@ -202,19 +299,22 @@ class EnemyMovement {
     applyCircularPattern(baseDirection, deltaTime) {
         // Initialize pattern data if needed
         if (!this.patternData.circularAngle) {
-            this.patternData.circularAngle = Math.random() * Math.PI * 2;
-            this.patternData.circularRadius = 30 + Math.random() * 30; // Reduced for stability
-            this.patternData.circularSpeed = 0.8 + Math.random() * 1.2; // Slower for smoother movement
+            this.patternData.circularAngle = MovementPatternCache.randomAngle();
+            this.patternData.circularRadius = MovementPatternCache.randomRange(30, 60); // Reduced for stability
+            this.patternData.circularSpeed = MovementPatternCache.randomRange(0.8, 2.0); // Slower for smoother movement
             this.patternData.lastCircularX = 0;
             this.patternData.lastCircularY = 0;
         }
 
         // Update circular angle with smoother progression
-        this.patternData.circularAngle += this.patternData.circularSpeed * deltaTime;
+        this.patternData.circularAngle = MovementPatternCache.normalizeAngle(
+            this.patternData.circularAngle + this.patternData.circularSpeed * deltaTime
+        );
 
         // Calculate circular offset with reduced magnitude
-        const targetOffsetX = Math.cos(this.patternData.circularAngle) * this.patternData.circularRadius * 0.2;
-        const targetOffsetY = Math.sin(this.patternData.circularAngle) * this.patternData.circularRadius * 0.2;
+        const circularTrig = MovementPatternCache.sincos(this.patternData.circularAngle);
+        const targetOffsetX = circularTrig.cos * this.patternData.circularRadius * 0.2;
+        const targetOffsetY = circularTrig.sin * this.patternData.circularRadius * 0.2;
 
         // Apply smoothing to circular offsets to reduce sudden direction changes
         const circularSmoothing = 0.8;
@@ -234,22 +334,24 @@ class EnemyMovement {
     applyZigzagPattern(baseDirection, deltaTime) {
         // Initialize pattern data if needed
         if (!this.patternData.zigzagPhase) {
-            this.patternData.zigzagPhase = Math.random() * Math.PI * 2; // Random start phase
-            this.patternData.zigzagFrequency = 1.2 + Math.random() * 1.5; // Further reduced for stability
-            this.patternData.zigzagAmplitude = 0.2 + Math.random() * 0.2; // Reduced amplitude for less jitter
+            this.patternData.zigzagPhase = MovementPatternCache.randomAngle(); // Random start phase
+            this.patternData.zigzagFrequency = MovementPatternCache.randomRange(1.2, 2.7); // Further reduced for stability
+            this.patternData.zigzagAmplitude = MovementPatternCache.randomRange(0.2, 0.4); // Reduced amplitude for less jitter
             this.patternData.lastZigzagValue = 0; // Track last value for smoothing
             this.patternData.velocitySmoothing = 0; // Additional velocity smoothing
         }
 
         // Update zigzag phase with frame rate compensation
-        this.patternData.zigzagPhase += this.patternData.zigzagFrequency * deltaTime;
+        this.patternData.zigzagPhase = MovementPatternCache.normalizeAngle(
+            this.patternData.zigzagPhase + this.patternData.zigzagFrequency * deltaTime
+        );
 
         // Calculate perpendicular direction for zigzag
         const perpX = -baseDirection.y;
         const perpY = baseDirection.x;
 
         // Apply zigzag offset with enhanced smoothing to reduce jitter
-        const targetZigzagOffset = Math.sin(this.patternData.zigzagPhase) * this.patternData.zigzagAmplitude;
+        const targetZigzagOffset = MovementPatternCache.sin(this.patternData.zigzagPhase) * this.patternData.zigzagAmplitude;
 
         // Multiple stages of smoothing for ultra-smooth movement
         const smoothingFactor = 0.8; // Stronger smoothing
@@ -272,14 +374,10 @@ class EnemyMovement {
      */
     applyRandomPattern(baseDirection, deltaTime) {
         // Change direction randomly
-        if (this.patternTimer > 1.0 + Math.random() * 2.0) {
+        if (this.patternTimer > MovementPatternCache.randomRange(1.0, 3.0)) {
             this.patternTimer = 0;
             
-            const randomAngle = Math.random() * Math.PI * 2;
-            this.patternData.randomDirection = {
-                x: Math.cos(randomAngle),
-                y: Math.sin(randomAngle)
-            };
+            this.patternData.randomDirection = MovementPatternCache.sampleUnitVector();
         }
         
         // Blend random direction with base direction
@@ -302,22 +400,25 @@ class EnemyMovement {
         
         // Initialize orbital data
         if (!this.patternData.orbitalAngle) {
-            this.patternData.orbitalAngle = Math.random() * Math.PI * 2;
-            this.patternData.orbitalRadius = 150 + Math.random() * 100;
-            this.patternData.orbitalSpeed = 0.5 + Math.random() * 1.0;
+            this.patternData.orbitalAngle = MovementPatternCache.randomAngle();
+            this.patternData.orbitalRadius = MovementPatternCache.randomRange(150, 250);
+            this.patternData.orbitalSpeed = MovementPatternCache.randomRange(0.5, 1.5);
         }
-        
+
         // Update orbital angle
-        this.patternData.orbitalAngle += this.patternData.orbitalSpeed * deltaTime;
-        
+        this.patternData.orbitalAngle = MovementPatternCache.normalizeAngle(
+            this.patternData.orbitalAngle + this.patternData.orbitalSpeed * deltaTime
+        );
+
         // Calculate target orbital position
-        const targetX = game.player.x + Math.cos(this.patternData.orbitalAngle) * this.patternData.orbitalRadius;
-        const targetY = game.player.y + Math.sin(this.patternData.orbitalAngle) * this.patternData.orbitalRadius;
+        const orbitalTrig = MovementPatternCache.sincos(this.patternData.orbitalAngle);
+        const targetX = game.player.x + orbitalTrig.cos * this.patternData.orbitalRadius;
+        const targetY = game.player.y + orbitalTrig.sin * this.patternData.orbitalRadius;
         
         // Calculate direction to orbital position
         const dx = targetX - this.enemy.x;
         const dy = targetY - this.enemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distance = MovementPatternCache.fastMagnitude(dx, dy);
         
         if (distance > 0.001) {  // Add small epsilon to prevent division by very small numbers
             return {
@@ -392,7 +493,7 @@ class EnemyMovement {
         const maxVelocitySquared = maxVelocity * maxVelocity;
 
         if (currentSpeedSquared > maxVelocitySquared) {
-            const scale = maxVelocity / Math.sqrt(currentSpeedSquared);
+            const scale = maxVelocity / MovementPatternCache.fastSqrt(currentSpeedSquared);
             smoothedVelocity.x *= scale;
             smoothedVelocity.y *= scale;
             // Update both smoothed and actual velocity
@@ -509,7 +610,7 @@ class EnemyMovement {
             const minDistanceSquared = minDistance * minDistance;
 
             if (distanceSquared < minDistanceSquared && distanceSquared > 0.01) {
-                const distance = Math.sqrt(distanceSquared);
+                const distance = MovementPatternCache.fastSqrt(distanceSquared);
                 const overlap = minDistance - distance;
 
                 // Use gentler position-based correction instead of velocity-based
@@ -646,11 +747,12 @@ class EnemyMovement {
      */
     handleStuckState() {
         // Apply gentle random impulse to unstuck the enemy
-        const angle = Math.random() * Math.PI * 2;
-        const force = 50 + Math.random() * 25; // Much gentler force
+        const angle = MovementPatternCache.randomAngle();
+        const force = MovementPatternCache.randomRange(50, 75); // Much gentler force
+        const trig = MovementPatternCache.sincos(angle);
         
-        this.velocity.x += Math.cos(angle) * force;
-        this.velocity.y += Math.sin(angle) * force;
+        this.velocity.x += trig.cos * force;
+        this.velocity.y += trig.sin * force;
         
         // Temporarily change movement pattern using a timer instead of setTimeout
         this.tempPatternTimer = 2.0; // 2 seconds

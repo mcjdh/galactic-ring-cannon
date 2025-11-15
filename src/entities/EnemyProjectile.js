@@ -1,3 +1,92 @@
+// Cache sprite rendering to trade RAM for fewer draw commands per frame.
+const ProjectileSpriteCache = (() => {
+    class Cache {
+        constructor() {
+            this.cache = new Map();
+        }
+
+        _createCanvas(size) {
+            if (typeof OffscreenCanvas !== 'undefined') {
+                return new OffscreenCanvas(size, size);
+            }
+            if (typeof document !== 'undefined') {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                return canvas;
+            }
+            return null;
+        }
+
+        _createSprite(color, radius, glowColor) {
+            const padding = glowColor ? Math.max(6, radius * 0.8) : 4;
+            const size = Math.ceil((radius + padding) * 2);
+            const canvas = this._createCanvas(size);
+            if (!canvas) return null;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return null;
+
+            const center = size / 2;
+
+            if (glowColor) {
+                const gradient = ctx.createRadialGradient(center, center, radius * 0.6, center, center, radius + padding);
+                gradient.addColorStop(0, `${glowColor}`);
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(center, center, radius + padding, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(center, center, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.arc(center - radius * 0.3, center - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            const drawable = (typeof canvas.transferToImageBitmap === 'function')
+                ? canvas.transferToImageBitmap()
+                : canvas;
+
+            return {
+                image: drawable,
+                halfSize: size / 2,
+                key: `${color}|${radius}|${glowColor || ''}`
+            };
+        }
+
+        getSprite(color, radius, glowColor) {
+            const key = `${color}|${radius}|${glowColor || ''}`;
+            if (this.cache.has(key)) {
+                return this.cache.get(key);
+            }
+            const sprite = this._createSprite(color, radius, glowColor);
+            if (sprite) {
+                this.cache.set(key, sprite);
+            }
+            return sprite;
+        }
+
+        draw(ctx, projectile, lowQuality = false) {
+            const glowColor = lowQuality ? null : projectile.glowColor;
+            const sprite = this.getSprite(projectile.color, projectile.radius, glowColor);
+            if (!sprite) return false;
+            ctx.drawImage(
+                sprite.image,
+                projectile.x - sprite.halfSize,
+                projectile.y - sprite.halfSize
+            );
+            return true;
+        }
+    }
+
+    return new Cache();
+})();
+
 /**
  * Enemy Projectile - Handles projectiles fired by enemies
  * Extracted from enemy.js for better organization
@@ -76,15 +165,18 @@ class EnemyProjectile {
     render(ctx) {
         ctx.save();
         
+        const lowQuality = window.gameManager?.lowQuality;
+
         // Draw trail effect
         this.renderTrail(ctx);
         
-        // Draw main projectile body
-        this.renderBody(ctx);
-        
-        // Draw glow effect (if not in low quality mode)
-        if (!window.gameManager?.lowQuality) {
-            this.renderGlow(ctx);
+        // Draw cached sprite (fallback to manual draw if cache unavailable)
+        const drewSprite = ProjectileSpriteCache.draw(ctx, this, lowQuality);
+        if (!drewSprite) {
+            this.renderBody(ctx);
+            if (!lowQuality) {
+                this.renderGlow(ctx);
+            }
         }
         
         ctx.restore();
@@ -103,12 +195,14 @@ class EnemyProjectile {
         const originalAlpha = ctx.globalAlpha;
 
         const trailBatches = this._batchTrailBatches || (this._batchTrailBatches = new Map());
-        const bodyBatches = this._batchBodyBatches || (this._batchBodyBatches = new Map());
-        const glowBatches = this._batchGlowBatches || (this._batchGlowBatches = new Map());
+        const spriteBatches = this._spriteBatches || (this._spriteBatches = new Map());
+        const fallbackBatch = this._fallbackSpriteBatch || (this._fallbackSpriteBatch = []);
 
         trailBatches.clear();
-        bodyBatches.clear();
-        glowBatches.clear();
+        spriteBatches.clear();
+        fallbackBatch.length = 0;
+
+        const lowQuality = window.gameManager?.lowQuality;
 
         for (let i = 0; i < projectiles.length; i++) {
             const projectile = projectiles[i];
@@ -122,23 +216,23 @@ class EnemyProjectile {
             }
             trailBatch.push(projectile);
 
-            const bodyKey = `${projectile.color}|${projectile.radius}`;
-            let bodyBatch = bodyBatches.get(bodyKey);
-            if (!bodyBatch) {
-                bodyBatch = [];
-                bodyBatches.set(bodyKey, bodyBatch);
-            }
-            bodyBatch.push(projectile);
+            const sprite = ProjectileSpriteCache.getSprite(
+                projectile.color,
+                projectile.radius,
+                lowQuality ? null : projectile.glowColor
+            );
 
-            if (projectile.glowColor) {
-                const glowKey = `${projectile.glowColor}|${projectile.radius}`;
-                let glowBatch = glowBatches.get(glowKey);
-                if (!glowBatch) {
-                    glowBatch = [];
-                    glowBatches.set(glowKey, glowBatch);
-                }
-                glowBatch.push(projectile);
+            if (!sprite) {
+                fallbackBatch.push(projectile);
+                continue;
             }
+
+            let spriteBatch = spriteBatches.get(sprite);
+            if (!spriteBatch) {
+                spriteBatch = [];
+                spriteBatches.set(sprite, spriteBatch);
+            }
+            spriteBatch.push(projectile);
         }
 
         for (const [key, batch] of trailBatches) {
@@ -167,55 +261,28 @@ class EnemyProjectile {
         ctx.lineCap = originalLineCap;
         ctx.lineWidth = originalLineWidth;
         ctx.strokeStyle = originalStroke;
+        ctx.globalAlpha = originalAlpha;
 
-        for (const [key, batch] of bodyBatches) {
-            const [color, radiusStr] = key.split('|');
-            const radius = parseFloat(radiusStr);
-
-            ctx.fillStyle = color;
-            ctx.beginPath();
-
+        for (const [sprite, batch] of spriteBatches) {
+            const half = sprite.halfSize;
             for (let i = 0; i < batch.length; i++) {
                 const projectile = batch[i];
-                ctx.moveTo(projectile.x + radius, projectile.y);
-                ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
+                ctx.drawImage(sprite.image, projectile.x - half, projectile.y - half);
             }
-
-            ctx.fill();
-
-            const highlightColor = 'rgba(255, 255, 255, 0.4)';
-            const innerRadius = radius * 0.4;
-            ctx.fillStyle = highlightColor;
-            ctx.beginPath();
-            for (let i = 0; i < batch.length; i++) {
-                const projectile = batch[i];
-                const hx = projectile.x - radius * 0.3;
-                const hy = projectile.y - radius * 0.3;
-                ctx.moveTo(hx + innerRadius, hy);
-                ctx.arc(hx, hy, innerRadius, 0, Math.PI * 2);
-            }
-            ctx.fill();
-
             batch.length = 0;
         }
-        bodyBatches.clear();
+        spriteBatches.clear();
 
-        if (glowBatches.size) {
-            ctx.globalAlpha = originalAlpha;
-            for (const [key, batch] of glowBatches) {
-                const [color, radiusStr] = key.split('|');
-                const radius = parseFloat(radiusStr) * 3;
-                ctx.fillStyle = EnemyProjectile._colorWithAlpha(color, 0.35);
-                ctx.beginPath();
-                for (let i = 0; i < batch.length; i++) {
-                    const projectile = batch[i];
-                    ctx.moveTo(projectile.x + radius, projectile.y);
-                    ctx.arc(projectile.x, projectile.y, radius, 0, Math.PI * 2);
+        if (fallbackBatch.length) {
+            for (let i = 0; i < fallbackBatch.length; i++) {
+                const projectile = fallbackBatch[i];
+                if (!projectile || projectile.isDead) continue;
+                projectile.renderBody(ctx);
+                if (!lowQuality) {
+                    projectile.renderGlow(ctx);
                 }
-                ctx.fill();
-                batch.length = 0;
             }
-            glowBatches.clear();
+            fallbackBatch.length = 0;
         }
 
         ctx.fillStyle = originalFill;

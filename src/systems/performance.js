@@ -32,6 +32,7 @@ class PerformanceManager {
         // Store references for cleanup
         this.displayUpdateInterval = null;
         this.keydownHandler = null;
+        this.boundBeforeUnload = null;
 
         this.init();
     }
@@ -48,6 +49,9 @@ class PerformanceManager {
             }
         };
         window.addEventListener('keydown', this.keydownHandler);
+
+        this.boundBeforeUnload = () => this.destroy();
+        window.addEventListener('beforeunload', this.boundBeforeUnload);
     }
     
     update(deltaTime) {
@@ -210,8 +214,14 @@ class PerformanceManager {
     }
     
     createPerformanceDisplay() {
-        const display = document.createElement('div');
-        display.id = 'performance-display';
+        this.clearDisplayInterval();
+
+        let display = document.getElementById('performance-display');
+        if (!display) {
+            display = document.createElement('div');
+            display.id = 'performance-display';
+            document.body.appendChild(display);
+        }
         display.style.cssText = `
             position: fixed;
             top: 10px;
@@ -225,7 +235,6 @@ class PerformanceManager {
             border-radius: 5px;
             min-width: 150px;
         `;
-        document.body.appendChild(display);
 
         // Update display every second - store reference for cleanup
         this.displayUpdateInterval = setInterval(() => {
@@ -243,11 +252,7 @@ class PerformanceManager {
      * Clean up all timers and event listeners
      */
     destroy() {
-        // Clear the display update interval
-        if (this.displayUpdateInterval) {
-            clearInterval(this.displayUpdateInterval);
-            this.displayUpdateInterval = null;
-        }
+        this.clearDisplayInterval();
 
         // Remove event listener
         if (this.keydownHandler) {
@@ -255,10 +260,22 @@ class PerformanceManager {
             this.keydownHandler = null;
         }
 
+        if (this.boundBeforeUnload) {
+            window.removeEventListener('beforeunload', this.boundBeforeUnload);
+            this.boundBeforeUnload = null;
+        }
+
         // Remove performance display from DOM
         const display = document.getElementById('performance-display');
         if (display) {
             display.remove();
+        }
+    }
+
+    clearDisplayInterval() {
+        if (this.displayUpdateInterval) {
+            clearInterval(this.displayUpdateInterval);
+            this.displayUpdateInterval = null;
         }
     }
 

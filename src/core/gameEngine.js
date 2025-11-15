@@ -99,7 +99,7 @@ class GameEngine {
         this._autoParticleLowQuality = false;
         this._manualPerformanceOverride = null;
         this._visibleEntitiesScratch = [];
-        this._visibleEntitiesSeen = new Set();
+        this._visibleEntitiesGeneration = 1;
         this._domCache = new Map();
         this._minimapUpdateAccumulator = 0;
         this._minimapHasDrawn = false;
@@ -2438,10 +2438,13 @@ class GameEngine {
         }
 
         const visibleEntities = this._visibleEntitiesScratch;
-        const seenEntities = this._visibleEntitiesSeen;
-
         visibleEntities.length = 0;
-        seenEntities.clear();
+
+        let generation = this._visibleEntitiesGeneration + 1;
+        if (generation > 0x7fffffff) {
+            generation = 1;
+        }
+        this._visibleEntitiesGeneration = generation;
 
         const halfW = viewportWidth / 2 + margin;
         const halfH = viewportHeight / 2 + margin;
@@ -2472,14 +2475,14 @@ class GameEngine {
                     anyCellFound = true;
                     for (let i = 0; i < cellEntities.length; i++) {
                         const entity = cellEntities[i];
-                        if (!entity || seenEntities.has(entity) || entity.isDead) continue;
+                        if (!entity || entity.isDead || entity.__visibleGeneration === generation) continue;
 
                         const dx = Math.abs(entity.x - this.player.x);
                         const dy = Math.abs(entity.y - this.player.y);
 
                         if (dx < halfW && dy < halfH) {
+                            entity.__visibleGeneration = generation;
                             visibleEntities.push(entity);
-                            seenEntities.add(entity);
 
                             if (visibleEntities.length >= maxVisible) {
                                 break outer;
@@ -2495,20 +2498,20 @@ class GameEngine {
             const targetCount = Math.min(maxVisible, Math.max(minVisible, visibleEntities.length));
             for (let i = 0; i < this.entities.length && visibleEntities.length < targetCount; i++) {
                 const entity = this.entities[i];
-                if (!entity || entity.isDead || seenEntities.has(entity)) continue;
+                if (!entity || entity.isDead || entity.__visibleGeneration === generation) continue;
 
                 const dx = Math.abs(entity.x - this.player.x);
                 const dy = Math.abs(entity.y - this.player.y);
                 if (dx < halfW && dy < halfH) {
+                    entity.__visibleGeneration = generation;
                     visibleEntities.push(entity);
-                    seenEntities.add(entity);
                 }
             }
         }
 
-        if (this.player && !seenEntities.has(this.player) && visibleEntities.length < maxVisible) {
+        if (this.player && this.player.__visibleGeneration !== generation && visibleEntities.length < maxVisible) {
+            this.player.__visibleGeneration = generation;
             visibleEntities.push(this.player);
-            seenEntities.add(this.player);
         }
 
         return visibleEntities;
