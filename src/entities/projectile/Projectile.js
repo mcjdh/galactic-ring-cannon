@@ -342,6 +342,8 @@ class Projectile {
 
             if (player.stats && typeof player.stats.heal === 'function') {
                 player.stats.heal(healAmount);
+                // Track lifesteal healing for achievements
+                if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
             }
         }
 

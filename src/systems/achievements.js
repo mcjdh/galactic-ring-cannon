@@ -49,6 +49,9 @@ class AchievementSystem {
         // Track Split Shot selections in current run
         this.splitShotSelections = 0;
 
+        // Track total lifesteal healing in current run (for Crimson Pact achievement)
+        this.totalLifestealHealed = 0;
+
     }
 
     /**
@@ -66,6 +69,9 @@ class AchievementSystem {
         this.recentKills = [];
         this.novaBlitzKills = [];
         this.splitShotSelections = 0;
+
+        // Reset lifesteal healing tracking
+        this.totalLifestealHealed = 0;
 
         window.logger.log('Achievement run tracking reset');
     }
@@ -431,6 +437,19 @@ class AchievementSystem {
         if (newTime > currentProgress) {
             this.updateAchievement('aegis_guardian', newTime);
         }
+    }
+
+    // ========================================
+    // LIFESTEAL-SPECIFIC TRACKING (Crimson Reaver)
+    // ========================================
+
+    // Track total lifesteal healing in current run
+    onLifestealHeal(healAmount) {
+        if (!Number.isFinite(healAmount) || healAmount <= 0) {
+            return;
+        }
+        this.totalLifestealHealed += healAmount;
+        this.updateAchievement('crimson_pact', Math.floor(this.totalLifestealHealed));
     }
 
     showAchievementNotification(achievement) {

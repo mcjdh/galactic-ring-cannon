@@ -106,6 +106,30 @@ const WEAPON_DEFINITIONS = {
             cooldown: 10.0,
             description: 'Critical hits briefly overcharge the array, increasing volley size.'
         }
+    },
+    sanguine_lance: {
+        id: 'sanguine_lance',
+        name: 'Sanguine Lance',
+        description: 'Crimson piercing bolts that drain vitality from all they strike.',
+        archetype: 'sustain',
+        fireRate: 1.4, // Rapid fire for consistent lifesteal
+        startupDelay: 0,
+        targeting: 'nearest',
+        projectileTemplate: {
+            count: 1,
+            spreadDegrees: 0,
+            damageMultiplier: 1.05, // Slightly higher damage
+            speedMultiplier: 1.1,   // Fast projectiles
+            inheritsPlayerCrit: true,
+            inheritsPlayerPierce: true,
+            appliesBehaviors: true
+        },
+        upgradeTags: ['core', 'explosive', 'ricochet'],
+        secondary: {
+            id: 'blood_frenzy',
+            cooldown: 8.0,
+            description: 'Brief burst of attack speed when health drops below 40%.'
+        }
     }
 };
 

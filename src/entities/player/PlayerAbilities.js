@@ -579,6 +579,8 @@ class PlayerAbilities {
                         const healAmount = damage * this.player.stats.lifestealAmount *
                             (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                         this.player.stats.heal(healAmount);
+                        // Track lifesteal healing for achievements
+                        if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
                     }
 
                     // Add to set of hit enemies for this orbit with cooldown
@@ -683,6 +685,8 @@ class PlayerAbilities {
                 const healAmount = finalDamage * this.player.stats.lifestealAmount *
                     (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                 this.player.stats.heal(healAmount);
+                // Track lifesteal healing for achievements
+                if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
             }
 
             // Add to hit enemies
@@ -773,6 +777,8 @@ class PlayerAbilities {
                 const healAmount = ricochetDamage * this.player.stats.lifestealAmount *
                     (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                 this.player.stats.heal(healAmount);
+                // Track lifesteal healing for achievements
+                if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
             }
 
             // Add to hit enemies

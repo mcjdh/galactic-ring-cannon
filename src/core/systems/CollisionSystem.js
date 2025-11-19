@@ -450,6 +450,8 @@
                             const healAmount = entity1.damage * entity1.lifesteal;
                             engine.player.health = Math.min(engine.player.maxHealth, engine.player.health + healAmount);
                             if (window.gameManager) window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, engine.player.x, engine.player.y - 30, '#2ecc71', 14);
+                            // Track lifesteal healing for achievements
+                            if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
                         }
 
                         // Handle piercing and death - UPDATED to match gameEngine logic
@@ -546,6 +548,8 @@
                             const healAmount = entity2.damage * entity2.lifesteal;
                             engine.player.health = Math.min(engine.player.maxHealth, engine.player.health + healAmount);
                             if (window.gameManager) window.gameManager.showFloatingText(`+${Math.round(healAmount)}`, engine.player.x, engine.player.y - 30, '#2ecc71', 14);
+                            // Track lifesteal healing for achievements
+                            if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
                         }
 
                         // Explosion handling - trigger for explosive projectiles that should die

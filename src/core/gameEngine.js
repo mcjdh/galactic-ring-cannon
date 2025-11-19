@@ -1610,6 +1610,8 @@ class GameEngine {
             const healAmount = projectile.damage * projectile.lifesteal;
             this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
             window.gameManager?.showFloatingText?.(`+${Math.round(healAmount)}`, this.player.x, this.player.y - 30, '#2ecc71', 14);
+            // Track lifesteal healing for achievements
+            if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
         }
 
         // Align projectile termination with CollisionSystem behavior
