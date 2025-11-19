@@ -28,8 +28,8 @@ class Player {
 
         const selectedCharacterId =
             (activeGameState?.getSelectedCharacter?.() ||
-            activeGameState?.flow?.selectedCharacter ||
-            defaultCharacterId);
+                activeGameState?.flow?.selectedCharacter ||
+                defaultCharacterId);
 
         const resolvedCharacter = this.resolveCharacterDefinition(selectedCharacterId);
         const characterId = resolvedCharacter?.id || defaultCharacterId;
@@ -224,16 +224,16 @@ class Player {
                     this.abilities.maxChains = Math.max(this.abilities.maxChains || 0, chain.maxChains);
                 }
             }
-            
+
             // NEW: Orbital ability modifiers
             if (abilityMods.orbital) {
                 const orbital = abilityMods.orbital;
-                
+
                 // Grant starter orbital(s)
                 if (typeof orbital.starterCount === 'number' && orbital.starterCount > 0) {
                     this.abilities.hasOrbitalAttack = true;
                     this.abilities.orbitCount = orbital.starterCount;
-                    
+
                     // Set orbital base stats (will be used when orbits are created)
                     if (!this.abilities.orbitDamage) {
                         this.abilities.orbitDamage = 0.5; // Base orbital damage multiplier
@@ -249,7 +249,7 @@ class Player {
                         this.abilities.maxOrbitalRange = Math.max(baseRange, this.abilities.orbitRadius + 80);
                     }
                 }
-                
+
                 // Apply orbital stat multipliers
                 if (typeof orbital.damageMultiplier === 'number' && this.abilities.orbitDamage) {
                     this.abilities.orbitDamage *= orbital.damageMultiplier;
@@ -261,7 +261,7 @@ class Player {
                     this.abilities.orbitRadius *= orbital.radiusMultiplier;
                 }
             }
-            
+
             // NEW: Shield ability modifiers
             if (abilityMods.shield) {
                 const shield = abilityMods.shield;
@@ -431,7 +431,7 @@ class Player {
     update(deltaTime, game) {
         // Don't update anything if player is dead
         if (this.isDead) return;
-        
+
         this.stats.update(deltaTime);
         this.movement.update(deltaTime, game);
         this.combat.update(deltaTime, game);
@@ -735,6 +735,8 @@ class Player {
             case 'bloodLash':
             case 'bloodNova':
             case 'gravityWell':
+            case 'burn':  // NEW: Route burn upgrades to abilities
+            case 'burnDamage':  // NEW: Route burn damage upgrades to abilities
                 this.abilities.applyAbilityUpgrade(upgradeInstance);
                 break;
         }

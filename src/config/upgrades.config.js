@@ -631,9 +631,10 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'pyromancy_1',
         name: 'Pyromancy',
-        description: 'Projectiles apply burning status to enemies (5 damage/sec for 3s)',
+        description: 'Projectiles apply burning status to enemies (7 damage/sec for 3s)',
         type: 'burn',
-        burnDamage: 5,
+        burnChance: 0.3,  // 30% chance to burn - CRITICAL: was missing!
+        burnDamage: 7,
         burnDuration: 3.0,
         icon: "🔥",
         rarity: 'rare',
@@ -706,11 +707,11 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'inferno_brands',
         name: 'Inferno Brands',
-        description: 'Burn chance +15% and scorch damage boosted to 8 DPS for 4s.',
+        description: 'Burn chance +15% and scorch damage boosted to 10 DPS for 4s.',
         type: 'burn',
         characterRestriction: 'inferno_juggernaut',
         burnChance: 0.85,
-        burnDamage: 8,
+        burnDamage: 10,
         burnDuration: 4.0,
         chanceBonus: 0.15,
         icon: '🔥✚',

@@ -1975,8 +1975,9 @@ class GameEngine {
         } while (needsTrim);
     }
 
-    // Simplified projectile spawning - no pooling complexity
-    // Projectile spawning with Pooling
+    // Simplified projectile spawning with ProjectileFactory integration
+    // ⚠️ CRITICAL: Must use ProjectileFactory to attach behaviors (burn, chain, etc.)
+    // See docs/CRITICAL_BUG_PROJECTILE_FACTORY_BYPASS.md for historical context
     spawnProjectile(x, y, vxOrConfig, vyOrOwnerId, damage, piercing = 0, isCrit = false, specialType = null) {
         // Support new signature: (x, y, config, ownerId)
         let config;
@@ -2011,13 +2012,23 @@ class GameEngine {
         }
 
         try {
-            // Use Pool if available
+            // ✅ CRITICAL FIX: Use ProjectileFactory to create projectiles with behaviors!
+            // Previously used direct instantiation which bypassed ALL behavior attachment
+            // This caused burn, chain lightning, homing, ricochet, etc. to never work
+            const ProjectileFactory = window.Game?.ProjectileFactory || window.ProjectileFactory;
+
             let proj;
-            if (window.projectilePool) {
-                proj = window.projectilePool.acquire(x, y, config, ownerId);
+            if (ProjectileFactory && typeof ProjectileFactory.create === 'function') {
+                // Use factory to create projectile WITH behaviors (burn, chain, etc.)
+                proj = ProjectileFactory.create(x, y, config.vx, config.vy, config.damage, config.isCrit, this.player);
             } else {
-                // Fallback to direct creation
-                proj = new Projectile(x, y, config, ownerId);
+                // Fallback to direct creation if factory not available  
+                if (window.projectilePool) {
+                    proj = window.projectilePool.acquire(x, y, config, ownerId);
+                } else {
+                    proj = new Projectile(x, y, config, ownerId);
+                }
+                console.warn('[GameEngine] ⚠️ ProjectileFactory not available - behaviors will NOT be attached!');
             }
 
             // Debug logging

@@ -83,11 +83,27 @@ class GravityWell {
         }
 
         const baseDamagePerSecond = this.baseDamage * this.damageMultiplier;
-        const tickDamage = baseDamagePerSecond * this.damageInterval;
+
+        // Level-based scaling for Void Warden
+        // This scales ALL gravity well damage including the AOE DoT ticks
+        let levelBonus = 1.0;
+        if (this.sourcePlayer?.characterDefinition?.id === 'void_warden') {
+            const playerLevel = this.sourcePlayer?.stats?.level || 1;
+            levelBonus = 1.0 + (playerLevel * 0.15); // +15% damage per level (increased from 8%)
+
+            // Enhanced debug logging to show actual damage
+            if (window.debugProjectiles && playerLevel > 1) {
+                const baseDPS = baseDamagePerSecond.toFixed(1);
+                const scaledDPS = (baseDamagePerSecond * levelBonus).toFixed(1);
+                console.log(`[GravityWell] Void Warden L${playerLevel}: ${baseDPS} → ${scaledDPS} DPS (${levelBonus.toFixed(2)}x)`);
+            }
+        }
+
+        const tickDamage = baseDamagePerSecond * levelBonus * this.damageInterval;
 
         for (const enemy of enemies) {
             // [FIX] Add coordinate validation to prevent crashes with NaN values
-            if (!enemy || enemy.isDead || typeof enemy.takeDamage !== 'function' || 
+            if (!enemy || enemy.isDead || typeof enemy.takeDamage !== 'function' ||
                 isNaN(enemy.x) || isNaN(enemy.y)) {
                 continue;
             }
@@ -101,7 +117,7 @@ class GravityWell {
                 const dy = enemy.y - this.y;
                 distance = Math.sqrt(dx * dx + dy * dy);
             }
-            
+
             // Prevent division by zero or negative distance issues
             distance = distance || 0.001;
 
@@ -166,8 +182,16 @@ class GravityWell {
         ctx.save();
 
         const visibility = this._getVisibilityFactor();
-        const alpha = 0.2 + 0.55 * visibility;
-        const pulse = 1 + 0.04 * Math.sin(this._pulseOffset + this.timer * 4);
+
+        // Enhanced visuals for high-level Void Warden
+        let intensityBonus = 1.0;
+        if (this.sourcePlayer?.characterDefinition?.id === 'void_warden') {
+            const playerLevel = this.sourcePlayer?.stats?.level || 1;
+            intensityBonus = 1.0 + Math.min(0.5, playerLevel * 0.03); // Up to +50% intensity at high levels
+        }
+
+        const alpha = (0.2 + 0.55 * visibility) * Math.min(1.4, intensityBonus);
+        const pulse = 1 + (0.04 * Math.sin(this._pulseOffset + this.timer * 4)) * intensityBonus;
         const drawRadius = this.radius * pulse;
 
         const gradient = ctx.createRadialGradient(

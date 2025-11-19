@@ -249,7 +249,7 @@ const CHARACTER_DEFINITIONS = [
                 // New Burn Ability
                 hasBurn: true,
                 burnChance: 1.0,               // 100% burn chance on primary
-                burnDamage: 5,
+                burnDamage: 7,                 // INCREASED from 5 - more satisfying DoT
                 burnDuration: 3.0
             }
         },

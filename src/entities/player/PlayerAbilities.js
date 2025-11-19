@@ -1214,11 +1214,17 @@ class PlayerAbilities {
 
             case 'burn':
                 this.hasBurn = true;
+
+                // Set burn chance - use explicit value, bonus, or default to 20% if not specified
                 if (typeof upgrade.burnChance === 'number') {
                     this.burnChance = Math.max(0, Math.min(0.99, upgrade.burnChance));
+                } else if (!this.burnChance || this.burnChance === 0) {
+                    // CRITICAL: Default to 20% if no burnChance specified and not already set
+                    this.burnChance = 0.2;
                 }
+
                 if (typeof upgrade.chanceBonus === 'number') {
-                    const baseChance = this.burnChance || 0;
+                    const baseChance = this.burnChance || 0.2; // Fallback to 20% if somehow still 0
                     this.burnChance = Math.max(0, Math.min(0.99, baseChance + upgrade.chanceBonus));
                 }
                 if (typeof upgrade.burnDamage === 'number') {

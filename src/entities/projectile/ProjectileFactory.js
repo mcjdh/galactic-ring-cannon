@@ -4,10 +4,17 @@
  *
  * 🌊 RESONANT PATTERN: All upgrade → behavior mapping happens here
  * No more scattered configuration logic!
+ * 
+ * ⚠️ CRITICAL: This factory MUST be used for all player projectile creation!
+ * Using 'new Projectile()' directly will bypass behavior attachment (burn, chain, etc.)
+ * See docs/CRITICAL_BUG_PROJECTILE_FACTORY_BYPASS.md for details.
  */
 class ProjectileFactory {
     /**
      * Create a projectile with all player upgrades applied
+     * 
+     * ⚠️ CRITICAL: This is the ONLY correct way to create player projectiles!
+     * Direct instantiation with 'new Projectile()' bypasses ALL behaviors.
      *
      * @param {number} x - Starting X position
      * @param {number} y - Starting Y position
@@ -16,7 +23,7 @@ class ProjectileFactory {
      * @param {number} damage - Base damage
      * @param {boolean} isCrit - Is critical hit
      * @param {object} player - Player object with abilities/stats
-     * @returns {Projectile} - Fully configured projectile
+     * @returns {Projectile} - Fully configured projectile with behaviors attached
      */
     static create(x, y, vx, vy, damage, isCrit, player) {
         // Create base projectile
@@ -103,12 +110,14 @@ class ProjectileFactory {
             projectile.behaviorManager.addBehavior(homingBehavior);
         }
 
-        // Burn Behavior (chance-based)
-        if (abilities.hasBurn && Math.random() < (abilities.burnChance || 0.2)) {
+        // Burn Behavior
+        // NOTE: Do NOT check burn chance here - that's already configured in abilities
+        // Characters like Inferno Juggernaut have burnChance: 1.0 which means EVERY shot burns
+        if (abilities.hasBurn) {
             const burnBehavior = new BurnBehavior(projectile, {
                 damage: abilities.burnDamage || 5,
                 duration: abilities.burnDuration || 3.0,
-                chance: 1.0, // Already checked above
+                chance: abilities.burnChance || 0.2,  // Use configured chance, not random roll
                 explosionDamage: abilities.burnExplosionDamage || 0,
                 explosionRadius: abilities.burnExplosionRadius || 0
             });
