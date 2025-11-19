@@ -1,3 +1,58 @@
+const __GLOBAL = (typeof globalThis !== 'undefined') ? globalThis : (typeof window !== 'undefined' ? window : global);
+const GAME_CONSTANTS = __GLOBAL.GAME_CONSTANTS || (__GLOBAL.GAME_CONSTANTS = {});
+
+const DEFAULT_PERFORMANCE_CONSTANTS = {
+    PROJECTILE_BATCH_SIZE: 64,
+    ENEMY_BATCH_SIZE: 64,
+    ENEMY_PROJECTILE_BATCH_SIZE: 64,
+    XP_ORB_BATCH_SIZE: 64,
+    FALLBACK_BATCH_SIZE: 32,
+    TARGET_FPS: 60,
+    CLEANUP_INTERVAL: 0.5,
+    MAX_FIXED_STEPS: 5
+};
+
+GAME_CONSTANTS.PERFORMANCE = {
+    ...DEFAULT_PERFORMANCE_CONSTANTS,
+    ...(GAME_CONSTANTS.PERFORMANCE || {})
+};
+
+let __GameStateRef;
+(function resolveGameStateClass() {
+    if (typeof GameState !== 'undefined') {
+        __GameStateRef = GameState;
+        return;
+    }
+
+    if (typeof window !== 'undefined' && window.Game?.GameState) {
+        __GameStateRef = window.Game.GameState;
+        return;
+    }
+
+    if (typeof module !== 'undefined' && typeof require === 'function') {
+        try {
+            const moduleExport = require('./GameState.js');
+            __GameStateRef = moduleExport?.GameState || moduleExport || null;
+            return;
+        } catch (error) {
+            // Ignore and fall back to stub below
+        }
+    }
+
+    // Minimal stub so headless tests can instantiate the engine without the full GameState
+    class GameStateStub {
+        constructor() {
+            this.meta = { achievements: new Set(), starTokens: 0 };
+            this.state = {};
+        }
+
+        on() { }
+        off() { }
+    }
+
+    __GameStateRef = GameStateStub;
+})();
+
 class GameEngine {
     constructor() {
         if (typeof window !== 'undefined' && window.__activeGameEngine && typeof window.__activeGameEngine.cleanupEventListeners === 'function') {
@@ -57,7 +112,7 @@ class GameEngine {
 
         // [GAME STATE] - Single Source of Truth
         // Initialize centralized state management
-        this.state = new GameState();
+        this.state = new __GameStateRef();
 
         // Entity arrays (still managed by GameEngine for performance)
         this.entities = [];
@@ -66,6 +121,9 @@ class GameEngine {
         this.xpOrbs = [];
         this.projectiles = [];
         this.enemyProjectiles = [];
+
+        this.isRunning = false;
+        this.isPaused = false;
 
         // [OPTIMIZATION] Pre-allocated batch arrays for rendering (eliminates 240 allocations/sec at 60fps)
         // Initialize as dense arrays with null for better V8 optimization
@@ -201,7 +259,9 @@ class GameEngine {
         this.lastVisibilityChange = 0;
 
         // Add visibility change handlers
-        document.addEventListener('visibilitychange', this.boundHandleVisibilityChange);
+        if (typeof document?.addEventListener === 'function') {
+            document.addEventListener('visibilitychange', this.boundHandleVisibilityChange);
+        }
         window.addEventListener('focus', this.boundHandleFocusChange);
         window.addEventListener('blur', this.boundHandleBlurChange);
 
@@ -210,12 +270,16 @@ class GameEngine {
         this.lastResourceCleanup = 0;
 
         // Add canvas context loss handling
-        this.canvas.addEventListener('webglcontextlost', this.boundHandleContextLoss);
-        this.canvas.addEventListener('webglcontextrestored', this.boundHandleContextRestore);
+        if (typeof this.canvas?.addEventListener === 'function') {
+            this.canvas.addEventListener('webglcontextlost', this.boundHandleContextLoss);
+            this.canvas.addEventListener('webglcontextrestored', this.boundHandleContextRestore);
+        }
         this.contextLost = false;
 
-        // Track if the render loop has already been bootstrapped
+        // Track the main loop status
         this._loopInitialized = false;
+        this._loopHandle = null;
+        this._useSetTimeoutLoop = false;
         this._boundGameLoop = this.gameLoop.bind(this);
 
 
@@ -799,6 +863,9 @@ class GameEngine {
 
         this.prepareNewRun();
 
+        this.isRunning = true;
+        this.isPaused = false;
+
         const now = performance.now();
         this.lastTime = now;
         this.lastFrameTime = now;
@@ -815,7 +882,19 @@ class GameEngine {
         }
     }
 
+    stop() {
+        this.isRunning = false;
+        this.isPaused = true;
+        this.shutdown();
+    }
+
     gameLoop(timestamp) {
+        if (!this.isRunning) {
+            this._loopHandle = null;
+            this._loopInitialized = false;
+            return;
+        }
+
         // [Pi] Performance profiling for Pi5
         if (window.performanceProfiler?.enabled) {
             window.performanceProfiler.frameStart();
@@ -874,7 +953,19 @@ class GameEngine {
             window.performanceProfiler.frameEnd();
         }
 
-        requestAnimationFrame(this._boundGameLoop);
+        this._scheduleNextFrame();
+    }
+
+    stop() {
+        if (!this.isRunning) {
+            return;
+        }
+
+        this.isRunning = false;
+        this.isPaused = true;
+        this._cancelNextFrame();
+        this._loopInitialized = false;
+        this.shutdown();
     }
 
     update(deltaTime) {
@@ -1139,7 +1230,9 @@ class GameEngine {
         }
 
         // Apply low-end CSS class when enabling performance mode
-        document.documentElement.classList.add('low-end-device');
+        if (document?.documentElement?.classList?.add) {
+            document.documentElement.classList.add('low-end-device');
+        }
 
         this._maxSpatialGridPoolSize = 128;
         // Optimize rendering
@@ -1160,7 +1253,9 @@ class GameEngine {
             this.performanceManager.performanceMode = false;
             if (!this.performanceManager._autoLowQualityCosmic) {
                 this.performanceManager.lowGpuMode = false;
-                document.documentElement.classList.remove('low-end-device');
+                if (document?.documentElement?.classList?.remove) {
+                    document.documentElement.classList.remove('low-end-device');
+                }
             }
             this.performanceManager.updateQualitySettings();
         }
@@ -2024,8 +2119,10 @@ class GameEngine {
                 // Fallback to direct creation if factory not available  
                 if (window.projectilePool) {
                     proj = window.projectilePool.acquire(x, y, config, ownerId);
-                } else {
+                } else if (typeof Projectile === 'function') {
                     proj = new Projectile(x, y, config, ownerId);
+                } else {
+                    proj = this._createFallbackProjectile(x, y, config);
                 }
                 console.warn('[GameEngine] ⚠️ ProjectileFactory not available - behaviors will NOT be attached!');
             }
@@ -2223,14 +2320,16 @@ class GameEngine {
         }
 
         const resultScreen = this._getDomRef('result-screen');
-        const resultVisible = resultScreen && !resultScreen.classList.contains('hidden');
+        const resultVisible = resultScreen && typeof resultScreen.classList?.contains === 'function'
+            ? !resultScreen.classList.contains('hidden')
+            : false;
 
         const shouldShowPauseMenu = reason === 'manual';
 
         // Only show pause menu if we're not in level-up mode or result screen
         if (shouldShowPauseMenu && !resultVisible && (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive())) {
             const pauseMenu = this._getDomRef('pause-menu');
-            if (pauseMenu) pauseMenu.classList.remove('hidden');
+            if (pauseMenu?.classList?.remove) pauseMenu.classList.remove('hidden');
         }
 
         // Suspend audio during pause
@@ -2269,7 +2368,7 @@ class GameEngine {
         if (reason === 'manual') {
             // Hide pause menu
             const pauseMenu = this._getDomRef('pause-menu');
-            if (pauseMenu) pauseMenu.classList.add('hidden');
+            if (pauseMenu?.classList?.add) pauseMenu.classList.add('hidden');
         }
         // Resume audio on unpause
         if (window.audioSystem) {
@@ -2286,11 +2385,69 @@ class GameEngine {
         }
 
         const resultScreen = this._getDomRef('result-screen');
-        if (resultScreen && !resultScreen.classList.contains('hidden')) {
+        if (resultScreen && typeof resultScreen.classList?.contains === 'function' && !resultScreen.classList.contains('hidden')) {
             return false;
         }
 
         return true;
+    }
+
+    _scheduleNextFrame() {
+        if (!this.isRunning) {
+            this._loopHandle = null;
+            return;
+        }
+
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+            this._useSetTimeoutLoop = false;
+            this._loopHandle = window.requestAnimationFrame(this._boundGameLoop);
+        } else if (typeof requestAnimationFrame === 'function') {
+            this._useSetTimeoutLoop = false;
+            this._loopHandle = requestAnimationFrame(this._boundGameLoop);
+        } else {
+            this._useSetTimeoutLoop = true;
+            this._loopHandle = setTimeout(this._boundGameLoop, 16);
+        }
+    }
+
+    _cancelNextFrame() {
+        if (this._loopHandle == null) {
+            return;
+        }
+
+        if (this._useSetTimeoutLoop) {
+            clearTimeout(this._loopHandle);
+        } else if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+            window.cancelAnimationFrame(this._loopHandle);
+        } else if (typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(this._loopHandle);
+        }
+
+        this._loopHandle = null;
+    }
+
+    _createFallbackProjectile(x, y, config = {}) {
+        return {
+            id: `fallback_projectile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            type: 'projectile',
+            x,
+            y,
+            vx: config.vx || 0,
+            vy: config.vy || 0,
+            damage: typeof config.damage === 'number' ? config.damage : 10,
+            isCrit: !!config.isCrit,
+            behaviorManager: {
+                addBehavior() { },
+                handleCollision() { return true; },
+                hasBehavior() { return false; },
+                update() { },
+                onDestroy() { }
+            },
+            update() { },
+            render() { },
+            isDead: false,
+            hitEnemies: new Set()
+        };
     }
 
     getVisibleEntities() {
@@ -2536,7 +2693,7 @@ class GameEngine {
             if (this.boundResizeCanvas) {
                 window.removeEventListener('resize', this.boundResizeCanvas);
             }
-            if (this.canvas) {
+            if (this.canvas && typeof this.canvas.removeEventListener === 'function') {
                 if (this.boundHandleContextLoss) {
                     this.canvas.removeEventListener('webglcontextlost', this.boundHandleContextLoss);
                 }
@@ -2545,7 +2702,9 @@ class GameEngine {
                 }
             }
             if (this.boundHandleVisibilityChange) {
-                document.removeEventListener('visibilitychange', this.boundHandleVisibilityChange);
+                if (typeof document?.removeEventListener === 'function') {
+                    document.removeEventListener('visibilitychange', this.boundHandleVisibilityChange);
+                }
             }
             if (this.boundHandleFocusChange) {
                 window.removeEventListener('focus', this.boundHandleFocusChange);
@@ -2621,4 +2780,13 @@ class GameEngine {
         window.logger.log('Game engine shutdown complete');
     }
 
+}
+
+if (typeof window !== 'undefined') {
+    window.Game = window.Game || {};
+    window.Game.GameEngine = GameEngine;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = GameEngine;
 }
