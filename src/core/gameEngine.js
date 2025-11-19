@@ -2020,7 +2020,7 @@ class GameEngine {
             let proj;
             if (ProjectileFactory && typeof ProjectileFactory.create === 'function') {
                 // Use factory to create projectile WITH behaviors (burn, chain, etc.)
-                proj = ProjectileFactory.create(x, y, config.vx, config.vy, config.damage, config.isCrit, this.player);
+                proj = ProjectileFactory.create(x, y, config, this.player, ownerId);
             } else {
                 // Fallback to direct creation if factory not available  
                 if (window.projectilePool) {

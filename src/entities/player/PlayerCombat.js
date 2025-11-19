@@ -275,9 +275,10 @@ class PlayerCombat {
             ? overrides.piercingOverride
             : this.piercing || 0;
 
-        // Setup special effects configuration (each projectile rolls independently)
+        // Setup special effects configuration
         const allowBehaviors = overrides.applyBehaviors !== undefined ? overrides.applyBehaviors : true;
-        const forcedSpecialTypes = Array.isArray(overrides.forcedSpecialTypes) ? overrides.forcedSpecialTypes : [];
+        const forcedSpecialTypes = Array.isArray(overrides.forcedSpecialTypes) ? [...overrides.forcedSpecialTypes] : [];
+        const primaryForcedType = forcedSpecialTypes[0] || null;
 
         // Fire projectiles using clean, consistent distribution
         for (let i = 0; i < projectileCount; i++) {
@@ -303,33 +304,29 @@ class PlayerCombat {
             const baseDamage = this.attackDamage * damageMultiplier * streakBonuses.damage * berserkerDamageMultiplier;
             const damage = isCrit ? baseDamage * (this.critMultiplier || 2) : baseDamage;
 
-            // Determine special effects for THIS projectile (independent roll per projectile)
-            let projectileSpecialTypes = allowBehaviors ? this._determineSpecialTypesForShot() : [];
-            if (forcedSpecialTypes.length > 0) {
-                const merged = new Set(projectileSpecialTypes);
-                forcedSpecialTypes.forEach(type => merged.add(type));
-                projectileSpecialTypes = Array.from(merged);
-            }
-            const primaryType = projectileSpecialTypes[0] || null;
-
             // Debug logging for piercing value tracing
             if (window.debugProjectiles && piercingBase > 0) {
                 console.log(`[PlayerCombat] Spawning projectile with piercing. base = ${piercingBase}`);
             }
 
             // Spawn the projectile using modern config pattern
+            const baseLifesteal = this.player.stats?.lifestealAmount || 0;
+            const lifestealCritMultiplier = this.player.stats?.lifestealCritMultiplier || 1;
             const config = {
                 vx,
                 vy,
                 damage,
                 piercing: piercingBase,
                 isCrit,
-                specialType: primaryType,
+                specialType: primaryForcedType,
                 speed: baseSpeed,
                 range: overrides.maxDistance || 1000,
                 // Pass stats directly for cleaner initialization
                 knockback: this.player.stats?.knockback || 0,
-                lifesteal: (this.player.stats?.lifestealAmount || 0) * (isCrit ? (this.player.stats?.lifestealCritMultiplier || 1) : 1)
+                lifesteal: baseLifesteal,
+                lifestealCritMultiplier,
+                applyBehaviors: allowBehaviors,
+                forcedSpecialTypes: forcedSpecialTypes
             };
 
             const projectile = game.spawnProjectile(
@@ -362,10 +359,6 @@ class PlayerCombat {
                 if (window.debugProjectiles) {
                     console.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
                 }
-                if (allowBehaviors || forcedSpecialTypes.length > 0) {
-                    this._configureProjectileFromUpgrades(projectile, projectileSpecialTypes, damage, isCrit);
-                }
-
                 // NOTE: Piercing handled by new BehaviorManager system via setters
                 // Old piercing normalization code kept for backwards compatibility
                 const basePiercing = Number.isFinite(piercingBase) ? Math.max(0, piercingBase) : 0;
@@ -380,20 +373,6 @@ class PlayerCombat {
                     projectile.originalPiercing = projectile.piercing;
                 } else {
                     projectile.originalPiercing = 0;
-                }
-
-                // Apply ALL special types as properties (not just primary - EACH PROJECTILE ROLLS INDEPENDENTLY)
-                if (projectileSpecialTypes.includes('chain')) {
-                    projectile.hasChainLightning = true;
-                }
-                if (projectileSpecialTypes.includes('explosive')) {
-                    projectile.hasExplosive = true;
-                }
-                if (projectileSpecialTypes.includes('ricochet')) {
-                    projectile.hasRicochet = true;
-                }
-                if (projectileSpecialTypes.includes('homing')) {
-                    projectile.hasHoming = true;
                 }
             }
         }
@@ -467,125 +446,8 @@ class PlayerCombat {
         return baseAngle + offsetFromCenter;
     }
 
-    _determineSpecialTypesForShot() {
-        const types = [];
-        const abilities = this.player.abilities;
-
-        // Use configurable chance values for consistent upgrade behavior
-        if (abilities && abilities.hasChainLightning && Math.random() < (abilities.chainChance || 0.4)) {
-            types.push('chain');
-        }
-        if (abilities && abilities.hasExplosiveShots && Math.random() < (abilities.explosiveChance || 0.3)) {
-            types.push('explosive');
-        }
-        // Guaranteed ricochet for Phantom Striker, otherwise chance-based
-        if (abilities && abilities.hasGuaranteedRicochet) {
-            types.push('ricochet');
-        } else if (abilities && abilities.hasRicochet && Math.random() < (abilities.ricochetChance || 0.25)) {
-            types.push('ricochet');
-        }
-        if (abilities && abilities.hasHomingShots && Math.random() < (abilities.homingChance || 0.2)) {
-            types.push('homing');
-        }
-
-        return types;
-    }
-
-    _configureProjectileFromUpgrades(projectile, specialTypes, damage, isCrit) {
-        // Note: Projectiles only support one special type at a time
-        // Multiple special types in a volley are handled by consistent volley-wide application
-        // The primary type is already set during projectile creation
-
-        // Crit visual/speed boost
-        if (isCrit) {
-            projectile.radius *= 1.3;
-            projectile.vx *= 1.15;
-            projectile.vy *= 1.15;
-        }
-
-        // Lifesteal
-        const stats = this.player.stats;
-        if (stats && stats.lifestealAmount > 0) {
-            projectile.lifesteal = stats.lifestealAmount;
-            if (isCrit && stats.lifestealCritMultiplier > 1) {
-                projectile.lifesteal *= stats.lifestealCritMultiplier;
-            }
-        }
-
-        // Scale special types from player stats
-        const abilities = this.player.abilities;
-        for (const type of specialTypes) {
-            switch (type) {
-                case 'chain': {
-                    if (!abilities) break;
-                    const chainData = (projectile.specialType === 'chain' && projectile.special)
-                        ? { ...projectile.special }
-                        : (projectile.chainData ? { ...projectile.chainData } : { used: 0 });
-
-                    chainData.maxChains = Math.max(chainData.maxChains || 0, abilities.maxChains || 2);
-                    chainData.range = Math.max(chainData.range || 0, abilities.chainRange || 240);
-                    const dmgMultiplier = (typeof abilities.chainDamage === 'number' && abilities.chainDamage > 0)
-                        ? abilities.chainDamage
-                        : 0.8;
-                    chainData.damageMultiplier = dmgMultiplier;
-
-                    projectile.hasChainLightning = true;
-                    if (projectile.specialType === 'chain') {
-                        projectile.special = chainData;
-                    }
-                    projectile.chainData = chainData;
-                    break;
-                }
-                case 'explosive': {
-                    if (!abilities) break;
-                    // [FIX] Updated values to match "INCREASED" comments
-                    const radius = abilities.explosionRadius || 100;  // INCREASED from 90
-                    const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.9;  // INCREASED from 0.85
-                    projectile.hasExplosive = true;
-                    projectile.explosiveData = {
-                        radius,
-                        damageMultiplier,
-                        exploded: false
-                    };
-                    break;
-                }
-                case 'ricochet': {
-                    if (!abilities) break;
-                    const ricochetData = (projectile.specialType === 'ricochet' && projectile.special)
-                        ? { ...projectile.special }
-                        : (projectile.ricochetData ? { ...projectile.ricochetData } : { used: 0 });
-
-                    ricochetData.bounces = Math.max(ricochetData.bounces || 0, abilities.ricochetBounces || 2);
-                    ricochetData.range = Math.max(ricochetData.range || 0, abilities.ricochetRange || 320);  // INCREASED from 260
-                    // Damage multiplier dictates how much damage is retained per bounce
-                    ricochetData.damageMultiplier = Math.min(1, Math.max(abilities.ricochetDamage || 0.85, 0.5));
-
-                    projectile.hasRicochet = true;
-                    if (projectile.specialType === 'ricochet') {
-                        projectile.special = ricochetData;
-                    }
-                    projectile.ricochetData = ricochetData;
-                    break;
-                }
-                case 'homing': {
-                    if (!abilities) break;
-                    projectile.hasHoming = true;
-                    if (projectile.specialType === 'homing' && projectile.special) {
-                        projectile.special.range = Math.max(projectile.special.range, abilities.homingRange || projectile.special.range);
-                        projectile.special.turnSpeed = Math.max(projectile.special.turnSpeed, abilities.homingTurnSpeed || projectile.special.turnSpeed);
-                    } else {
-                        projectile.homingData = {
-                            range: abilities.homingRange || 250,
-                            turnSpeed: abilities.homingTurnSpeed || 3
-                        };
-                    }
-                    break;
-                }
-                default:
-                    break;
-            }
-        }
-    }
+    // NOTE: Legacy `_determineSpecialTypesForShot` and `_configureProjectileFromUpgrades`
+    // have been removed. All behavior attachment now happens inside ProjectileFactory.
 
     // Helper method to apply crit damage with diminishing returns
     applyScaledCritDamage(baseCritDamageIncrease) {

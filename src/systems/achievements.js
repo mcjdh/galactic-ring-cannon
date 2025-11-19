@@ -27,8 +27,19 @@ class AchievementSystem {
         const attemptSubscribe = () => {
             const gameState = this._resolveGameState();
 
-            if (!gameState?.on) {
+            if (!gameState) {
                 this._gameStateSubscriptionTimer = setTimeout(attemptSubscribe, retryDelay);
+                return;
+            }
+
+            if (typeof gameState.on !== 'function') {
+                // Older game states (tests, legacy code) might not expose event APIs.
+                // In that case stop retrying to avoid infinite timers keeping Node alive.
+                if (this._gameStateSubscriptionTimer) {
+                    clearTimeout(this._gameStateSubscriptionTimer);
+                    this._gameStateSubscriptionTimer = null;
+                }
+                window.logger?.warn?.('[AchievementSystem] GameState found but missing event emitter; burn tracking disabled.');
                 return;
             }
 

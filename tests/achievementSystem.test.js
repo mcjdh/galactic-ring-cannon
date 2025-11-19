@@ -244,14 +244,15 @@ function testSavedUnlocksSyncToGameState() {
 
 function testSplitShotSpecialistUnlocksViaUpgradeSelection() {
     const system = createSystem();
-    for (let i = 0; i < 4; i++) {
+    const selectionsRequired = system.achievements.split_shot_specialist?.target || 5;
+    for (let i = 0; i < selectionsRequired; i++) {
         system.onUpgradeSelected('multi_shot_1');
     }
 
-    assert(system.achievements.split_shot_specialist.progress === 4,
+    assert(system.achievements.split_shot_specialist.progress === selectionsRequired,
         'Split Shot Specialist progress should match number of selections');
     assert(system.achievements.split_shot_specialist.unlocked === true,
-        'Split Shot Specialist should unlock after four selections');
+        `Split Shot Specialist should unlock after ${selectionsRequired} selections`);
 
     const state = window.gameManager.game.state;
     assert(state.meta.achievements.has('split_shot_specialist'),
