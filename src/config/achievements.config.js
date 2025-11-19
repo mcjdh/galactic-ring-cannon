@@ -234,6 +234,15 @@ const ACHIEVEMENT_DEFINITIONS = {
         unlocked: false,
         unlocksCharacter: 'stormcaller'
     },
+    'grim_harvest': {
+        name: 'Grim Harvest',
+        description: 'Lifesteal 1,000 HP in a single run',
+        icon: '†',
+        progress: 0,
+        target: 1000,
+        unlocked: false,
+        unlocksCharacter: 'eclipse_reaper'
+    },
 
     // ========================================
     // SPECIAL ACHIEVEMENTS (Build-Specific)

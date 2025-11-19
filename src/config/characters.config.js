@@ -205,6 +205,51 @@ const CHARACTER_DEFINITIONS = [
             hint: 'Command five orbitals at once to unlock the Architect.'
         },
         flavor: '"Precision is not perfection. It is the path to it."'
+    },
+    {
+        id: 'eclipse_reaper',
+        name: 'Eclipse Reaper',
+        icon: '†',
+        tagline: 'Soul Harvester',
+        description: 'A dark necromancer who reaps the void and grows stronger with each kill. Thrives on death itself with high-risk, high-reward gameplay.',
+        difficulty: 'reaper',
+        weaponId: 'void_scythe',
+        highlights: [
+            'Projectiles have 12% chance to explode on hit',
+            '+15% base lifesteal - restore HP on damage dealt',
+            '+15% damage but -20% max health (glass scythe)',
+            'Void Scythe fires in sweeping reaping arcs'
+        ],
+        modifiers: {
+            stats: {
+                healthMultiplier: 0.8,    // -20% health (high risk)
+                lifesteal: 0.15,          // 15% base lifesteal (high reward)
+                regeneration: 0.5         // Low natural regen (relies on lifesteal)
+            },
+            combat: {
+                attackSpeedMultiplier: 1.0,   // Normal attack speed
+                attackDamageMultiplier: 1.15  // +15% damage (death dealer)
+            },
+            movement: {
+                speedMultiplier: 1.08,         // +8% movement (agile reaper)
+                magnetRangeBonus: 120          // Extended pickup range for souls
+            },
+            abilities: {
+                explosive: {
+                    baseChance: 0.12,          // 12% chance for projectiles to explode on hit
+                    damageMultiplier: 1.0,     // Normal explosive damage
+                    radiusMultiplier: 1.1      // +10% explosion radius
+                }
+            }
+        },
+        // Build path preferences - explosive deaths and lifesteal synergy
+        preferredBuildPaths: ['explosive', 'support'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['grim_harvest'],
+            hint: 'Master the art of death by achieving the Grim Harvest.'
+        },
+        flavor: '"Death is not the end—it is the currency of power."'
     }
 ];
 

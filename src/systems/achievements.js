@@ -67,6 +67,9 @@ class AchievementSystem {
         this.novaBlitzKills = [];
         this.splitShotSelections = 0;
 
+        // Reset per-run lifesteal tracking
+        this.runLifestealTotal = 0;
+
         window.logger.log('Achievement run tracking reset');
     }
     
@@ -431,6 +434,25 @@ class AchievementSystem {
         if (newTime > currentProgress) {
             this.updateAchievement('aegis_guardian', newTime);
         }
+    }
+
+    // ========================================
+    // LIFESTEAL TRACKING (Eclipse Reaper)
+    // ========================================
+
+    // Track total HP lifesteal in current run (PER RUN, not cumulative)
+    onLifestealHealing(healAmount) {
+        if (!Number.isFinite(healAmount) || healAmount <= 0) {
+            return;
+        }
+
+        // Initialize run lifesteal tracker if not present
+        if (!this.runLifestealTotal) {
+            this.runLifestealTotal = 0;
+        }
+
+        this.runLifestealTotal += healAmount;
+        this.updateAchievement('grim_harvest', Math.floor(this.runLifestealTotal));
     }
 
     showAchievementNotification(achievement) {
