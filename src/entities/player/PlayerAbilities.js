@@ -42,6 +42,14 @@ class PlayerAbilities {
         this.homingTurnSpeed = 3.0;
         this.homingRange = 250;
 
+        // Gravity well properties (Void Reaver specialty)
+        this.hasGravityWells = false;
+        this.gravityWellRadius = 150;
+        this.gravityWellDuration = 2.5;
+        this.gravityWellSlowAmount = 0.4;
+        this.gravityWellPullStrength = 0.3;
+        this.gravityWellDamageMultiplier = 0.15;
+
         // Shield properties (Aegis Vanguard specialty)
         this.hasShield = false;
         this.shieldBaseCapacity = 0;    // Initial capacity when first acquired (for adaptive armor tracking)

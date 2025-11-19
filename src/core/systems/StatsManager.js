@@ -545,6 +545,17 @@ class StatsManager {
      */
     trackDamageDealt(amount) {
         this.totalDamageDealt += amount;
+
+        // Update GameState progression (per-run tracking)
+        if (this.state?.addDamageDealt) {
+            this.state.addDamageDealt(amount);
+
+            // Update Event Horizon achievement (single run damage)
+            const achievementSystem = window.achievementSystem || this.gameManager?.achievementSystem;
+            if (achievementSystem?.onDamageDealtInRun) {
+                achievementSystem.onDamageDealtInRun(this.state.progression?.damageDealt || 0);
+            }
+        }
     }
     
     /**

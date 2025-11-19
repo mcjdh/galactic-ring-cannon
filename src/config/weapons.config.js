@@ -154,6 +154,31 @@ const WEAPON_DEFINITIONS = {
             cooldown: 8.0,
             description: 'Brief burst of attack speed when health drops below 40%.'
         }
+    },
+    singularity_cannon: {
+        id: 'singularity_cannon',
+        name: 'Singularity Cannon',
+        description: 'Fires heavy void orbs that warp spacetime, creating gravity wells that slow and trap enemies.',
+        archetype: 'gravity',
+        fireRate: 0.7,  // Slowest weapon - deliberate, impactful shots
+        startupDelay: 0,
+        targeting: 'nearest',
+        projectileTemplate: {
+            count: 1,
+            spreadDegrees: 0,
+            damageMultiplier: 1.2,  // High base damage
+            speedMultiplier: 0.85,  // Slow-moving void orbs
+            inheritsPlayerCrit: true,
+            inheritsPlayerPierce: true,
+            appliesBehaviors: true,
+            gravityWell: true  // Special flag for gravity well creation
+        },
+        upgradeTags: ['explosive', 'support', 'core'],
+        secondary: {
+            id: 'event_horizon',
+            cooldown: 15.0,
+            description: 'Create a massive singularity that pulls all nearby enemies and deals damage over time.'
+        }
     }
 };
 

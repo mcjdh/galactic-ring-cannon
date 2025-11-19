@@ -317,6 +317,35 @@ class Player {
                     this.abilities.explosionRadius *= explosive.radiusMultiplier;
                 }
             }
+
+            // NEW: Gravity well ability modifiers (Void Reaver)
+            if (abilityMods.gravityWell) {
+                const gravityWell = abilityMods.gravityWell;
+
+                // Enable gravity wells
+                if (gravityWell.enabled) {
+                    this.abilities.hasGravityWells = true;
+                }
+
+                // Apply gravity well stat modifiers
+                if (typeof gravityWell.wellRadius === 'number') {
+                    this.abilities.gravityWellRadius = gravityWell.wellRadius;
+                }
+                if (typeof gravityWell.wellDuration === 'number') {
+                    this.abilities.gravityWellDuration = gravityWell.wellDuration;
+                }
+                if (typeof gravityWell.slowAmount === 'number') {
+                    this.abilities.gravityWellSlowAmount = gravityWell.slowAmount;
+                }
+                if (typeof gravityWell.pullStrength === 'number') {
+                    this.abilities.gravityWellPullStrength = gravityWell.pullStrength;
+                }
+                if (typeof gravityWell.damageMultiplier === 'number') {
+                    this.abilities.gravityWellDamageMultiplier = gravityWell.damageMultiplier;
+                }
+            }
+                }
+            }
         }
 
         this.characterHighlights = Array.isArray(definition.highlights)

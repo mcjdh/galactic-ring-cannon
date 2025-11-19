@@ -37,6 +37,11 @@
                 crimson_reaver: {
                     core: '#dc143c',  // Crimson
                     glow: '#ff1744'   // Deep red/blood red
+                },
+                void_reaver: {
+                    core: '#4b0082',  // Deep indigo
+                    glow: '#9370db'   // Medium purple
+                }
                 }
             },
 

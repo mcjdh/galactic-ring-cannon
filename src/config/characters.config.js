@@ -289,6 +289,53 @@ const CHARACTER_DEFINITIONS = [
             hint: 'Embrace the blood pact: heal 3000 HP via lifesteal to awaken the Reaver.'
         },
         flavor: '"Every drop spilled is a gift. Every wound dealt, a feast."'
+    },
+    {
+        id: 'void_reaver',
+        name: 'Void Reaver',
+        icon: '%',
+        tagline: 'Gravitational Enforcer',
+        description: 'Warps spacetime itself, firing devastating singularity projectiles that trap enemies in crushing gravity wells. Master of area denial and tactical positioning.',
+        difficulty: 'strategic',
+        weaponId: 'singularity_cannon',
+        highlights: [
+            'Every shot creates gravity wells that slow & pull enemies',
+            '+25% attack damage but -12% fire rate (devastating hits)',
+            'Slow projectiles create lingering void zones',
+            '+8% movement for tactical repositioning'
+        ],
+        modifiers: {
+            stats: {
+                healthMultiplier: 1.08,  // Moderate survivability
+                regeneration: 1.0        // Standard regen
+            },
+            combat: {
+                attackSpeedMultiplier: 0.88,   // -12% attack speed (slow, deliberate)
+                attackDamageMultiplier: 1.25,  // +25% damage (highest per-shot damage)
+                projectileSpeedMultiplier: 0.85 // -15% projectile speed (creates more control time)
+            },
+            movement: {
+                speedMultiplier: 1.08    // +8% movement (positioning is key)
+            },
+            abilities: {
+                gravityWell: {
+                    enabled: true,
+                    wellRadius: 150,           // Area of effect for gravity wells
+                    wellDuration: 2.5,         // How long wells persist (seconds)
+                    slowAmount: 0.4,           // 40% movement slow
+                    pullStrength: 0.3,         // Pull force toward center
+                    damageMultiplier: 0.15     // Optional: 15% DOT while in well
+                }
+            }
+        },
+        // Build path preferences - synergizes with area control
+        preferredBuildPaths: ['explosive', 'support'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['event_horizon'],
+            hint: 'Cross the Event Horizon achievement to harness the void.'
+        },
+        flavor: '"Gravity is not a force. It is a conversation—and I control the dialogue."'
     }
 ];
 
