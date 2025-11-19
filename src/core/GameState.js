@@ -64,6 +64,7 @@ class GameState {
             xpCollected: 0,
             damageDealt: 0,
             damageTaken: 0,
+            burnDamageDealt: 0,      // Track burn/fire damage for Inferno Juggernaut achievement
             highestLevel: 1,
             bossesKilled: 0,
             elitesKilled: 0
@@ -378,6 +379,15 @@ class GameState {
         this._notifyObservers('damageTaken', { amount });
     }
 
+    /**
+     * Track burn/fire damage dealt (for Inferno Juggernaut achievement)
+     */
+    addBurnDamage(amount) {
+        this.progression.burnDamageDealt += amount;
+        // Notify achievement system
+        this._notifyObservers('burnDamageDealt', { amount, total: this.progression.burnDamageDealt });
+    }
+
     // ===== COMBO METHODS =====
 
     /**
@@ -502,6 +512,7 @@ class GameState {
         this.progression.xpCollected = 0;
         this.progression.damageDealt = 0;
         this.progression.damageTaken = 0;
+        this.progression.burnDamageDealt = 0;
         this.progression.highestLevel = 1;
         this.progression.bossesKilled = 0;
         this.progression.elitesKilled = 0;

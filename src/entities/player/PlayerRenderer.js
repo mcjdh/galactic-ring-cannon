@@ -5,6 +5,9 @@ class PlayerRenderer {
     }
 
     render(ctx) {
+        // Draw berserker rage aura (behind player)
+        this.renderBerserkerAura(ctx);
+
         // Draw player body
         this.renderPlayerBody(ctx);
 
@@ -97,14 +100,14 @@ class PlayerRenderer {
         const radius = this.player.radius;
         const shieldRadius = radius + 15;
 
-                // Shield active - draw hexagonal barrier
+        // Shield active - draw hexagonal barrier
         if (abilities.shieldCurrent > 0) {
             ctx.save();
-            
+
             // Calculate alpha based on shield strength (0.3 to 0.7)
             const shieldStrength = abilities.shieldCurrent / abilities.shieldMaxCapacity;
             let alpha = 0.3 + (shieldStrength * 0.4);
-            
+
             // Add hit flash pulse
             if (abilities.shieldHitFlash > 0) {
                 alpha += abilities.shieldHitFlash * 0.4;  // Bright flash on hit
@@ -112,13 +115,13 @@ class PlayerRenderer {
                 ctx.shadowColor = '#ffffff';
                 ctx.shadowBlur = 15 * abilities.shieldHitFlash;
             }
-            
+
             ctx.globalAlpha = Math.min(alpha, 1.0);
-            
+
             // Outer glow
             ctx.shadowColor = '#00ffff';
             ctx.shadowBlur = 10;
-            
+
             // Draw hexagon
             ctx.strokeStyle = '#00ffff';
             ctx.lineWidth = 2;
@@ -149,7 +152,7 @@ class PlayerRenderer {
         // Shield recharging - show progress
         else if (abilities.shieldBroken) {
             const rechargeProgress = 1 - (abilities.shieldRechargeTimer / abilities.shieldRechargeTime);
-            
+
             // Pulsing recharge effect
             if (rechargeProgress > 0) {
                 ctx.save();
@@ -157,21 +160,21 @@ class PlayerRenderer {
                 ctx.globalAlpha = pulseAlpha;
                 ctx.strokeStyle = '#00ffff';
                 ctx.lineWidth = 2;
-                
+
                 // Partial hexagon based on recharge progress
                 ctx.beginPath();
                 const arcLength = (Math.PI * 2) * rechargeProgress;
                 for (let i = 0; i < 6; i++) {
                     const segmentStart = (Math.PI / 3) * i - Math.PI / 6;
                     const segmentEnd = segmentStart + (Math.PI / 3);
-                    
+
                     if (segmentStart < arcLength) {
                         const actualEnd = Math.min(segmentEnd, arcLength);
                         const px1 = x + Math.cos(segmentStart) * shieldRadius;
                         const py1 = y + Math.sin(segmentStart) * shieldRadius;
                         const px2 = x + Math.cos(actualEnd) * shieldRadius;
                         const py2 = y + Math.sin(actualEnd) * shieldRadius;
-                        
+
                         if (i === 0) {
                             ctx.moveTo(px1, py1);
                         }
@@ -228,6 +231,132 @@ class PlayerRenderer {
         ctx.strokeStyle = '#00aaff';
         ctx.lineWidth = 1;
         ctx.strokeRect(barX, y, barWidth, barHeight);
+    }
+
+    /**
+     * Render Low-HP Danger Indicator (Universal for all characters)
+     * Enhanced intensity for Berserker characters
+     * Shows when player is below 30% health (Edge Walker achievement threshold!)
+     */
+    renderBerserkerAura(ctx) {
+        const stats = this.player.stats;
+        const healthPercent = stats.health / stats.maxHealth;
+        const missingHealth = 1 - healthPercent;
+
+        // UNIVERSAL: Show danger aura for ALL characters below 30% HP
+        const LOW_HP_THRESHOLD = 0.30; // 30% HP - Edge Walker achievement threshold!
+        if (healthPercent > LOW_HP_THRESHOLD) return;
+
+        const x = this.player.x;
+        const y = this.player.y;
+        const radius = this.player.radius;
+
+        // Check if this is a berserker character for enhanced effects
+        const isBerserker = this.player.abilities?.hasBerserker || false;
+
+        // Calculate intensity based on missing health (gets stronger as HP drops)
+        const dangerIntensity = Math.min((LOW_HP_THRESHOLD - healthPercent) / LOW_HP_THRESHOLD, 1.0);
+
+        // Pulsing effect - faster pulse at lower HP
+        const pulseSpeed = isBerserker
+            ? (150 - (missingHealth * 100))  // Berserker: Very fast pulse
+            : (200 - (dangerIntensity * 80)); // Normal: Moderate pulse
+        const pulse = Math.sin(Date.now() / pulseSpeed) * 0.5 + 0.5;
+
+        // Color selection: Orange for warning, Red for berserker rage
+        const baseColor = isBerserker ? [255, 0, 0] : [255, 140, 0]; // Red vs Orange
+        const glowColor = isBerserker ? [200, 0, 0] : [255, 100, 0];
+
+        // Base intensity multiplier
+        const intensityMult = isBerserker ? 1.5 : 1.0;
+
+        // Inner glow (danger energy)
+        const innerRadius = radius * (1.8 + pulse * 0.3);
+        ctx.save();
+
+        const innerGradient = ctx.createRadialGradient(x, y, radius * 0.5, x, y, innerRadius);
+        innerGradient.addColorStop(0, `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${0.15 * dangerIntensity * intensityMult})`);
+        innerGradient.addColorStop(0.5, `rgba(${glowColor[0]}, ${glowColor[1]}, ${glowColor[2]}, ${0.25 * dangerIntensity * pulse * intensityMult})`);
+        innerGradient.addColorStop(1, `rgba(${Math.floor(glowColor[0] * 0.7)}, 0, 0, 0)`);
+
+        ctx.fillStyle = innerGradient;
+        ctx.beginPath();
+        ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Outer aura (danger warning halo)
+        const outerRadius = radius * (2.5 + pulse * 0.5);
+        const outerGradient = ctx.createRadialGradient(x, y, innerRadius, x, y, outerRadius);
+        outerGradient.addColorStop(0, `rgba(${baseColor[0]}, ${Math.floor(baseColor[0] * 0.2)}, 0, ${0.2 * dangerIntensity * pulse * intensityMult})`);
+        outerGradient.addColorStop(0.6, `rgba(${Math.floor(glowColor[0] * 0.7)}, 0, 0, ${0.1 * dangerIntensity * intensityMult})`);
+        outerGradient.addColorStop(1, 'rgba(100, 0, 0, 0)');
+
+        ctx.fillStyle = outerGradient;
+        ctx.beginPath();
+        ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // BERSERKER ONLY: Electrical arcs when rage is extremely high (below 15% HP)
+        if (isBerserker && healthPercent < 0.15 && pulse > 0.7) {
+            const arcIntensity = isBerserker ? 0.6 : 0.3;
+            ctx.strokeStyle = `rgba(255, 100, 100, ${arcIntensity * pulse})`;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#ff0000';
+
+            const arcCount = 4;
+            for (let i = 0; i < arcCount; i++) {
+                const angle = (i / arcCount) * Math.PI * 2 + (Date.now() / 500);
+                const arcLength = radius * 2;
+
+                ctx.beginPath();
+                ctx.moveTo(
+                    x + Math.cos(angle) * radius,
+                    y + Math.sin(angle) * radius
+                );
+                ctx.lineTo(
+                    x + Math.cos(angle) * arcLength,
+                    y + Math.sin(angle) * arcLength
+                );
+                ctx.stroke();
+            }
+        }
+
+        ctx.restore();
+
+        // Spawn danger particles when moving (helps visibility)
+        const particleChance = isBerserker ? 0.15 : 0.08;
+        if (this.player.movement.isMoving && Math.random() < particleChance * dangerIntensity) {
+            this.spawnDangerParticle(x, y, dangerIntensity, isBerserker);
+        }
+    }
+
+    /**
+     * Spawn a single danger/rage particle for low-HP indicator
+     */
+    spawnDangerParticle(x, y, intensity, isBerserker) {
+        if (!window.optimizedParticles) return;
+
+        const angle = Math.random() * Math.PI * 2;
+        const distance = this.player.radius * 0.8;
+        const speed = 20 + Math.random() * 30;
+
+        // Berserker: Red rage particles, Normal: Orange warning particles
+        const particleColors = isBerserker
+            ? ['#ff2020', '#ff6060']  // Red rage
+            : ['#ff8c00', '#ffa500']; // Orange warning
+
+        window.optimizedParticles.spawnParticle({
+            x: x + Math.cos(angle) * distance,
+            y: y + Math.sin(angle) * distance,
+            vx: (Math.random() - 0.5) * speed,
+            vy: (Math.random() - 0.5) * speed - 30, // Rise upward
+            size: 2 + Math.random() * 3,
+            color: Math.random() > 0.5 ? particleColors[0] : particleColors[1],
+            life: 0.4 + Math.random() * 0.3,
+            type: 'spark',
+            friction: 0.92
+        });
     }
 
     _ensureSprites() {
@@ -420,7 +549,7 @@ class PlayerRenderer {
 PlayerRenderer._alphaColorCache = new Map();
 PlayerRenderer._parsedColorCache = new Map();
 
-PlayerRenderer._colorWithAlpha = function(color, alpha) {
+PlayerRenderer._colorWithAlpha = function (color, alpha) {
     const key = `${color}|${alpha}`;
     const cache = PlayerRenderer._alphaColorCache;
     if (cache.has(key)) {
@@ -432,7 +561,7 @@ PlayerRenderer._colorWithAlpha = function(color, alpha) {
     return value;
 };
 
-PlayerRenderer._parseColor = function(color) {
+PlayerRenderer._parseColor = function (color) {
     const cache = PlayerRenderer._parsedColorCache;
     if (cache.has(color)) {
         return cache.get(color);
@@ -442,7 +571,7 @@ PlayerRenderer._parseColor = function(color) {
     return parsed;
 };
 
-PlayerRenderer._extractRGBComponents = function(color) {
+PlayerRenderer._extractRGBComponents = function (color) {
     const clamp = (value) => {
         const num = parseFloat(value);
         if (!Number.isFinite(num)) return 255;

@@ -43,11 +43,11 @@ class ChainBehavior extends ProjectileBehaviorBase {
 
         this.chainedEnemies.add(target.id);
         this.chainsUsed++; // Count the initial hit!
-        
+
         if (window.debugProjectiles) {
             console.log(`[ChainBehavior] Projectile ${this.projectile.id} hit enemy ${target.id}. Chains used: ${this.chainsUsed}/${this.maxChains}`);
         }
-        
+
         // Only chain further if we have chains left
         if (this.chainsUsed < this.maxChains) {
             this._chainToNearby(target, engine);
@@ -112,6 +112,20 @@ class ChainBehavior extends ProjectileBehaviorBase {
 
             if (typeof nearest.takeDamage === 'function') {
                 nearest.takeDamage(Math.max(1, chainDamage));
+            }
+
+            // IMPORTANT: Apply burn to chained enemies if projectile has burn
+            // This ensures burn damage tracking works for chain builds!
+            if (this.projectile.behaviorManager?.hasBehavior?.('burn')) {
+                const burnBehavior = this.projectile.behaviorManager.behaviors.find(b => b.type === 'burn');
+                if (burnBehavior && nearest.statusEffects) {
+                    // Apply burn with same parameters as original projectile
+                    nearest.statusEffects.applyEffect('burn', {
+                        damage: burnBehavior.damage || 5,
+                        explosionDamage: burnBehavior.explosionDamage || 0,
+                        explosionRadius: burnBehavior.explosionRadius || 0
+                    }, burnBehavior.duration || 3.0);
+                }
             }
 
             this.chainedEnemies.add(nearest.id);

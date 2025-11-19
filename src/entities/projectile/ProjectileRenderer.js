@@ -714,6 +714,4 @@ ProjectileRenderer.applyPi5GpuLimits = function (force = false) {
 
 // Initialize with high limits by default
 // No longer auto-calling applyPi5GpuLimits here
-// Apply limits immediately if Pi detection occurred before this script executed
-if (typeof window !== 'undefined' && window.isRaspberryPi) {
-}
+// Pi detection and limits are now handled dynamically via setCacheLimits()

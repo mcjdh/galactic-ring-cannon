@@ -18,8 +18,24 @@ class AchievementSystem {
         this.initializeTracking();
         this.loadAchievements(); // Load AFTER initializing to preserve saved max values
         this.syncUnlockedAchievementsWithGameState();
+
+        // Subscribe to GameState events for burn damage tracking
+        this.subscribeToGameStateEvents();
     }
-    
+
+    subscribeToGameStateEvents() {
+        // Wait for GameState to be available
+        setTimeout(() => {
+            const gameState = window.gameManager?.game?.state;
+            if (gameState?.on) {
+                // Track burn/fire damage for Grim Harvest achievement
+                gameState.on('burnDamageDealt', (data) => {
+                    this.onBurnDamageDealt(data.total || 0);
+                });
+            }
+        }, 100);
+    }
+
     initializeTracking() {
         // Track time without damage for 'Untouchable' achievement
         this.timeSinceLastDamage = 0;
@@ -54,7 +70,7 @@ class AchievementSystem {
 
         // Track total lifesteal healing in current run
         this.runLifestealTotal = 0;
-        
+
         // Track ricochet bounces
         this.totalRicochetBounces = 0;
 
@@ -83,7 +99,7 @@ class AchievementSystem {
 
         // Reset per-run lifesteal tracking
         this.runLifestealTotal = 0;
-        
+
         // Reset ricochet rampage tracking (per-run achievement)
         this.totalRicochetBounces = 0;
 
@@ -93,7 +109,7 @@ class AchievementSystem {
 
         window.logger.log('Achievement run tracking reset');
     }
-    
+
     loadAchievements() {
         try {
             const loaded = window.StorageManager.getJSON('achievements');
@@ -106,7 +122,7 @@ class AchievementSystem {
                     }
                 }
             }
-            
+
             // Initialize tracking variables from saved progress to maintain max values across sessions
             this.currentChainHits = this.achievements.chain_reaction?.progress || 0;
             this.currentRicochetHits = this.achievements.ricochet_master?.progress || 0;
@@ -117,7 +133,7 @@ class AchievementSystem {
             window.StorageManager.removeItem('achievements');
         }
     }
-    
+
     saveAchievements() {
         try {
             // Only save progress and unlocked status to prevent corruption
@@ -184,7 +200,7 @@ class AchievementSystem {
             this.pendingSave = false;
         }
     }
-    
+
     updateAchievement(key, value) {
         if (!this.achievements[key]) {
             // Use logger instead of console.warn for better error handling
@@ -292,38 +308,38 @@ class AchievementSystem {
         FallbackCustomEvent.prototype = window.Event?.prototype || {};
         return FallbackCustomEvent;
     }
-    
+
     // Track damage-free time
     updateUntouchable(deltaTime) {
         this.timeSinceLastDamage += deltaTime;
         this.maxTimeSinceLastDamage = Math.max(this.maxTimeSinceLastDamage, this.timeSinceLastDamage);
         this.updateAchievement('untouchable', this.maxTimeSinceLastDamage);
     }
-    
+
     // Reset damage-free time when hit
     onPlayerDamaged() {
         this.timeSinceLastDamage = 0;
     }
-    
+
     // Track kill streak
     onEnemyKilled(timestamp) {
         // Add new kill
         this.recentKills.push(timestamp);
-        
+
         // Remove kills older than window
         const windowStart = timestamp - (this.killStreakWindow * 1000);
         this.recentKills = this.recentKills.filter(t => t >= windowStart);
-        
+
         // Update achievement
         this.updateAchievement('kill_streak', this.recentKills.length);
     }
-    
+
     // Track chain lightning hits
     onChainLightningHit(hitCount) {
         this.currentChainHits = Math.max(this.currentChainHits, hitCount);
         this.updateAchievement('chain_reaction', this.currentChainHits);
     }
-    
+
     // Track ricochet hits
     onRicochetHit(hitCount) {
         this.currentRicochetHits = Math.max(this.currentRicochetHits, hitCount);
@@ -336,18 +352,18 @@ class AchievementSystem {
             this.updateAchievement('ricochet_rampage', this.totalRicochetBounces);
         }
     }
-    
+
     // Track orbital projectiles
     onOrbitalCountChanged(count) {
         this.updateAchievement('orbital_master', count);
     }
-    
+
     // Track elite enemy kills
     onEliteKilled() {
         const currentProgress = this.achievements.elite_hunter.progress;
         this.updateAchievement('elite_hunter', currentProgress + 1);
     }
-    
+
     // Track critical hits
     onCriticalHit() {
         const currentProgress = this.achievements.critical_master.progress;
@@ -368,12 +384,12 @@ class AchievementSystem {
     updateTankCommander(deltaTime) {
         this.timeSinceLastDodge += deltaTime;
         const newMax = Math.max(this.maxTimeSinceLastDodge, this.timeSinceLastDodge);
-        
+
         // Only update achievement if progress changed by at least 1 second or achievement is unlocked
         if (Math.floor(newMax) > Math.floor(this.maxTimeSinceLastDodge) || newMax >= 180) {
             this.updateAchievement('tank_commander', newMax);
         }
-        
+
         this.maxTimeSinceLastDodge = newMax;
     }
 
@@ -497,8 +513,21 @@ class AchievementSystem {
     }
 
     // ========================================
+    // ELEMENTAL DAMAGE TRACKING (Inferno Juggernaut)
     // ========================================
-    // LIFESTEAL TRACKING (Eclipse Reaper & Crimson Reaver)
+
+    // Track total burn/fire damage dealt in current run (PER RUN, not cumulative)
+    onBurnDamageDealt(totalBurnDamage) {
+        if (!Number.isFinite(totalBurnDamage) || totalBurnDamage < 0) {
+            return;
+        }
+
+        // Update Grim Harvest achievement (Inferno Juggernaut unlock)
+        this.updateAchievement('grim_harvest', Math.floor(totalBurnDamage));
+    }
+
+    // ========================================
+    // LIFESTEAL TRACKING (Crimson Reaver)
     // ========================================
 
     // Track total HP lifesteal in current run (PER RUN, not cumulative)
@@ -513,9 +542,8 @@ class AchievementSystem {
         }
 
         this.runLifestealTotal += healAmount;
-        
-        // Update both achievements
-        this.updateAchievement('grim_harvest', Math.floor(this.runLifestealTotal));
+
+        // Update Crimson Pact achievement (Crimson Reaver unlock)
         this.updateAchievement('crimson_pact', Math.floor(this.runLifestealTotal));
     }
 
@@ -554,17 +582,17 @@ class AchievementSystem {
             notification.appendChild(content);
 
             document.body.appendChild(notification);
-            
+
             // Animate in
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.classList.add('show');
                 }
             }, 100);
-            
+
             // For important achievements, show longer and with special effects
             const displayTime = achievement.important ? 5000 : 3000;
-            
+
             // Remove after animation
             setTimeout(() => {
                 if (notification.parentNode) {
@@ -576,7 +604,7 @@ class AchievementSystem {
                     }, 500);
                 }
             }, displayTime);
-            
+
             // Play achievement sound
             if (audioSystem) {
                 // Play special sound for important achievements
@@ -590,7 +618,7 @@ class AchievementSystem {
             window.logger.error('Error showing achievement notification:', error);
         }
     }
-    
+
     getUnlockedCount() {
         return Object.values(this.achievements).filter(a => a.unlocked).length;
     }

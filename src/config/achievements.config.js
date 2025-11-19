@@ -259,21 +259,21 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'grim_harvest': {
         name: 'Grim Harvest',
-        description: 'Lifesteal 1,000 HP in a single run',
+        description: 'Deal 500 damage with burn/fire effects in a single run',
         icon: '†',
         category: 'Special',
         progress: 0,
-        target: 1000,
+        target: 500,  // Reduced from 2500 - burn ticks are small (5-7 dmg/tick)
         unlocked: false,
         unlocksCharacter: 'inferno_juggernaut'
     },
     'crimson_pact': {
         name: 'Crimson Pact',
-        description: 'Heal 3000 HP via lifesteal in a single run',
+        description: 'Heal 300 HP via lifesteal in a single run',
         icon: '♦',
         category: 'Special',
         progress: 0,
-        target: 3000,
+        target: 300,  // Reduced from 1200 - lifesteal is % based so values are small
         unlocked: false,
         unlocksCharacter: 'crimson_reaver',
         important: true
@@ -291,11 +291,11 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'edge_walker': {
         name: 'Edge Walker',
-        description: 'Survive for 3 minutes with less than 30% health in a single run',
+        description: 'Survive for 45 seconds with less than 30% health in a single run',
         icon: 'V',
         category: 'Skill',
         progress: 0,
-        target: 180, // 3 minutes in seconds
+        target: 45, // Reduced from 60s - 45s feels more achievable while still risky
         unlocked: false,
         important: true,
         unlocksCharacter: 'cybernetic_berserker'

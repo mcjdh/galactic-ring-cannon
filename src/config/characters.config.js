@@ -100,12 +100,12 @@ const CHARACTER_DEFINITIONS = [
         highlights: [
             '+18% attack tempo & +8% damage',
             '+15% thruster speed & faster dodge',
-            '5% lifesteal keeps raids going'
+            '8% lifesteal keeps raids going'  // Updated from 5%
         ],
         modifiers: {
             stats: {
                 healthMultiplier: 0.9,
-                lifesteal: 0.05
+                lifesteal: 0.08  // Buffed from 0.05 - aggressive playstyle needs sustain
             },
             combat: {
                 attackSpeedMultiplier: 1.18,

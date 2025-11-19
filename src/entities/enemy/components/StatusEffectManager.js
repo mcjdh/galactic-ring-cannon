@@ -109,6 +109,13 @@ class StatusEffectManager {
             if (this.enemy && !this.enemy.isDead) {
                 const damage = effect.data.damage || 5;
 
+                // Track burn damage for achievement (Grim Harvest - Inferno Juggernaut unlock)
+                const gm = window.gameManager || window.gameManagerBridge;
+                const gameState = gm?.game?.state;
+                if (gameState?.addBurnDamage) {
+                    gameState.addBurnDamage(damage);
+                }
+
                 // Use EnemyStats if available, otherwise direct modification
                 if (window.Game?.EnemyStats) {
                     window.Game.EnemyStats.takeDamage(this.enemy, damage, {
@@ -119,7 +126,6 @@ class StatusEffectManager {
                 } else {
                     this.enemy.health -= damage;
                     // Basic floating text fallback
-                    const gm = window.gameManager || window.gameManagerBridge;
                     if (gm?.showFloatingText) {
                         gm.showFloatingText(
                             `${Math.round(damage)}`,
