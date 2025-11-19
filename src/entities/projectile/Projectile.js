@@ -14,25 +14,52 @@
  */
 
 class Projectile {
-    constructor(x, y, vx, vy, damage, piercingOrCrit = 0, isCrit = false, specialType = null) {
+    constructor(x, y, vxOrConfig, vyOrOwnerId, damage, piercingOrCrit = 0, isCrit = false, specialType = null) {
         this.id = Math.random().toString(36).substr(2, 9);
         this.x = x;
         this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.damage = damage;
 
-        // Handle backwards compatibility: old signature had piercing as 6th param
-        // New signature has isCrit as 6th param
-        if (typeof piercingOrCrit === 'boolean') {
-            // New signature: (x, y, vx, vy, damage, isCrit)
-            this.isCrit = piercingOrCrit;
-            this.piercing = 0; // No piercing in new system (handled by behaviors)
+        // Check for new config-based signature: (x, y, config, ownerId)
+        if (typeof vxOrConfig === 'object' && vxOrConfig !== null) {
+            const config = vxOrConfig;
+            const ownerId = vyOrOwnerId;
+
+            this.vx = config.vx || 0;
+            this.vy = config.vy || 0;
+            this.damage = config.damage || 10;
+            this.piercing = config.piercing || 0;
+            this.isCrit = config.isCrit || false;
+            this.ownerId = ownerId;
+
+            // Handle legacy flags in config
+            this.specialType = config.specialType || null;
+
+            // Store config for reset
+            this.config = config;
         } else {
-            // Old signature: (x, y, vx, vy, damage, piercing, isCrit, specialType)
-            this.piercing = piercingOrCrit || 0;
-            this.isCrit = isCrit || false;
-            this.specialType = specialType;
+            // Legacy signature: (x, y, vx, vy, damage, piercing, isCrit, specialType)
+            this.vx = vxOrConfig;
+            this.vy = vyOrOwnerId;
+            this.damage = damage;
+
+            if (typeof piercingOrCrit === 'boolean') {
+                this.isCrit = piercingOrCrit;
+                this.piercing = 0;
+            } else {
+                this.piercing = piercingOrCrit || 0;
+                this.isCrit = isCrit || false;
+                this.specialType = specialType;
+            }
+
+            // Construct config object for future resets
+            this.config = {
+                vx: this.vx,
+                vy: this.vy,
+                damage: this.damage,
+                piercing: this.piercing,
+                isCrit: this.isCrit,
+                specialType: this.specialType
+            };
         }
 
         this.radius = this.isCrit ? 6.5 : 5;
@@ -42,7 +69,7 @@ class Projectile {
         this.distanceTraveled = 0;
 
         // Lifetime management
-        this.initialSpeed = Math.sqrt(vx * vx + vy * vy);
+        this.initialSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
         this.calculateLifetime();
         this.age = 0;
 
@@ -58,8 +85,12 @@ class Projectile {
         // Behavior system - THIS is where all upgrade logic lives now!
         // Wrap in try-catch to handle missing BehaviorManager class gracefully
         try {
-            if (typeof ProjectileBehaviorManager === 'function') {
-                this.behaviorManager = new ProjectileBehaviorManager(this);
+            const BehaviorManagerClass = window.ProjectileBehaviorManager ||
+                (window.Game && window.Game.ProjectileBehaviorManager) ||
+                (typeof ProjectileBehaviorManager !== 'undefined' ? ProjectileBehaviorManager : undefined);
+
+            if (typeof BehaviorManagerClass === 'function') {
+                this.behaviorManager = new BehaviorManagerClass(this);
             } else {
                 throw new Error('ProjectileBehaviorManager class not found');
             }
@@ -67,7 +98,7 @@ class Projectile {
             // Fallback: Create a minimal stub manager if BehaviorManager fails
             // [FIX] Always log error to console to ensure visibility of silent failures
             console.error(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error);
-            
+
             if (window.debugProjectiles) {
                 window.logger.warn(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error.message);
             }
@@ -116,22 +147,22 @@ class Projectile {
     _createFallbackBehaviorManager() {
         return {
             behaviors: [],
-            addBehavior: function() {
+            addBehavior: function () {
                 // Stub - do nothing
                 if (window.debugProjectiles) {
                     window.logger.warn('[Projectile] Fallback manager: addBehavior called (no-op)');
                 }
             },
-            hasBehavior: function() { return false; },
-            update: function() { /* no-op */ },
-            handleCollision: function(target, engine) {
+            hasBehavior: function () { return false; },
+            update: function () { /* no-op */ },
+            handleCollision: function (target, engine) {
                 // Basic collision handling - just mark hit and die
                 if (this.projectile && this.projectile.hitEnemies) {
                     this.projectile.hitEnemies.add(target.id);
                 }
                 return true; // Projectile should die after hit
             },
-            getState: function() { return { behaviors: [], isFallback: true }; },
+            getState: function () { return { behaviors: [], isFallback: true }; },
             projectile: this
         };
     }
@@ -229,7 +260,7 @@ class Projectile {
         // Check if flag is set and data exists
         const hasFlag = this._oldFlags[flagMap[type]];
         const hasData = this[dataMap[type]];
-        
+
         if (hasFlag && hasData) {
             // Don't add if already has this behavior
             if (this.behaviorManager.hasBehavior(type)) {
@@ -481,10 +512,114 @@ class Projectile {
             behaviors: this.behaviorManager.getState()
         };
     }
+    /**
+     * Reset projectile state for pooling
+     * This is CRITICAL for preventing "ghost" behaviors on recycled projectiles
+     */
+    reset(x, y, config, ownerId) {
+        // 1. Reset Core Physics
+        this.x = x;
+        this.y = y;
+        this.vx = config.vx || 0;
+        this.vy = config.vy || 0;
+        this.rotation = 0;
+        this.distanceTraveled = 0;
+        this.isDead = false;
+        this.active = true;
+
+        // 2. Reset Identity & Config
+        this.id = Math.random().toString(36).substr(2, 9);
+        this.ownerId = ownerId;
+        this.type = 'projectile';
+        this.config = config || {};
+
+        // 3. Reset Stats
+        this.damage = config.damage || 10;
+        this.speed = config.speed || 10;
+        this.radius = config.radius || 5;
+        this.maxDistance = config.range || 1000;
+        this.piercing = config.piercing || 0;
+        this.originalPiercing = this.piercing;
+        this.knockback = config.knockback || 0;
+        this.lifesteal = config.lifesteal || 0;
+        this.isCrit = config.isCrit || false;
+
+        // 4. Reset Collections
+        this.hitEnemies.clear();
+
+        // 5. Reset Trail
+        // We don't reallocate the array, just reset indices
+        this.trailIndex = 0;
+        this.trailCount = 0;
+        // Optional: Clear trail data to prevent visual artifacts
+        for (let i = 0; i < this.trail.length; i++) {
+            this.trail[i] = null;
+        }
+
+        // 6. Reset Behaviors & Legacy Flags
+        // This is the most important part!
+        if (this.behaviorManager) {
+            // Clear existing behaviors
+            this.behaviorManager.behaviors = [];
+
+            // CRITICAL: Reset legacy flags and data to prevent "ghost" upgrades
+            this._oldFlags = {
+                hasChainLightning: false,
+                hasExplosive: false,
+                hasRicochet: false,
+                hasHoming: false
+            };
+            this._chainData = null;
+            this._explosiveData = null;
+            this._ricochetData = null;
+            this._homingData = null;
+            this._burnData = null;
+
+            // Re-initialize behaviors from config
+            // We can reuse the existing manager instance
+
+            // Handle legacy flags -> behaviors conversion again
+            this._resetBehaviorsFromConfig(config);
+        }
+    }
+
+    /**
+     * Helper to re-apply behaviors from config during reset
+     */
+    _resetBehaviorsFromConfig(config) {
+        // Re-run the behavior initialization logic
+        // This duplicates some constructor logic but is necessary for pooling
+
+        // 1. Explicit behaviors from config
+        if (config.behaviors && Array.isArray(config.behaviors)) {
+            config.behaviors.forEach(b => this.behaviorManager.addBehavior(b));
+        }
+
+        // 2. Legacy flags from config
+        if (config.hasChainLightning) this._tryAddBehaviorFromFlag('chain', config.chainData);
+        if (config.hasExplosive) this._tryAddBehaviorFromFlag('explosive', config.explosiveData);
+        if (config.hasRicochet) this._tryAddBehaviorFromFlag('ricochet', config.ricochetData);
+        if (config.hasHoming) this._tryAddBehaviorFromFlag('homing', config.homingData);
+        if (config.hasBurn) this._tryAddBehaviorFromFlag('burn', config.burnData);
+
+        // 3. Special types
+        if (config.specialType) {
+            this._tryAddBehaviorFromFlag(config.specialType, config.specialData);
+        }
+
+        // 4. Piercing behavior
+        if (this.piercing > 0) {
+            this._tryAddBehaviorFromFlag('piercing', { piercing: this.piercing });
+        }
+
+        // 5. Gravity Well
+        this.createsGravityWell = !!config.createsGravityWell;
+    }
 }
 
 // Make globally available
 if (typeof window !== 'undefined') {
+    window.Projectile = Projectile;
     window.Game = window.Game || {};
     window.Game.Projectile = Projectile;
 }

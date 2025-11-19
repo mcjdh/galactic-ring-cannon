@@ -144,11 +144,11 @@ class ProjectileBehaviorManager {
             if (ricocheted) {
                 shouldDie = false;
                 deathPreventedBy = 'ricochet';
-                
+
                 if (window.debugProjectiles) {
                     console.log(`[BehaviorManager] Ricochet succeeded on initial hit - projectile continues!`);
                 }
-                
+
                 // Ricochet succeeded! Don't check other behaviors
                 return shouldDie;
             }
@@ -163,11 +163,11 @@ class ProjectileBehaviorManager {
             if (pierced) {
                 shouldDie = false;
                 deathPreventedBy = 'piercing';
-                
+
                 if (window.debugProjectiles) {
                     console.log(`[BehaviorManager] Piercing prevented death (ricochet unavailable)`);
                 }
-                
+
                 return shouldDie;
             }
         }
@@ -177,12 +177,12 @@ class ProjectileBehaviorManager {
         for (const behavior of this.behaviors) {
             if (behavior.enabled) {
                 const behaviorType = behavior.getType();
-                
+
                 // Skip ricochet and piercing (already handled with priority)
                 if (behaviorType === 'ricochet' || behaviorType === 'piercing') {
                     continue;
                 }
-                
+
                 // Try other preventsDeath behaviors
                 if (behavior.preventsDeath(target, engine)) {
                     shouldDie = false;
@@ -211,4 +211,11 @@ class ProjectileBehaviorManager {
             }))
         };
     }
+}
+
+// Make globally available
+if (typeof window !== 'undefined') {
+    window.ProjectileBehaviorManager = ProjectileBehaviorManager;
+    window.Game = window.Game || {};
+    window.Game.ProjectileBehaviorManager = ProjectileBehaviorManager;
 }

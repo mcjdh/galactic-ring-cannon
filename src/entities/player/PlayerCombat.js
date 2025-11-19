@@ -317,16 +317,26 @@ class PlayerCombat {
                 console.log(`[PlayerCombat] Spawning projectile with piercing. base = ${piercingBase}`);
             }
 
-            // Spawn the projectile - robust by design, no fallbacks needed
-            const projectile = game.spawnProjectile(
-                this.player.x,
-                this.player.y,
+            // Spawn the projectile using modern config pattern
+            const config = {
                 vx,
                 vy,
                 damage,
-                piercingBase,
+                piercing: piercingBase,
                 isCrit,
-                primaryType
+                specialType: primaryType,
+                speed: baseSpeed,
+                range: overrides.maxDistance || 1000,
+                // Pass stats directly for cleaner initialization
+                knockback: this.player.stats?.knockback || 0,
+                lifesteal: (this.player.stats?.lifestealAmount || 0) * (isCrit ? (this.player.stats?.lifestealCritMultiplier || 1) : 1)
+            };
+
+            const projectile = game.spawnProjectile(
+                this.player.x,
+                this.player.y,
+                config,
+                this.player.id
             );
 
             if (projectile) {
@@ -343,9 +353,6 @@ class PlayerCombat {
                     }
                 }
 
-                if (Number.isFinite(overrides.maxDistance) && overrides.maxDistance > 0) {
-                    projectile.rangeLimit = overrides.maxDistance;
-                }
                 // Track projectile fired for statistics
                 window.gameManager?.statsManager?.trackProjectileFired?.();
 
@@ -391,12 +398,52 @@ class PlayerCombat {
             }
         }
 
+        // Visual Polish: Muzzle Flash
+        this.createMuzzleFlash(angle);
+
         // Single sound effect per volley
         const soundKey = overrides.soundKey !== undefined ? overrides.soundKey : 'shoot';
         const soundVolume = overrides.soundVolume !== undefined ? overrides.soundVolume : 0.3;
         if (soundKey && window.audioSystem?.play) {
             window.audioSystem.play(soundKey, soundVolume);
         }
+    }
+
+    createMuzzleFlash(angle) {
+        if (!window.optimizedParticles) return;
+
+        const x = this.player.x + Math.cos(angle) * 20;
+        const y = this.player.y + Math.sin(angle) * 20;
+
+        // Main flash
+        window.optimizedParticles.spawnParticle({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * 50,
+            vy: Math.sin(angle) * 50,
+            size: 12,
+            color: '#ffffff',
+            alpha: 0.8,
+            life: 0.1,
+            type: 'glow' // Uses additive blending if available
+        });
+
+        // Side sparks
+        for (let i = 0; i < 3; i++) {
+            const sparkAngle = angle + (Math.random() - 0.5) * 1.0;
+            const speed = 100 + Math.random() * 100;
+            window.optimizedParticles.spawnParticle({
+                x: x,
+                y: y,
+                vx: Math.cos(sparkAngle) * speed,
+                vy: Math.sin(sparkAngle) * speed,
+                size: 2 + Math.random() * 2,
+                color: '#aaddff',
+                life: 0.15 + Math.random() * 0.1,
+                type: 'spark'
+            });
+        }
+
     }
 
     _calculateProjectileAngle(baseAngle, projectileIndex, totalProjectiles, totalSpread) {

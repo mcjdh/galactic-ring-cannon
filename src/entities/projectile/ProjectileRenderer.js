@@ -647,7 +647,7 @@ ProjectileRenderer._piLimitsApplied = false;
  * [Pi] GPU MEMORY: Clear sprite caches to free GPU memory
  * Call this when performance degrades or between game sessions
  */
-ProjectileRenderer.clearSpriteCache = function() {
+ProjectileRenderer.clearSpriteCache = function () {
     const totalSprites = this._bodySpriteCache.size + this._glowSpriteCache.size + this._critGlowCache.size;
     this._bodySpriteCache.clear();
     this._glowSpriteCache.clear();
@@ -658,25 +658,25 @@ ProjectileRenderer.clearSpriteCache = function() {
 /**
  * [Pi] GPU MEMORY: Reduce cache sizes dynamically during gameplay
  */
-ProjectileRenderer.reduceCacheSizes = function(factor = 0.5) {
+ProjectileRenderer.reduceCacheSizes = function (factor = 0.5) {
     const reduceCache = (cache, newLimit) => {
         while (cache.size > newLimit) {
             const oldestKey = cache.keys().next().value;
             if (oldestKey) cache.delete(oldestKey);
         }
     };
-    
+
     reduceCache(this._bodySpriteCache, Math.floor(this._BODY_CACHE_LIMIT * factor));
     reduceCache(this._glowSpriteCache, Math.floor(this._GLOW_CACHE_LIMIT * factor));
     reduceCache(this._critGlowCache, Math.floor(this._CRIT_CACHE_LIMIT * factor));
-    
-    console.log(`[Pi] Reduced sprite caches by ${(1-factor)*100}% to free GPU memory`);
+
+    console.log(`[Pi] Reduced sprite caches by ${(1 - factor) * 100}% to free GPU memory`);
 };
 
 /**
  * Ensure caches respect the current limit (used when limits change dynamically)
  */
-ProjectileRenderer._enforceCacheLimits = function() {
+ProjectileRenderer._enforceCacheLimits = function () {
     const trimCache = (cache, limit) => {
         if (!cache || typeof cache.size !== 'number') {
             return;
@@ -695,28 +695,25 @@ ProjectileRenderer._enforceCacheLimits = function() {
     trimCache(this._critGlowCache, this._CRIT_CACHE_LIMIT);
 };
 
-/**
- * Apply Raspberry Pi GPU limits once detection occurs.
- * Safe to call multiple times; limits and caches will only adjust once unless forced.
- */
-ProjectileRenderer.applyPi5GpuLimits = function(force = false) {
-    if (this._piLimitsApplied && !force) {
-        return;
-    }
+// Legacy support for Pi5 detection, but now routed through the generic setter
+ProjectileRenderer.applyPi5GpuLimits = function (force = false) {
+    // Only apply if explicitly forced or if we detect we really need to
+    // For now, we default to HIGH limits and let the adaptive system handle it.
+    // If this is called, it's likely by the old bootstrap logic.
+    // We'll set "Safe" limits for Pi5, but higher than the old 30/20/10.
 
-    this._piLimitsApplied = true;
-    this._BODY_CACHE_LIMIT = Math.min(this._BODY_CACHE_LIMIT, 30);  // 120 → 30 (75% reduction)
-    this._GLOW_CACHE_LIMIT = Math.min(this._GLOW_CACHE_LIMIT, 20);  // 80 → 20 (75% reduction)
-    this._CRIT_CACHE_LIMIT = Math.min(this._CRIT_CACHE_LIMIT, 10);  // 40 → 10 (75% reduction)
-
-    this._enforceCacheLimits();
-
-    if (typeof console !== 'undefined') {
-        console.log('[Pi] ProjectileRenderer: Pi5 GPU memory limits applied (60 sprites total)');
+    if (force) {
+        this.setCacheLimits({
+            body: 100,
+            glow: 60,
+            crit: 30
+        });
+        window.logger.info('[ProjectileRenderer] Applied Pi5/Low-End safety limits');
     }
 };
 
+// Initialize with high limits by default
+// No longer auto-calling applyPi5GpuLimits here
 // Apply limits immediately if Pi detection occurred before this script executed
 if (typeof window !== 'undefined' && window.isRaspberryPi) {
-    ProjectileRenderer.applyPi5GpuLimits(true);
 }

@@ -285,12 +285,10 @@ class GameEngine {
     }
 
     removeEntity(target) {
-        if (!target) {
-            return false;
-        }
+        if (!target) return false;
 
+        // 1. Resolve target to entity object
         let entity = typeof target === 'object' ? target : null;
-
         if (!entity && typeof target === 'string') {
             entity = this.entityManager?.getEntity?.(target) ?? null;
             if (!entity) {
@@ -298,10 +296,29 @@ class GameEngine {
             }
         }
 
-        if (!entity) {
-            return false;
+        if (!entity) return false;
+
+        // 2. Handle Projectile Pooling
+        if (entity.type === 'projectile' && window.projectilePool) {
+            // Remove from main entities list
+            const index = this.entities.indexOf(entity);
+            if (index > -1) {
+                this.entities.splice(index, 1);
+            }
+
+            // Remove from projectiles list
+            const pIndex = this.projectiles.indexOf(entity);
+            if (pIndex > -1) {
+                this.projectiles.splice(pIndex, 1);
+            }
+
+            // Release to pool
+            window.projectilePool.release(entity);
+            this._needsCleanup = true;
+            return true;
         }
 
+        // 3. Handle other entities (Legacy + EntityManager)
         const handleSideEffects = (removedEntity) => {
             if (!removedEntity) return;
             if (removedEntity.type === 'enemyProjectile') {
@@ -312,25 +329,30 @@ class GameEngine {
             }
         };
 
+        // Try EntityManager first
         if (this.entityManager) {
-            const removed = this.entityManager.removeEntity(entity);
-            if (removed) {
-                handleSideEffects(entity);
-                this._needsCleanup = true;
+            try {
+                const removed = this.entityManager.removeEntity(entity);
+                if (removed) {
+                    handleSideEffects(entity);
+                    this._needsCleanup = true;
+                    return true;
+                }
+            } catch (error) {
+                window.logger.warn('EntityManager.removeEntity failed, falling back to legacy removal:', error);
             }
-            return removed;
         }
 
+        // Legacy fallback
         const removeFromArray = (array) => {
             if (!Array.isArray(array)) return false;
             const index = array.indexOf(entity);
             if (index !== -1) {
-                // Write-back pattern: O(n) instead of splice's O(n²) for multiple deletions
                 const lastIndex = array.length - 1;
                 if (index !== lastIndex) {
                     array[index] = array[lastIndex];
                 }
-                array.length = lastIndex; // Truncate without reallocation
+                array.length = lastIndex;
                 return true;
             }
             return false;
@@ -342,22 +364,15 @@ class GameEngine {
             removed = removeFromArray(this.enemies) || removed;
         } else if (entity.type === 'xpOrb') {
             removed = removeFromArray(this.xpOrbs) || removed;
-        } else if (entity.type === 'projectile') {
-            removed = removeFromArray(this.projectiles) || removed;
         } else if (entity.type === 'enemyProjectile') {
             removed = removeFromArray(this.enemyProjectiles) || removed;
         }
 
-        if (entity.type === 'player' && this.player === entity) {
-            this.player = null;
-            removed = true;
+        if (removed) {
+            handleSideEffects(entity);
+            this._needsCleanup = true;
         }
 
-        if (entity.type === 'enemyProjectile') {
-            this._releaseEnemyProjectile(entity);
-        }
-
-        this._needsCleanup = true;
         return removed;
     }
 
@@ -366,9 +381,9 @@ class GameEngine {
             return;
         }
 
-        const ManagerClass = typeof EntityManager !== 'undefined'
-            ? EntityManager
-            : (typeof window !== 'undefined' ? window.Game?.EntityManager : undefined);
+        const ManagerClass = (typeof window !== 'undefined' && window.Game?.EntityManager)
+            ? window.Game.EntityManager
+            : (typeof EntityManager !== 'undefined' ? EntityManager : undefined);
 
         if (!ManagerClass) {
             return;
@@ -1961,38 +1976,59 @@ class GameEngine {
     }
 
     // Simplified projectile spawning - no pooling complexity
-    spawnProjectile(x, y, vx, vy, damage, piercing = 0, isCrit = false, specialType = null) {
-        // Enhanced validation
-        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(vx) || !Number.isFinite(vy) || damage <= 0) {
-            window.logger.warn('Invalid projectile parameters:', { x, y, vx, vy, damage });
-            return null;
+    // Projectile spawning with Pooling
+    spawnProjectile(x, y, vxOrConfig, vyOrOwnerId, damage, piercing = 0, isCrit = false, specialType = null) {
+        // Support new signature: (x, y, config, ownerId)
+        let config;
+        let ownerId = 'player';
+
+        if (typeof vxOrConfig === 'object' && vxOrConfig !== null) {
+            config = vxOrConfig;
+            ownerId = vyOrOwnerId || 'player';
+        } else {
+            // Legacy signature support
+            const vx = vxOrConfig;
+            const vy = vyOrOwnerId;
+
+            // Enhanced validation for legacy calls
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(vx) || !Number.isFinite(vy) || damage <= 0) {
+                window.logger.warn('Invalid projectile parameters:', { x, y, vx, vy, damage });
+                return null;
+            }
+
+            const speed = Math.sqrt(vx * vx + vy * vy);
+            config = {
+                vx, vy, damage, piercing, isCrit, specialType,
+                speed,
+                range: 1000
+            };
         }
 
-        // Debug logging for piercing
-        if (window.debugProjectiles && piercing > 0) {
-            console.log(`[GameEngine] spawnProjectile called with piercing = ${piercing}, specialType = ${specialType}`);
-        }
-
-        // Ensure reasonable velocity limits to prevent physics issues
-        const speed = Math.sqrt(vx * vx + vy * vy);
+        // Ensure reasonable velocity limits
+        const speed = config.speed || Math.sqrt(config.vx * config.vx + config.vy * config.vy);
         if (speed < 10 || speed > 2000) {
-            window.logger.warn('Projectile speed out of reasonable range:', speed);
-            return null;
+            // window.logger.warn('Projectile speed out of reasonable range:', speed);
         }
 
         try {
-            // Create projectile with automatic lifetime calculation
-            const proj = new Projectile(x, y, vx, vy, damage, piercing, isCrit, specialType);
+            // Use Pool if available
+            let proj;
+            if (window.projectilePool) {
+                proj = window.projectilePool.acquire(x, y, config, ownerId);
+            } else {
+                // Fallback to direct creation
+                proj = new Projectile(x, y, config, ownerId);
+            }
 
-            // Debug logging after projectile creation
-            if (window.debugProjectiles && (piercing > 0 || proj.piercing > 0)) {
-                console.log(`[GameEngine] Projectile ${proj.id} created: input piercing = ${piercing}, actual piercing = ${proj.piercing}`);
+            // Debug logging
+            if (window.debugProjectiles && (config.piercing > 0 || proj.piercing > 0)) {
+                console.log(`[GameEngine] Projectile ${proj.id} spawned: piercing=${proj.piercing}`);
             }
 
             this.addEntity(proj);
             return proj;
         } catch (error) {
-            window.logger.error('Error creating projectile:', error);
+            window.logger.error('Error spawning projectile:', error);
             return null;
         }
     }

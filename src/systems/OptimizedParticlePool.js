@@ -6,7 +6,8 @@ class OptimizedParticlePool {
         this._lastReturnedIndex = -1;
         // Align with GAME_CONSTANTS.PERFORMANCE.MAX_PARTICLES for consistency
         const PERF_CONSTANTS = window?.GAME_CONSTANTS?.PERFORMANCE || {};
-        this.maxParticles = PERF_CONSTANTS.MAX_PARTICLES || 150;
+        // INCREASED default for Universal Performance (was 150)
+        this.maxParticles = PERF_CONSTANTS.MAX_PARTICLES || 1000;
         this.poolSize = initialSize;
 
         // Pre-allocate particle objects to avoid GC pressure
@@ -45,7 +46,7 @@ class OptimizedParticlePool {
             poolSize: this.poolSize
         };
     }
-    
+
     createParticleObject() {
         return {
             x: 0, y: 0,
@@ -63,22 +64,22 @@ class OptimizedParticlePool {
             lastUpdateTime: 0
         };
     }
-    
+
     getParticle() {
         // Try to reuse from pool first
         if (this.pool.length > 0) {
             return this.pool.pop();
         }
-        
+
         // Create new if pool is empty and under limit
         if (this.activeParticles.length < this.maxParticles) {
             return this.createParticleObject();
         }
-        
+
         // Reuse oldest active particle as last resort
         return this.recycleOldestParticle();
     }
-    
+
     recycleOldestParticle() {
         const length = this.activeParticles.length;
         if (length === 0) {
@@ -99,7 +100,7 @@ class OptimizedParticlePool {
         }
         return recycled;
     }
-    
+
     spawnParticle(config) {
         if (this.lowQuality && this.densityMultiplier < 1) {
             if (Math.random() > this.densityMultiplier) {
@@ -107,7 +108,7 @@ class OptimizedParticlePool {
             }
         }
         const particle = this.getParticle();
-        
+
         // Configure particle
         particle.x = config.x || 0;
         particle.y = config.y || 0;
@@ -123,25 +124,25 @@ class OptimizedParticlePool {
         particle.gravity = config.gravity || 0;
         particle.active = true;
         particle.lastUpdateTime = performance.now();
-        
+
         this.activeParticles.push(particle);
         return particle;
     }
-    
+
     update(deltaTime) {
         const currentTime = performance.now();
-        
+
         // Clear batched particles for this frame
         for (const colorMap of this.batchedParticles.values()) {
             for (const batch of colorMap.values()) {
                 batch.length = 0;
             }
         }
-        
+
         // Update active particles in reverse order for safe removal
         for (let i = this.activeParticles.length - 1; i >= 0; i--) {
             const particle = this.activeParticles[i];
-            
+
             if (!this.updateParticle(particle, deltaTime)) {
                 // Particle is dead, return to pool
                 particle.active = false;
@@ -160,34 +161,34 @@ class OptimizedParticlePool {
                 particle.lastUpdateTime = currentTime;
             }
         }
-        
+
         // Periodic cleanup to prevent pool from growing too large
         if (currentTime - this.lastCleanupTime > this.cleanupInterval) {
             this.cleanupPool();
             this.lastCleanupTime = currentTime;
         }
     }
-    
+
     updateParticle(particle, deltaTime) {
         // Update physics
         particle.x += particle.vx * deltaTime;
         particle.y += particle.vy * deltaTime;
-        
+
         // Apply friction
         particle.vx *= particle.friction;
         particle.vy *= particle.friction;
-        
+
         // Apply gravity
         particle.vy += particle.gravity * deltaTime;
-        
+
         // Update life
         particle.life -= deltaTime;
         particle.alpha = particle.life / particle.maxLife;
-        
+
         // Check if particle should die
         return particle.life > 0 && particle.alpha > 0.01;
     }
-    
+
     addToBatch(particle) {
         const type = particle.type || 'basic';
         const color = particle.color || '#ffffff';
@@ -208,7 +209,7 @@ class OptimizedParticlePool {
             batch.push(particle);
         }
     }
-    
+
     render(ctx) {
         // Render particles in batches for better performance
         for (const [type, colorMap] of this.batchedParticles) {
@@ -237,10 +238,10 @@ class OptimizedParticlePool {
             default:
                 this.renderBasicBatch(ctx, particles);
         }
-        
+
         ctx.restore();
     }
-    
+
     renderBasicBatch(ctx, particles) {
         if (!particles || particles.length === 0) return;
 
@@ -281,7 +282,7 @@ class OptimizedParticlePool {
 
         ctx.globalAlpha = 1;
     }
-    
+
     renderSparkBatch(ctx, particles) {
         if (!particles || particles.length === 0) return;
 
@@ -323,7 +324,7 @@ class OptimizedParticlePool {
 
         ctx.globalAlpha = 1;
     }
-    
+
     renderSmokeBatch(ctx, particles) {
         if (!particles || particles.length === 0) return;
 
@@ -363,7 +364,7 @@ class OptimizedParticlePool {
 
         ctx.globalAlpha = 1;
     }
-    
+
     cleanupPool() {
         // Keep pool size reasonable to avoid memory bloat
         const maxPoolSize = Math.max(this.poolSize, this.activeParticles.length);
@@ -379,8 +380,9 @@ class OptimizedParticlePool {
         const performanceMode = (window.gameManager?.lowPerformanceMode || this.lowQuality) || false;
 
         if (performanceMode) {
-            // Aggressively reduce particles in low performance mode
-            const maxAllowed = Math.floor(this.maxParticles * 0.3); // Only 30% in performance mode
+            // Reduce particles in low performance mode, but keep it reasonable
+            // Was 30% and max 80, now 50% and max 300
+            const maxAllowed = Math.floor(this.maxParticles * 0.5);
 
             while (this.activeParticles.length > maxAllowed) {
                 const particle = this.activeParticles.pop();
@@ -389,7 +391,8 @@ class OptimizedParticlePool {
             }
 
             // Also reduce maximum to prevent future overload
-            this.maxParticles = Math.min(this.maxParticles, 80);
+            // But don't crush it to 80, keep it at 300 minimum
+            this.maxParticles = Math.max(Math.min(this.maxParticles, 300), 100);
         }
 
         // Clean up batches
@@ -398,7 +401,7 @@ class OptimizedParticlePool {
         // Run standard pool cleanup
         this.cleanupPool();
     }
-    
+
     // Spawn common particle types with optimized settings
     spawnHitEffect(x, y, intensity = 1, isCritical = false) {
         const count = Math.min(isCritical ? 12 : 8, Math.ceil(intensity * (isCritical ? 7 : 5)));
@@ -436,11 +439,11 @@ class OptimizedParticlePool {
             });
         }
     }
-    
+
     spawnTrailEffect(x, y, vx, vy) {
         // Helper function for random with proper binding
         const getRandom = () => window.perfCache ? window.perfCache.random() : Math.random();
-        
+
         this.spawnParticle({
             x: x + (getRandom() - 0.5) * 5,
             y: y + (getRandom() - 0.5) * 5,
@@ -453,7 +456,7 @@ class OptimizedParticlePool {
             friction: 0.95
         });
     }
-    
+
     setLowQuality(enabled) {
         if (this.lowQuality === enabled) return;
         this.lowQuality = enabled;
@@ -472,7 +475,7 @@ class OptimizedParticlePool {
             this.cleanupInterval = this._defaults.cleanupInterval;
         }
     }
-    
+
     // Get performance stats
     getStats() {
         return {
@@ -482,7 +485,7 @@ class OptimizedParticlePool {
             memoryEfficiency: (this.pool.length / (this.activeParticles.length + this.pool.length)).toFixed(2)
         };
     }
-    
+
     // Clear all particles (for performance mode switches)
     clear() {
         while (this.activeParticles.length > 0) {
