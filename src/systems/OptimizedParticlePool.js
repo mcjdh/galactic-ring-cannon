@@ -550,22 +550,61 @@ if (typeof window !== 'undefined') {
             createLevelUpEffect(x, y) {
                 const total = this.pool.lowQuality
                     ? Math.max(6, Math.floor(20 * this.pool.densityMultiplier))
-                    : 20;
+                    : 30;  // Increased from 20 to 30
                 const FastMath = window.Game?.FastMath;
+
+                // Multi-layered burst effect with varying speeds and colors
+                const colors = ['#f39c12', '#e67e22', '#f1c40f', '#ffd700'];
+
+                // Fast outer ring
                 for (let i = 0; i < total; i++) {
                     const angle = (i / total) * Math.PI * 2;
-                    const speed = 60 + Math.random() * 80;
-                    // Use FastMath.sincos for 5x speedup on ARM
+                    const speed = 100 + Math.random() * 80;
                     const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
                     this.pool.spawnParticle({
                         x, y,
                         vx: cos * speed,
                         vy: sin * speed,
-                        size: 3 + Math.random() * 3,
-                        color: '#f39c12',
+                        size: 4 + Math.random() * 3,
+                        color: colors[i % colors.length],
+                        life: 1.2 + Math.random() * 0.6,
+                        type: 'spark'
+                    });
+                }
+
+                // Medium speed middle ring
+                const middleTotal = this.pool.lowQuality ? Math.floor(total * 0.6) : Math.floor(total * 0.8);
+                for (let i = 0; i < middleTotal; i++) {
+                    const angle = (i / middleTotal) * Math.PI * 2 + 0.2;  // Offset angle
+                    const speed = 60 + Math.random() * 50;
+                    const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                    this.pool.spawnParticle({
+                        x, y,
+                        vx: cos * speed,
+                        vy: sin * speed,
+                        size: 3 + Math.random() * 2,
+                        color: '#ffd700',
                         life: 1 + Math.random() * 0.5,
                         type: 'spark'
                     });
+                }
+
+                // Slow inner glow particles
+                if (!this.pool.lowQuality) {
+                    for (let i = 0; i < 12; i++) {
+                        const angle = (i / 12) * Math.PI * 2;
+                        const speed = 20 + Math.random() * 30;
+                        const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                        this.pool.spawnParticle({
+                            x, y,
+                            vx: cos * speed,
+                            vy: sin * speed,
+                            size: 5 + Math.random() * 3,
+                            color: '#fff',
+                            life: 0.8 + Math.random() * 0.4,
+                            type: 'glow'
+                        });
+                    }
                 }
             }
             update(dt) { this.pool.update(dt); }

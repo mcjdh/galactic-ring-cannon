@@ -118,11 +118,13 @@ class EnemySpawner {
             'ranged': 1.2,     // ~72 seconds
             'dasher': 1.6,     // ~96 seconds
             'exploder': 2.0,   // 2 minutes
-            'teleporter': 2.4, // 2.4 minutes
-            'phantom': 2.8,    // 2.8 minutes
-            'shielder': 3.2,   // 3.2 minutes
-            'summoner': 3.6,   // 3.6 minutes
-            'berserker': 4.2   // 4.2 minutes
+            'splitter': 2.2,   // 2.2 minutes
+            'healer': 2.6,     // 2.6 minutes
+            'teleporter': 2.8, // 2.8 minutes
+            'phantom': 3.2,    // 3.2 minutes
+            'shielder': 3.6,   // 3.6 minutes
+            'summoner': 4.0,   // 4 minutes
+            'berserker': 4.4   // 4.4 minutes
         };
         
         // Difficulty scaling
@@ -321,6 +323,8 @@ class EnemySpawner {
             'ranged': 'Ranged',
             'dasher': 'Dasher',
             'exploder': 'Exploding',
+            'splitter': 'Splitter',
+            'healer': 'Healer',
             'teleporter': 'Teleporting',
             'phantom': 'Phantom',
             'shielder': 'Shielded',
