@@ -342,6 +342,11 @@ class Projectile {
 
             if (player.stats && typeof player.stats.heal === 'function') {
                 player.stats.heal(healAmount);
+
+                // Track lifesteal for Grim Harvest achievement
+                if (window.achievementSystem && typeof window.achievementSystem.onLifestealHealing === 'function') {
+                    window.achievementSystem.onLifestealHealing(healAmount);
+                }
             }
         }
 

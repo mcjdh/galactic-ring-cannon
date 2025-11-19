@@ -265,19 +265,19 @@ class Player {
             // NEW: Shield ability modifiers
             if (abilityMods.shield) {
                 const shield = abilityMods.shield;
-                
+
                 // Grant starter shield
                 if (typeof shield.starterCapacity === 'number' && shield.starterCapacity > 0) {
                     this.abilities.hasShield = true;
                     this.abilities.shieldMaxCapacity = shield.starterCapacity;
                     this.abilities.shieldCurrent = shield.starterCapacity; // Start at full capacity
-                    
+
                     // Set shield base stats
                     if (!this.abilities.shieldRechargeTime) {
                         this.abilities.shieldRechargeTime = 6.0; // Base recharge time in seconds
                     }
                 }
-                
+
                 // Apply shield stat multipliers
                 if (typeof shield.capacityMultiplier === 'number' && this.abilities.shieldMaxCapacity) {
                     this.abilities.shieldMaxCapacity *= shield.capacityMultiplier;
@@ -288,6 +288,33 @@ class Player {
                 }
                 if (typeof shield.rechargeMultiplier === 'number' && this.abilities.shieldRechargeTime) {
                     this.abilities.shieldRechargeTime /= shield.rechargeMultiplier; // Higher multiplier = faster recharge
+                }
+            }
+
+            // NEW: Explosive ability modifiers (Eclipse Reaper)
+            if (abilityMods.explosive) {
+                const explosive = abilityMods.explosive;
+
+                // Grant explosive ability
+                if (typeof explosive.baseChance === 'number' && explosive.baseChance > 0) {
+                    this.abilities.hasExplosiveShots = true;
+                    this.abilities.explosiveChance = Math.max(this.abilities.explosiveChance || 0, explosive.baseChance);
+
+                    // Set base explosion stats if not already set
+                    if (!this.abilities.explosionRadius || this.abilities.explosionRadius <= 0) {
+                        this.abilities.explosionRadius = 70; // Base explosion radius
+                    }
+                    if (!this.abilities.explosionDamage || this.abilities.explosionDamage <= 0) {
+                        this.abilities.explosionDamage = 0.6; // Base explosion damage multiplier
+                    }
+                }
+
+                // Apply explosive stat multipliers
+                if (typeof explosive.damageMultiplier === 'number' && this.abilities.explosionDamage) {
+                    this.abilities.explosionDamage *= explosive.damageMultiplier;
+                }
+                if (typeof explosive.radiusMultiplier === 'number' && this.abilities.explosionRadius) {
+                    this.abilities.explosionRadius *= explosive.radiusMultiplier;
                 }
             }
         }

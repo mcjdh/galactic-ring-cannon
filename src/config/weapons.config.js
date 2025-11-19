@@ -106,6 +106,30 @@ const WEAPON_DEFINITIONS = {
             cooldown: 10.0,
             description: 'Critical hits briefly overcharge the array, increasing volley size.'
         }
+    },
+    void_scythe: {
+        id: 'void_scythe',
+        name: 'Void Scythe',
+        description: 'Death harvester that reaps souls in sweeping arc patterns.',
+        archetype: 'reaper',
+        fireRate: 1.1,
+        startupDelay: 0,
+        targeting: 'nearest',
+        projectileTemplate: {
+            count: 3,
+            spreadDegrees: 60,
+            damageMultiplier: 1.0,
+            speedMultiplier: 1.0,
+            inheritsPlayerCrit: true,
+            inheritsPlayerPierce: true,
+            appliesBehaviors: true
+        },
+        upgradeTags: ['reaper', 'explosive', 'support'],
+        secondary: {
+            id: 'soul_harvest',
+            cooldown: 8.0,
+            description: 'Consuming souls temporarily increases damage for each kill.'
+        }
     }
 };
 
