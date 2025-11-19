@@ -1,8 +1,10 @@
 body {
     margin: 0;
     overflow: hidden;
-    background-color: #0a0a1f;  /* Deep space purple-black */
-    color: #00ffff;  /* Neon cyan text */
+    background-color: #0a0a1f;
+    /* Deep space purple-black */
+    color: #00ffff;
+    /* Neon cyan text */
     font-family: 'Lucida Console', 'Courier New', monospace;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
 }
@@ -33,7 +35,8 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 255, 255, 0.1);
 }
 
-#health-bar, #xp-bar {
+#health-bar,
+#xp-bar {
     width: 300px;
     height: 20px;
     background: linear-gradient(90deg, rgba(15, 15, 35, 0.9), rgba(25, 15, 45, 0.9));
@@ -45,7 +48,8 @@ body {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
 
-#health-bar::after, #xp-bar::after {
+#health-bar::after,
+#xp-bar::after {
     content: '';
     display: block;
     height: 100%;
@@ -69,8 +73,15 @@ body {
 }
 
 @keyframes pulse-critical {
-    0%, 100% { background-color: #e74c3c; }
-    50% { background-color: #ff6b6b; }
+
+    0%,
+    100% {
+        background-color: #e74c3c;
+    }
+
+    50% {
+        background-color: #ff6b6b;
+    }
 }
 
 #xp-bar::after {
@@ -88,6 +99,7 @@ body {
     text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
     margin-top: 5px;
 }
+
 /* Combo bar styling */
 #combo-container {
     margin-top: 10px;
@@ -102,6 +114,7 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     will-change: opacity;
 }
+
 #combo-text {
     font-size: 14px;
     color: #f1c40f;
@@ -111,6 +124,7 @@ body {
     text-shadow: 0 0 6px rgba(241, 196, 15, 0.5);
     will-change: opacity;
 }
+
 #combo-fill {
     width: 100%;
     height: 100%;
@@ -143,7 +157,7 @@ body {
     font-size: 24px;
     font-weight: bold;
     color: #00ffff;
-    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6), 2px 2px 4px rgba(0,0,0,0.8);
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6), 2px 2px 4px rgba(0, 0, 0, 0.8);
     margin-bottom: 5px;
 }
 
@@ -212,9 +226,20 @@ body {
 }
 
 @keyframes pulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.8; transform: scale(1.05); }
-    100% { opacity: 1; transform: scale(1); }
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 #level-up-container {
@@ -300,9 +325,12 @@ body {
 }
 
 @keyframes epic-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 25px rgba(255, 0, 255, 0.6), 0 0 50px rgba(255, 0, 255, 0.3);
     }
+
     50% {
         box-shadow: 0 0 35px rgba(255, 0, 255, 0.8), 0 0 70px rgba(255, 0, 255, 0.5);
     }
@@ -425,10 +453,12 @@ body {
 #star-token-display {
     position: absolute;
     top: 20px;
-    right: 200px; /* moved further left to avoid overlap */
+    right: 200px;
+    /* moved further left to avoid overlap */
     font-size: 18px;
     font-weight: bold;
-    z-index: 110;  /* above control buttons */
+    z-index: 110;
+    /* above control buttons */
     background-color: rgba(0, 0, 0, 0.5);
     padding: 5px 10px;
     border-radius: 5px;
@@ -541,6 +571,7 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
+
     100% {
         opacity: 0;
         transform: translateY(-50px);
@@ -548,76 +579,171 @@ body {
 }
 
 @keyframes lightning-flash {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
 }
 
 @keyframes critical-pulse {
-    0%, 100% { transform: translateY(-25px) scale(1); }
-    50% { transform: translateY(-25px) scale(1.2); }
+
+    0%,
+    100% {
+        transform: translateY(-25px) scale(1);
+    }
+
+    50% {
+        transform: translateY(-25px) scale(1.2);
+    }
 }
 
 @keyframes explosive-expand {
-    0% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-25px) scale(1.5); }
-    100% { transform: translateY(-50px) scale(1); }
+    0% {
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        transform: translateY(-25px) scale(1.5);
+    }
+
+    100% {
+        transform: translateY(-50px) scale(1);
+    }
 }
 
 @keyframes ricochet-spin {
-    0% { transform: translateY(0) rotate(0deg); }
-    100% { transform: translateY(-50px) rotate(360deg); }
+    0% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    100% {
+        transform: translateY(-50px) rotate(360deg);
+    }
 }
 
 @keyframes pierce-stretch {
-    0% { transform: translateY(0) scaleX(1); }
-    50% { transform: translateY(-25px) scaleX(1.5); }
-    100% { transform: translateY(-50px) scaleX(1); }
+    0% {
+        transform: translateY(0) scaleX(1);
+    }
+
+    50% {
+        transform: translateY(-25px) scaleX(1.5);
+    }
+
+    100% {
+        transform: translateY(-50px) scaleX(1);
+    }
 }
 
 /* OPTIMIZED: Removed filter brightness and text-shadow animation for 15-20% mobile FPS gain */
 @keyframes frost-sparkle {
-    0%, 100% { opacity: 0.95; }
-    50% { opacity: 1; }
+
+    0%,
+    100% {
+        opacity: 0.95;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }
 
 /* OPTIMIZED: Removed filter brightness and text-shadow animation for 15-20% mobile FPS gain */
 @keyframes poison-pulse {
-    0%, 100% { opacity: 0.9; }
-    50% { opacity: 1; }
+
+    0%,
+    100% {
+        opacity: 0.9;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }
 
 @keyframes fire-flicker {
-    0% { transform: translateY(-25px) rotate(-2deg); }
-    50% { transform: translateY(-25px) rotate(2deg); }
-    100% { transform: translateY(-25px) rotate(-2deg); }
+    0% {
+        transform: translateY(-25px) rotate(-2deg);
+    }
+
+    50% {
+        transform: translateY(-25px) rotate(2deg);
+    }
+
+    100% {
+        transform: translateY(-25px) rotate(-2deg);
+    }
 }
 
 /* OPTIMIZED: Removed filter brightness for 15-20% mobile FPS gain */
 @keyframes vampiric-pulse {
-    0%, 100% { opacity: 0.9; text-shadow: none; }
-    50% { opacity: 1; text-shadow: 0 0 7px rgba(192, 57, 43, 0.6); }
+
+    0%,
+    100% {
+        opacity: 0.9;
+        text-shadow: none;
+    }
+
+    50% {
+        opacity: 1;
+        text-shadow: 0 0 7px rgba(192, 57, 43, 0.6);
+    }
 }
 
 @keyframes orbital-spin {
-    from { transform: translateY(-25px) rotate(0deg); }
-    to { transform: translateY(-25px) rotate(360deg); }
+    from {
+        transform: translateY(-25px) rotate(0deg);
+    }
+
+    to {
+        transform: translateY(-25px) rotate(360deg);
+    }
 }
 
 @keyframes split-expand {
-    0% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-25px) scale(1.2); letter-spacing: 2px; }
-    100% { transform: translateY(-50px) scale(1); }
+    0% {
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        transform: translateY(-25px) scale(1.2);
+        letter-spacing: 2px;
+    }
+
+    100% {
+        transform: translateY(-50px) scale(1);
+    }
 }
 
 @keyframes homing-wave {
-    0%, 100% { transform: translateY(-25px) translateX(-3px); }
-    50% { transform: translateY(-25px) translateX(3px); }
+
+    0%,
+    100% {
+        transform: translateY(-25px) translateX(-3px);
+    }
+
+    50% {
+        transform: translateY(-25px) translateX(3px);
+    }
 }
 
 @keyframes combo-bounce {
-    0% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-35px) scale(1.3); }
-    100% { transform: translateY(-50px) scale(1); }
+    0% {
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        transform: translateY(-35px) scale(1.3);
+    }
+
+    100% {
+        transform: translateY(-50px) scale(1);
+    }
 }
 
 /* OPTIMIZED: Removed filter brightness for 15-20% mobile FPS gain */
@@ -627,11 +753,13 @@ body {
         opacity: 0.8;
         text-shadow: none;
     }
+
     50% {
         transform: translateY(-25px) scale(1.2);
         opacity: 1;
         text-shadow: 0 0 8px rgba(243, 156, 18, 0.7);
     }
+
     100% {
         transform: translateY(-50px) scale(1);
         opacity: 0.9;
@@ -646,11 +774,13 @@ body {
         opacity: 0.9;
         text-shadow: none;
     }
+
     30% {
         transform: translateY(-20px) scale(1.35);
         opacity: 1;
         text-shadow: 0 0 10px rgba(46, 204, 113, 0.6);
     }
+
     100% {
         transform: translateY(-50px) scale(1);
         opacity: 0.9;
@@ -660,11 +790,14 @@ body {
 
 /* OPTIMIZED: Removed filter brightness for 15-20% mobile FPS gain */
 @keyframes xp-crit {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(-25px) scale(1);
         opacity: 0.9;
         text-shadow: none;
     }
+
     50% {
         transform: translateY(-25px) scale(1.28);
         opacity: 1;
@@ -679,11 +812,13 @@ body {
         opacity: 0.7;
         text-shadow: none;
     }
+
     50% {
         transform: translateY(-40px) scale(1.45);
         opacity: 1;
         text-shadow: 0 0 16px rgba(155, 89, 182, 0.65);
     }
+
     100% {
         transform: translateY(-80px) scale(1);
         opacity: 0.85;
@@ -722,6 +857,7 @@ body {
     from {
         text-shadow: 0 0 18px rgba(0, 255, 255, 0.35);
     }
+
     to {
         text-shadow: 0 0 28px rgba(255, 0, 255, 0.4);
     }
@@ -743,21 +879,26 @@ body {
     background: linear-gradient(90deg, #00ffff, #ff00ff);
     transition: width 0.3s;
     background-image: linear-gradient(45deg,
-        rgba(255,255,255,0.15) 25%,
-        transparent 25%,
-        transparent 50%,
-        rgba(255,255,255,0.15) 50%,
-        rgba(255,255,255,0.15) 75%,
-        transparent 75%,
-        transparent);
+            rgba(255, 255, 255, 0.15) 25%,
+            transparent 25%,
+            transparent 50%,
+            rgba(255, 255, 255, 0.15) 50%,
+            rgba(255, 255, 255, 0.15) 75%,
+            transparent 75%,
+            transparent);
     background-size: 40px 40px;
     animation: progress-bar-stripes 1s linear infinite;
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
 }
 
 @keyframes progress-bar-stripes {
-    from { background-position: 40px 0; }
-    to { background-position: 0 0; }
+    from {
+        background-position: 40px 0;
+    }
+
+    to {
+        background-position: 0 0;
+    }
 }
 
 #loading-tip {
@@ -823,8 +964,14 @@ body {
 }
 
 @keyframes fade-out {
-    from { opacity: 1; }
-    to { opacity: 0; visibility: hidden; }
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
 }
 
 /* Pause screen styles */
@@ -854,14 +1001,29 @@ body {
 }
 
 @keyframes pulse-overlay {
-    0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
+    }
 }
 
 @keyframes fade-in {
-    from { opacity: 0; transform: translate(-50%, -60%); }
-    to { opacity: 1; transform: translate(-50%, -50%); }
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
 }
 
 .control-button {
@@ -1003,9 +1165,17 @@ body {
 }
 
 @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 #boss-direction {
@@ -1118,8 +1288,15 @@ body {
 }
 
 @keyframes fade-out-fast {
-    from { opacity: 0.7; transform: scale(1); }
-    to { opacity: 0; transform: scale(0.5); }
+    from {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(0.5);
+    }
 }
 
 /* Tutorial tip animation */
@@ -1138,8 +1315,14 @@ body {
 }
 
 @keyframes fade-out-delayed {
-    from { opacity: 1; }
-    to { opacity: 0; visibility: hidden; }
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
 }
 
 /* Sound toggle button */
@@ -1165,9 +1348,17 @@ body {
 }
 
 @keyframes pulse-skill {
-    0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
+    }
 }
 
 /* Minimap border highlight when enemies are close */
@@ -1177,9 +1368,17 @@ body {
 }
 
 @keyframes pulse-minimap {
-    0% { border-color: #e74c3c; }
-    50% { border-color: #f39c12; }
-    100% { border-color: #e74c3c; }
+    0% {
+        border-color: #e74c3c;
+    }
+
+    50% {
+        border-color: #f39c12;
+    }
+
+    100% {
+        border-color: #e74c3c;
+    }
 }
 
 /* Enemy display counts above minimap */
@@ -1279,7 +1478,8 @@ body {
     flex-direction: column;
     align-items: center;
     z-index: 100;
-    gap: 10px; /* Add spacing between multiple boss bars */
+    gap: 10px;
+    /* Add spacing between multiple boss bars */
 }
 
 .boss-health-entry {
@@ -1354,10 +1554,13 @@ body {
 }
 
 @keyframes pulse-boss {
-    0%, 100% { 
+
+    0%,
+    100% {
         box-shadow: 0 0 10px rgba(231, 76, 60, 0.6);
     }
-    50% { 
+
+    50% {
         box-shadow: 0 0 16px rgba(231, 76, 60, 0.85);
     }
 }
@@ -1369,11 +1572,14 @@ body {
 }
 
 @keyframes phase-pulse {
-    0%, 100% { 
+
+    0%,
+    100% {
         opacity: 1;
         box-shadow: 0 0 12px rgba(243, 156, 18, 0.7);
     }
-    50% { 
+
+    50% {
         opacity: 0.9;
         box-shadow: 0 0 18px rgba(243, 156, 18, 0.9);
     }
@@ -1429,9 +1635,17 @@ body {
 }
 
 @keyframes boss-border-pulse {
-    0% { box-shadow: inset 0 0 0 3px rgba(231, 76, 60, 0); }
-    50% { box-shadow: inset 0 0 0 3px rgba(231, 76, 60, 0.5); }
-    100% { box-shadow: inset 0 0 0 3px rgba(231, 76, 60, 0); }
+    0% {
+        box-shadow: inset 0 0 0 3px rgba(231, 76, 60, 0);
+    }
+
+    50% {
+        box-shadow: inset 0 0 0 3px rgba(231, 76, 60, 0.5);
+    }
+
+    100% {
+        box-shadow: inset 0 0 0 3px rgba(231, 76, 60, 0);
+    }
 }
 
 /* Style for stacked upgrades */
@@ -1450,15 +1664,13 @@ body {
     left: -50%;
     width: 200%;
     height: 200%;
-    background: linear-gradient(
-        transparent,
-        transparent,
-        transparent,
-        rgba(230, 126, 34, 0.1),
-        rgba(230, 126, 34, 0.3),
-        rgba(230, 126, 34, 0.1),
-        transparent
-    );
+    background: linear-gradient(transparent,
+            transparent,
+            transparent,
+            rgba(230, 126, 34, 0.1),
+            rgba(230, 126, 34, 0.3),
+            rgba(230, 126, 34, 0.1),
+            transparent);
     transform: rotate(45deg);
     animation: stackShine 2s linear infinite;
 }
@@ -1479,6 +1691,7 @@ body {
     0% {
         transform: translate(-100%, -100%) rotate(45deg);
     }
+
     100% {
         transform: translate(100%, 100%) rotate(45deg);
     }
@@ -1488,6 +1701,7 @@ body {
     0% {
         box-shadow: 0 0 5px #e67e22;
     }
+
     100% {
         box-shadow: 0 0 15px #e67e22, 0 0 20px #e67e22;
     }
@@ -1595,6 +1809,7 @@ body {
     from {
         box-shadow: 0 0 20px rgba(241, 196, 15, 0.7);
     }
+
     to {
         box-shadow: 0 0 30px rgba(241, 196, 15, 1);
     }
@@ -1610,10 +1825,12 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;  /* Center content - no scrolling needed for standard screens */
+    justify-content: center;
+    /* Center content - no scrolling needed for standard screens */
     z-index: 500;
     /* OPTIMIZED: No scrolling on standard screens - everything fits via smart scaling */
-    overflow: hidden;  /* Prevent scroll by default */
+    overflow: hidden;
+    /* Prevent scroll by default */
 }
 
 #menu-background {
@@ -1635,7 +1852,8 @@ body {
     /* OPTIMIZED: Smart padding that scales with viewport - no fixed min-height */
     padding: clamp(10px, 2vh, 32px) clamp(12px, 2vw, 20px);
     width: 100%;
-    max-height: 100vh;  /* Never exceed viewport height */
+    max-height: 100vh;
+    /* Never exceed viewport height */
     box-sizing: border-box;
     /* NO SCROLLING - everything fits on screen with smart scaling */
     overflow: hidden;
@@ -1664,7 +1882,8 @@ body {
 }
 
 .title-galactic {
-    font-size: clamp(28px, 5vw, 52px);  /* Scales: 28px (mobile) → 52px (desktop) */
+    font-size: clamp(28px, 5vw, 52px);
+    /* Scales: 28px (mobile) → 52px (desktop) */
     background: linear-gradient(90deg, #00ffff, #0088ff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1673,7 +1892,8 @@ body {
 }
 
 .title-ring {
-    font-size: clamp(28px, 5vw, 52px);  /* Match galactic size for same line */
+    font-size: clamp(28px, 5vw, 52px);
+    /* Match galactic size for same line */
     background: linear-gradient(90deg, #ff00ff, #ff6b9d);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1683,7 +1903,8 @@ body {
 
 /* Second line: CANNON (larger for emphasis) */
 .title-cannon {
-    font-size: clamp(36px, 6.5vw, 64px);  /* Larger: 36px (mobile) → 64px (desktop) */
+    font-size: clamp(36px, 6.5vw, 64px);
+    /* Larger: 36px (mobile) → 64px (desktop) */
     background: linear-gradient(90deg, #00ff88, #00ffff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1692,13 +1913,27 @@ body {
 }
 
 @keyframes title-float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-8px); }
+
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
 }
 
 @keyframes title-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
 }
 
 @keyframes fadeIn {
@@ -1706,6 +1941,7 @@ body {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1713,7 +1949,8 @@ body {
 }
 
 #star-menu-display {
-    font-size: clamp(18px, 2.8vw, 28px);  /* Scales with viewport */
+    font-size: clamp(18px, 2.8vw, 28px);
+    /* Scales with viewport */
     margin-bottom: clamp(6px, 1vh, 10px);
     color: #f1c40f;
     text-shadow: 0 0 15px rgba(241, 196, 15, 0.8);
@@ -1721,7 +1958,8 @@ body {
 }
 
 #menu-subtitle {
-    font-size: clamp(12px, 1.6vw, 16px);  /* Scales with viewport */
+    font-size: clamp(12px, 1.6vw, 16px);
+    /* Scales with viewport */
     color: #00ffff;
     margin-bottom: clamp(15px, 2.5vh, 30px);
     letter-spacing: clamp(2px, 0.4vw, 4px);
@@ -1730,15 +1968,24 @@ body {
 }
 
 @keyframes subtitle-glow {
-    0%, 100% { opacity: 0.7; }
-    50% { opacity: 1; }
+
+    0%,
+    100% {
+        opacity: 0.7;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }
 
 #menu-buttons {
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 1.5vh, 15px);  /* Scales with viewport height */
-    width: clamp(280px, 40vw, 360px);  /* Responsive width */
+    gap: clamp(8px, 1.5vh, 15px);
+    /* Scales with viewport height */
+    width: clamp(280px, 40vw, 360px);
+    /* Responsive width */
 }
 
 #loadout-selector {
@@ -1746,11 +1993,13 @@ body {
     display: flex;
     flex-direction: column;
     gap: clamp(8px, 1.2vh, 12px);
-    max-width: clamp(420px, 60vw, 600px);  /* Scales with viewport */
+    max-width: clamp(420px, 60vw, 600px);
+    /* Scales with viewport */
 }
 
 #loadout-selector-title {
-    font-size: clamp(11px, 1.4vw, 14px);  /* Scales with viewport */
+    font-size: clamp(11px, 1.4vw, 14px);
+    /* Scales with viewport */
     letter-spacing: clamp(1.5px, 0.3vw, 3px);
     color: #ff00ff;
     text-shadow: 0 0 12px rgba(255, 0, 255, 0.6);
@@ -1804,9 +2053,11 @@ body {
     0% {
         box-shadow: 0 0 0 rgba(255, 0, 255, 0);
     }
+
     40% {
         box-shadow: 0 0 16px rgba(255, 0, 255, 0.7);
     }
+
     100% {
         box-shadow: 0 0 0 rgba(255, 0, 255, 0);
     }
@@ -1814,17 +2065,22 @@ body {
 
 /* IMPROVED: Better structured character description - compact & responsive, NO SCROLL */
 #loadout-description {
-    min-height: clamp(60px, 8vh, 80px);  /* Scales with viewport height */
-    font-size: clamp(11px, 1.3vw, 13px);  /* Scales with viewport */
+    min-height: clamp(60px, 8vh, 80px);
+    /* Scales with viewport height */
+    font-size: clamp(11px, 1.3vw, 13px);
+    /* Scales with viewport */
     color: #00ffff;
     font-family: 'Lucida Console', 'Courier New', monospace;
     line-height: 1.4;
     text-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
     padding: clamp(6px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px);
     box-sizing: border-box;
-    word-wrap: break-word;  /* Prevent text overflow */
-    white-space: normal;  /* Allow wrapping */
-    overflow: visible;  /* NO SCROLLBARS - let content flow naturally */
+    word-wrap: break-word;
+    /* Prevent text overflow */
+    white-space: normal;
+    /* Allow wrapping */
+    overflow: visible;
+    /* NO SCROLLBARS - let content flow naturally */
 }
 
 #loadout-description.is-locked {
@@ -1939,9 +2195,12 @@ body {
 }
 
 @keyframes primary-glow {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 25px rgba(255, 0, 255, 0.4);
     }
+
     50% {
         box-shadow: 0 0 35px rgba(255, 0, 255, 0.6), 0 0 60px rgba(0, 255, 255, 0.3);
     }
@@ -1996,7 +2255,8 @@ body {
     width: 100%;
     box-sizing: border-box;
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.2), inset 0 0 20px rgba(0, 255, 255, 0.05);
-    overflow: visible;  /* NO SCROLLBARS - let content fit naturally */
+    overflow: visible;
+    /* NO SCROLLBARS - let content fit naturally */
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -2060,8 +2320,17 @@ body {
 }
 
 @keyframes check-pulse {
-    0%, 100% { opacity: 0.8; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.1); }
+
+    0%,
+    100% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
 }
 
 /* Character name styling */
@@ -2231,6 +2500,7 @@ body {
     width: 100%;
     margin-top: clamp(10px, 2vh, 15px);
 }
+
 /* Shop Panel Styles */
 #shop-panel {
     position: fixed;
@@ -2265,9 +2535,11 @@ body {
     padding: clamp(15px, 2.5vh, 30px) clamp(15px, 2.5vw, 30px);
     width: 100%;
     max-width: clamp(400px, 75vw, 900px);
-    max-height: 100vh;  /* Never exceed viewport height */
+    max-height: 100vh;
+    /* Never exceed viewport height */
     box-sizing: border-box;
-    overflow: hidden;  /* NO SCROLLING - everything fits on screen */
+    overflow: hidden;
+    /* NO SCROLLING - everything fits on screen */
     background: linear-gradient(135deg, rgba(10, 10, 31, 0.95), rgba(20, 10, 40, 0.95));
     border-radius: clamp(10px, 1.5vw, 16px);
     border: 2px solid rgba(241, 196, 15, 0.4);
@@ -2372,7 +2644,8 @@ body {
     /* Fixed height optimized to fit 4-6 items typically - no clipping */
     min-height: clamp(320px, 48vh, 480px);
     max-height: clamp(320px, 48vh, 480px);
-    overflow: hidden;  /* NO SCROLL - pagination handles overflow */
+    overflow: hidden;
+    /* NO SCROLL - pagination handles overflow */
     /* Smooth page transitions */
     transition: opacity 0.3s ease;
     /* Prevent items from stretching vertically */
@@ -2402,7 +2675,8 @@ body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    min-height: clamp(90px, 12vh, 120px);  /* Slightly more compact */
+    min-height: clamp(90px, 12vh, 120px);
+    /* Slightly more compact */
 }
 
 .shop-item::before {
@@ -2458,7 +2732,8 @@ body {
     margin: clamp(6px, 1vh, 8px) 0 clamp(8px, 1.2vh, 10px) 0;
     line-height: 1.4;
     font-size: clamp(11px, 1.5vw, 13px);
-    flex-grow: 1;  /* Takes available space */
+    flex-grow: 1;
+    /* Takes available space */
 }
 
 .shop-item-footer {
@@ -2597,20 +2872,27 @@ body {
     width: min(100%, 1100px);
     height: 90vh;
     padding: clamp(16px, 2.4vh, 28px);
-    background: rgba(6, 10, 24, 0.96);
+    background: rgba(6, 10, 24, 0.85);
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     overflow: hidden;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 #achievements-panel h2 {
     margin: 0;
-    font-size: clamp(22px, 3vw, 34px);
+    font-size: clamp(24px, 3.5vw, 38px);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    color: #f8fcff;
+    letter-spacing: 4px;
+    background: linear-gradient(90deg, #fff, #00ffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     text-align: center;
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+    font-weight: 800;
 }
 
 #achievements-layout {
@@ -2650,10 +2932,11 @@ body {
 }
 
 .category-btn.active {
-    background: rgba(0, 255, 255, 0.15);
-    border-color: rgba(0, 255, 255, 0.5);
+    background: rgba(0, 255, 255, 0.1);
+    border-color: rgba(0, 255, 255, 0.6);
     color: #00ffff;
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.15), inset 0 0 10px rgba(0, 255, 255, 0.05);
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
 }
 
 #achievements-main {
@@ -2684,9 +2967,10 @@ body {
     flex: 1;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 15px;
-    padding-right: 5px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 4px 12px 20px 4px;
+    /* Added bottom padding to prevent clipping */
     align-content: start;
 }
 
@@ -2712,7 +2996,7 @@ body {
     #achievements-layout {
         flex-direction: column;
     }
-    
+
     #achievements-sidebar {
         width: 100%;
         flex-direction: row;
@@ -2722,7 +3006,7 @@ body {
         padding-bottom: 10px;
         padding-right: 0;
     }
-    
+
     .category-btn {
         white-space: nowrap;
         padding: 8px 12px;
@@ -2731,7 +3015,8 @@ body {
 }
 
 #achievements-list.achievements-list--compact {
-    /* max-width: min(600px, 95%); */ /* Removed constraint for grid */
+    /* max-width: min(600px, 95%); */
+    /* Removed constraint for grid */
     /* margin: 0 auto; */
 }
 
@@ -2748,15 +3033,25 @@ body {
     /* flex: 1 1 calc(50% - clamp(10px, 1.5vh, 18px)); */
     /* min-width: clamp(260px, 42vw, 360px); */
     display: flex;
-    gap: 12px;
-    padding: clamp(10px, 1.6vh, 16px);
-    background: linear-gradient(140deg, rgba(20, 24, 45, 0.9), rgba(12, 16, 32, 0.9));
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    gap: 16px;
+    padding: clamp(14px, 2vh, 20px);
+    background: rgba(20, 24, 45, 0.6);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     position: relative;
     overflow: hidden;
-    height: fit-content; /* Ensure items don't stretch unnecessarily */
+    height: fit-content;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    backdrop-filter: blur(4px);
+}
+
+.achievement-item:hover {
+    transform: translateY(-2px) scale(1.01);
+    background: rgba(30, 36, 60, 0.7);
+    border-color: rgba(0, 255, 255, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 255, 255, 0.1);
+    z-index: 10;
 }
 
 .achievement-item::before {
@@ -2777,20 +3072,35 @@ body {
 }
 
 .achievement-item.unlocked {
-    border-color: rgba(255, 215, 0, 0.35);
+    border-color: rgba(0, 255, 255, 0.4);
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.05), rgba(20, 24, 45, 0.8));
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.05);
+}
+
+.achievement-item.unlocked:hover {
+    border-color: rgba(0, 255, 255, 0.6);
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.15);
 }
 
 .achievement-icon {
     flex: 0 0 auto;
-    width: clamp(40px, 5vw, 48px);
-    height: clamp(40px, 5vw, 48px);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.08);
+    width: clamp(48px, 5vw, 56px);
+    height: clamp(48px, 5vw, 56px);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(22px, 3vw, 28px);
+    font-size: clamp(24px, 3vw, 32px);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.achievement-item.unlocked .achievement-icon {
+    border-color: rgba(0, 255, 255, 0.5);
+    background: rgba(0, 255, 255, 0.1);
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
 }
 
 .achievement-info {
@@ -2798,6 +3108,29 @@ body {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+.achievement-description {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: clamp(11px, 1.4vw, 13px);
+    line-height: 1.4;
+    margin: 4px 0;
+    transition: color 0.3s ease;
+}
+
+.achievement-item:hover .achievement-description {
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
+.achievement-hint {
+    color: #ffd700;
+    font-size: clamp(11px, 1.4vw, 13px);
+    font-style: italic;
+    margin-top: 4px;
+    opacity: 0.9;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+    font-weight: 500;
 }
 
 .achievement-title-row {
@@ -2818,20 +3151,24 @@ body {
 }
 
 .achievement-status[data-state="unlocked"] {
-    background: rgba(58, 227, 116, 0.18);
-    border-color: rgba(58, 227, 116, 0.6);
+    background: rgba(58, 227, 116, 0.15);
+    border-color: rgba(58, 227, 116, 0.5);
     color: #a9ffcb;
+    box-shadow: 0 0 10px rgba(58, 227, 116, 0.2);
+    text-shadow: 0 0 5px rgba(58, 227, 116, 0.5);
 }
 
 .achievement-status[data-state="progress"] {
     background: rgba(255, 215, 0, 0.15);
     border-color: rgba(255, 215, 0, 0.5);
     color: #ffe9a8;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
 }
 
 .achievement-status[data-state="locked"] {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
 }
 
 .achievement-meta-row {
@@ -2866,12 +3203,12 @@ body {
 .progress-bar {
     flex: 1;
     height: clamp(6px, 0.8vh, 8px);
-    background: linear-gradient(90deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 255, 0.15));
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    border-radius: clamp(4px, 0.6vw, 6px);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
     overflow: hidden;
     position: relative;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .progress-fill {
@@ -2899,6 +3236,7 @@ body {
     0% {
         left: -100%;
     }
+
     100% {
         left: 200%;
     }
@@ -2943,6 +3281,7 @@ body {
     from {
         box-shadow: 0 0 10px rgba(142, 68, 173, 0.5);
     }
+
     to {
         box-shadow: 0 0 30px rgba(142, 68, 173, 0.8);
     }
@@ -2954,9 +3293,12 @@ body {
 }
 
 @keyframes important-achievement-bounce {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
     }
+
     50% {
         transform: scale(1.2);
     }
@@ -3088,7 +3430,8 @@ body {
 .low-end-device #result-screen {
     /* Disable backdrop blur on mobile/low-end (5-8% FPS gain) */
     backdrop-filter: none !important;
-    background: rgba(10, 12, 25, 0.95);  /* Slightly more opaque fallback */
+    background: rgba(10, 12, 25, 0.95);
+    /* Slightly more opaque fallback */
 }
 
 .low-end-device .upgrade-option[data-rarity="epic"],
@@ -3105,7 +3448,8 @@ body {
 .low-end-device #menu-title {
     /* Disable drop-shadow filter on title (2-3% FPS gain) */
     filter: none !important;
-    text-shadow: 0 0 20px rgba(138, 43, 226, 0.6);  /* Fallback glow */
+    text-shadow: 0 0 20px rgba(138, 43, 226, 0.6);
+    /* Fallback glow */
 }
 
 .low-end-device .boss-indicator,
@@ -3138,9 +3482,11 @@ body {
 
 /* Portrait orientation - Optimize vertical layout */
 @media screen and (orientation: portrait) {
+
     /* Portrait has more vertical space but less horizontal */
     #menu-buttons {
-        width: min(90vw, 420px);  /* Wider buttons in portrait */
+        width: min(90vw, 420px);
+        /* Wider buttons in portrait */
     }
 
     #loadout-selector {
@@ -3191,12 +3537,14 @@ body {
 
 /* Landscape orientation - Optimize for horizontal space */
 @media screen and (orientation: landscape) {
+
     /* Landscape has limited vertical space - clamp() already handles most scaling */
     /* Just ensure panels don't get too tall */
     #settings-content,
     #shop-content,
     #achievements-content {
-        max-height: 85vh;  /* Leave some margin for browser chrome */
+        max-height: 85vh;
+        /* Leave some margin for browser chrome */
     }
 
     /* Position skill container to avoid minimap */
@@ -3208,6 +3556,7 @@ body {
 
 /* Mobile landscape (< 768px AND landscape) - Critical vertical space constraints only */
 @media screen and (max-width: 767px) and (orientation: landscape) {
+
     /* Critical: Override clamp() for severely limited vertical space */
     #menu-content {
         padding: 8px 12px;
@@ -3302,6 +3651,7 @@ body {
 
 /* Tablet landscape (768px - 1024px AND landscape) - Optimize horizontal layout */
 @media screen and (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+
     /* Good horizontal space, limited vertical */
     #menu-buttons {
         width: 450px;
