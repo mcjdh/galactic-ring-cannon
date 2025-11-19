@@ -10,7 +10,7 @@
 class StatusEffectManager {
     constructor(enemy) {
         this.enemy = enemy;
-        this.effects = new Map();
+        this.effects = null; // Lazy initialization
         this.visualTimer = 0;
     }
 
@@ -21,6 +21,10 @@ class StatusEffectManager {
      * @param {number} duration - Duration in seconds
      */
     applyEffect(type, data, duration) {
+        if (!this.effects) {
+            this.effects = new Map();
+        }
+
         const existing = this.effects.get(type);
 
         // Create new effect state
@@ -53,7 +57,9 @@ class StatusEffectManager {
      * Update all active effects
      */
     update(deltaTime, game) {
-        const toRemove = [];
+        if (!this.effects || this.effects.size === 0) return;
+
+        let toRemove = null;
 
         for (const [type, effect] of this.effects) {
             effect.elapsed += deltaTime;
@@ -63,15 +69,18 @@ class StatusEffectManager {
 
             // Check expiration
             if (effect.elapsed >= effect.duration) {
+                if (!toRemove) toRemove = [];
                 toRemove.push(type);
             }
         }
 
         // Remove expired effects
-        toRemove.forEach(type => {
-            this.effects.delete(type);
-            this._onEffectEnd(type);
-        });
+        if (toRemove) {
+            toRemove.forEach(type => {
+                this.effects.delete(type);
+                this._onEffectEnd(type);
+            });
+        }
 
         // Update visuals
         this._updateVisuals(deltaTime);
