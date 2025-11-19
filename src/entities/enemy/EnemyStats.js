@@ -12,7 +12,9 @@ class EnemyStats {
         const {
             isCritical = false,
             label = null,
-            showText = true
+            showText = true,
+            damageType = null,
+            damageTags = null
         } = options || {};
 
         // Apply damage reduction
@@ -47,6 +49,9 @@ class EnemyStats {
         const actualDamage = Math.max(1, Math.floor(amount)); // Minimum 1 damage
         enemy.health = Math.max(0, enemy.health - actualDamage);
 
+        // Track achievement progress for elemental damage (burn/fire)
+        this._trackElementalDamageForAchievements(actualDamage, damageType, damageTags);
+
         // Track cumulative damage for achievements/stats
         const gm = window.gameManager || window.gameManagerBridge;
         gm?.statsManager?.trackDamageDealt?.(actualDamage);
@@ -71,6 +76,51 @@ class EnemyStats {
             if (typeof enemy.onTakeDamage === 'function') {
                 enemy.onTakeDamage(actualDamage);
             }
+        }
+    }
+
+    static _trackElementalDamageForAchievements(amount, damageType, damageTags) {
+        if (!Number.isFinite(amount) || amount <= 0 || typeof window === 'undefined') {
+            return;
+        }
+
+        const normalizedTags = new Set();
+
+        if (typeof damageType === 'string' && damageType.trim() !== '') {
+            normalizedTags.add(damageType.trim().toLowerCase());
+        }
+
+        if (Array.isArray(damageTags)) {
+            for (const tag of damageTags) {
+                if (typeof tag === 'string' && tag.trim() !== '') {
+                    normalizedTags.add(tag.trim().toLowerCase());
+                }
+            }
+        }
+
+        if (normalizedTags.size === 0) {
+            return;
+        }
+
+        if (normalizedTags.has('burn') || normalizedTags.has('fire')) {
+            this._reportBurnDamage(amount);
+        }
+    }
+
+    static _reportBurnDamage(amount) {
+        if (!Number.isFinite(amount) || amount <= 0 || typeof window === 'undefined') {
+            return;
+        }
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        let gameState = gm?.game?.state || gm?.state || null;
+
+        if (!gameState && window.gameEngine?.state) {
+            gameState = window.gameEngine.state;
+        }
+
+        if (gameState?.addBurnDamage) {
+            gameState.addBurnDamage(amount);
         }
     }
 

@@ -480,6 +480,17 @@ const UPGRADE_DEFINITIONS = [
         specialEffect: 'heal_visual' // Shows healing particles
     },
     {
+        id: 'lifesteal_1',
+        name: 'Vampiric Essence',
+        description: 'Heal for 5% of damage dealt',
+        type: 'lifesteal',
+        value: 0.05,
+        icon: "♦",
+        rarity: 'rare',
+        buildPath: 'support',
+        specialEffect: 'lifesteal_visual' // Shows lifesteal effect
+    },
+    {
         id: 'damage_reduction_1',
         name: 'Armor',
         description: 'Reduce damage taken by 15%',

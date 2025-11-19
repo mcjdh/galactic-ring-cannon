@@ -98,8 +98,8 @@ Player with Chain Lightning + Pyromancy:
 ## Expected Impact
 
 ### Grim Harvest (Inferno Juggernaut)
-**Before:** 500 burn damage target felt slow  
-**After:** With chain builds, **3-6x faster** accumulation!
+**Before:** Burn progress crawled because chained enemies never ignited  
+**After:** With chain builds, **3-6x faster** accumulation even against the 1500 target!
 
 **Example Scenario:**
 ```
@@ -110,8 +110,8 @@ Pyromancy + Chain Lightning build:
 - Chain 2: 7 × 3s = 42 damage
 Total per projectile: 126 burn damage!
 
-4-5 chain projectiles = 500+ burn damage!
-Unlock in 1-2 runs instead of 3-4! 🎯
+4-5 chain projectiles = 500+ burn damage chunks!
+Hit 1500 in a single focused run instead of multiple grindy attempts! 🎯
 ```
 
 ---

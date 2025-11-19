@@ -45,7 +45,10 @@ class ProjectileFactory {
                 if (isCrit && player.stats.lifestealCritMultiplier > 1) {
                     projectile.lifesteal *= player.stats.lifestealCritMultiplier;
                 }
-
+                
+                if (window.debugManager?.debugMode) {
+                    console.log(`[ProjectileFactory] Lifesteal applied: ${projectile.lifesteal.toFixed(3)} (Base: ${player.stats.lifestealAmount}, Streak: ${streakBonuses.lifesteal})`);
+                }
             }
         }
 

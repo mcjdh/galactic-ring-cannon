@@ -17,17 +17,17 @@ After playtesting, three character unlock achievements were found to be excessiv
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| **Requirement** | Lifesteal 500 HP | Deal 2500 burn/fire damage | **Changed Type** |
+| **Requirement** | Lifesteal 500 HP | Deal 1500 burn/fire damage | **Changed Type & Tuned Value** |
 | **Description** | Didn't fit fire theme | Thematically perfect! | **Much Better** |
 
 **Rationale:**
 - Lifesteal made **zero thematic sense** for a fire-based juggernaut character
-- 2500 burn damage requires **pyromancy upgrades** (Pyromancy I/II/III, Inferno Catalyst)
+- 1500 burn damage requires **pyromancy upgrades** (Pyromancy I/II/III, Inferno Catalyst)
 - Encourages players to **master fire mechanics** before unlocking the fire specialist
 - More engaging - you learn the playstyle while unlocking the character
 - Pyromancy is Inferno Juggernaut's signature ability (100% burn chance!)
 
-**Expected Unlock Time:** 2-4 runs with fire-focused build vs 2-3 runs grinding lifesteal
+**Expected Unlock Time:** ~3 focused runs (or 1 long burn-heavy run) vs 2-3 runs grinding lifesteal
 
 **How to Unlock:**
 - Pick burn/pyromancy upgrades (Pyromancy I, II, III)
@@ -122,9 +122,9 @@ Unlock Difficulty = (Skill Required × Time Investment) ÷ Fun Factor
 
 To verify the new balance:
 
-1. **Grim Harvest (500 HP)**
-   - Test: Acquire 1-2 lifesteal upgrades, play normally
-   - Expected: Unlock in 2-3 runs of moderate length
+1. **Grim Harvest (1500 burn damage)**
+   - Test: Acquire Pyromancy and maintain multi-target burns for ~15 seconds
+   - Expected: Unlock in 3-4 focused runs or a single long Pyromancy run
 
 2. **Crimson Pact (1200 HP)**
    - Test: Build lifesteal-focused build (10-15% total)
@@ -140,8 +140,8 @@ To verify the new balance:
 
 If these are still too hard/easy, adjust by **±20-30%**:
 
-- **Too Easy** → Increase by 20-30% (e.g., 500 → 650 HP)
-- **Too Hard** → Decrease by 20-30% (e.g., 500 → 350 HP)
+- **Too Easy** → Increase by 20-30% (e.g., 1500 → 1800 burn)
+- **Too Hard** → Decrease by 20-30% (e.g., 1500 → 1100 burn)
 
 Use **player unlock rates** as metric:
 - **Target:** 40-60% of players unlock within 5 runs

@@ -22,7 +22,7 @@ Implemented a comprehensive burn/fire damage tracking system to support thematic
 - Generic grind that didn't teach pyromancy mechanics
 
 **After:**  
-✅ Deal 2500 burn/fire damage in a single run  
+✅ Deal 1500 burn/fire damage in a single run  
 - Perfect thematic fit for pyromancer character
 - Encourages learning fire mechanics before unlock
 - More engaging progression path
@@ -97,11 +97,11 @@ Updated definition:
 ```javascript
 'grim_harvest': {
     name: 'Grim Harvest',
-    description: 'Deal 2500 damage with burn/fire effects in a single run',
+    description: 'Deal 1500 damage with burn/fire effects in a single run',
     icon: '†',
     category: 'Special',
     progress: 0,
-    target: 2500,
+    target: 1500,
     unlocked: false,
     unlocksCharacter: 'inferno_juggernaut'
 }
@@ -126,14 +126,14 @@ Updated definition:
 4. **Track Progress**: Burn DoT ticks every 0.5s
    - Each tick adds to burnDamageDealt
    - Achievement updates in real-time
-5. **Unlock at 2500**: Character unlocked upon completion!
+5. **Unlock at 1500**: Character unlocked upon completion!
 
 ### Example Math:
 
 **Scenario**: Pyromancy I (7 dmg/tick) + 10 enemies burning
 - Ticks per second: 2 (every 0.5s)
 - Damage per second: 7 × 10 × 2 = 140 dmg/s
-- Time to achievement: 2500 ÷ 140 = **~18 seconds of sustained burns**
+- Time to achievement: 1500 ÷ 140 = **~11 seconds of sustained burns**
 
 With better upgrades (Pyromancy III, longer durations):
 - Could unlock in 2-3 runs with intentional fire focus
@@ -196,8 +196,8 @@ All character unlocks now have perfect thematic alignment! 🎯
 
 - [ ] Start new run, pick Pyromancy I
 - [ ] Verify burn damage counting in achievement progress
-- [ ] Check tooltip shows correct requirement (2500 burn damage)
-- [ ] Confirm achievement unlocks at 2500
+- [ ] Check tooltip shows correct requirement (1500 burn damage)
+- [ ] Confirm achievement unlocks at 1500
 - [ ] Verify Inferno Juggernaut unlocks upon completion
 - [ ] Test across multiple runs (progress doesn't carry over - per run)
 - [ ] Ensure reset on run restart
@@ -219,7 +219,7 @@ Potential additions:
 
 **Complexity:** 6/10 - Multi-system integration  
 **Impact:** High - Improves thematic coherence and player experience  
-**Balance:** 2500 burn damage is achievable but requires intentional fire builds
+**Balance:** 1500 burn damage is achievable but still requires intentional fire builds
 
 This change transforms the Inferno Juggernaut unlock from a generic grind into an engaging "master fire magic" challenge that perfectly fits the character's identity as a pyromancer tank!
 

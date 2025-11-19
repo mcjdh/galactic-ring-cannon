@@ -369,9 +369,11 @@ class Projectile {
     handleCollision(target, engine) {
         const shouldDie = this.behaviorManager.handleCollision(target, engine);
 
-        // Handle lifesteal (simple direct property)
+        // Handle lifesteal (percentage of damage dealt)
         if (this.lifesteal > 0 && engine?.player) {
-            const healAmount = this.lifesteal;
+            // Fix: Calculate lifesteal based on damage dealt, not just the raw percentage value
+            // this.lifesteal is a percentage (e.g. 0.05 for 5%), so we multiply by damage
+            const healAmount = this.damage * this.lifesteal;
             const player = engine.player;
 
             if (player.stats && typeof player.stats.heal === 'function') {
@@ -380,6 +382,11 @@ class Projectile {
                 // Track lifesteal for Grim Harvest and Crimson Pact achievements
                 if (window.achievementSystem && typeof window.achievementSystem.onLifestealHealing === 'function') {
                     window.achievementSystem.onLifestealHealing(healAmount);
+                }
+                
+                // Debug logging for lifesteal tracking
+                if (window.debugManager?.debugMode) {
+                    console.log(`[Projectile] Lifesteal: ${healAmount.toFixed(2)} HP (${(this.lifesteal * 100).toFixed(1)}% of ${this.damage})`);
                 }
             }
         }

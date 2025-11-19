@@ -71,74 +71,35 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 50,
         unlocked: false
     },
-    'on_fire': {
-        name: 'On Fire!',
-        description: 'Reach a 10 kill streak',
-        icon: '⚡',
-        category: 'Combat',
-        progress: 0,
-        target: 10,
-        unlocked: false
-    },
-    'unstoppable': {
-        name: 'Unstoppable Force',
-        description: 'Reach a 20 kill streak',
-        icon: '🔥',
-        category: 'Combat',
-        progress: 0,
-        target: 20,
-        unlocked: false,
-        important: true
-    },
-    'godlike': {
-        name: 'Godlike!',
-        description: 'Reach a 30 kill streak',
-        icon: '👑',
-        category: 'Combat',
-        progress: 0,
-        target: 30,
-        unlocked: false,
-        important: true
-    },
-    'immortal': {
-        name: 'Immortal',
-        description: 'Reach a 50 kill streak',
-        icon: '🌌',
-        category: 'Combat',
-        progress: 0,
-        target: 50,
-        unlocked: false,
-        important: true
-    },
 
     // ========================================
     // PROGRESSION ACHIEVEMENTS
     // ========================================
     'level_up': {
         name: 'Level Up!',
-        description: 'Reach level 10',
+        description: 'Reach level 20',
         icon: '*',
         category: 'Progression',
         progress: 0,
-        target: 10,
+        target: 20,
         unlocked: false
     },
     'star_collector': {
         name: 'Star Collector',
-        description: 'Collect 1000 XP orbs',
+        description: 'Collect 5000 XP orbs',
         icon: '+',
         category: 'Progression',
         progress: 0,
-        target: 1000,
+        target: 5000,
         unlocked: false
     },
     'meta_star_collector': {
         name: 'Meta Star Collector',
-        description: 'Earn 100 meta stars',
+        description: 'Earn 500 meta stars',
         icon: '*',
         category: 'Progression',
         progress: 0,
-        target: 100,
+        target: 500,
         unlocked: false
     },
     'max_upgrade': {
@@ -165,20 +126,20 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'untouchable': {
         name: 'Untouchable',
-        description: 'Survive for 60 seconds without taking damage',
+        description: 'Survive for 120 seconds without taking damage',
         icon: '#',
         category: 'Skill',
         progress: 0,
-        target: 60,
+        target: 120,
         unlocked: false
     },
     'tank_commander': {
         name: 'Tank Commander',
-        description: 'Survive 3 minutes without dodging in a single run',
+        description: 'Survive 5 minutes without dodging in a single run',
         icon: '#',
         category: 'Skill',
         progress: 0,
-        target: 180,
+        target: 300,
         unlocked: false
     },
 
@@ -187,20 +148,20 @@ const ACHIEVEMENT_DEFINITIONS = {
     // ========================================
     'speed_runner': {
         name: 'Speed Runner',
-        description: 'Reach level 15 in a single run',
+        description: 'Reach level 25 in a single run',
         icon: '*',
         category: 'Skill',
         progress: 0,
-        target: 15,
+        target: 25,
         unlocked: false
     },
     'elite_hunter': {
         name: 'Elite Hunter',
-        description: 'Defeat 10 elite enemies',
+        description: 'Defeat 50 elite enemies',
         icon: 'M',
         category: 'Combat',
         progress: 0,
-        target: 10,
+        target: 50,
         unlocked: false
     },
     // ========================================
@@ -208,30 +169,30 @@ const ACHIEVEMENT_DEFINITIONS = {
     // ========================================
     'cosmic_veteran': {
         name: 'Cosmic Veteran',
-        description: 'Deal 500,000 total damage across all runs',
+        description: 'Deal 2,000,000 total damage across all runs',
         icon: '*',
         category: 'Progression',
         progress: 0,
-        target: 500000,
+        target: 2000000,
         unlocked: false,
         important: true
     },
     'galactic_explorer': {
         name: 'Galactic Explorer',
-        description: 'Travel 100,000 distance across all runs',
+        description: 'Travel 500,000 distance across all runs',
         icon: '~',
         category: 'Progression',
         progress: 0,
-        target: 100000,
+        target: 500000,
         unlocked: false
     },
     'trigger_happy': {
         name: 'Trigger Happy',
-        description: 'Fire 25,000 projectiles across all runs',
+        description: 'Fire 100,000 projectiles across all runs',
         icon: '+',
         category: 'Progression',
         progress: 0,
-        target: 25000,
+        target: 100000,
         unlocked: false
     },
 
@@ -249,49 +210,49 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'storm_surge': {
         name: 'Storm Surge',
-        description: 'Hit 6 enemies with a single chain lightning',
+        description: 'Hit 10 enemies with a single chain lightning',
         icon: '*',
         category: 'Special',
         progress: 0,
-        target: 6,
+        target: 10,
         unlocked: false,
         unlocksCharacter: 'stormcaller'
     },
     'grim_harvest': {
         name: 'Grim Harvest',
-        description: 'Deal 500 damage with burn/fire effects in a single run',
+        description: 'Deal 5000 damage with burn/fire effects in a single run',
         icon: '†',
         category: 'Special',
         progress: 0,
-        target: 500,  // Reduced from 2500 - burn ticks are small (5-7 dmg/tick)
+        target: 5000,  // Tuned for modern Pyromancy builds (≈10-15s sustained burns)
         unlocked: false,
         unlocksCharacter: 'inferno_juggernaut'
     },
     'crimson_pact': {
         name: 'Crimson Pact',
-        description: 'Heal 300 HP via lifesteal in a single run',
+        description: 'Heal 1000 HP via lifesteal in a single run',
         icon: '♦',
         category: 'Special',
         progress: 0,
-        target: 300,  // Reduced from 1200 - lifesteal is % based so values are small
+        target: 1000,  // Reduced from 1200 - lifesteal is % based so values are small
         unlocked: false,
         unlocksCharacter: 'crimson_reaver',
         important: true
     },
     'event_horizon': {
         name: 'Event Horizon',
-        description: 'Deal 15,000 damage in a single run',
+        description: 'Deal 50,000 damage in a single run',
         icon: '%',
         category: 'Special',
         progress: 0,
-        target: 15000,
+        target: 50000,
         unlocked: false,
         unlocksCharacter: 'void_warden',
         important: true
     },
     'edge_walker': {
         name: 'Edge Walker',
-        description: 'Survive for 45 seconds with less than 30% health in a single run',
+        description: 'Survive for 45 seconds with less than 50% health in a single run',
         icon: 'V',
         category: 'Skill',
         progress: 0,
@@ -307,38 +268,38 @@ const ACHIEVEMENT_DEFINITIONS = {
     // ========================================
     'critical_master': {
         name: 'Critical Master',
-        description: 'Land 50 critical hits',
+        description: 'Land 200 critical hits',
         icon: 'X',
         category: 'Special',
         progress: 0,
-        target: 50,
+        target: 200,
         unlocked: false
     },
     'chain_reaction': {
         name: 'Chain Reaction',
-        description: 'Hit 5 enemies with a single chain lightning',
+        description: 'Hit 8 enemies with a single chain lightning',
         icon: '*',
+        category: 'Special',
+        progress: 0,
+        target: 8,
+        unlocked: false
+    },
+    'ricochet_master': {
+        name: 'Ricochet Master',
+        description: 'Hit 5 enemies with a single ricochet',
+        icon: '<',
         category: 'Special',
         progress: 0,
         target: 5,
         unlocked: false
     },
-    'ricochet_master': {
-        name: 'Ricochet Master',
-        description: 'Hit 3 enemies with a single ricochet',
-        icon: '<',
-        category: 'Special',
-        progress: 0,
-        target: 3,
-        unlocked: false
-    },
     'ricochet_rampage': {
         name: 'Ricochet Rampage',
-        description: 'Land 75 ricochet bounces in a single run',
+        description: 'Land 200 ricochet bounces in a single run',
         icon: '<<',
         category: 'Special',
         progress: 0,
-        target: 75,
+        target: 200,
         unlocked: false,
         important: true,
         unlocksCharacter: 'phantom_striker'
@@ -355,11 +316,11 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'split_shot_specialist': {
         name: 'Split Shot Specialist',
-        description: 'Draft Split Shot four times in a single run',
+        description: 'Draft Split Shot five times in a single run',
         icon: '≡',
         category: 'Special',
         progress: 0,
-        target: 4,
+        target: 5,
         unlocked: false,
         unlocksCharacter: 'nova_corsair'
     },

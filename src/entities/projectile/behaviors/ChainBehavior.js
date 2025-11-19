@@ -110,22 +110,22 @@ class ChainBehavior extends ProjectileBehaviorBase {
             // Apply chain damage
             const chainDamage = this.projectile.damage * this.damageMultiplier;
 
+            const burnBehavior = this.projectile.behaviorManager?.getBehavior?.('burn');
+
             if (typeof nearest.takeDamage === 'function') {
-                nearest.takeDamage(Math.max(1, chainDamage));
+                const damageOptions = burnBehavior ? { damageType: 'burn' } : {};
+                nearest.takeDamage(Math.max(1, chainDamage), damageOptions);
             }
 
             // IMPORTANT: Apply burn to chained enemies if projectile has burn
             // This ensures burn damage tracking works for chain builds!
-            if (this.projectile.behaviorManager?.hasBehavior?.('burn')) {
-                const burnBehavior = this.projectile.behaviorManager.behaviors.find(b => b.type === 'burn');
-                if (burnBehavior && nearest.statusEffects) {
-                    // Apply burn with same parameters as original projectile
-                    nearest.statusEffects.applyEffect('burn', {
-                        damage: burnBehavior.damage || 5,
-                        explosionDamage: burnBehavior.explosionDamage || 0,
-                        explosionRadius: burnBehavior.explosionRadius || 0
-                    }, burnBehavior.duration || 3.0);
-                }
+            if (burnBehavior && nearest.statusEffects?.applyEffect) {
+                // Apply burn with same parameters as original projectile
+                nearest.statusEffects.applyEffect('burn', {
+                    damage: burnBehavior.damage || 5,
+                    explosionDamage: burnBehavior.explosionDamage || 0,
+                    explosionRadius: burnBehavior.explosionRadius || 0
+                }, burnBehavior.duration || 3.0);
             }
 
             this.chainedEnemies.add(nearest.id);

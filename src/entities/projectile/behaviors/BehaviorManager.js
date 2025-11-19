@@ -121,7 +121,13 @@ class ProjectileBehaviorManager {
 
         // 1. Apply damage
         if (typeof target.takeDamage === 'function') {
-            target.takeDamage(this.projectile.damage);
+            const damageOptions = {
+                isCritical: !!this.projectile.isCrit
+            };
+            if (this.hasBehavior('burn')) {
+                damageOptions.damageType = 'burn';
+            }
+            target.takeDamage(this.projectile.damage, damageOptions);
         }
 
         // 2. Trigger on-hit effects (chain lightning, lifesteal, etc.)

@@ -109,23 +109,19 @@ class StatusEffectManager {
             if (this.enemy && !this.enemy.isDead) {
                 const damage = effect.data.damage || 5;
 
-                // Track burn damage for achievement (Grim Harvest - Inferno Juggernaut unlock)
-                const gm = window.gameManager || window.gameManagerBridge;
-                const gameState = gm?.game?.state;
-                if (gameState?.addBurnDamage) {
-                    gameState.addBurnDamage(damage);
-                }
-
                 // Use EnemyStats if available, otherwise direct modification
                 if (window.Game?.EnemyStats) {
                     window.Game.EnemyStats.takeDamage(this.enemy, damage, {
                         isCritical: false,
                         label: 'BURN',
-                        showText: true
+                        showText: true,
+                        damageType: 'burn'
                     });
                 } else {
                     this.enemy.health -= damage;
+                    this._reportBurnDamage(damage);
                     // Basic floating text fallback
+                    const gm = window.gameManager || window.gameManagerBridge;
                     if (gm?.showFloatingText) {
                         gm.showFloatingText(
                             `${Math.round(damage)}`,
@@ -156,7 +152,10 @@ class StatusEffectManager {
 
             for (const enemy of enemies) {
                 if (!enemy || enemy.isDead) continue;
-                enemy.takeDamage(damage);
+                enemy.takeDamage(damage, {
+                    label: 'BURN',
+                    damageType: 'burn'
+                });
             }
         }
 
@@ -240,6 +239,23 @@ class StatusEffectManager {
                     type: 'flame'
                 });
             }
+        }
+    }
+
+    _reportBurnDamage(amount) {
+        if (!Number.isFinite(amount) || amount <= 0 || typeof window === 'undefined') {
+            return;
+        }
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        let gameState = gm?.game?.state || gm?.state || null;
+
+        if (!gameState && window.gameEngine?.state) {
+            gameState = window.gameEngine.state;
+        }
+
+        if (gameState?.addBurnDamage) {
+            gameState.addBurnDamage(amount);
         }
     }
 }

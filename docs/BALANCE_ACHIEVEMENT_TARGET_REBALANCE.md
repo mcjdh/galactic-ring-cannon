@@ -35,9 +35,9 @@ During playtesting, achievement progress for fire damage and lifesteal was **ext
 ### Grim Harvest (Inferno Juggernaut)
 | Metric | Before | After | Multiplier |
 |--------|--------|-------|------------|
-| **Target** | 2500 burn damage | **500 burn damage** | **5x easier** |
-| **Typical run** | 50-150 burn damage | 50-150 burn damage | - |
-| **Runs needed** | 15-50 runs | **3-10 runs** | Much better! |
+| **Target** | 2500 burn damage | **1500 burn damage** | **~1.7x easier** |
+| **Typical run** | 200-450 burn damage | 200-450 burn damage | - |
+| **Runs needed** | 15-50 runs | **3-6 runs** | Much better! |
 
 **Math Breakdown:**
 ```
@@ -47,8 +47,9 @@ Effective DPS: 14 burn DPS per burning enemy
 
 With 3-5 enemies burning simultaneously:
 - 3 enemies × 14 DPS = 42 DPS
-- 500 / 42 = ~12 seconds of sustained burns
-- Achievable in 2-4 intentional pyromancy runs!
+- 5 enemies × 14 DPS = 70 DPS
+- 1500 / 42 = ~36 seconds, 1500 / 70 = ~21 seconds
+- Achievable in ~3 focused Pyromancy runs (or one long run) with intentional stacking!
 ```
 
 ---
@@ -152,7 +153,7 @@ Edge Walker: 60s target → Died at 42s trying (discouraging!) ❌
 
 ### After Adjustment:
 ```
-Grim Harvest: 500 target → 120 burn damage after pyromancy run (24% progress!) ✅
+Grim Harvest: 1500 target → 350-450 burn damage after Pyromancy build (25-30% progress!) ✅
 Crimson Pact: 300 target → 65 HP healed after lifesteal run (22% progress!) ✅
 Edge Walker: 45s target → Survived at 47s (unlocked!) ✅
 ```
@@ -188,7 +189,7 @@ After these changes, test:
 
 1. **Grim Harvest** - Play 2 runs with Pyromancy upgrades
    - Expected: 20-30% progress per run
-   - Target: Unlock in 3-5 runs
+   - Target: Unlock in 3-5 runs (≈1500 burn damage)
 
 2. **Crimson Pact** - Play 2 runs with lifesteal upgrades  
    - Expected: 15-25% progress per run

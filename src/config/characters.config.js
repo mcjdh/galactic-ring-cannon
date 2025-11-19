@@ -297,7 +297,7 @@ const CHARACTER_DEFINITIONS = [
         unlockRequirement: {
             type: 'achievement',
             ids: ['crimson_pact'],
-            hint: 'Embrace the blood pact: heal 3000 HP via lifesteal to awaken the Reaver.'
+            hint: 'Embrace the blood pact: heal 1000 HP via lifesteal to awaken the Reaver.'
         },
         flavor: '"Every drop spilled is a gift. Every wound dealt, a feast."'
     },
@@ -436,7 +436,7 @@ const CHARACTER_DEFINITIONS = [
         unlockRequirement: {
             type: 'achievement',
             ids: ['edge_walker'],
-            hint: 'Live on the edge—survive at critical health to unlock.'
+            hint: 'Live on the edge—survive at 50% health or less to unlock.'
         },
         flavor: '"Pain is just data. And the data says I\'m winning."'
     }

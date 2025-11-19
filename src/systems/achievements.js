@@ -23,17 +23,38 @@ class AchievementSystem {
         this.subscribeToGameStateEvents();
     }
 
-    subscribeToGameStateEvents() {
-        // Wait for GameState to be available
-        setTimeout(() => {
-            const gameState = window.gameManager?.game?.state;
-            if (gameState?.on) {
-                // Track burn/fire damage for Grim Harvest achievement
-                gameState.on('burnDamageDealt', (data) => {
-                    this.onBurnDamageDealt(data.total || 0);
-                });
+    subscribeToGameStateEvents(retryDelay = 250) {
+        const attemptSubscribe = () => {
+            const gameState = this._resolveGameState();
+
+            if (!gameState?.on) {
+                this._gameStateSubscriptionTimer = setTimeout(attemptSubscribe, retryDelay);
+                return;
             }
-        }, 100);
+
+            // Already subscribed to this instance? Nothing to do.
+            if (this._subscribedGameState === gameState && this._burnDamageListener) {
+                return;
+            }
+
+            // Clean up previous listener if GameState changed
+            if (this._subscribedGameState && this._subscribedGameState !== gameState && this._burnDamageListener) {
+                this._subscribedGameState.off?.('burnDamageDealt', this._burnDamageListener);
+            }
+
+            this._subscribedGameState = gameState;
+
+            if (!this._burnDamageListener) {
+                this._burnDamageListener = (data = {}) => {
+                    this.onBurnDamageDealt(data?.total || 0);
+                };
+            }
+
+            gameState.on('burnDamageDealt', this._burnDamageListener);
+            this._gameStateSubscriptionTimer = null;
+        };
+
+        attemptSubscribe();
     }
 
     initializeTracking() {
@@ -77,8 +98,12 @@ class AchievementSystem {
         // Track time at low health for 'Edge Walker' achievement
         this.timeAtLowHealth = 0;
         this.maxTimeAtLowHealth = 0;
-        this.lowHealthThreshold = 0.3; // 30% health
+        this.lowHealthThreshold = 0.5; // 50% health (increased from 30% for better balance)
 
+        // Internal references for deferred GameState subscriptions
+        this._subscribedGameState = null;
+        this._burnDamageListener = null;
+        this._gameStateSubscriptionTimer = null;
     }
 
     /**
@@ -307,6 +332,15 @@ class AchievementSystem {
         }
         FallbackCustomEvent.prototype = window.Event?.prototype || {};
         return FallbackCustomEvent;
+    }
+
+    _resolveGameState() {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        return gm?.game?.state || gm?.state || window.gameEngine?.state || null;
     }
 
     // Track damage-free time
@@ -545,6 +579,11 @@ class AchievementSystem {
 
         // Update Crimson Pact achievement (Crimson Reaver unlock)
         this.updateAchievement('crimson_pact', Math.floor(this.runLifestealTotal));
+    }
+
+    // Legacy alias - older systems call onLifestealHeal()
+    onLifestealHeal(healAmount) {
+        this.onLifestealHealing(healAmount);
     }
 
     showAchievementNotification(achievement) {
