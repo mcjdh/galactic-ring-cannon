@@ -66,6 +66,41 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 50,
         unlocked: false
     },
+    'on_fire': {
+        name: 'On Fire!',
+        description: 'Reach a 10 kill streak',
+        icon: '⚡',
+        progress: 0,
+        target: 10,
+        unlocked: false
+    },
+    'unstoppable': {
+        name: 'Unstoppable Force',
+        description: 'Reach a 20 kill streak',
+        icon: '🔥',
+        progress: 0,
+        target: 20,
+        unlocked: false,
+        important: true
+    },
+    'godlike': {
+        name: 'Godlike!',
+        description: 'Reach a 30 kill streak',
+        icon: '👑',
+        progress: 0,
+        target: 30,
+        unlocked: false,
+        important: true
+    },
+    'immortal': {
+        name: 'Immortal',
+        description: 'Reach a 50 kill streak',
+        icon: '🌌',
+        progress: 0,
+        target: 50,
+        unlocked: false,
+        important: true
+    },
 
     // ========================================
     // PROGRESSION ACHIEVEMENTS

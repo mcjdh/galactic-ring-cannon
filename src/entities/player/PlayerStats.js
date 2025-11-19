@@ -149,6 +149,33 @@ class PlayerStats {
             if (window.audioSystem?.play) {
                 window.audioSystem.play('levelUp', 0.4);
             }
+
+            // Update achievements for streak milestones
+            this.updateStreakAchievements(currentMilestone);
+        }
+    }
+
+    /**
+     * Update kill streak achievements
+     */
+    updateStreakAchievements(streakCount) {
+        const achievementSystem = window.achievementSystem;
+        if (!achievementSystem || typeof achievementSystem.updateAchievement !== 'function') {
+            return;
+        }
+
+        // Update progressive streak achievements
+        if (streakCount >= 10) {
+            achievementSystem.updateAchievement('on_fire', streakCount);
+        }
+        if (streakCount >= 20) {
+            achievementSystem.updateAchievement('unstoppable', streakCount);
+        }
+        if (streakCount >= 30) {
+            achievementSystem.updateAchievement('godlike', streakCount);
+        }
+        if (streakCount >= 50) {
+            achievementSystem.updateAchievement('immortal', streakCount);
         }
     }
 
