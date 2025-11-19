@@ -4,7 +4,9 @@ class OptimizedParticlePool {
         this.pool = [];
         this.activeParticles = [];
         this._lastReturnedIndex = -1;
-        this.maxParticles = 200;
+        // Align with GAME_CONSTANTS.PERFORMANCE.MAX_PARTICLES for consistency
+        const PERF_CONSTANTS = window?.GAME_CONSTANTS?.PERFORMANCE || {};
+        this.maxParticles = PERF_CONSTANTS.MAX_PARTICLES || 150;
         this.poolSize = initialSize;
 
         // Pre-allocate particle objects to avoid GC pressure
@@ -398,32 +400,37 @@ class OptimizedParticlePool {
     }
     
     // Spawn common particle types with optimized settings
-    spawnHitEffect(x, y, intensity = 1) {
-        const count = Math.min(8, Math.ceil(intensity * 5));
+    spawnHitEffect(x, y, intensity = 1, isCritical = false) {
+        const count = Math.min(isCritical ? 12 : 8, Math.ceil(intensity * (isCritical ? 7 : 5)));
         const effectiveCount = this.lowQuality
             ? Math.max(1, Math.floor(count * this.densityMultiplier))
             : count;
-        
+
         const FastMath = window.Game?.FastMath;
-        
+
         // Helper function for random with proper binding
         const getRandom = () => window.perfCache ? window.perfCache.random() : Math.random();
-        
+
+        // Critical hits use golden colors and faster particles
+        const baseColor = isCritical ? '#f1c40f' : (intensity > 0.8 ? '#ff6b6b' : '#ffa726');
+        const altColor = isCritical ? '#f39c12' : '#ff8c42';
+        const speedMultiplier = isCritical ? 1.4 : 1.0;
+
         for (let i = 0; i < effectiveCount; i++) {
             const angle = (i / effectiveCount) * Math.PI * 2;
-            const speed = 50 + getRandom() * 100 * intensity;
-            
+            const speed = (50 + getRandom() * 100 * intensity) * speedMultiplier;
+
             // Use FastMath.sincos for 5x speedup on ARM
             const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
-            
+
             this.spawnParticle({
                 x: x + (getRandom() - 0.5) * 10,
                 y: y + (getRandom() - 0.5) * 10,
                 vx: cos * speed,
                 vy: sin * speed,
-                size: 2 + getRandom() * 3 * intensity,
-                color: intensity > 0.8 ? '#ff6b6b' : '#ffa726',
-                life: 0.3 + getRandom() * 0.4,
+                size: (2 + getRandom() * 3 * intensity) * (isCritical ? 1.2 : 1.0),
+                color: getRandom() > 0.5 ? baseColor : altColor,
+                life: (0.3 + getRandom() * 0.4) * (isCritical ? 1.3 : 1.0),
                 type: 'spark',
                 friction: 0.9
             });
@@ -546,7 +553,7 @@ if (typeof window !== 'undefined') {
                     });
                 }
             }
-            createHitEffect(x, y, intensity = 1) { this.pool.spawnHitEffect(x, y, intensity); }
+            createHitEffect(x, y, intensity = 1, isCritical = false) { this.pool.spawnHitEffect(x, y, intensity, isCritical); }
             createLevelUpEffect(x, y) {
                 const total = this.pool.lowQuality
                     ? Math.max(6, Math.floor(20 * this.pool.densityMultiplier))

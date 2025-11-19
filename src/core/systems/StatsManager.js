@@ -438,6 +438,12 @@ class StatsManager {
 
         const killCount = this.incrementKills();
 
+        // Show combo milestone feedback
+        const combo = this.comboCount;
+        if (combo > 0 && combo % 5 === 0) {
+            this.showComboMilestone(combo, enemy);
+        }
+
         if (enemy?.isElite) {
             this.trackSpecialEvent('elite_kill');
         }
@@ -481,6 +487,97 @@ class StatsManager {
         this.achievementSystem?.onPlayerDamaged?.();
     }
     
+    /**
+     * Show combo milestone visual feedback
+     */
+    showComboMilestone(combo, enemy) {
+        if (!this.gameManager?.game?.player) return;
+
+        const player = this.gameManager.game.player;
+        const x = enemy?.x || player.x;
+        const y = enemy?.y || player.y;
+
+        // Determine milestone tier for visual intensity
+        let tier = 1;
+        let color = '#3498db';
+        let message = `${combo}x COMBO!`;
+
+        if (combo >= 50) {
+            tier = 4;
+            color = '#9b59b6'; // Purple for ultra combo
+            message = `⚡ ${combo}x ULTRA COMBO! ⚡`;
+        } else if (combo >= 25) {
+            tier = 3;
+            color = '#e74c3c'; // Red for mega combo
+            message = `🔥 ${combo}x MEGA COMBO! 🔥`;
+        } else if (combo >= 10) {
+            tier = 2;
+            color = '#f39c12'; // Orange for big combo
+            message = `✨ ${combo}x COMBO! ✨`;
+        }
+
+        // Show combo text
+        if (this.gameManager.showFloatingText) {
+            this.gameManager.showFloatingText(
+                message,
+                x,
+                y - 40,
+                color,
+                18 + (tier * 4)
+            );
+        }
+
+        // Create particle effect based on tier
+        if (window.optimizedParticles) {
+            const particleCount = 8 + (tier * 4);
+            const radius = 20 + (tier * 10);
+
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (i / particleCount) * Math.PI * 2;
+                const speed = 60 + (tier * 20) + Math.random() * 40;
+
+                window.optimizedParticles.spawnParticle({
+                    x: x + Math.cos(angle) * radius,
+                    y: y + Math.sin(angle) * radius,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + tier,
+                    color: color,
+                    life: 0.5 + (tier * 0.15),
+                    type: 'spark'
+                });
+            }
+
+            // Add extra burst for higher tiers
+            if (tier >= 3) {
+                for (let i = 0; i < 12; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 80 + Math.random() * 80;
+                    window.optimizedParticles.spawnParticle({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: 3 + Math.random() * 2,
+                        color: tier >= 4 ? '#9b59b6' : '#e74c3c',
+                        life: 0.8,
+                        type: 'spark'
+                    });
+                }
+            }
+        }
+
+        // Screen shake for higher tiers
+        if (tier >= 2 && this.gameManager.addScreenShake) {
+            this.gameManager.addScreenShake(2 + tier, 0.25);
+        }
+
+        // Play sound
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('combo', 0.4 + (tier * 0.1));
+        }
+    }
+
     /**
      * Reset combo system
      */
