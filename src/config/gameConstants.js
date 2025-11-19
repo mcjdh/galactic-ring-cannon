@@ -41,6 +41,10 @@
                 void_reaver: {
                     core: '#4b0082',  // Deep indigo
                     glow: '#9370db'   // Medium purple
+                },
+                phantom_striker: {
+                    core: '#9370db',  // Medium purple
+                    glow: '#da70d6'   // Orchid/violet
                 }
                 }
             },

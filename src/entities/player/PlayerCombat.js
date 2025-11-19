@@ -392,7 +392,10 @@ class PlayerCombat {
         if (abilities && abilities.hasExplosiveShots && Math.random() < (abilities.explosiveChance || 0.3)) {
             types.push('explosive');
         }
-        if (abilities && abilities.hasRicochet && Math.random() < (abilities.ricochetChance || 0.25)) {
+        // Guaranteed ricochet for Phantom Striker, otherwise chance-based
+        if (abilities && abilities.hasGuaranteedRicochet) {
+            types.push('ricochet');
+        } else if (abilities && abilities.hasRicochet && Math.random() < (abilities.ricochetChance || 0.25)) {
             types.push('ricochet');
         }
         if (abilities && abilities.hasHomingShots && Math.random() < (abilities.homingChance || 0.2)) {

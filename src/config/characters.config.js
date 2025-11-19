@@ -336,6 +336,54 @@ const CHARACTER_DEFINITIONS = [
             hint: 'Cross the Event Horizon achievement to harness the void.'
         },
         flavor: '"Gravity is not a force. It is a conversation—and I control the dialogue."'
+    },
+    {
+        id: 'phantom_striker',
+        name: 'Phantom Striker',
+        icon: 'ψ',
+        tagline: 'Void Ricochet Assassin',
+        description: 'A ghostly phase-shifter who bends projectile trajectories through the void. Excels at making shots bounce between enemies with supernatural precision.',
+        difficulty: 'tactical',
+        weaponId: 'phantom_repeater',
+        highlights: [
+            'All projectiles ricochet 2 times by default',
+            '+8% base critical chance',
+            '+12% movement speed & faster dodge',
+            'Extended ricochet range for guaranteed bounces'
+        ],
+        modifiers: {
+            stats: {
+                healthMultiplier: 0.95,     // Slightly fragile (tactical playstyle)
+                regeneration: 0.6,          // Modest regen
+                critChance: 0.08            // +8% crit chance bonus
+            },
+            combat: {
+                attackSpeedMultiplier: 1.08,  // +8% attack speed
+                attackDamageMultiplier: 1.0,  // Balanced damage
+                critChanceBonus: 0.08         // Additional +8% crit (stacks with stats)
+            },
+            movement: {
+                speedMultiplier: 1.12,          // +12% movement speed (very agile)
+                dodgeCooldownMultiplier: 0.85   // -15% dodge cooldown (frequent dodging)
+            },
+            abilities: {
+                ricochet: {
+                    baseBounces: 2,           // All projectiles ricochet 2 times
+                    damageMultiplier: 0.85,   // 85% damage per bounce
+                    range: 320,               // Extended range for finding targets
+                    guaranteed: true          // Ricochet is always active
+                }
+            }
+        },
+        // Build path preferences - ricochet synergies
+        preferredBuildPaths: ['ricochet', 'explosive', 'homing'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['ricochet_rampage'],
+            hint: 'Master the art of ricochets to summon the Phantom.'
+        },
+        flavor: '"They never see the second shot coming—or the third."'
+
     }
 ];
 

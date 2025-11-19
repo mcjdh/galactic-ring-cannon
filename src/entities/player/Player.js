@@ -344,6 +344,32 @@ class Player {
                     this.abilities.gravityWellDamageMultiplier = gravityWell.damageMultiplier;
                 }
             }
+
+            // NEW: Ricochet ability modifiers (Phantom Striker)
+            if (abilityMods.ricochet) {
+                const ricochet = abilityMods.ricochet;
+
+                // Grant guaranteed ricochet
+                if (ricochet.guaranteed || (typeof ricochet.baseBounces === 'number' && ricochet.baseBounces > 0)) {
+                    this.abilities.hasGuaranteedRicochet = true;
+                    this.abilities.ricochetBounces = ricochet.baseBounces || 2;
+
+                    // Set ricochet base stats
+                    if (!this.abilities.ricochetDamage) {
+                        this.abilities.ricochetDamage = 0.8; // Base ricochet damage multiplier
+                    }
+                    if (!this.abilities.ricochetRange) {
+                        this.abilities.ricochetRange = 280; // Base ricochet search range
+                    }
+                }
+
+                // Apply ricochet stat multipliers
+                if (typeof ricochet.damageMultiplier === 'number') {
+                    this.abilities.ricochetDamage = ricochet.damageMultiplier;
+                }
+                if (typeof ricochet.range === 'number') {
+                    this.abilities.ricochetRange = ricochet.range;
+
                 }
             }
         }
