@@ -90,7 +90,10 @@ class PlayerMovement {
         const C = PlayerMovement.MOVEMENT_CONSTANTS; // Shorthand for constants
         const acceleration = C.ACCELERATION;
         const friction = C.FRICTION;
-        const maxSpeed = this.speed;
+
+        // Apply kill streak speed bonus
+        const streakBonuses = this.player.stats?.getKillStreakBonuses?.() || { speed: 1.0 };
+        const maxSpeed = this.speed * streakBonuses.speed;
 
         // Apply input acceleration
         if (inputX !== 0 || inputY !== 0) {

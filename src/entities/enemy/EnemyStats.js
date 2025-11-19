@@ -106,6 +106,12 @@ class EnemyStats {
                 gm.incrementKills();
             }
 
+            // Update player kill streak
+            const player = gm.game?.player;
+            if (player && player.stats && typeof player.stats.addKillToStreak === 'function') {
+                player.stats.addKillToStreak();
+            }
+
             if (enemy.isBoss) {
                 // Check for perfect boss kill and reward player
                 this.handlePerfectBossKill(enemy, gm.game?.player);

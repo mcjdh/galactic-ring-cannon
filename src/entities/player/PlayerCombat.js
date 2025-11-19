@@ -64,7 +64,10 @@ class PlayerCombat {
 
     updateAttackCooldown() {
         // Prevent division by zero and ensure minimum cooldown
-        const safeAttackSpeed = Math.max(this.attackSpeed, 0.1);
+        // Apply kill streak attack speed bonus
+        const streakBonuses = this.player.stats?.getKillStreakBonuses?.() || { attackSpeed: 1.0 };
+        const effectiveAttackSpeed = this.attackSpeed * streakBonuses.attackSpeed;
+        const safeAttackSpeed = Math.max(effectiveAttackSpeed, 0.1);
         const newCooldown = 1 / safeAttackSpeed;
         if (this.attackCooldown !== newCooldown && this.attackCooldown > 0) {
             // Scale current timer proportionally to maintain timing consistency
@@ -268,7 +271,10 @@ class PlayerCombat {
 
             // Calculate damage and crit for this projectile (each projectile can crit independently)
             const isCrit = Math.random() < (this.critChance || 0);
-            const baseDamage = this.attackDamage * damageMultiplier;
+
+            // Apply kill streak bonuses
+            const streakBonuses = this.player.stats?.getKillStreakBonuses?.() || { damage: 1.0 };
+            const baseDamage = this.attackDamage * damageMultiplier * streakBonuses.damage;
             const damage = isCrit ? baseDamage * (this.critMultiplier || 2) : baseDamage;
 
             // Determine special effects for THIS projectile (independent roll per projectile)

@@ -26,10 +26,12 @@ class PlayerStats {
         this.invulnerabilityTime = PLAYER_CONSTANTS.INVULNERABILITY_TIME || 0.5;
         this.invulnerabilityTimer = 0;
 
-        // Kill streak tracking
+        // Kill streak tracking with rewards
         this.killStreak = 0;
         this.killStreakTimer = 0;
         this.killStreakTimeout = 5.0;
+        this.highestKillStreak = 0; // Track best streak for session
+        this.lastStreakMilestone = 0; // For visual feedback throttling
 
         this._uiElements = null;
         this._lastUiState = {
@@ -75,9 +77,128 @@ class PlayerStats {
         if (this.killStreak > 0) {
             this.killStreakTimer += deltaTime;
             if (this.killStreakTimer >= this.killStreakTimeout) {
+                // Streak ended - show notification if it was significant
+                if (this.killStreak >= 10) {
+                    const gm = window.gameManager || window.gameManagerBridge;
+                    if (gm?.showFloatingText) {
+                        gm.showFloatingText(
+                            `Streak Ended: ${this.killStreak}`,
+                            this.player.x,
+                            this.player.y - 40,
+                            '#e67e22',
+                            18
+                        );
+                    }
+                }
                 this.killStreak = 0;
+                this.killStreakTimer = 0;
             }
         }
+    }
+
+    /**
+     * Add a kill to the streak and reset the timer
+     */
+    addKillToStreak() {
+        this.killStreak++;
+        this.killStreakTimer = 0; // Reset timer
+
+        // Track highest streak
+        if (this.killStreak > this.highestKillStreak) {
+            this.highestKillStreak = this.killStreak;
+        }
+
+        // Show visual feedback at milestones
+        this.checkStreakMilestone();
+    }
+
+    /**
+     * Check if we hit a streak milestone and show feedback
+     */
+    checkStreakMilestone() {
+        const milestones = [5, 10, 15, 20, 25, 30, 40, 50];
+        const currentMilestone = milestones.find(m => m === this.killStreak);
+
+        if (currentMilestone && currentMilestone > this.lastStreakMilestone) {
+            this.lastStreakMilestone = currentMilestone;
+            const gm = window.gameManager || window.gameManagerBridge;
+
+            if (gm?.showFloatingText) {
+                const messages = {
+                    5: '⚡ ON FIRE!',
+                    10: '🔥 UNSTOPPABLE!',
+                    15: '💥 DOMINATING!',
+                    20: '⭐ LEGENDARY!',
+                    25: '🌟 GODLIKE!',
+                    30: '👑 IMMORTAL!',
+                    40: '💫 TRANSCENDENT!',
+                    50: '🌌 COSMIC FORCE!'
+                };
+
+                const message = messages[currentMilestone] || `STREAK ${currentMilestone}!`;
+                gm.showFloatingText(
+                    message,
+                    this.player.x,
+                    this.player.y - 60,
+                    '#f39c12',
+                    28
+                );
+            }
+
+            // Play sound effect
+            if (window.audioSystem?.play) {
+                window.audioSystem.play('levelUp', 0.4);
+            }
+        }
+    }
+
+    /**
+     * Get kill streak bonuses as multipliers
+     * Returns object with damage, speed, attackSpeed, lifesteal bonuses
+     */
+    getKillStreakBonuses() {
+        if (this.killStreak < 5) {
+            return { damage: 1.0, speed: 1.0, attackSpeed: 1.0, lifesteal: 0 };
+        }
+
+        let damageBonus = 1.0;
+        let speedBonus = 1.0;
+        let attackSpeedBonus = 1.0;
+        let lifestealBonus = 0;
+
+        // Progressive bonuses based on streak tiers
+        if (this.killStreak >= 5) {
+            damageBonus += 0.10; // +10% damage
+            speedBonus += 0.05;  // +5% speed
+        }
+        if (this.killStreak >= 10) {
+            damageBonus += 0.10; // +20% total
+            speedBonus += 0.05;  // +10% total
+        }
+        if (this.killStreak >= 15) {
+            damageBonus += 0.10;      // +30% total
+            speedBonus += 0.05;       // +15% total
+            attackSpeedBonus += 0.10; // +10% attack speed
+        }
+        if (this.killStreak >= 20) {
+            damageBonus += 0.10;      // +40% total
+            speedBonus += 0.05;       // +20% total
+            attackSpeedBonus += 0.05; // +15% total
+            lifestealBonus += 0.05;   // +5% lifesteal
+        }
+        if (this.killStreak >= 30) {
+            damageBonus += 0.15;      // +55% total
+            speedBonus += 0.10;       // +30% total
+            attackSpeedBonus += 0.10; // +25% total
+            lifestealBonus += 0.05;   // +10% total lifesteal
+        }
+
+        return {
+            damage: damageBonus,
+            speed: speedBonus,
+            attackSpeed: attackSpeedBonus,
+            lifesteal: lifestealBonus
+        };
     }
 
     heal(amount) {

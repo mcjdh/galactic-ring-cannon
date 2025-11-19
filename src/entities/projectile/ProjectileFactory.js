@@ -28,11 +28,16 @@ class ProjectileFactory {
             projectile.vy *= 1.15;
         }
 
-        // Apply lifesteal
-        if (player.stats && player.stats.lifestealAmount > 0) {
-            projectile.lifesteal = player.stats.lifestealAmount;
-            if (isCrit && player.stats.lifestealCritMultiplier > 1) {
-                projectile.lifesteal *= player.stats.lifestealCritMultiplier;
+        // Apply lifesteal with kill streak bonus
+        if (player.stats) {
+            const streakBonuses = player.stats.getKillStreakBonuses?.() || { lifesteal: 0 };
+            const baseLifesteal = (player.stats.lifestealAmount || 0) + streakBonuses.lifesteal;
+
+            if (baseLifesteal > 0) {
+                projectile.lifesteal = baseLifesteal;
+                if (isCrit && player.stats.lifestealCritMultiplier > 1) {
+                    projectile.lifesteal *= player.stats.lifestealCritMultiplier;
+                }
             }
         }
 
