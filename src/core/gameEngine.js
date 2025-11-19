@@ -14,23 +14,23 @@ class GameEngine {
             window.logger.error('Game canvas not found!');
             return;
         }
-        
+
         // Canvas performance optimizations
         this.canvas.style.willChange = 'transform'; // Hint to browser for GPU acceleration
         this.canvas.style.transform = 'translateZ(0)'; // Force GPU layer
         this.canvas.style.backfaceVisibility = 'hidden'; // Optimize for transforms
-        
+
         // Get 2D context with performance optimizations
-        this.ctx = this.canvas.getContext('2d', { 
+        this.ctx = this.canvas.getContext('2d', {
             alpha: false, // Disable alpha for better performance
             willReadFrequently: false // Optimize for GPU rendering
         });
-        
+
         if (!this.ctx) {
             window.logger.error('Could not get 2D context!');
             return;
         }
-        
+
         // Set canvas size to window size with error handling
         try {
             // Store bound functions for proper cleanup later
@@ -47,14 +47,14 @@ class GameEngine {
                     window.logger.warn('Cleanup during unload failed:', error);
                 }
             };
-            
+
             this.resizeCanvas();
             window.addEventListener('resize', this.boundResizeCanvas);
             window.addEventListener('beforeunload', this.boundHandleBeforeUnload, { once: true });
         } catch (error) {
             window.logger.error('Error initializing canvas:', error);
         }
-        
+
         // [GAME STATE] - Single Source of Truth
         // Initialize centralized state management
         this.state = new GameState();
@@ -76,7 +76,7 @@ class GameEngine {
         this._xpOrbBatch = Array(PERF.XP_ORB_BATCH_SIZE).fill(null);
         this._fallbackBatch = Array(PERF.FALLBACK_BATCH_SIZE).fill(null);
 
-		// Enemy projectile pool is initialized below with other pools
+        // Enemy projectile pool is initialized below with other pools
         this.lastTime = 0;
 
         // Performance tracking (local to GameEngine for frame timing)
@@ -91,13 +91,26 @@ class GameEngine {
         this._maxFixedSteps = PERF.MAX_FIXED_STEPS;
         this._accumulatorMs = 0;
         this._renderAccumulatorMs = 0;
-        this.performanceMode = false;
+
+        // [PERFORMANCE] Delegated to PerformanceManager
+        // Initialize PerformanceManager
+        try {
+            const SystemPerformanceManager = window.Game?.SystemPerformanceManager;
+            this.performanceManager = SystemPerformanceManager ? new SystemPerformanceManager(this) : null;
+        } catch (e) {
+            window.logger.warn('PerformanceManager initialization failed:', e);
+            this.performanceManager = null;
+        }
+
+        // Legacy flags - now proxies to PerformanceManager
+        // this.performanceMode = false; // Accessed via getter/setter
+        // this.debugMode = false; // Kept in GameEngine
         this.debugMode = false;
-        this.lowGpuMode = false;
-        this.lowPerformanceMode = false;
-        this._autoLowQualityCosmic = false;
-        this._autoParticleLowQuality = false;
-        this._manualPerformanceOverride = null;
+        // this.lowGpuMode = false; // Accessed via getter
+        // this.lowPerformanceMode = false; // Accessed via getter
+        // this._autoLowQualityCosmic = false; // Managed by PerformanceManager
+        // this._autoParticleLowQuality = false; // Managed by PerformanceManager
+        // this._manualPerformanceOverride = null; // Managed by PerformanceManager
         this._visibleEntitiesScratch = [];
         this._visibleEntitiesGeneration = 1;
         this._domCache = new Map();
@@ -115,54 +128,54 @@ class GameEngine {
         // Track pause origins so auto-resume doesn't override manual pauses
         this.manualPause = false;
         this.autoPaused = false;
-        
-    // Object pools - partially implemented for projectiles and particles
-    // [AI NOTE] FOR ALL CODING AGENTS:
-    // Object pooling (simplified) - projectile pooling removed due to state corruption bugs
-    // Current pools: particlePool, enemyProjectilePool
-    this.enemyProjectilePool = [];
-    this.particlePool = [];
-    this.maxPoolSize = 100; // Pool size works well for most devices
-        
-		// Spatial partitioning system
-		this.gridSize = 100; // Fixed grid size for collision detection
-		this.spatialGrid = new Map();
+
+        // Object pools - partially implemented for projectiles and particles
+        // [AI NOTE] FOR ALL CODING AGENTS:
+        // Object pooling (simplified) - projectile pooling removed due to state corruption bugs
+        // Current pools: particlePool, enemyProjectilePool
+        this.enemyProjectilePool = [];
+        this.particlePool = [];
+        this.maxPoolSize = 100; // Pool size works well for most devices
+
+        // Spatial partitioning system
+        this.gridSize = 100; // Fixed grid size for collision detection
+        this.spatialGrid = new Map();
         this._spatialGridCellPool = [];
         this._maxSpatialGridPoolSize = 256;
-        
+
         // [OPTIMIZATION] Initialize Performance Caches (Pi5 stability improvements)
         if (typeof window !== 'undefined' && window.perfCache) {
             window.perfCache.setGridSize(this.gridSize);
             window.logger.info('[Pi5] Performance caches enabled: sqrt, floor, random, vectors');
         }
-        
-		// Initialize unified systems if available
-			try {
-				this.collisionSystem = null;
-				if (typeof window !== 'undefined') {
-					const CollisionSystem = window.Game?.CollisionSystem;
-					if (typeof CollisionSystem === 'function') {
-						this.collisionSystem = new CollisionSystem(this);
-					}
-				}
+
+        // Initialize unified systems if available
+        try {
+            this.collisionSystem = null;
+            if (typeof window !== 'undefined') {
+                const CollisionSystem = window.Game?.CollisionSystem;
+                if (typeof CollisionSystem === 'function') {
+                    this.collisionSystem = new CollisionSystem(this);
+                }
+            }
         } catch (e) {
             window.logger.warn('Collision system initialization failed, using internal collision logic.', e);
-			this.collisionSystem = null;
-		}
+            this.collisionSystem = null;
+        }
 
-		this.entityManager = null;
-		this._initializeEntityManager();
+        this.entityManager = null;
+        this._initializeEntityManager();
 
-		// Initialize Unified UI Manager for proper health bars and floating text
-		try {
-			const UnifiedUIManager = (typeof window !== 'undefined')
-				? window.Game?.UnifiedUIManager
-				: undefined;
-			this.unifiedUI = typeof UnifiedUIManager === 'function'
-				? new UnifiedUIManager(this)
-				: null;
-				
-			// Make game engine globally accessible for UI systems
+        // Initialize Unified UI Manager for proper health bars and floating text
+        try {
+            const UnifiedUIManager = (typeof window !== 'undefined')
+                ? window.Game?.UnifiedUIManager
+                : undefined;
+            this.unifiedUI = typeof UnifiedUIManager === 'function'
+                ? new UnifiedUIManager(this)
+                : null;
+
+            // Make game engine globally accessible for UI systems
             window.gameEngine = this;
         } catch (e) {
             window.logger.warn('UnifiedUIManager initialization failed, using legacy UI systems.', e);
@@ -171,7 +184,7 @@ class GameEngine {
         if (typeof window !== 'undefined') {
             window.__activeGameEngine = this;
         }
-          // Input handling with additional pause key support and error handling
+        // Input handling with additional pause key support and error handling
         this.keys = {};
         try {
             // Store bound input handlers so we can remove them during cleanup
@@ -182,21 +195,21 @@ class GameEngine {
         } catch (error) {
             window.logger.error('Error setting up input handling:', error);
         }
-        
+
         // Visibility state tracking
         this.isVisible = true;
         this.isMinimized = false;
         this.lastVisibilityChange = 0;
-        
+
         // Add visibility change handlers
         document.addEventListener('visibilitychange', this.boundHandleVisibilityChange);
         window.addEventListener('focus', this.boundHandleFocusChange);
         window.addEventListener('blur', this.boundHandleBlurChange);
-        
+
         // Resource cleanup
         this.resourceCleanupInterval = 5000;
         this.lastResourceCleanup = 0;
-        
+
         // Add canvas context loss handling
         this.canvas.addEventListener('webglcontextlost', this.boundHandleContextLoss);
         this.canvas.addEventListener('webglcontextrestored', this.boundHandleContextRestore);
@@ -212,6 +225,20 @@ class GameEngine {
         this._initializeCosmicBackground();
     }
 
+    // ===== PERFORMANCE MANAGER PROXIES =====
+    get performanceMode() { return this.performanceManager?.performanceMode ?? false; }
+    set performanceMode(v) { if (this.performanceManager) this.performanceManager.performanceMode = v; }
+
+    get lowGpuMode() { return this.performanceManager?.lowGpuMode ?? false; }
+    get lowPerformanceMode() { return this.performanceManager?.lowPerformanceMode ?? false; }
+
+    get _manualPerformanceOverride() { return this.performanceManager?._manualPerformanceOverride ?? null; }
+    set _manualPerformanceOverride(v) { if (this.performanceManager) this.performanceManager._manualPerformanceOverride = v; }
+
+    get _autoLowQualityCosmic() { return this.performanceManager?._autoLowQualityCosmic ?? false; }
+    get _autoParticleLowQuality() { return this.performanceManager?._autoParticleLowQuality ?? false; }
+
+
     _initializeCosmicBackground() {
         try {
             const CosmicBackground = (typeof window !== 'undefined')
@@ -224,74 +251,10 @@ class GameEngine {
                 }
                 window.logger.info('Cosmic background initialized');
 
-                // [Pi] Detect Raspberry Pi and low-end devices for auto-optimization
-                const isLowEndDevice = this._detectLowEndDevice();
-                
-                if (isLowEndDevice.isRaspberryPi) {
-                    window.logger.log('[Pi] Raspberry Pi detected - enabling optimizations');
-                    window.isRaspberryPi = true;
-                    this.cosmicBackground.enablePi5Mode();
-                    this._autoLowQualityCosmic = true;
-                    this._autoParticleLowQuality = true;
-                    this.lowGpuMode = true;
-
-                    // OPTIMIZED: Apply low-end CSS class for UI performance gains
-                    document.documentElement.classList.add('low-end-device');
-
-                    // Ensure Pi-specific subsystems activate immediately
-                    if (window.performanceProfiler && typeof window.performanceProfiler.setEnabled === 'function') {
-                        window.performanceProfiler.setEnabled(true);
-                    }
-                    if (typeof ProjectileRenderer !== 'undefined' && typeof ProjectileRenderer.applyPi5GpuLimits === 'function') {
-                        ProjectileRenderer.applyPi5GpuLimits();
-                    }
-                    if (window.gpuMemoryManager && typeof window.gpuMemoryManager.enable === 'function') {
-                        window.gpuMemoryManager.enable();
-                    }
-                    if (typeof window.initTrigCache === 'function') {
-                        window.trigCache = window.trigCache || window.initTrigCache();
-                    }
-                    if (window.FastMath && typeof window.FastMath.installGlobals === 'function') {
-                        window.FastMath.installGlobals();
-                    }
-                } else if (isLowEndDevice.isLowEnd) {
-                    window.logger.log('[P] Low-end device detected - enabling optimizations');
-                    this.cosmicBackground.setLowQuality(true);
-                    this._autoLowQualityCosmic = true;
-                    this._autoParticleLowQuality = true;
-                    this.lowGpuMode = true;
-
-                    // OPTIMIZED: Apply low-end CSS class for UI performance gains
-                    document.documentElement.classList.add('low-end-device');
-                } else {
-                    // Auto-enable low quality on constrained devices or reduced-motion preference
-                    try {
-                        const prefersReducedMotion = typeof window !== 'undefined'
-                            && typeof window.matchMedia === 'function'
-                            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-                        const hardwareConcurrency = typeof navigator !== 'undefined'
-                            ? navigator.hardwareConcurrency
-                            : undefined;
-                        const deviceMemory = typeof navigator !== 'undefined'
-                            ? navigator.deviceMemory
-                            : undefined;
-
-                        const lowPowerDevice =
-                            (typeof hardwareConcurrency === 'number' && hardwareConcurrency > 0 && hardwareConcurrency <= 2) ||
-                            (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 2);
-
-                        const autoLowQuality = prefersReducedMotion || lowPowerDevice;
-
-                        this._autoLowQualityCosmic = !!autoLowQuality;
-                        this._autoParticleLowQuality = !!autoLowQuality;
-                    } catch (autoQualityError) {
-                        window.logger.warn('Auto quality adjustment failed', autoQualityError);
-                    }
+                // [PERFORMANCE] Update quality settings via PerformanceManager
+                if (this.performanceManager) {
+                    this.performanceManager.updateQualitySettings();
                 }
-
-                this._applyBackgroundQuality();
-                this._updateParticleQuality();
             }
         } catch (e) {
             window.logger.warn('CosmicBackground initialization failed', e);
@@ -302,108 +265,7 @@ class GameEngine {
         }
     }
 
-    /**
-     * [Pi] Detect Raspberry Pi and low-end devices for automatic optimization
-     */
-    _detectLowEndDevice() {
-        const result = {
-            isRaspberryPi: false,
-            isLowEnd: false,
-            deviceInfo: ''
-        };
 
-        try {
-            const ua = navigator.userAgent.toLowerCase();
-            const platform = (navigator.platform || '').toLowerCase();
-            
-            // Check for ARM architecture
-            const isARM = /arm|aarch64/.test(platform) || /arm|aarch64/.test(ua);
-            const isLinux = /linux/.test(platform) || /linux/.test(ua);
-            
-            // Check GPU renderer
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            let gpu = '';
-            
-            if (gl) {
-                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                if (debugInfo) {
-                    gpu = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
-                }
-            }
-            
-            // Raspberry Pi detection
-            result.isRaspberryPi = isARM && isLinux && (
-                /mali|videocore|broadcom|v3d/i.test(gpu) || 
-                /raspberry/i.test(ua)
-            );
-            
-            // Other low-end indicators
-            const hasLowMemory = navigator.deviceMemory && navigator.deviceMemory <= 4;
-            const hasLowCores = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-            const hasIntegratedGPU = /intel.*hd|intel.*uhd|mesa|swiftshader/i.test(gpu);
-            
-            result.isLowEnd = !result.isRaspberryPi && (
-                (hasLowMemory && hasLowCores) || 
-                /android/i.test(ua) ||
-                hasIntegratedGPU
-            );
-            
-            result.deviceInfo = `Platform: ${platform}, GPU: ${gpu || 'unknown'}`;
-            
-        } catch (error) {
-            window.logger.warn('Device detection failed:', error);
-        }
-        
-        return result;
-    }
-
-    _updateParticleQuality() {
-        const manualOverride = this._manualPerformanceOverride;
-        let shouldEnable;
-
-        if (manualOverride === 'on') {
-            shouldEnable = true;
-        } else if (manualOverride === 'off') {
-            shouldEnable = false;
-        } else {
-            shouldEnable = !!(this.lowGpuMode || this._autoParticleLowQuality);
-        }
-
-        this.lowPerformanceMode = shouldEnable;
-
-        if (typeof window !== 'undefined' && window.optimizedParticles && typeof window.optimizedParticles.setLowQuality === 'function') {
-            window.optimizedParticles.setLowQuality(shouldEnable);
-        }
-
-        if (typeof window !== 'undefined' && window.gameManager) {
-            window.gameManager.lowPerformanceMode = shouldEnable;
-        }
-    }
-
-    _applyBackgroundQuality() {
-        if (!this.cosmicBackground || typeof this.cosmicBackground.setLowQuality !== 'function') {
-            return;
-        }
-
-        const manualOverride = this._manualPerformanceOverride;
-        let shouldUseLowQuality;
-
-        if (manualOverride === 'on') {
-            shouldUseLowQuality = true;
-        } else if (manualOverride === 'off') {
-            shouldUseLowQuality = false;
-        } else {
-            shouldUseLowQuality = !!(this.lowGpuMode || this._autoLowQualityCosmic);
-        }
-
-        const debugEnabled = this.debugMode || (typeof window !== 'undefined' && window.debugMode);
-        if (debugEnabled) {
-            window.logger.log(`[R] _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
-        }
-
-        this.cosmicBackground.setLowQuality(shouldUseLowQuality);
-    }
 
     // ===== GAMESTATE PROXY PROPERTIES =====
     // External systems access state through these properties
@@ -644,10 +506,10 @@ class GameEngine {
 
         if (useSpatialGrid && this.spatialGrid && this.gridSize > 0 && this.spatialGrid.size > 0) {
             // [OPTIMIZATION] Use PerformanceCache for grid coordinate calculations
-            const gridX = window.perfCache 
+            const gridX = window.perfCache
                 ? window.perfCache.gridCoord(x, this.gridSize)
                 : Math.floor(x / this.gridSize);
-            const gridY = window.perfCache 
+            const gridY = window.perfCache
                 ? window.perfCache.gridCoord(y, this.gridSize)
                 : Math.floor(y / this.gridSize);
 
@@ -770,28 +632,12 @@ class GameEngine {
         this.manualPause = false;
         this.autoPaused = false;
         this.contextLost = false;
-        
-        // [R] FIX: Preserve auto-detected performance settings between runs
-        // Don't reset lowGpuMode/_autoLowQualityCosmic if auto-detected for low-end devices
-        // Only reset if there's a manual override
-        if (this._manualPerformanceOverride === 'on') {
-            this.performanceMode = true;
-            this.lowGpuMode = true;
-        } else if (this._manualPerformanceOverride === 'off') {
-            this.performanceMode = false;
-            this.lowGpuMode = false;
-            // Remove low-end CSS class when manually disabling performance mode
-            document.documentElement.classList.remove('low-end-device');
-        } else {
-            // No manual override - preserve auto-detected settings
-            // Reset performanceMode to false (will be re-enabled by adjustPerformanceMode if FPS drops)
-            // but keep lowGpuMode and _autoLowQualityCosmic unchanged
-            this.performanceMode = false;
-            // Don't touch this.lowGpuMode - keep auto-detected value
-            // Don't touch this._autoLowQualityCosmic - keep auto-detected value
+
+        // [PERFORMANCE] Reset via PerformanceManager
+        if (this.performanceManager) {
+            this.performanceManager.reset();
         }
-        
-        this.lowPerformanceMode = false;
+
         this.isVisible = true;
         this.isMinimized = false;
 
@@ -834,8 +680,9 @@ class GameEngine {
             window.optimizedParticles.clear();
         }
 
-        this._applyBackgroundQuality();
-        this._updateParticleQuality();
+        if (this.performanceManager) {
+            this.performanceManager.updateQualitySettings();
+        }
 
         // [BUG FIX] Reset input state to avoid stuck keys between runs
         // Clear both legacy keys object and InputManager state
@@ -870,30 +717,30 @@ class GameEngine {
             }
         }
 
-        this._updateParticleQuality();
+        if (this.performanceManager) {
+            this.performanceManager.updateQualitySettings();
+        }
     }
 
     onKeyDown(e) {
         this.keys[e.key] = true;
         if (e.code) this.keys[e.code] = true;
-        
+
         // Toggle debug mode with F3
         if (e.key === 'F3') {
             this.debugMode = !this.debugMode;
         }
-        
+
         // Toggle performance mode with 'O' key (O for Optimize)
         if (e.key === 'o' || e.key === 'O') {
-            if (e.altKey) {
-                this._manualPerformanceOverride = null;
-                this.performanceMode = false;
-                this.lowGpuMode = false;
-                // Remove low-end CSS class when resetting performance override
-                document.documentElement.classList.remove('low-end-device');
-                this._applyBackgroundQuality();
-                this._updateParticleQuality();
-            } else {
-                this.togglePerformanceMode();
+            if (this.performanceManager) {
+                if (e.altKey) {
+                    this.performanceManager.setPerformanceOverride(null);
+                } else {
+                    // Toggle between on/off overrides
+                    const current = this.performanceManager._manualPerformanceOverride;
+                    this.performanceManager.setPerformanceOverride(current === 'on' ? 'off' : 'on');
+                }
             }
         }
 
@@ -902,12 +749,12 @@ class GameEngine {
             this.togglePause();
         }
     }
-    
+
     onKeyUp(e) {
         this.keys[e.key] = false;
         if (e.code) this.keys[e.code] = false;
     }
-    
+
     resizeCanvas() {
         try {
             this.canvas.width = window.innerWidth;
@@ -929,7 +776,7 @@ class GameEngine {
             window.logger.error('Error resizing canvas:', error);
         }
     }
-    
+
     start() {
         window.logger.log('> GameEngine starting...');
 
@@ -953,13 +800,13 @@ class GameEngine {
             window.logger.log('@ Game loop already active - refreshed run state');
         }
     }
-    
+
     gameLoop(timestamp) {
         // [Pi] Performance profiling for Pi5
         if (window.performanceProfiler?.enabled) {
             window.performanceProfiler.frameStart();
         }
-        
+
         if (this.lastTime === 0 || !Number.isFinite(this.lastTime)) {
             this.lastTime = timestamp;
         }
@@ -1007,15 +854,15 @@ class GameEngine {
         }
 
         this.lastFrameTime = timestamp;
-        
+
         // [Pi] End frame profiling
         if (window.performanceProfiler?.enabled) {
             window.performanceProfiler.frameEnd();
         }
-        
+
         requestAnimationFrame(this._boundGameLoop);
     }
-    
+
     update(deltaTime) {
         // Validate and smooth deltaTime to prevent jitter
         if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > 1) {
@@ -1023,10 +870,10 @@ class GameEngine {
             if (deltaTime > 0.1 && window.debugManager?.enabled) {
                 window.logger.warn('Invalid deltaTime:', deltaTime);
             }
-            deltaTime = 1/60; // Fallback to 60fps
+            deltaTime = 1 / 60; // Fallback to 60fps
         } else if (deltaTime === 0) {
             // Use a small timestep silently when browsers report 0ms frame
-            deltaTime = 1/60;
+            deltaTime = 1 / 60;
         }
 
         // Smooth deltaTime to reduce movement jitter from frame rate fluctuations
@@ -1042,9 +889,9 @@ class GameEngine {
 
         // Use smoothed deltaTime (weighted average favoring recent frames)
         const smoothedDelta = (this.deltaTimeHistory[0] * 0.1 +
-                              this.deltaTimeHistory[1] * 0.3 +
-                              this.deltaTimeHistory[2] * 0.6);
-        deltaTime = Math.max(1/120, Math.min(1/30, smoothedDelta)); // Clamp between 30-120fps
+            this.deltaTimeHistory[1] * 0.3 +
+            this.deltaTimeHistory[2] * 0.6);
+        deltaTime = Math.max(1 / 120, Math.min(1 / 30, smoothedDelta)); // Clamp between 30-120fps
 
         // 🌊 UPDATE GAME STATE
         if (this.state && this.state.updateTime) {
@@ -1068,12 +915,12 @@ class GameEngine {
                 particleCount
             );
         }
-        
+
         // Update gamepad state if available
         if (window.inputManager && typeof window.inputManager.updateGamepad === 'function') {
             window.inputManager.updateGamepad();
         }
-        
+
         // Update performance manager if available
         if (window.performanceManager && typeof window.performanceManager.update === 'function') {
             window.performanceManager.update(deltaTime);
@@ -1097,14 +944,14 @@ class GameEngine {
         if (!this.collisionSystem && typeof window !== 'undefined') {
             const CollisionSystem = window.Game?.CollisionSystem;
             if (typeof CollisionSystem === 'function') {
-                try { this.collisionSystem = new CollisionSystem(this); } catch (_) {}
+                try { this.collisionSystem = new CollisionSystem(this); } catch (_) { }
             }
         }
         if (!this.entityManager) {
             this._initializeEntityManager();
         }
-        
-    // Update all entities with proper error handling
+
+        // Update all entities with proper error handling
         if (this.entities && Array.isArray(this.entities)) {
             for (let i = this.entities.length - 1; i >= 0; i--) {
                 const entity = this.entities[i];
@@ -1118,14 +965,14 @@ class GameEngine {
                 }
             }
         }
-        
-    // Rebuild spatial grid AFTER entities have moved so culling/collisions are accurate
-    if (this.collisionSystem && typeof this.collisionSystem.updateSpatialGrid === 'function') {
+
+        // Rebuild spatial grid AFTER entities have moved so culling/collisions are accurate
+        if (this.collisionSystem && typeof this.collisionSystem.updateSpatialGrid === 'function') {
             this.collisionSystem.updateSpatialGrid();
         } else {
             this.updateSpatialGrid();
         }
-        
+
         // Update legacy combat texts only when unified UI is not available
         if (!this.unifiedUI && window.gameManager && typeof window.gameManager.updateCombatTexts === 'function') {
             window.gameManager.updateCombatTexts(deltaTime);
@@ -1152,7 +999,7 @@ class GameEngine {
             }
         }
 
-    // Check collisions with error handling (uses up-to-date spatial grid)
+        // Check collisions with error handling (uses up-to-date spatial grid)
         try {
             if (this.collisionSystem && typeof this.collisionSystem.checkCollisions === 'function') {
                 this.collisionSystem.checkCollisions();
@@ -1167,7 +1014,7 @@ class GameEngine {
         if (this.unifiedUI) {
             this.unifiedUI.update(deltaTime);
         }
-        
+
         // Clean up dead entities
         this._cleanupTimer += deltaTime;
         this.cleanupEntities();
@@ -1192,7 +1039,7 @@ class GameEngine {
 
         return 0.16;
     }
-    
+
     updatePerformanceMetrics(elapsed) {
         // Simple FPS tracking
         this.frameCount++;
@@ -1206,7 +1053,7 @@ class GameEngine {
             this.frameCount = 0;
             this.lastFpsUpdate = 0;
         }
-        
+
         // Periodic resource cleanup
         const now = Date.now();
         if (now - this.lastResourceCleanup > this.resourceCleanupInterval) {
@@ -1214,13 +1061,12 @@ class GameEngine {
             this.lastResourceCleanup = now;
         }
     }
-    
+
     adjustPerformanceMode() {
         // Defer to centralized performance manager if present
-        if (window.performanceManager) {
-            return;
-        }
-        const manualOverride = this._manualPerformanceOverride;
+        // [R] We are using PerformanceManager now, but GameEngine still drives FPS monitoring
+
+        const manualOverride = this.performanceManager?._manualPerformanceOverride;
         if (manualOverride === 'on') {
             if (!this.performanceMode) {
                 this.enablePerformanceMode();
@@ -1239,55 +1085,43 @@ class GameEngine {
         } else if (this.fps > 55 && this.performanceMode) {
             this.disablePerformanceMode();
         }
+        // adjustPerformanceMode method removed as its logic is now fully handled by PerformanceManager
+
     }
 
     setPerformancePreference(level) {
         const normalized = (level === 'critical' || level === 'low') ? level : 'normal';
 
-        if (normalized === 'normal') {
-            this._manualPerformanceOverride = null;
-            this.disablePerformanceMode();
-            // [R] FIX: Don't reset auto-detected flags when switching to normal mode
-            // Only reset if they weren't set by auto-detection
-            // This preserves low-quality settings for genuinely low-end devices
-            // (Auto-detected flags should persist regardless of current FPS)
-        } else {
-            this._manualPerformanceOverride = 'on';
-            this.enablePerformanceMode();
-            
-            // [R] FIX: Don't override _autoLowQualityCosmic if it was auto-detected
-            // Manual performance preference should not wipe device detection
-            // Only set it if it's currently false (not auto-detected)
-            if (!this._autoLowQualityCosmic) {
-                this._autoLowQualityCosmic = normalized === 'critical';
+        if (this.performanceManager) {
+            if (normalized === 'normal') {
+                this.performanceManager.setPerformanceOverride('off');
+            } else {
+                this.performanceManager.setPerformanceOverride('on');
+                // Critical mode handling if needed
+                if (normalized === 'critical' && !this.performanceManager._autoLowQualityCosmic) {
+                    // We might want to expose a way to force critical mode in PerformanceManager
+                    // For now, 'on' is sufficient
+                }
             }
-            
-            this._autoParticleLowQuality = true;
         }
-
-        this._applyBackgroundQuality();
-        this._updateParticleQuality();
     }
-    
+
     togglePerformanceMode() {
-        if (this.performanceMode) {
-            this._manualPerformanceOverride = 'off';
-            this.disablePerformanceMode();
-        } else {
-            this._manualPerformanceOverride = 'on';
-            this.enablePerformanceMode();
+        if (this.performanceManager) {
+            const current = this.performanceManager._manualPerformanceOverride;
+            this.performanceManager.setPerformanceOverride(current === 'on' ? 'off' : 'on');
         }
     }
 
     enablePerformanceMode() {
         if (this.performanceMode) return;
-        this.performanceMode = true;
-        
-        // [R] FIX: Only set lowGpuMode if it wasn't auto-detected
-        // If _autoLowQualityCosmic is true, device was detected as low-end,
-        // so lowGpuMode should remain true permanently
-        if (!this._autoLowQualityCosmic) {
-            this.lowGpuMode = true;
+
+        if (this.performanceManager) {
+            this.performanceManager.performanceMode = true;
+            if (!this.performanceManager._autoLowQualityCosmic) {
+                this.performanceManager.lowGpuMode = true;
+            }
+            this.performanceManager.updateQualitySettings();
         }
 
         // Apply low-end CSS class when enabling performance mode
@@ -1302,25 +1136,21 @@ class GameEngine {
             this.ctx.imageSmoothingEnabled = false;
             this.ctx.globalCompositeOperation = 'source-over';
         }
-
-        this._applyBackgroundQuality();
-        this._updateParticleQuality();
         // Performance mode enabled
     }
-    
+
     disablePerformanceMode() {
         if (!this.performanceMode) return;
-        this.performanceMode = false;
-        
-        // [R] FIX: Only reset lowGpuMode if it wasn't auto-detected
-        // If _autoLowQualityCosmic is true, device was detected as low-end,
-        // so lowGpuMode should remain true permanently
-        if (!this._autoLowQualityCosmic) {
-            this.lowGpuMode = false;
-            // Remove low-end CSS class only if device wasn't auto-detected as low-end
-            document.documentElement.classList.remove('low-end-device');
+
+        if (this.performanceManager) {
+            this.performanceManager.performanceMode = false;
+            if (!this.performanceManager._autoLowQualityCosmic) {
+                this.performanceManager.lowGpuMode = false;
+                document.documentElement.classList.remove('low-end-device');
+            }
+            this.performanceManager.updateQualitySettings();
         }
-        
+
         this._maxSpatialGridPoolSize = 256;
         // Restore rendering quality
         if (this.ctx) {
@@ -1328,12 +1158,9 @@ class GameEngine {
             this.ctx.imageSmoothingEnabled = (typeof previous === 'boolean') ? previous : false;
             delete this._previousImageSmoothingEnabled;
         }
-
-        this._applyBackgroundQuality();
-        this._updateParticleQuality();
         // Performance mode disabled
     }
-    
+
     updateSpatialGrid() {
         if (!this.spatialGrid) {
             this.spatialGrid = new Map();
@@ -1348,22 +1175,22 @@ class GameEngine {
             cellPool.push(entities);
         }
         grid.clear();
-        
+
         // Add entities to grid with bounds checking
         for (const entity of this.entities) {
             if (!entity || entity.isDead || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
                 continue;
             }
-            
+
             // [OPTIMIZATION] Use PerformanceCache for grid coordinate calculations
-            const gridX = window.perfCache 
+            const gridX = window.perfCache
                 ? window.perfCache.gridCoord(entity.x, this.gridSize)
                 : Math.floor(entity.x / this.gridSize);
-            const gridY = window.perfCache 
+            const gridY = window.perfCache
                 ? window.perfCache.gridCoord(entity.y, this.gridSize)
                 : Math.floor(entity.y / this.gridSize);
             const key = this._encodeGridKey(gridX, gridY);
-            
+
             let cellEntities = grid.get(key);
             if (!cellEntities) {
                 cellEntities = cellPool.pop() || [];
@@ -1371,7 +1198,7 @@ class GameEngine {
             }
             cellEntities.push(entity);
         }
-        
+
         // Keep the pool from growing without bound
         const activeCells = grid.size;
         const desiredPoolSize = Math.max(
@@ -1382,28 +1209,28 @@ class GameEngine {
             cellPool.length = desiredPoolSize;
         }
     }
-    
+
     checkCollisions() {
         // Use spatial grid for collision checks
         for (const [key, entities] of this.spatialGrid) {
             // Check collisions within the same grid cell
             this.checkCollisionsInCell(entities);
-            
+
             // Check collisions with adjacent cells
             const [gridX, gridY] = this._decodeGridKey(key);
             this.checkAdjacentCellCollisions(gridX, gridY, entities);
         }
     }
-    
+
     checkCollisionsInCell(entities) {
         // Early return if not enough entities to collide
         if (entities.length < 2) return;
-        
+
         for (let i = 0; i < entities.length; i++) {
             const entity1 = entities[i];
             // Skip invalid or dead entities
             if (!entity1 || entity1.isDead) continue;
-            
+
             for (let j = i + 1; j < entities.length; j++) {
                 const entity2 = entities[j];
                 // Skip invalid or dead entities
@@ -1412,12 +1239,12 @@ class GameEngine {
                 if (!this._canFallbackCollide(entity1, entity2)) {
                     continue;
                 }
-                
+
                 // Quick distance check before expensive collision test
                 const dx = entity1.x - entity2.x;
                 const dy = entity1.y - entity2.y;
                 const maxRadius = (entity1.radius || 0) + (entity2.radius || 0);
-                
+
                 // Use squared distance to avoid sqrt
                 if (dx * dx + dy * dy < maxRadius * maxRadius) {
                     if (this.isColliding(entity1, entity2)) {
@@ -1427,16 +1254,16 @@ class GameEngine {
             }
         }
     }
-    
+
     checkAdjacentCellCollisions(gridX, gridY, entities) {
         const adjacentOffsets = [
             [1, 0], [0, 1], [1, 1], [-1, 1]
         ];
-        
+
         for (const [dx, dy] of adjacentOffsets) {
             const adjacentKey = this._encodeGridKey(gridX + dx, gridY + dy);
             const adjacentEntities = this.spatialGrid.get(adjacentKey);
-            
+
             if (adjacentEntities) {
                 for (let i = 0; i < entities.length; i++) {
                     const entity = entities[i];
@@ -1454,13 +1281,13 @@ class GameEngine {
                         const dxPos = entity.x - adjacentEntity.x;
                         const dyPos = entity.y - adjacentEntity.y;
                         const distSq = dxPos * dxPos + dyPos * dyPos;
-                        
+
                         // Use cached radius sum to avoid repeated addition
-                        const radiusSum = window.collisionCache 
+                        const radiusSum = window.collisionCache
                             ? window.collisionCache.getRadiusSum(entity.radius || 0, adjacentEntity.radius || 0)
                             : (entity.radius || 0) + (adjacentEntity.radius || 0);
                         const radiusSumSq = radiusSum * radiusSum;
-                        
+
                         // Squared distance comparison - NO sqrt needed!
                         if (distSq < radiusSumSq) {
                             if (this.isColliding(entity, adjacentEntity)) {
@@ -1500,7 +1327,7 @@ class GameEngine {
         // Fallback: allow if either lacks type rules but objects are defined
         return !set1 && !set2;
     }
-      handleCollision(entity1, entity2) {
+    handleCollision(entity1, entity2) {
         // Comprehensive validation to prevent invalid collisions
         if (!entity1 || !entity2 || entity1.isDead || entity2.isDead || entity1 === entity2) {
             return;
@@ -1600,8 +1427,8 @@ class GameEngine {
         // Don't add to hitEnemies here - the projectile.hit() method already handles this for piercing projectiles
 
         // Trigger chain lightning if projectile has this ability
-        // Check both new flags and specialType for compatibility
-        if ((projectile.hasChainLightning || projectile.specialType === 'chain') &&
+        // [BEHAVIOR] Check behavior manager for chain capability
+        if (projectile.behaviorManager && projectile.behaviorManager.hasBehavior('chain') &&
             typeof projectile.triggerChain === 'function') {
             projectile.triggerChain(this, enemy);
         }
@@ -1642,9 +1469,9 @@ class GameEngine {
 
         // Check for ricochet only when projectile would normally die
         // This allows ricochet to work after piercing is exhausted OR for non-piercing projectiles
-        if (projectileShouldDie && (projectile.hasRicochet || projectile.ricochet || projectile.specialType === 'ricochet')) {
+        if (projectileShouldDie && projectile.behaviorManager && projectile.behaviorManager.hasBehavior('ricochet')) {
             if (window.debugProjectiles) {
-                console.log(`[Collision] Projectile ${projectile.id} attempting ricochet. hasRicochet: ${!!projectile.hasRicochet}, specialType: ${projectile.specialType}`);
+                console.log(`[Collision] Projectile ${projectile.id} attempting ricochet. hasRicochet: ${projectile.behaviorManager.hasBehavior('ricochet')}`);
             }
             if (projectile.type === 'projectile') {
                 try {
@@ -1674,7 +1501,7 @@ class GameEngine {
             }
         }
         // Trigger explosion if projectile should die or has exhausted piercing
-        if ((projectile.hasExplosive || projectile.specialType === 'explosive') &&
+        if (projectile.behaviorManager && projectile.behaviorManager.hasBehavior('explosive') &&
             (projectileShouldDie || (typeof projectile.piercing === 'number' && projectile.piercing < 0)) &&
             typeof projectile.explode === 'function') {
             projectile.explode(this);
@@ -1701,17 +1528,17 @@ class GameEngine {
 
         try {
             // Double buffer protection - ensure we have valid canvas state
-            if (!this.canvas.width || !this.canvas.height || 
+            if (!this.canvas.width || !this.canvas.height ||
                 this.canvas.width <= 0 || this.canvas.height <= 0) {
                 return;
             }
-            
+
             // Validate context state before clearing
             if (this.ctx.isContextLost && this.ctx.isContextLost()) {
                 this.handleContextLoss(new Event('webglcontextlost'));
                 return;
             }
-            
+
             // [C] Render cosmic background (replaces canvas clear)
             if (this.cosmicBackground && typeof this.cosmicBackground.render === 'function') {
                 if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBgRender');
@@ -1725,7 +1552,7 @@ class GameEngine {
                 ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 ctx.fillStyle = previousFill;
             }
-        
+
             // Set camera with optimized transform
             this.ctx.save();
             if (this.player) {
@@ -1742,24 +1569,24 @@ class GameEngine {
 
                 this.ctx.translate(cameraX + shakeX, cameraY + shakeY);
             }
-            
+
             // Use frustum culling to only render visible entities
             const visibleEntities = this.getVisibleEntities();
-            
+
             // Batch render by entity type for better performance
             this.renderEntities(visibleEntities);
             // Ensure player is drawn last on top as a safety net
             if (this.player && typeof this.player.render === 'function') {
-                try { this.player.render(this.ctx); } catch(e) { window.logger.error('Player render error', e); }
+                try { this.player.render(this.ctx); } catch (e) { window.logger.error('Player render error', e); }
             }
-            
+
             // Render UI elements using unified system (replaces buggy floating text)
             if (this.unifiedUI) {
                 this.unifiedUI.render();
             } else if (window.floatingTextSystem && typeof window.floatingTextSystem.render === 'function') {
                 window.floatingTextSystem.render(this.ctx);
             }
-            
+
             // Render particles on top of entities (trail effects, explosions, etc.)
             if (window.optimizedParticles && typeof window.optimizedParticles.render === 'function') {
                 window.optimizedParticles.render(this.ctx);
@@ -1776,9 +1603,9 @@ class GameEngine {
             if (this.debugMode) {
                 this.renderDebugInfo();
             }
-            
+
             this.ctx.restore();
-            
+
         } catch (error) {
             window.logger.error('Render error:', error);
             // Try to recover context if possible
@@ -1787,13 +1614,13 @@ class GameEngine {
             }
         }
     }
-    
+
     // Render batching to reduce per-frame draw overhead for common entity types
     renderEntities(entities) {
         if (!entities || entities.length === 0) return;
 
         const ctx = this.ctx;
-        
+
         // Use pre-allocated arrays with index-based writes (eliminates 240 allocations/sec at 60fps)
         let projectileCount = 0;
         let enemyCount = 0;
@@ -1916,60 +1743,60 @@ class GameEngine {
             }
         }
     }
-    
+
     renderDebugInfo() {
         this.ctx.save();
         this.ctx.translate(-this.player.x + this.canvas.width / 2, -this.player.y + this.canvas.height / 2);
-        
+
         // Draw grid
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
         this.ctx.lineWidth = 1;
-        
+
         const startX = Math.floor((this.player.x - this.canvas.width) / this.gridSize) * this.gridSize;
         const startY = Math.floor((this.player.y - this.canvas.height) / this.gridSize) * this.gridSize;
         const endX = Math.ceil((this.player.x + this.canvas.width) / this.gridSize) * this.gridSize;
         const endY = Math.ceil((this.player.y + this.canvas.height) / this.gridSize) * this.gridSize;
-        
+
         for (let x = startX; x <= endX; x += this.gridSize) {
             this.ctx.beginPath();
             this.ctx.moveTo(x, startY);
             this.ctx.lineTo(x, endY);
             this.ctx.stroke();
         }
-        
+
         for (let y = startY; y <= endY; y += this.gridSize) {
             this.ctx.beginPath();
             this.ctx.moveTo(startX, y);
             this.ctx.lineTo(endX, y);
             this.ctx.stroke();
         }
-        
+
         // Draw FPS counter
         this.ctx.fillStyle = 'white';
         this.ctx.font = '14px Arial';
         this.ctx.fillText(`FPS: ${this.fps}`, 10, 20);
         this.ctx.fillText(`Entities: ${this.entities.length}`, 10, 40);
         this.ctx.fillText(`Performance Mode: ${this.performanceMode}`, 10, 60);
-        
+
         this.ctx.restore();
     }
     isColliding(entity1, entity2) {
         // Validate entities have required properties
-        if (!entity1 || !entity2 || 
-            typeof entity1.x !== 'number' || typeof entity1.y !== 'number' || 
+        if (!entity1 || !entity2 ||
+            typeof entity1.x !== 'number' || typeof entity1.y !== 'number' ||
             typeof entity2.x !== 'number' || typeof entity2.y !== 'number' ||
             typeof entity1.radius !== 'number' || typeof entity2.radius !== 'number') {
             return false;
         }
-        
+
         // Use squared distance to avoid costly sqrt per collision check
         const dx = entity1.x - entity2.x;
         const dy = entity1.y - entity2.y;
         const r = entity1.radius + entity2.radius;
-        
+
         // Ensure radius sum is positive to avoid division issues
         if (r <= 0) return false;
-        
+
         return (dx * dx + dy * dy) < (r * r);
     }
 
@@ -2046,14 +1873,14 @@ class GameEngine {
             let xpOrbIndex = 0;
             let projectileIndex = 0;
             let enemyProjectileIndex = 0;
-            
+
             // Clean main entities array using write-back approach for better performance
             for (let i = 0; i < this.entities.length; i++) {
                 const entity = this.entities[i];
                 // NEVER remove player entity here - causes race condition with death detection
                 const isPlayer = entity && entity.type === 'player';
                 const shouldKeep = entity && (!entity.isDead || isPlayer) && typeof entity === 'object';
-                
+
                 if (shouldKeep) {
                     if (entityIndex !== i) {
                         this.entities[entityIndex] = entity;
@@ -2063,7 +1890,7 @@ class GameEngine {
                 // Dead projectiles are just garbage collected - no pooling needed
             }
             this.entities.length = entityIndex;
-            
+
             // Clean enemies array
             for (let i = 0; i < this.enemies.length; i++) {
                 const enemy = this.enemies[i];
@@ -2075,7 +1902,7 @@ class GameEngine {
                 }
             }
             this.enemies.length = enemyIndex;
-            
+
             // Clean XP orbs array
             for (let i = 0; i < this.xpOrbs.length; i++) {
                 const orb = this.xpOrbs[i];
@@ -2087,7 +1914,7 @@ class GameEngine {
                 }
             }
             this.xpOrbs.length = xpOrbIndex;
-            
+
             // Clean projectiles array
             for (let i = 0; i < this.projectiles.length; i++) {
                 const p = this.projectiles[i];
@@ -2100,7 +1927,7 @@ class GameEngine {
                 // Dead projectiles are just garbage collected - no pooling needed
             }
             this.projectiles.length = projectileIndex;
-            
+
             // Clean enemy projectiles array
             if (this.enemyProjectiles && Array.isArray(this.enemyProjectiles)) {
                 for (let i = 0; i < this.enemyProjectiles.length; i++) {
@@ -2117,7 +1944,7 @@ class GameEngine {
                 }
                 this.enemyProjectiles.length = enemyProjectileIndex;
             }
-            
+
             if (this.entities.length > maxEntities) {
                 let toRemove = this.entities.length - maxEntities;
                 for (let i = this.entities.length - 1; i >= 0 && toRemove > 0; i--) {
@@ -2172,15 +1999,15 @@ class GameEngine {
 
     spawnEnemyProjectile(x, y, vx, vy, damage) {
         // Validate parameters
-        if (typeof x !== 'number' || typeof y !== 'number' || 
-            typeof vx !== 'number' || typeof vy !== 'number' || 
+        if (typeof x !== 'number' || typeof y !== 'number' ||
+            typeof vx !== 'number' || typeof vy !== 'number' ||
             typeof damage !== 'number' || damage <= 0) {
             if (window.debugManager?.debugMode) {
                 window.logger.warn('Invalid enemy projectile parameters:', { x, y, vx, vy, damage });
             }
             return null;
         }
-        
+
         // Check for NaN values
         if (isNaN(x) || isNaN(y) || isNaN(vx) || isNaN(vy) || isNaN(damage)) {
             if (window.debugManager?.debugMode) {
@@ -2188,14 +2015,14 @@ class GameEngine {
             }
             return null;
         }
-        
+
         // Initialize enemy projectile pool if it doesn't exist
         if (!this.enemyProjectilePool) {
             this.enemyProjectilePool = [];
         }
-        
+
         let ep = this.enemyProjectilePool.length > 0 ? this.enemyProjectilePool.pop() : null;
-        
+
         if (!ep) {
             // Check if EnemyProjectile class is available
             const EnemyProjectile = window.Game?.EnemyProjectile;
@@ -2227,7 +2054,7 @@ class GameEngine {
                 return null;
             }
         }
-        
+
         if (ep) {
             this.addEntity(ep);
         }
@@ -2260,7 +2087,7 @@ class GameEngine {
             }
         }
     }
-      // Add error handling to addEntity
+    // Add error handling to addEntity
     addEntity(entity) {
         if (!entity) {
             window.logger.error('Attempted to add null/undefined entity!');
@@ -2317,7 +2144,7 @@ class GameEngine {
             return null;
         }
     }
-    
+
     // Add error handling to togglePause
     togglePause() {
         try {
@@ -2325,7 +2152,7 @@ class GameEngine {
             if (window.upgradeSystem && window.upgradeSystem.isLevelUpActive()) {
                 return;
             }
-            
+
             if (this.isPaused) {
                 this.resumeGame({ reason: 'manual' });
             } else {
@@ -2335,7 +2162,7 @@ class GameEngine {
             window.logger.error('Error toggling pause:', error);
         }
     }
-    
+
     pauseGame(options = {}) {
         const { reason = 'manual' } = options;
 
@@ -2348,7 +2175,7 @@ class GameEngine {
         if (!this.isPaused) {
             this.isPaused = true;
         }
-        
+
         const resultScreen = this._getDomRef('result-screen');
         const resultVisible = resultScreen && !resultScreen.classList.contains('hidden');
 
@@ -2365,7 +2192,7 @@ class GameEngine {
             window.audioSystem.audioContext.suspend();
         }
     }
-    
+
     resumeGame(options = {}) {
         const { reason = 'manual' } = options;
 
@@ -2390,9 +2217,9 @@ class GameEngine {
         if (!this.canAutoResume()) {
             return;
         }
-        
+
         this.isPaused = false;
-        
+
         if (reason === 'manual') {
             // Hide pause menu
             const pauseMenu = this._getDomRef('pause-menu');
@@ -2419,16 +2246,16 @@ class GameEngine {
 
         return true;
     }
-    
+
     getVisibleEntities() {
         if (!this.player || !Array.isArray(this.entities)) {
             return [];
         }
-        
+
         const viewportWidth = this.canvas.width;
         const viewportHeight = this.canvas.height;
         const margin = 200;
-        
+
         if (!viewportWidth || !viewportHeight) {
             const fallback = [];
             for (let i = 0; i < this.entities.length; i++) {
@@ -2458,10 +2285,10 @@ class GameEngine {
 
         if (grid && grid.size > 0) {
             // [OPTIMIZATION] Use PerformanceCache for viewport grid calculations
-            const startX = window.perfCache 
+            const startX = window.perfCache
                 ? window.perfCache.gridCoord(this.player.x - halfW, this.gridSize)
                 : Math.floor((this.player.x - halfW) / this.gridSize);
-            const startY = window.perfCache 
+            const startY = window.perfCache
                 ? window.perfCache.gridCoord(this.player.y - halfH, this.gridSize)
                 : Math.floor((this.player.y - halfH) / this.gridSize);
             const endX = Math.ceil((this.player.x + halfW) / this.gridSize);
@@ -2518,15 +2345,15 @@ class GameEngine {
 
         return visibleEntities;
     }
-    
+
     handleVisibilityChange() {
         const now = Date.now();
         if (now - this.lastVisibilityChange < 1000) return; // Debounce
-        
+
         const hidden = typeof document !== 'undefined' ? document.hidden : false;
         this.isVisible = !hidden;
         this.lastVisibilityChange = now;
-        
+
         if (!this.isVisible) {
             this.pauseGame({ reason: 'auto' });
             this.reduceResourceUsage();
@@ -2535,45 +2362,45 @@ class GameEngine {
             this.resumeGame({ reason: 'auto' });
         }
     }
-    
+
     handleFocusChange() {
         this.isMinimized = false;
         this.restoreResourceUsage();
         this.resumeGame({ reason: 'auto' });
     }
-    
+
     handleBlurChange() {
         this.isMinimized = true;
         this.reduceResourceUsage();
     }
-    
+
     reduceResourceUsage() {
         // Clear particles and effects
         if (window.gameManager) {
             window.gameManager.particles = [];
             window.gameManager.particlePool = [];
         }
-        
+
         // Reduce update frequency
         this.targetFps = 30;
         this._updateTimingTargets();
         this._maxSpatialGridPoolSize = 128;
-        
+
         // Clear unnecessary resources
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
+
         // Suspend audio if available
         if (window.audioSystem && window.audioSystem.audioContext) {
             window.audioSystem.audioContext.suspend();
         }
     }
-    
+
     restoreResourceUsage() {
         // Restore normal FPS
         this.targetFps = 60;
         this._updateTimingTargets();
         this._maxSpatialGridPoolSize = 256;
-        
+
         // Resume audio if available
         if (window.audioSystem && window.audioSystem.audioContext) {
             window.audioSystem.audioContext.resume();
@@ -2607,7 +2434,7 @@ class GameEngine {
         if (this.spatialGridCache) {
             this.spatialGridCache.clear();
         }
-        
+
         // Clear spatial grid
         this.spatialGrid.clear();
         if (this._spatialGridCellPool && this._spatialGridCellPool.length) {
@@ -2617,37 +2444,37 @@ class GameEngine {
                 this._spatialGridCellPool.length = this._maxSpatialGridPoolSize;
             }
         }
-        
+
         // Rebuild spatial grid
         if (this.collisionSystem && typeof this.collisionSystem.updateSpatialGrid === 'function') {
             this.collisionSystem.updateSpatialGrid();
         } else {
             this.updateSpatialGrid();
         }
-        
+
         // Clean up event listeners if shutting down
         if (this.isShuttingDown) {
             this.cleanupEventListeners();
         }
     }
-    
+
     handleContextLoss(event) {
         event.preventDefault();
         this.contextLost = true;
-            window.logger.warn('Canvas context lost - game paused');
+        window.logger.warn('Canvas context lost - game paused');
         this.isPaused = true;
     }
-    
+
     handleContextRestore(event) {
         window.logger.log('Canvas context restored - resuming game');
         this.contextLost = false;
-        
+
         // Reinitialize canvas context
-        this.ctx = this.canvas.getContext('2d', { 
+        this.ctx = this.canvas.getContext('2d', {
             alpha: false,
             willReadFrequently: false
         });
-        
+
         if (this.ctx) {
             this.isPaused = false;
             window.logger.log('Game context successfully restored');
@@ -2655,7 +2482,7 @@ class GameEngine {
             window.logger.error('Failed to restore canvas context');
         }
     }
-    
+
     cleanupEventListeners() {
         // Remove event listeners to prevent memory leaks
         try {
@@ -2710,13 +2537,13 @@ class GameEngine {
             if (typeof window !== 'undefined' && window.gameEngine === this) {
                 window.gameEngine = null;
             }
-            
+
             window.logger.log('Event listeners cleaned up successfully');
         } catch (error) {
             window.logger.error('Error cleaning up event listeners:', error);
         }
     }
-    
+
     shutdown() {
         window.logger.log('Shutting down game engine...');
         this.isShuttingDown = true;

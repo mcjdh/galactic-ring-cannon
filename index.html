@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,8 +10,10 @@
     <title>Galactic Ring Cannon</title>
     <link rel="preload" href="assets/css/styles.css" as="style">
     <link rel="stylesheet" href="assets/css/styles.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
 </head>
+
 <body>
     <div id="loading-screen">
         <h1>Galactic Ring Cannon</h1>
@@ -20,7 +23,7 @@
         </div>
         <p id="loading-tip">💡 Tip: Press SPACE to dodge with invincibility frames!</p>
     </div>
-    
+
     <div id="fatal-error-overlay" class="hidden">
         <div class="fatal-error-content">
             <h2>Systems Offline</h2>
@@ -28,7 +31,7 @@
             <button id="fatal-error-restart" class="menu-button">Restart Game</button>
         </div>
     </div>
-    
+
     <!-- Main Menu: Title / Mode Selection -->
     <div id="main-menu" class="hidden">
         <canvas id="menu-background"></canvas>
@@ -67,7 +70,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="game-container" class="hidden">
         <canvas id="game-canvas"></canvas>
         <div id="level-up-container" class="hidden">
@@ -99,17 +102,18 @@
         </div>
         <button id="pause-button" class="control-button">⏸️</button>
         <div id="controls-info">
-            <div class="control-row"><span class="control-key">P</span> / <span class="control-key">ESC</span> Pause</div>
+            <div class="control-row"><span class="control-key">P</span> / <span class="control-key">ESC</span> Pause
+            </div>
             <div class="control-row"><span class="control-key">SPACE</span> Dodge</div>
             <div class="control-row"><span class="control-key">M</span> Audio</div>
             <div class="control-row"><span class="control-key">G</span> Auto-Level</div>
         </div>
-        
+
         <!-- Add minimap -->
         <div id="minimap-container">
             <canvas id="minimap"></canvas>
         </div>
-        
+
         <!-- Add skill cooldown indicator -->
         <div id="skill-container">
             <div id="dodge-skill" class="skill">
@@ -119,20 +123,20 @@
             </div>
         </div>
     </div>
-    
+
     <div id="pause-menu" class="hidden">
         <div class="pause-content">
             <h2>Game Paused</h2>
-        <button id="resume-button" class="menu-button">Resume</button>
-        <button id="restart-button-pause" class="menu-button">Restart</button>
-        <button id="return-button-pause" class="menu-button">Main Menu</button>
+            <button id="resume-button" class="menu-button">Resume</button>
+            <button id="restart-button-pause" class="menu-button">Restart</button>
+            <button id="return-button-pause" class="menu-button">Main Menu</button>
             <h3>Controls:</h3>
             <p>WASD or Arrow Keys = Move</p>
             <p>SPACE = Dodge (dash with invincibility)</p>
             <p>P or ESC = Pause Game</p>
-        <p>M = Toggle Sound</p>
-        <p>L = Toggle Low Quality</p>
-        <p>G = Toggle Auto-Level (automatic upgrades)</p>
+            <p>M = Toggle Sound</p>
+            <p>L = Toggle Low Quality</p>
+            <p>G = Toggle Auto-Level (automatic upgrades)</p>
             <div class="pause-tips">
                 <h3>💡 Tips:</h3>
                 <p>• Numbers 1-3 select upgrades during level-up</p>
@@ -150,7 +154,7 @@
             <div id="result-buttons" class="result-buttons"></div>
         </div>
     </div>
-    
+
     <!-- Shop Panel -->
     <div id="shop-panel" class="hidden">
         <canvas id="shop-background"></canvas>
@@ -199,7 +203,7 @@
             <button id="settings-close" class="menu-button">Apply & Close</button>
         </div>
     </div>
-    
+
     <!-- Add Achievements Panel -->
     <div id="achievements-panel" class="hidden">
         <canvas id="achievements-background"></canvas>
@@ -218,7 +222,7 @@
             <button id="achievements-close" class="menu-button">Close</button>
         </div>
     </div>
-    
+
     <!-- Configuration files - load FIRST before systems that depend on them -->
     <script defer src="src/config/upgrades.config.js"></script>
     <script defer src="src/config/achievements.config.js"></script>
@@ -250,7 +254,7 @@
     <script defer src="src/utils/debug.js"></script>
     <script defer src="src/ui/loadDebugProjectiles.js"></script>
     <!-- Dev utilities moved to conditional loader above -->
-    
+
     <!-- Add error detection for script loading -->
     <script defer src="src/ui/scriptErrorHandler.js"></script>
 
@@ -325,22 +329,24 @@
     <script defer src="src/core/systems/DifficultyManager.js"></script>
     <script defer src="src/core/systems/UnifiedUIManager.js"></script>
     <script defer src="src/core/systems/MinimapSystem.js"></script>
+    <script src="src/core/systems/PerformanceManager.js" defer></script>
     <script defer src="src/core/gameEngine.js"></script>
     <script defer src="src/core/systems/EffectsManager.js"></script>
     <script defer src="src/core/systems/FloatingTextSystem.js"></script>
-    
+
     <!-- Script loading validation -->
     <script defer src="src/core/setupGlobals.js"></script>
-    
+
     <!-- Load game constants first -->
     <script defer src="src/config/gameConstants.js"></script>
-    
+
     <!-- Initialize optimized particle pool -->
     <script defer src="src/core/initOptimizedParticles.js"></script>
-    
+
     <!-- Load GameManager Bridge only (GameManager class not required at runtime) -->
     <script defer src="src/core/gameManagerBridge.js"></script>
-    
+
     <script defer src="src/core/bootstrap.js"></script>
 </body>
+
 </html>
