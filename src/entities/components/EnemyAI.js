@@ -340,20 +340,74 @@ class EnemyAI {
      * Handle boss phase transitions
      */
     onPhaseChange(newPhase, game) {
-        // Create phase change effect
+        // Create dramatic phase change effect
         if (window.gameManager) {
             window.gameManager.showFloatingText(
-                `PHASE ${newPhase}!`,
+                `⚡ PHASE ${newPhase} ⚡`,
                 this.enemy.x,
                 this.enemy.y - 50,
                 '#ff6b35',
-                28
+                32
             );
-            
-            // Add screen shake for phase change
+
+            // Add screen shake for phase change (stronger for later phases)
             if (window.gameManager.addScreenShake) {
-                window.gameManager.addScreenShake(8, 0.8);
+                const shakeStrength = 8 + (newPhase * 2);
+                window.gameManager.addScreenShake(shakeStrength, 0.8);
             }
+        }
+
+        // Create expanding shockwave particle effect
+        if (window.optimizedParticles) {
+            const ringCount = 3;
+            const baseRadius = this.enemy.radius || 35;
+
+            for (let ring = 0; ring < ringCount; ring++) {
+                const delay = ring * 80;
+                const segments = 24 + (ring * 8);
+
+                setTimeout(() => {
+                    for (let i = 0; i < segments; i++) {
+                        const angle = (i / segments) * Math.PI * 2;
+                        const startRadius = baseRadius + (ring * 10);
+                        const speed = 120 + (ring * 40) + (newPhase * 20);
+
+                        window.optimizedParticles.spawnParticle({
+                            x: this.enemy.x + Math.cos(angle) * startRadius,
+                            y: this.enemy.y + Math.sin(angle) * startRadius,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            size: 4 + ring,
+                            color: ring === 0 ? '#ff6b35' : (ring === 1 ? '#e74c3c' : '#c0392b'),
+                            life: 0.8 - (ring * 0.15),
+                            type: 'spark',
+                            friction: 0.95
+                        });
+                    }
+                }, delay);
+            }
+
+            // Add energy burst at center
+            for (let i = 0; i < 20; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 80 + Math.random() * 120;
+                window.optimizedParticles.spawnParticle({
+                    x: this.enemy.x,
+                    y: this.enemy.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 3 + Math.random() * 3,
+                    color: Math.random() > 0.5 ? '#ff6b35' : '#f39c12',
+                    life: 1.0 + Math.random() * 0.5,
+                    type: 'spark',
+                    friction: 0.92
+                });
+            }
+        }
+
+        // Play phase change audio
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('bossPhase', 0.6);
         }
         
         // Adjust AI behavior based on phase

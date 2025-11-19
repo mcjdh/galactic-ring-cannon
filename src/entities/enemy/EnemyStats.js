@@ -55,8 +55,8 @@ class EnemyStats {
         // Trigger damage flash effect
         enemy.damageFlashTimer = 100; // 100ms flash
 
-        // Create hit effect
-        this.createHitEffect(enemy, actualDamage);
+        // Create hit effect with critical hit visual enhancement
+        this.createHitEffect(enemy, actualDamage, isCritical);
 
         // Show damage text
         if (showText !== false) {
@@ -252,13 +252,44 @@ class EnemyStats {
     /**
      * Create hit effect visual
      */
-    static createHitEffect(enemy, damage) {
-        // Use effectsManager for proper rendering
-        if (window.gameManager?.effectsManager?.createHitEffect) {
-            window.gameManager.effectsManager.createHitEffect(enemy.x, enemy.y, damage);
-        } else if (window.gameManager?.createHitEffect) {
-            // Fallback to old API if effectsManager not available
-            window.gameManager.createHitEffect(enemy.x, enemy.y, damage);
+    static createHitEffect(enemy, damage, isCritical = false) {
+        // Enhanced hit effect for critical hits
+        if (isCritical && window.optimizedParticles) {
+            // Create more dramatic critical hit effect
+            const intensity = Math.min(2.5, 1 + (damage / 100)); // Scale with damage
+            window.optimizedParticles.spawnHitEffect(enemy.x, enemy.y, intensity, true);
+
+            // Add extra sparkle ring for crits
+            const sparkCount = 12;
+            for (let i = 0; i < sparkCount; i++) {
+                const angle = (i / sparkCount) * Math.PI * 2;
+                const radius = 15 + Math.random() * 10;
+                const speed = 80 + Math.random() * 60;
+                window.optimizedParticles.spawnParticle({
+                    x: enemy.x + Math.cos(angle) * radius,
+                    y: enemy.y + Math.sin(angle) * radius,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 3 + Math.random() * 2,
+                    color: '#f1c40f', // Golden for crits
+                    life: 0.6 + Math.random() * 0.3,
+                    type: 'spark',
+                    friction: 0.9
+                });
+            }
+        } else {
+            // Normal hit effect
+            // Use effectsManager for proper rendering
+            if (window.gameManager?.effectsManager?.createHitEffect) {
+                window.gameManager.effectsManager.createHitEffect(enemy.x, enemy.y, damage);
+            } else if (window.gameManager?.createHitEffect) {
+                // Fallback to old API if effectsManager not available
+                window.gameManager.createHitEffect(enemy.x, enemy.y, damage);
+            } else if (window.optimizedParticles) {
+                // Direct fallback to particle pool
+                const intensity = Math.min(1.5, 0.5 + (damage / 150));
+                window.optimizedParticles.spawnHitEffect(enemy.x, enemy.y, intensity, false);
+            }
         }
     }
 
