@@ -389,6 +389,14 @@ class AchievementSystem {
         this.updateAchievement('speed_runner', level);
     }
 
+    // Track Event Horizon (deal 15,000 damage in single run)
+    onDamageDealtInRun(totalDamage) {
+        if (!Number.isFinite(totalDamage) || totalDamage < 0) {
+            return;
+        }
+        this.updateAchievement('event_horizon', Math.floor(totalDamage));
+    }
+
     // Track Storm Surge (hit 8 enemies with chain lightning)
     onStormSurgeHit(hitCount) {
         if (!Number.isFinite(hitCount)) {

@@ -199,6 +199,16 @@ const ACHIEVEMENT_DEFINITIONS = {
         unlocked: false,
         unlocksCharacter: 'stormcaller'
     },
+    'event_horizon': {
+        name: 'Event Horizon',
+        description: 'Deal 15,000 damage in a single run',
+        icon: '%',
+        progress: 0,
+        target: 15000,
+        unlocked: false,
+        unlocksCharacter: 'void_reaver',
+        important: true
+    },
 
     // ========================================
     // SPECIAL ACHIEVEMENTS (Build-Specific)

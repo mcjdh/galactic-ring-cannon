@@ -33,6 +33,10 @@
                 nexus_architect: {
                     core: '#4169e1',  // Royal blue
                     glow: '#87ceeb'   // Sky blue
+                },
+                void_reaver: {
+                    core: '#4b0082',  // Deep indigo
+                    glow: '#9370db'   // Medium purple
                 }
             },
 

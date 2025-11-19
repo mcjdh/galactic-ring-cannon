@@ -265,19 +265,19 @@ class Player {
             // NEW: Shield ability modifiers
             if (abilityMods.shield) {
                 const shield = abilityMods.shield;
-                
+
                 // Grant starter shield
                 if (typeof shield.starterCapacity === 'number' && shield.starterCapacity > 0) {
                     this.abilities.hasShield = true;
                     this.abilities.shieldMaxCapacity = shield.starterCapacity;
                     this.abilities.shieldCurrent = shield.starterCapacity; // Start at full capacity
-                    
+
                     // Set shield base stats
                     if (!this.abilities.shieldRechargeTime) {
                         this.abilities.shieldRechargeTime = 6.0; // Base recharge time in seconds
                     }
                 }
-                
+
                 // Apply shield stat multipliers
                 if (typeof shield.capacityMultiplier === 'number' && this.abilities.shieldMaxCapacity) {
                     this.abilities.shieldMaxCapacity *= shield.capacityMultiplier;
@@ -288,6 +288,33 @@ class Player {
                 }
                 if (typeof shield.rechargeMultiplier === 'number' && this.abilities.shieldRechargeTime) {
                     this.abilities.shieldRechargeTime /= shield.rechargeMultiplier; // Higher multiplier = faster recharge
+                }
+            }
+
+            // NEW: Gravity well ability modifiers (Void Reaver)
+            if (abilityMods.gravityWell) {
+                const gravityWell = abilityMods.gravityWell;
+
+                // Enable gravity wells
+                if (gravityWell.enabled) {
+                    this.abilities.hasGravityWells = true;
+                }
+
+                // Apply gravity well stat modifiers
+                if (typeof gravityWell.wellRadius === 'number') {
+                    this.abilities.gravityWellRadius = gravityWell.wellRadius;
+                }
+                if (typeof gravityWell.wellDuration === 'number') {
+                    this.abilities.gravityWellDuration = gravityWell.wellDuration;
+                }
+                if (typeof gravityWell.slowAmount === 'number') {
+                    this.abilities.gravityWellSlowAmount = gravityWell.slowAmount;
+                }
+                if (typeof gravityWell.pullStrength === 'number') {
+                    this.abilities.gravityWellPullStrength = gravityWell.pullStrength;
+                }
+                if (typeof gravityWell.damageMultiplier === 'number') {
+                    this.abilities.gravityWellDamageMultiplier = gravityWell.damageMultiplier;
                 }
             }
         }
