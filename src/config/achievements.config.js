@@ -28,6 +28,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'First Blood',
         description: 'Defeat your first enemy',
         icon: '+',
+        category: 'Combat',
         progress: 0,
         target: 1,
         unlocked: false
@@ -36,6 +37,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Combo Master',
         description: 'Reach a 10x combo',
         icon: '^',
+        category: 'Combat',
         progress: 0,
         target: 10,
         unlocked: false
@@ -44,6 +46,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Boss Slayer',
         description: 'Defeat 5 bosses',
         icon: 'W',
+        category: 'Combat',
         progress: 0,
         target: 5,
         unlocked: false,
@@ -53,6 +56,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Mega Boss Slayer',
         description: 'Defeat the Mega Boss',
         icon: '*',
+        category: 'Combat',
         progress: 0,
         target: 1,
         unlocked: false,
@@ -62,6 +66,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Kill Streak',
         description: 'Kill 50 enemies in 10 seconds',
         icon: '*',
+        category: 'Combat',
         progress: 0,
         target: 50,
         unlocked: false
@@ -70,6 +75,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'On Fire!',
         description: 'Reach a 10 kill streak',
         icon: '⚡',
+        category: 'Combat',
         progress: 0,
         target: 10,
         unlocked: false
@@ -78,6 +84,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Unstoppable Force',
         description: 'Reach a 20 kill streak',
         icon: '🔥',
+        category: 'Combat',
         progress: 0,
         target: 20,
         unlocked: false,
@@ -87,6 +94,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Godlike!',
         description: 'Reach a 30 kill streak',
         icon: '👑',
+        category: 'Combat',
         progress: 0,
         target: 30,
         unlocked: false,
@@ -96,6 +104,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Immortal',
         description: 'Reach a 50 kill streak',
         icon: '🌌',
+        category: 'Combat',
         progress: 0,
         target: 50,
         unlocked: false,
@@ -109,6 +118,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Level Up!',
         description: 'Reach level 10',
         icon: '*',
+        category: 'Progression',
         progress: 0,
         target: 10,
         unlocked: false
@@ -117,6 +127,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Star Collector',
         description: 'Collect 1000 XP orbs',
         icon: '+',
+        category: 'Progression',
         progress: 0,
         target: 1000,
         unlocked: false
@@ -125,6 +136,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Meta Star Collector',
         description: 'Earn 100 meta stars',
         icon: '*',
+        category: 'Progression',
         progress: 0,
         target: 100,
         unlocked: false
@@ -133,6 +145,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Fully Upgraded',
         description: 'Max out any Star Vendor upgrade',
         icon: '=',
+        category: 'Progression',
         progress: 0,
         target: 1,
         unlocked: false
@@ -145,6 +158,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Perfect Dodge',
         description: 'Dodge an attack at the last moment',
         icon: 'o',
+        category: 'Skill',
         progress: 0,
         target: 1,
         unlocked: false
@@ -153,6 +167,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Untouchable',
         description: 'Survive for 60 seconds without taking damage',
         icon: '#',
+        category: 'Skill',
         progress: 0,
         target: 60,
         unlocked: false
@@ -161,6 +176,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Tank Commander',
         description: 'Survive 3 minutes without dodging in a single run',
         icon: '#',
+        category: 'Skill',
         progress: 0,
         target: 180,
         unlocked: false
@@ -173,6 +189,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Speed Runner',
         description: 'Reach level 15 in a single run',
         icon: '*',
+        category: 'Skill',
         progress: 0,
         target: 15,
         unlocked: false
@@ -181,6 +198,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Elite Hunter',
         description: 'Defeat 10 elite enemies',
         icon: 'M',
+        category: 'Combat',
         progress: 0,
         target: 10,
         unlocked: false
@@ -192,6 +210,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Cosmic Veteran',
         description: 'Deal 500,000 total damage across all runs',
         icon: '*',
+        category: 'Progression',
         progress: 0,
         target: 500000,
         unlocked: false,
@@ -201,6 +220,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Galactic Explorer',
         description: 'Travel 100,000 distance across all runs',
         icon: '~',
+        category: 'Progression',
         progress: 0,
         target: 100000,
         unlocked: false
@@ -209,6 +229,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Trigger Happy',
         description: 'Fire 25,000 projectiles across all runs',
         icon: '+',
+        category: 'Progression',
         progress: 0,
         target: 25000,
         unlocked: false
@@ -221,6 +242,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Nova Blitz',
         description: 'Kill 75 enemies in 30 seconds',
         icon: '^',
+        category: 'Special',
         progress: 0,
         target: 75,
         unlocked: false
@@ -229,6 +251,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Storm Surge',
         description: 'Hit 6 enemies with a single chain lightning',
         icon: '*',
+        category: 'Special',
         progress: 0,
         target: 6,
         unlocked: false,
@@ -238,15 +261,17 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Grim Harvest',
         description: 'Lifesteal 1,000 HP in a single run',
         icon: '†',
+        category: 'Special',
         progress: 0,
         target: 1000,
         unlocked: false,
-        unlocksCharacter: 'eclipse_reaper'
+        unlocksCharacter: 'inferno_juggernaut'
     },
     'crimson_pact': {
         name: 'Crimson Pact',
         description: 'Heal 3000 HP via lifesteal in a single run',
         icon: '♦',
+        category: 'Special',
         progress: 0,
         target: 3000,
         unlocked: false,
@@ -257,21 +282,23 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Event Horizon',
         description: 'Deal 15,000 damage in a single run',
         icon: '%',
+        category: 'Special',
         progress: 0,
         target: 15000,
         unlocked: false,
-        unlocksCharacter: 'void_reaver',
+        unlocksCharacter: 'void_warden',
         important: true
     },
     'edge_walker': {
         name: 'Edge Walker',
         description: 'Survive for 3 minutes with less than 30% health in a single run',
         icon: 'V',
+        category: 'Skill',
         progress: 0,
         target: 180, // 3 minutes in seconds
         unlocked: false,
         important: true,
-        unlocksCharacter: 'void_harbinger'
+        unlocksCharacter: 'cybernetic_berserker'
 
     },
 
@@ -282,6 +309,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Critical Master',
         description: 'Land 50 critical hits',
         icon: 'X',
+        category: 'Special',
         progress: 0,
         target: 50,
         unlocked: false
@@ -290,6 +318,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Chain Reaction',
         description: 'Hit 5 enemies with a single chain lightning',
         icon: '*',
+        category: 'Special',
         progress: 0,
         target: 5,
         unlocked: false
@@ -298,6 +327,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Ricochet Master',
         description: 'Hit 3 enemies with a single ricochet',
         icon: '<',
+        category: 'Special',
         progress: 0,
         target: 3,
         unlocked: false
@@ -306,6 +336,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Ricochet Rampage',
         description: 'Land 75 ricochet bounces in a single run',
         icon: '<<',
+        category: 'Special',
         progress: 0,
         target: 75,
         unlocked: false,
@@ -316,6 +347,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Orbital Master',
         description: 'Have 5 orbital projectiles at once',
         icon: 'o-',
+        category: 'Special',
         progress: 0,
         target: 5,
         unlocked: false,
@@ -325,6 +357,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Split Shot Specialist',
         description: 'Draft Split Shot four times in a single run',
         icon: '≡',
+        category: 'Special',
         progress: 0,
         target: 4,
         unlocked: false,
@@ -338,6 +371,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Unbreakable',
         description: 'Block 10000 damage with shields',
         icon: '[]',
+        category: 'Special',
         progress: 0,
         target: 10000,
         unlocked: false,
@@ -347,6 +381,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Adaptive Evolution',
         description: 'Reach maximum adaptive armor growth',
         icon: '[^]',
+        category: 'Special',
         progress: 0,
         target: 1,  // Binary achievement - either maxed or not
         unlocked: false
@@ -355,6 +390,7 @@ const ACHIEVEMENT_DEFINITIONS = {
         name: 'Aegis Guardian',
         description: 'Survive 1 minute without shield breaking',
         icon: '[=]',
+        category: 'Skill',
         progress: 0,
         target: 60,
         unlocked: false,

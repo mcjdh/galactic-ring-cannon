@@ -50,7 +50,9 @@ class PhantomRepeaterWeapon {
 
     _recalculateCooldown(preserveProgress = true) {
         const fireRate = this._computeEffectiveFireRate();
-        const newCooldown = fireRate > 0 ? 1 / fireRate : Infinity;
+        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
+        const safeFireRate = Math.max(0.1, fireRate);
+        const newCooldown = 1 / safeFireRate;
 
         if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
             const progress = Math.min(1, this.timer / this.cooldown);
@@ -149,18 +151,20 @@ class PhantomRepeaterWeapon {
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
 
-            game.particleEngine.emit({
-                x: x,
-                y: y,
-                vx: vx,
-                vy: vy,
-                color: '#da70d6',  // Violet/phantom color
-                radius: 3,
-                life: 0.3,
-                alpha: 0.8,
-                decay: 0.95,
-                glow: true
-            });
+            if (window.optimizedParticles) {
+                window.optimizedParticles.spawnParticle({
+                    x,
+                    y,
+                    vx,
+                    vy,
+                    color: '#da70d6',  // Violet/phantom color
+                    size: 3,
+                    life: 0.3,
+                    alpha: 0.8,
+                    decay: 0.95,
+                    glow: true
+                });
+            }
         }
     }
 
@@ -179,24 +183,74 @@ class PhantomRepeaterWeapon {
     }
 
     applyUpgrade(upgrade) {
-        // Handle ricochet-specific upgrades
-        switch (upgrade.id) {
-            case 'phantom_phase':
-                // Weapon-specific upgrade: enhanced ricochet range
-                if (this.player?.abilities) {
-                    this.player.abilities.ricochetRange *= 1.3;
-                }
-                break;
+        if (!upgrade) return;
 
-            case 'void_amplifier':
-                // Weapon-specific upgrade: ricochet damage bonus
-                if (this.player?.abilities) {
-                    this.player.abilities.ricochetDamage *= 1.15;
+        const abilities = this.player?.abilities;
+        if (abilities) {
+            switch (upgrade.id) {
+                case 'phantom_phase': {
+                    const baseRange = Math.max(abilities.ricochetRange || 280, 1);
+                    if (typeof upgrade.rangeMultiplier === 'number') {
+                        abilities.ricochetRange = baseRange * upgrade.rangeMultiplier;
+                    }
+                    if (typeof upgrade.rangeBonus === 'number') {
+                        abilities.ricochetRange = (abilities.ricochetRange || baseRange) + upgrade.rangeBonus;
+                    }
+                    if (typeof upgrade.bonusBounces === 'number') {
+                        abilities.ricochetBounces += upgrade.bonusBounces;
+                    }
+                    if (typeof upgrade.chanceBonus === 'number') {
+                        const currentChance = abilities.ricochetChance || 0.45;
+                        abilities.ricochetChance = Math.min(0.99, currentChance + upgrade.chanceBonus);
+                    }
+                    break;
                 }
-                break;
 
-            default:
-                break;
+                case 'void_amplifier': {
+                    if (typeof upgrade.damageMultiplier === 'number') {
+                        const currentDamage = abilities.ricochetDamage || 0.8;
+                        abilities.ricochetDamage = currentDamage * upgrade.damageMultiplier;
+                    }
+                    if (typeof upgrade.damageAdd === 'number') {
+                        abilities.ricochetDamage = (abilities.ricochetDamage || 0.8) + upgrade.damageAdd;
+                    }
+                    if (typeof upgrade.finalExplosionDamage === 'number') {
+                        abilities.ricochetFinalExplosionDamage = Math.max(
+                            abilities.ricochetFinalExplosionDamage || 0,
+                            upgrade.finalExplosionDamage
+                        );
+                    }
+                    if (typeof upgrade.finalExplosionRadius === 'number') {
+                        abilities.ricochetFinalExplosionRadius = Math.max(
+                            abilities.ricochetFinalExplosionRadius || 0,
+                            upgrade.finalExplosionRadius
+                        );
+                    }
+                    break;
+                }
+
+                case 'spectral_echoes': {
+                    if (typeof upgrade.echoChance === 'number') {
+                        abilities.ricochetEchoChance = Math.min(
+                            0.95,
+                            (abilities.ricochetEchoChance || 0) + upgrade.echoChance
+                        );
+                    }
+                    if (typeof upgrade.echoBounces === 'number') {
+                        abilities.ricochetEchoBounces = Math.max(
+                            abilities.ricochetEchoBounces || 0,
+                            upgrade.echoBounces
+                        );
+                    }
+                    if (typeof upgrade.bonusBounces === 'number') {
+                        abilities.ricochetBounces += upgrade.bonusBounces;
+                    }
+                    break;
+                }
+
+                default:
+                    break;
+            }
         }
 
         // Mark for recalculation on combat stat changes

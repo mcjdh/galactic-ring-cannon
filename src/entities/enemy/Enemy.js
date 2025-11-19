@@ -281,7 +281,7 @@ class Enemy {
             ai: this.ai.getAIState(),
             abilities: this.abilities.getAbilitiesState(),
             movement: this.movement.getMovementState(),
-            statusEffects: this.statusEffects ? Array.from(this.statusEffects.effects.entries()) : []
+            statusEffects: (this.statusEffects && this.statusEffects.effects) ? Array.from(this.statusEffects.effects.entries()) : []
         };
     }
 }

@@ -149,28 +149,38 @@ class PlayerStats {
         if (this.isDead || typeof amount !== 'number' || amount <= 0) return;
 
         const oldHealth = this.health;
-        this.health = Math.min(this.maxHealth, this.health + amount);
+        const potentialHealth = this.health + amount;
+        const overflow = Math.max(0, potentialHealth - this.maxHealth);
+        this.health = Math.min(this.maxHealth, potentialHealth);
+        const healedAmount = this.health - oldHealth;
+
+        if (this.player?.abilities?.onHeal) {
+            try {
+                this.player.abilities.onHeal(healedAmount, overflow);
+            } catch (error) {
+                if (window.debugManager?.enabled) {
+                    window.logger.error('onHeal handler failed:', error);
+                }
+            }
+        }
 
         // Update health bar if health actually changed
-        if (oldHealth !== this.health) {
+        if (healedAmount > 0) {
             this._updateHealthBarUI();
 
-            const healedAmount = this.health - oldHealth;
-            if (healedAmount > 0) {
-                const gm = window.gameManager || window.gameManagerBridge;
-                if (gm && typeof gm.showFloatingText === 'function') {
-                    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-                        ? performance.now()
-                        : Date.now();
-                    this._pendingHealText += healedAmount;
-                    const shouldDisplay = this._pendingHealText >= 1 || (now - this._lastHealTextTime) >= this._healTextThrottleMs;
-                    if (shouldDisplay) {
-                        const amountToShow = Math.round(this._pendingHealText);
-                        if (amountToShow > 0) {
-                            gm.showFloatingText(`+${amountToShow}`, this.player.x, this.player.y - 30, '#2ecc71', 16);
-                            this._pendingHealText = 0;
-                            this._lastHealTextTime = now;
-                        }
+            const gm = window.gameManager || window.gameManagerBridge;
+            if (gm && typeof gm.showFloatingText === 'function') {
+                const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+                    ? performance.now()
+                    : Date.now();
+                this._pendingHealText += healedAmount;
+                const shouldDisplay = this._pendingHealText >= 1 || (now - this._lastHealTextTime) >= this._healTextThrottleMs;
+                if (shouldDisplay) {
+                    const amountToShow = Math.round(this._pendingHealText);
+                    if (amountToShow > 0) {
+                        gm.showFloatingText(`+${amountToShow}`, this.player.x, this.player.y - 30, '#2ecc71', 16);
+                        this._pendingHealText = 0;
+                        this._lastHealTextTime = now;
                     }
                 }
             }

@@ -70,7 +70,8 @@ class PlayerCombat {
         // Apply Berserker bonus (low health = faster attacks)
         let berserkerMultiplier = 1.0;
         if (this.player.abilities?.hasBerserker) {
-            const healthPercent = this.player.health / (this.player.maxHealth || 100);
+            // [FIX] Use Math.max to prevent division by zero if maxHealth is explicitly 0
+            const healthPercent = this.player.health / Math.max(1, this.player.maxHealth || 100);
             const missingHealth = 1.0 - healthPercent;
             // Up to +50% attack speed at 0% health
             berserkerMultiplier = 1.0 + (missingHealth * (this.player.abilities.berserkerScaling || 0.5));
@@ -227,6 +228,11 @@ class PlayerCombat {
     }
 
     fireProjectile(game, angle, overrides = {}) {
+        const spawnHook = typeof overrides.onProjectileSpawn === 'function'
+            ? overrides.onProjectileSpawn
+            : null;
+        const weaponIdentifier = typeof overrides.weaponId === 'string' ? overrides.weaponId : null;
+
         // Clean split shot implementation - consistent math for any projectile count
         let projectileCount;
         if (overrides.projectileCount !== undefined) {
@@ -324,6 +330,19 @@ class PlayerCombat {
             );
 
             if (projectile) {
+                projectile.sourcePlayer = this.player;
+                if (weaponIdentifier) {
+                    projectile.sourceWeaponId = weaponIdentifier;
+                }
+
+                if (spawnHook) {
+                    try {
+                        spawnHook(projectile);
+                    } catch (error) {
+                        window.logger.error('onProjectileSpawn hook failed:', error);
+                    }
+                }
+
                 if (Number.isFinite(overrides.maxDistance) && overrides.maxDistance > 0) {
                     projectile.rangeLimit = overrides.maxDistance;
                 }
@@ -472,8 +491,9 @@ class PlayerCombat {
                 }
                 case 'explosive': {
                     if (!abilities) break;
-                    const radius = abilities.explosionRadius || 70;  // INCREASED from 90
-                    const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.6;  // INCREASED from 0.85
+                    // [FIX] Updated values to match "INCREASED" comments
+                    const radius = abilities.explosionRadius || 100;  // INCREASED from 90
+                    const damageMultiplier = abilities.explosionDamage > 0 ? abilities.explosionDamage : 0.9;  // INCREASED from 0.85
                     projectile.hasExplosive = true;
                     projectile.explosiveData = {
                         radius,

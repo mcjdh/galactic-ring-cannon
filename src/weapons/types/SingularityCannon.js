@@ -42,7 +42,9 @@ class SingularityCannonWeapon {
 
     _recalculateCooldown(preserveProgress = true) {
         const fireRate = this._computeEffectiveFireRate();
-        const newCooldown = fireRate > 0 ? 1 / fireRate : Infinity;
+        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
+        const safeFireRate = Math.max(0.1, fireRate);
+        const newCooldown = 1 / safeFireRate;
 
         if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
             const progress = Math.min(1, this.timer / this.cooldown);
@@ -104,10 +106,20 @@ class SingularityCannonWeapon {
         // Singularity Cannon: Slow, heavy void orbs
         const baseDamageMult = this.definition?.projectileTemplate?.damageMultiplier || 1.2;
 
+        // [FIX] Ensure gravity well is enabled by default for Singularity Cannon if not explicitly disabled
+        const template = this.definition?.projectileTemplate;
+        const shouldCreateGravityWell = template?.gravityWell !== false;
+
         const overrides = {
             damageMultiplier: baseDamageMult,
             speedMultiplier: this.definition?.projectileTemplate?.speedMultiplier || 0.85,
-            applyBehaviors: this.definition?.projectileTemplate?.appliesBehaviors !== false
+            applyBehaviors: this.definition?.projectileTemplate?.appliesBehaviors !== false,
+            weaponId: this.definition?.id || 'singularity_cannon',
+            onProjectileSpawn: (projectile) => {
+                if (shouldCreateGravityWell && projectile) {
+                    projectile.createsGravityWell = true;
+                }
+            }
         };
 
         this.combat.fireProjectile(game, baseAngle, overrides);

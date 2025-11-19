@@ -69,6 +69,8 @@ class EnemyRenderer {
             this.renderPhaseIndicator(enemy, ctx);
         }
 
+        this.renderStatusEffects(enemy, ctx);
+
         ctx.globalAlpha = previousAlpha;
         ctx.fillStyle = previousFill;
         ctx.strokeStyle = previousStroke;
@@ -98,6 +100,7 @@ class EnemyRenderer {
         const bossAuraBatch = this._bossAuraBatch || (this._bossAuraBatch = []);
         const bossCrownBatch = this._bossCrownBatch || (this._bossCrownBatch = []);
         const phaseIndicatorBatch = this._phaseIndicatorBatch || (this._phaseIndicatorBatch = []);
+        const burnOverlayBatch = this._burnOverlayBatch || (this._burnOverlayBatch = []);
 
         bodyBatches.clear();
         shieldBatch.length = 0;
@@ -105,6 +108,7 @@ class EnemyRenderer {
         bossAuraBatch.length = 0;
         bossCrownBatch.length = 0;
         phaseIndicatorBatch.length = 0;
+        burnOverlayBatch.length = 0;
 
         for (let i = 0; i < enemies.length; i++) {
             const enemy = enemies[i];
@@ -155,6 +159,11 @@ class EnemyRenderer {
 
             if (enemy.hasPhases && enemy.currentPhase > 1) {
                 phaseIndicatorBatch.push(enemy);
+            }
+
+            const burnEffect = enemy.statusEffects?.getEffect?.('burn');
+            if (burnEffect) {
+                burnOverlayBatch.push({ enemy, effect: burnEffect });
             }
         }
 
@@ -259,6 +268,15 @@ class EnemyRenderer {
             ctx.font = previousFont;
             ctx.textAlign = previousAlign;
             phaseIndicatorBatch.length = 0;
+        }
+
+        if (burnOverlayBatch.length) {
+            ctx.globalAlpha = originalAlpha;
+            for (let i = 0; i < burnOverlayBatch.length; i++) {
+                const entry = burnOverlayBatch[i];
+                this.renderBurnOverlay(entry.enemy, entry.effect, ctx);
+            }
+            burnOverlayBatch.length = 0;
         }
 
         ctx.globalAlpha = originalAlpha;
@@ -412,6 +430,64 @@ class EnemyRenderer {
         ctx.fillText(`P${enemy.currentPhase}`, enemy.x, enemy.y - enemy.radius - 25);
     }
 
+    static renderStatusEffects(enemy, ctx) {
+        const effects = enemy.statusEffects;
+        if (!effects || typeof effects.getEffect !== 'function') {
+            return;
+        }
+
+        const burnEffect = effects.getEffect('burn');
+        if (burnEffect) {
+            this.renderBurnOverlay(enemy, burnEffect, ctx);
+        }
+    }
+
+    static renderBurnOverlay(enemy, burnEffect, ctx) {
+        if (!burnEffect) return;
+
+        const stacks = Math.max(1, burnEffect.stacks || 1);
+        const elapsed = Math.max(0, burnEffect.elapsed || 0);
+        const duration = Math.max(0.1, burnEffect.duration || 1);
+        const progress = Math.min(1, elapsed / duration);
+        const flicker = burnEffect._visualFlicker || 1;
+        const baseIntensity = (0.35 + stacks * 0.2) * (1 - progress * 0.35);
+        const intensity = Math.min(1, baseIntensity * flicker);
+
+        if (intensity <= 0.05) {
+            return;
+        }
+
+        ctx.save();
+        const prevAlpha = ctx.globalAlpha;
+        const radius = enemy.radius * (1.05 + 0.07 * Math.sin((elapsed * 6) + (enemy._burnSeed || 0)));
+
+        ctx.globalAlpha = prevAlpha * Math.min(1, 0.9 * intensity);
+        const gradient = ctx.createRadialGradient(
+            enemy.x,
+            enemy.y,
+            radius * 0.35,
+            enemy.x,
+            enemy.y,
+            radius * 1.25
+        );
+        gradient.addColorStop(0, 'rgba(255,140,60,0.8)');
+        gradient.addColorStop(0.55, 'rgba(255,90,0,0.35)');
+        gradient.addColorStop(1, 'rgba(255,70,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, radius * 1.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalAlpha = prevAlpha * Math.min(1, 0.65 * intensity);
+        ctx.strokeStyle = 'rgba(255,150,70,0.95)';
+        ctx.lineWidth = 1.5 + stacks * 0.5;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, radius * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
     /**
      * Render health bar (fallback - usually handled by UnifiedUIManager)
      */
@@ -515,6 +591,8 @@ class EnemyRenderer {
             }
         }
 
+        // [FIX] Log warning for invalid colors to help debug typos and errors
+        console.warn(`[EnemyRenderer] Invalid color format: "${color}" - using white fallback. Expected hex (#fff or #ffffff) or rgb/rgba format.`);
         return { r: 255, g: 255, b: 255 };
     }
 }

@@ -13,17 +13,11 @@ class MagmaLauncherWeapon {
         this.cooldown = 0;
         this._needsRecalc = true;
 
-        // Scythe-specific rotation state
-        this.sweepAngle = 0;          // Current sweep rotation
-        this.sweepDirection = 1;      // 1 for clockwise, -1 for counter-clockwise
-        this.sweepSpeed = Math.PI / 2; // Radians per second
-        this.arcSpread = 60;  // 60-degree arc spread
-
         // Weapon stats from definition
         const template = this.definition.projectileTemplate || {};
-        this.baseDamageMultiplier = template.damageMultiplier || 1.0;
-        this.baseSpeedMultiplier = template.speedMultiplier || 1.0;
-        this.baseProjectileCount = template.count || 3;
+        this.baseDamageMultiplier = template.damageMultiplier || 1.5;
+        this.baseSpeedMultiplier = template.speedMultiplier || 0.8;
+        this.baseProjectileCount = template.count || 1;
     }
 
     _getBaseAttackSpeed() {
@@ -49,7 +43,9 @@ class MagmaLauncherWeapon {
 
     _recalculateCooldown(preserveProgress = true) {
         const fireRate = this._computeEffectiveFireRate();
-        const newCooldown = fireRate > 0 ? 1 / fireRate : Infinity;
+        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
+        const safeFireRate = Math.max(0.1, fireRate);
+        const newCooldown = 1 / safeFireRate;
 
         if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
             const progress = Math.min(1, this.timer / this.cooldown);
@@ -64,55 +60,7 @@ class MagmaLauncherWeapon {
         this._needsRecalc = false;
     }
 
-    _advanceSweep(deltaTime) {
-        // Continuously sweep the arc angle back and forth
-        this.sweepAngle += this.sweepSpeed * this.sweepDirection * deltaTime;
 
-        // Reverse direction at sweep limits to create a pendulum effect
-        const maxSweep = Math.PI / 2; // 90 degrees each way
-        if (Math.abs(this.sweepAngle) > maxSweep) {
-            this.sweepDirection *= -1;
-            this.sweepAngle = Math.sign(this.sweepAngle) * maxSweep;
-        }
-    }
-
-    _spawnScytheTrailEffect(centerAngle, arcCount) {
-        if (!this.player?.spawnParticle) {
-            return;
-        }
-
-        const helpers = window.Game?.ParticleHelpers;
-        const stats = helpers?.getParticleStats?.();
-        if (stats?.lowQuality) {
-            return;
-        }
-
-        // Create a trailing void effect along the arc
-        const radius = 30;
-        const spreadRadians = (this.arcSpread * Math.PI) / 180;
-        for (let i = 0; i < arcCount; i++) {
-            const progress = i / Math.max(1, arcCount - 1);
-            const angle = centerAngle - spreadRadians / 2 + spreadRadians * progress;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-
-            const x = this.player.x + cos * radius;
-            const y = this.player.y + sin * radius;
-            const vx = cos * 80;
-            const vy = sin * 80;
-
-            this.player.spawnParticle(
-                x,
-                y,
-                vx,
-                vy,
-                2.5,
-                '#9945ff', // Purple void color
-                0.3,
-                'spark'
-            );
-        }
-    }
 
     _playFireSound() {
         if (window.audioSystem?.play) {
@@ -123,8 +71,6 @@ class MagmaLauncherWeapon {
     onEquip() {
         this._needsRecalc = true;
         this.timer = 0;
-        this.sweepAngle = 0;
-        this.sweepDirection = 1;
     }
 
     onUnequip() {
@@ -139,9 +85,6 @@ class MagmaLauncherWeapon {
         if (this._needsRecalc) {
             this._recalculateCooldown(true);
         }
-
-        // Advance the sweep animation
-        this._advanceSweep(deltaTime);
 
         if (!Number.isFinite(this.cooldown) || this.cooldown <= 0) {
             return;
@@ -171,20 +114,35 @@ class MagmaLauncherWeapon {
         const dy = nearestEnemy.y - this.player.y;
         const targetAngle = Math.atan2(dy, dx);
 
-        // Apply sweep offset to create reaping motion
-        const centerAngle = targetAngle + this.sweepAngle;
-
-        // Fire projectiles in an arc formation (like a scythe swing)
-        this.combat.fireProjectile(game, centerAngle, {
+        // Fire magma charge
+        this.combat.fireProjectile(game, targetAngle, {
             damageMultiplier: this.baseDamageMultiplier,
             speedMultiplier: this.baseSpeedMultiplier,
-            spreadDegrees: this.arcSpread,
+            color: '#ff4500', // Magma orange
+            type: 'magma',
             applyBehaviors: true,
-            additionalProjectiles: this.baseProjectileCount - 1
+            additionalProjectiles: this.baseProjectileCount - 1,
+            // [FIX] Use onProjectileSpawn to add BurnBehavior (onHit doesn't exist in fireProjectile API)
+            onProjectileSpawn: (projectile) => {
+                const BurnBehaviorClass = window.BurnBehavior;
+                if (projectile?.behaviorManager?.addBehavior && typeof BurnBehaviorClass === 'function') {
+                    projectile.behaviorManager.addBehavior(new BurnBehaviorClass(projectile, {
+                        damage: 5 * this.baseDamageMultiplier,
+                        duration: 3,
+                        chance: 1.0  // Always apply burn on hit
+                    }));
+                } else {
+                    // Log error if BurnBehavior is missing - helps debug load failures
+                    if (!projectile?.behaviorManager) {
+                        console.error('[MagmaLauncher] Projectile missing behaviorManager - burn effect disabled');
+                    } else if (typeof BurnBehaviorClass !== 'function') {
+                        console.error('[MagmaLauncher] BurnBehavior class not loaded - burn effect disabled. Check if BurnBehavior.js loaded correctly.');
+                    }
+                }
+            }
         });
 
         // Visual effects
-        this._spawnScytheTrailEffect(centerAngle, Math.min(8, this.baseProjectileCount));
         this._playFireSound();
 
         return true;
@@ -209,11 +167,11 @@ class MagmaLauncherWeapon {
             return;
         }
 
-        // Void Scythe synergizes with explosive and support paths
+        // Magma Launcher synergizes with explosive and fire paths
         if (upgrade.weaponTags &&
-            !upgrade.weaponTags.includes('reaper') &&
+            !upgrade.weaponTags.includes('fire') &&
             !upgrade.weaponTags.includes('explosive') &&
-            !upgrade.weaponTags.includes('support')) {
+            !upgrade.weaponTags.includes('heavy')) {
             return;
         }
 
@@ -227,9 +185,6 @@ class MagmaLauncherWeapon {
             }
             if (upgrade.speedBonus) {
                 this.baseSpeedMultiplier *= upgrade.speedBonus;
-            }
-            if (upgrade.arcSpreadBonus) {
-                this.arcSpread *= upgrade.arcSpreadBonus;
             }
             return;
         }

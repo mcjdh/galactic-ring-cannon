@@ -318,6 +318,47 @@ class Player {
                 }
             }
 
+            // NEW: Burn ability modifiers (Inferno Juggernaut)
+            const legacyBurn = (abilityMods.hasBurn || abilityMods.burnChance !== undefined ||
+                abilityMods.burnDamage !== undefined || abilityMods.burnDuration !== undefined)
+                ? {
+                    enabled: abilityMods.hasBurn !== false,
+                    chance: abilityMods.burnChance,
+                    damage: abilityMods.burnDamage,
+                    duration: abilityMods.burnDuration,
+                    explosionDamage: abilityMods.burnExplosionDamage,
+                    explosionRadius: abilityMods.burnExplosionRadius
+                }
+                : null;
+
+            const burnMods = abilityMods.burn || legacyBurn;
+            if (burnMods) {
+                if (burnMods.enabled !== false) {
+                    this.abilities.hasBurn = true;
+                }
+                if (typeof burnMods.chance === 'number') {
+                    this.abilities.burnChance = Math.max(0, Math.min(0.99, burnMods.chance));
+                }
+                if (typeof burnMods.damage === 'number') {
+                    this.abilities.burnDamage = burnMods.damage;
+                }
+                if (typeof burnMods.duration === 'number') {
+                    this.abilities.burnDuration = burnMods.duration;
+                }
+                if (typeof burnMods.explosionDamage === 'number') {
+                    this.abilities.burnExplosionDamage = Math.max(
+                        this.abilities.burnExplosionDamage || 0,
+                        burnMods.explosionDamage
+                    );
+                }
+                if (typeof burnMods.explosionRadius === 'number') {
+                    this.abilities.burnExplosionRadius = Math.max(
+                        this.abilities.burnExplosionRadius || 0,
+                        burnMods.explosionRadius
+                    );
+                }
+            }
+
             // NEW: Gravity well ability modifiers (Void Reaver)
             if (abilityMods.gravityWell) {
                 const gravityWell = abilityMods.gravityWell;
@@ -691,6 +732,9 @@ class Player {
             case 'explosionChain':
             case 'ricochetBounces':
             case 'ricochetDamage':
+            case 'bloodLash':
+            case 'bloodNova':
+            case 'gravityWell':
                 this.abilities.applyAbilityUpgrade(upgradeInstance);
                 break;
         }

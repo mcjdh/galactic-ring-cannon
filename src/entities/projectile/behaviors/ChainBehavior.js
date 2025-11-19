@@ -71,38 +71,42 @@ class ChainBehavior extends ProjectileBehaviorBase {
     }
 
     /**
-     * Chain to nearby enemy
+     * Chain to nearby enemies iteratively (prevents stack overflow)
      */
-    _chainToNearby(fromEnemy, engine) {
+    _chainToNearby(startEnemy, engine) {
         const enemies = engine?.enemies || [];
         if (enemies.length === 0) return;
 
-        // Failsafe: Prevent infinite recursion if there's a bug
-        if (this.chainsUsed >= 20) {
-            console.error(`[ChainBehavior] Chain limit exceeded! chainsUsed=${this.chainsUsed}, maxChains=${this.maxChains}`);
-            return;
-        }
+        let currentSource = startEnemy;
+        let safetyCounter = 0;
+        const MAX_ITERATIONS = 50; // Hard limit to prevent infinite loops
 
-        // Find nearest unchained enemy
-        let nearest = null;
-        let minDist = this.range;
+        while (this.chainsUsed < this.maxChains && safetyCounter < MAX_ITERATIONS) {
+            safetyCounter++;
 
-        for (const enemy of enemies) {
-            if (!enemy || enemy.isDead) continue;
-            if (enemy === fromEnemy) continue;
-            if (this.chainedEnemies.has(enemy.id)) continue;
+            // Find nearest unchained enemy
+            let nearest = null;
+            let minDist = this.range;
 
-            const dx = enemy.x - fromEnemy.x;
-            const dy = enemy.y - fromEnemy.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead) continue;
+                if (enemy === currentSource) continue;
+                if (this.chainedEnemies.has(enemy.id)) continue;
 
-            if (dist < minDist) {
-                minDist = dist;
-                nearest = enemy;
+                const dx = enemy.x - currentSource.x;
+                const dy = enemy.y - currentSource.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = enemy;
+                }
             }
-        }
 
-        if (nearest) {
+            if (!nearest) {
+                break; // No more valid targets in range
+            }
+
             // Apply chain damage
             const chainDamage = this.projectile.damage * this.damageMultiplier;
 
@@ -114,7 +118,7 @@ class ChainBehavior extends ProjectileBehaviorBase {
             this.chainsUsed++;
 
             // Visual lightning effect
-            this._createLightningVisual(fromEnemy, nearest);
+            this._createLightningVisual(currentSource, nearest);
 
             // Show damage
             if (window.gameEngine?.unifiedUI) {
@@ -135,10 +139,8 @@ class ChainBehavior extends ProjectileBehaviorBase {
                 console.log(`[ChainBehavior] Projectile ${this.projectile.id} chained to enemy ${nearest.id}. Chains: ${this.chainsUsed}/${this.maxChains}`);
             }
 
-            // RECURSIVELY chain to next enemy if we have chains left
-            if (this.chainsUsed < this.maxChains) {
-                this._chainToNearby(nearest, engine);
-            }
+            // Update source for next iteration
+            currentSource = nearest;
         }
     }
 

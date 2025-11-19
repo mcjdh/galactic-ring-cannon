@@ -304,6 +304,57 @@ const UPGRADE_DEFINITIONS = [
     },
 
     // ========================================
+    // PHANTOM STRIKER EXCLUSIVE UPGRADES
+    // ========================================
+    {
+        id: 'phantom_phase',
+        name: 'Phantom Phase Geometry',
+        description: 'Ricochets gain +1 bounce, +120 range, and +10% proc chance.',
+        type: 'weaponModifier',
+        weaponTags: ['phantom_repeater'],
+        characterRestriction: 'phantom_striker',
+        bonusBounces: 1,
+        rangeBonus: 120,
+        chanceBonus: 0.10,
+        icon: 'Ψ',
+        rarity: 'rare',
+        buildPath: 'ricochet',
+        specialEffect: 'phantom_phase'
+    },
+    {
+        id: 'void_amplifier',
+        name: 'Void Amplifier',
+        description: 'Ricochet damage +25% and final hits detonate for 90 void damage.',
+        type: 'weaponModifier',
+        weaponTags: ['phantom_repeater'],
+        characterRestriction: 'phantom_striker',
+        requires: ['phantom_phase'],
+        damageMultiplier: 1.25,
+        finalExplosionDamage: 90,
+        finalExplosionRadius: 110,
+        icon: '₪',
+        rarity: 'epic',
+        buildPath: 'ricochet',
+        specialEffect: 'phantom_nova'
+    },
+    {
+        id: 'spectral_echoes',
+        name: 'Spectral Echoes',
+        description: 'Final ricochet has a 35% chance to spawn a 1-bounce echo chain and +1 bounce.',
+        type: 'weaponModifier',
+        weaponTags: ['phantom_repeater'],
+        characterRestriction: 'phantom_striker',
+        requires: ['void_amplifier'],
+        echoChance: 0.35,
+        echoBounces: 1,
+        bonusBounces: 1,
+        icon: '☄',
+        rarity: 'epic',
+        buildPath: 'ricochet',
+        specialEffect: 'phantom_echo'
+    },
+
+    // ========================================
     // EXPLOSIVE BUILD PATH
     // ========================================
     {
@@ -529,6 +580,52 @@ const UPGRADE_DEFINITIONS = [
     },
 
     // ========================================
+    // GRAVITY WELL BUILD PATH (Void Warden)
+    // ========================================
+    {
+        id: 'gravity_well_focus',
+        name: 'Event Horizon Focusers',
+        description: 'Gravity wells are 20% larger and persist 0.5s longer.',
+        type: 'gravityWell',
+        radiusMultiplier: 1.2,
+        durationBonus: 0.5,
+        icon: '◎',
+        rarity: 'uncommon',
+        buildPath: 'support',
+        characterRestriction: 'void_warden',
+        specialEffect: 'gravitywell_radius'
+    },
+    {
+        id: 'gravity_well_force',
+        name: 'Tidal Lock Arrays',
+        description: 'Gravity wells slow enemies 15% more and pull harder.',
+        type: 'gravityWell',
+        slowBonus: 0.15,
+        pullBonus: 0.12,
+        icon: '⇵',
+        rarity: 'rare',
+        requires: ['gravity_well_focus'],
+        buildPath: 'support',
+        characterRestriction: 'void_warden',
+        specialEffect: 'gravitywell_pull'
+    },
+    {
+        id: 'gravity_well_core',
+        name: 'Quantum Singularity Core',
+        description: 'Gravity well damage is massively increased and they linger a bit longer.',
+        type: 'gravityWell',
+        damageMultiplier: 1.35,
+        damageAdd: 0.15,
+        durationBonus: 0.3,
+        icon: '✦',
+        rarity: 'epic',
+        requires: ['gravity_well_force'],
+        buildPath: 'explosive',
+        characterRestriction: 'void_warden',
+        specialEffect: 'gravitywell_burst'
+    },
+
+    // ========================================
     // PYROMANCY BUILD PATH (Inferno Juggernaut)
     // ========================================
     {
@@ -556,6 +653,99 @@ const UPGRADE_DEFINITIONS = [
         requires: ['pyromancy_1'],
         buildPath: 'explosive',
         specialEffect: 'burn_intensify'
+    },
+
+    // ========================================
+    // CRIMSON REAVER EXCLUSIVE UPGRADES
+    // ========================================
+    {
+        id: 'blood_tithe',
+        name: 'Blood Tithe',
+        description: '+8% lifesteal for the Crimson Reaver.',
+        type: 'lifesteal',
+        value: 0.08,
+        icon: '†',
+        rarity: 'rare',
+        buildPath: 'core',
+        characterRestriction: 'crimson_reaver',
+        specialEffect: 'lifesteal_glow'
+    },
+    {
+        id: 'sanguine_lash',
+        name: 'Sanguine Lash',
+        description: 'Lifesteal lashes out at a nearby enemy for 45 damage.',
+        type: 'bloodLash',
+        damage: 45,
+        range: 280,
+        chance: 1.0,
+        icon: '↯',
+        rarity: 'rare',
+        requires: ['blood_tithe'],
+        buildPath: 'explosive',
+        characterRestriction: 'crimson_reaver',
+        specialEffect: 'blood_lash'
+    },
+    {
+        id: 'crimson_cataclysm',
+        name: 'Crimson Cataclysm',
+        description: 'Overhealing erupts in a 120 radius nova for 90 damage.',
+        type: 'bloodNova',
+        damage: 90,
+        radius: 120,
+        icon: '☢',
+        rarity: 'epic',
+        requires: ['sanguine_lash'],
+        buildPath: 'explosive',
+        characterRestriction: 'crimson_reaver',
+        specialEffect: 'blood_nova'
+    },
+
+    // ========================================
+    // INFERNO JUGGERNAUT EXCLUSIVE UPGRADES
+    // ========================================
+    {
+        id: 'inferno_brands',
+        name: 'Inferno Brands',
+        description: 'Burn chance +15% and scorch damage boosted to 8 DPS for 4s.',
+        type: 'burn',
+        characterRestriction: 'inferno_juggernaut',
+        burnChance: 0.85,
+        burnDamage: 8,
+        burnDuration: 4.0,
+        chanceBonus: 0.15,
+        icon: '🔥✚',
+        rarity: 'rare',
+        requires: ['pyromancy_1'],
+        buildPath: 'explosive',
+        specialEffect: 'burn_empower'
+    },
+    {
+        id: 'inferno_overpressure',
+        name: 'Overpressure Chambers',
+        description: 'Burn DPS +35% and duration +1.5s for the Juggernaut.',
+        type: 'burnDamage',
+        characterRestriction: 'inferno_juggernaut',
+        damageMultiplier: 1.35,
+        durationBonus: 1.5,
+        icon: '🔥🔥🔥',
+        rarity: 'rare',
+        requires: ['inferno_brands'],
+        buildPath: 'explosive',
+        specialEffect: 'burn_overpressure'
+    },
+    {
+        id: 'inferno_conflagration',
+        name: 'Conflagration Core',
+        description: 'Burning enemies emit fiery pulses (35 dmg, 90 radius) each tick.',
+        type: 'burnDamage',
+        characterRestriction: 'inferno_juggernaut',
+        explosionDamage: 35,
+        explosionRadius: 90,
+        icon: '🔥🌪',
+        rarity: 'epic',
+        requires: ['inferno_overpressure'],
+        buildPath: 'explosive',
+        specialEffect: 'burn_conflagration'
     },
 
     // ========================================

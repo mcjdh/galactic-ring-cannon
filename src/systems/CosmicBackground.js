@@ -95,7 +95,8 @@ class CosmicBackground {
         this._nebulaSpriteCache = new Map();
         
         // [Pi] GPU Memory Optimization: Reduce nebula sprite cache for Pi5
-        this._nebulaCacheLimit = window.isRaspberryPi ? 8 : 32;  // 32 → 8 (75% reduction)
+        // Increased to 12 to prevent cache thrashing with quantized sizes (2 colors * 4 sizes = 8 max)
+        this._nebulaCacheLimit = window.isRaspberryPi ? 12 : 32;
 
         // Initialize
         this.initialize();
@@ -137,11 +138,18 @@ class CosmicBackground {
         // Alternate purple and pink for variety but consistency
         const nebulaColors = [this.colors.nebulaPurple, this.colors.nebulaPink];
         
+        // Quantized sizes to maximize sprite reuse and prevent cache thrashing
+        // 4 sizes: 100, 150, 200, 250
+        const quantizedSizes = [100, 150, 200, 250];
+        
         for (let i = 0; i < this.nebulaCount; i++) {
+            // Pick a size from the quantized set
+            const sizeIndex = Math.floor(Math.random() * quantizedSizes.length);
+
             this.nebulaClouds.push({
                 x: Math.random() * canvasWidth,
                 y: Math.random() * canvasHeight,
-                radius: 100 + Math.random() * 200,
+                radius: quantizedSizes[sizeIndex],
                 // Use alternating pattern instead of random to ensure consistent sprite cache
                 color: nebulaColors[i % nebulaColors.length],
                 drift: {
@@ -413,6 +421,8 @@ class CosmicBackground {
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+        // Ensure smooth scaling for nebulas, especially if using low-res sprites
+        ctx.imageSmoothingEnabled = true;
 
         // 🌟 OPTIMIZATION & FIX: Ensure nebulae never "pop" by always using sprites
         // with smooth culling and consistent rendering
@@ -471,7 +481,11 @@ class CosmicBackground {
             return null;
         }
 
-        const size = Math.max(2, roundedRadius * 2);
+        // [Pi] Optimization: Use lower resolution sprites on Pi to save memory
+        const scale = window.isRaspberryPi ? 0.5 : 1.0;
+        const spriteRadius = roundedRadius * scale;
+        const size = Math.max(2, Math.ceil(spriteRadius * 2));
+        
         const offscreen = document.createElement('canvas');
         offscreen.width = size;
         offscreen.height = size;
@@ -481,8 +495,8 @@ class CosmicBackground {
         }
 
         const gradient = offCtx.createRadialGradient(
-            roundedRadius, roundedRadius, 0,
-            roundedRadius, roundedRadius, roundedRadius
+            spriteRadius, spriteRadius, 0,
+            spriteRadius, spriteRadius, spriteRadius
         );
 
         gradient.addColorStop(0, this.hexToRgba(color, 0.3));

@@ -7,6 +7,8 @@ class BurnBehavior extends ProjectileBehaviorBase {
         this.damage = config.damage || 5;
         this.duration = config.duration || 3.0;
         this.chance = config.chance || 1.0;
+        this.explosionDamage = config.explosionDamage || 0;
+        this.explosionRadius = config.explosionRadius || 0;
     }
 
     /**
@@ -19,7 +21,9 @@ class BurnBehavior extends ProjectileBehaviorBase {
         // Apply burn effect
         if (target && target.statusEffects) {
             target.statusEffects.applyEffect('burn', {
-                damage: this.damage
+                damage: this.damage,
+                explosionDamage: this.explosionDamage,
+                explosionRadius: this.explosionRadius
             }, this.duration);
 
             // Visual feedback for application

@@ -91,29 +91,30 @@ class ExplosiveBehavior extends ProjectileBehaviorBase {
         const explosionY = this.projectile.y;
 
         // EXPANDING SHOCKWAVE RINGS - staggered for depth effect
+        // [PERFORMANCE] Removed setTimeout to prevent memory leaks/lag with high fire rate
+        // Spawning all rings immediately but with varied speeds/radii creates a similar effect
         const ringCount = 3;
         for (let ring = 0; ring < ringCount; ring++) {
-            const delay = ring * 50; // 50ms stagger
-            setTimeout(() => {
-                const ringRadius = this.radius * 0.4 + (ring * this.radius * 0.2);
-                const particlesInRing = 24 + (ring * 8); // More particles in outer rings
+            // const delay = ring * 50; // Removed delay
+            
+            const ringRadius = this.radius * 0.4 + (ring * this.radius * 0.2);
+            const particlesInRing = 24 + (ring * 8); // More particles in outer rings
+            
+            for (let i = 0; i < particlesInRing; i++) {
+                const angle = (Math.PI * 2 * i) / particlesInRing;
+                const x = explosionX + Math.cos(angle) * ringRadius;
+                const y = explosionY + Math.sin(angle) * ringRadius;
                 
-                for (let i = 0; i < particlesInRing; i++) {
-                    const angle = (Math.PI * 2 * i) / particlesInRing;
-                    const x = explosionX + Math.cos(angle) * ringRadius;
-                    const y = explosionY + Math.sin(angle) * ringRadius;
-                    
-                    window.optimizedParticles.spawnParticle({
-                        x, y,
-                        vx: Math.cos(angle) * (80 - ring * 20), // Slower outer rings
-                        vy: Math.sin(angle) * (80 - ring * 20),
-                        size: 8 - ring * 2,  // Smaller outer rings
-                        color: ring === 0 ? '#ff6b35' : (ring === 1 ? '#ff8c42' : '#ffaa52'),
-                        life: 0.8 - ring * 0.15,
-                        type: 'explosion'
-                    });
-                }
-            }, delay);
+                window.optimizedParticles.spawnParticle({
+                    x, y,
+                    vx: Math.cos(angle) * (80 - ring * 20), // Slower outer rings
+                    vy: Math.sin(angle) * (80 - ring * 20),
+                    size: 8 - ring * 2,  // Smaller outer rings
+                    color: ring === 0 ? '#ff6b35' : (ring === 1 ? '#ff8c42' : '#ffaa52'),
+                    life: 0.8 - ring * 0.15,
+                    type: 'explosion'
+                });
+            }
         }
 
         // RADIAL BURST - bright fiery particles

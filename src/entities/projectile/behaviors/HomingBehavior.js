@@ -68,14 +68,14 @@ class HomingBehavior extends ProjectileBehaviorBase {
         const dx = this.target.x - this.projectile.x;
         const dy = this.target.y - this.projectile.y;
         const targetLenSq = dx * dx + dy * dy;
-        if (targetLenSq === 0) {
+        if (targetLenSq < 0.0001) {
             return;
         }
 
         const currentVx = this.projectile.vx;
         const currentVy = this.projectile.vy;
         const currentSpeedSq = currentVx * currentVx + currentVy * currentVy;
-        if (currentSpeedSq === 0) {
+        if (currentSpeedSq < 0.0001) {
             return;
         }
 
@@ -95,7 +95,7 @@ class HomingBehavior extends ProjectileBehaviorBase {
 
         const maxTurn = this.turnSpeed * deltaTime;
         const turn = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
-        if (turn === 0) {
+        if (Math.abs(turn) < 0.0001) {
             return;
         }
 

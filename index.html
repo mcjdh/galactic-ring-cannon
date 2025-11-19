@@ -209,16 +209,27 @@
         <canvas id="achievements-background"></canvas>
         <div id="achievements-content">
             <h2>Achievements</h2>
-            <div id="achievements-progress">
-                <span id="achievements-count">0/0</span> Achievements Unlocked
+            <div id="achievements-layout">
+                <div id="achievements-sidebar">
+                    <button class="category-btn active" data-category="All">All</button>
+                    <button class="category-btn" data-category="Combat">Combat</button>
+                    <button class="category-btn" data-category="Progression">Progression</button>
+                    <button class="category-btn" data-category="Skill">Skill</button>
+                    <button class="category-btn" data-category="Special">Special</button>
+                </div>
+                <div id="achievements-main">
+                    <div id="achievements-progress">
+                        <span id="achievements-count">0/0</span> Unlocked
+                    </div>
+                    <div id="achievements-list"></div>
+                    <!-- Pagination controls for achievements -->
+                    <div class="pagination-controls">
+                        <button id="achievements-prev-page" class="page-nav-btn" disabled>◀</button>
+                        <div id="achievements-page-indicator" class="page-indicator">Page 1 of 1</div>
+                        <button id="achievements-next-page" class="page-nav-btn" disabled>▶</button>
+                    </div>
+                </div>
             </div>
-            <!-- Pagination controls for achievements -->
-            <div class="pagination-controls">
-                <button id="achievements-prev-page" class="page-nav-btn" disabled>◀</button>
-                <div id="achievements-page-indicator" class="page-indicator">Page 1 of 1</div>
-                <button id="achievements-next-page" class="page-nav-btn" disabled>▶</button>
-            </div>
-            <div id="achievements-list"></div>
             <button id="achievements-close" class="menu-button">Close</button>
         </div>
     </div>
@@ -277,6 +288,7 @@
     <script defer src="src/entities/projectile/Projectile.js"></script>
     <script defer src="src/entities/projectile/ProjectileFactory.js"></script>
     <script defer src="src/entities/damageZone.js"></script>
+    <script defer src="src/entities/GravityWell.js"></script>
     <script defer src="src/entities/EnemyProjectile.js"></script>
     <script defer src="src/entities/XPOrb.js"></script>
     <!-- Enemy components - shared behavior systems -->

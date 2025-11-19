@@ -65,6 +65,9 @@ class Projectile {
             }
         } catch (error) {
             // Fallback: Create a minimal stub manager if BehaviorManager fails
+            // [FIX] Always log error to console to ensure visibility of silent failures
+            console.error(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error);
+            
             if (window.debugProjectiles) {
                 window.logger.warn(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error.message);
             }
@@ -102,6 +105,8 @@ class Projectile {
 
         // Lifesteal (applied directly, not a behavior for simplicity)
         this.lifesteal = 0;
+        this.sourcePlayer = null;
+        this.createsGravityWell = false;
     }
 
     /**
@@ -285,8 +290,7 @@ class Projectile {
 
         // Check lifetime
         if (this.age >= this.lifetime) {
-            this.behaviorManager.onDestroy(game);
-            this.isDead = true;
+            this._destroy(game, { cause: 'lifetime' });
             return;
         }
 
@@ -298,8 +302,7 @@ class Projectile {
             const deltaDistance = Math.hypot(this.vx * deltaTime, this.vy * deltaTime);
             this.distanceTraveled += deltaDistance;
             if (this.distanceTraveled >= this.rangeLimit) {
-                this.behaviorManager.onDestroy(game);
-                this.isDead = true;
+                this._destroy(game, { cause: 'rangeLimit' });
                 return;
             }
         }
@@ -342,6 +345,7 @@ class Projectile {
 
             if (player.stats && typeof player.stats.heal === 'function') {
                 player.stats.heal(healAmount);
+                player.abilities?.onLifesteal?.(healAmount);
                 // Track lifesteal for Grim Harvest and Crimson Pact achievements
                 if (window.achievementSystem && typeof window.achievementSystem.onLifestealHealing === 'function') {
                     window.achievementSystem.onLifestealHealing(healAmount);
@@ -350,8 +354,7 @@ class Projectile {
         }
 
         if (shouldDie) {
-            this.behaviorManager.onDestroy(engine);
-            this.isDead = true;
+            this._destroy(engine, { cause: 'collision', target });
         }
     }
 
@@ -377,6 +380,89 @@ class Projectile {
      */
     render(ctx) {
         ProjectileRenderer.render(this, ctx);
+    }
+
+    _destroy(engine, context = {}) {
+        if (this.isDead) {
+            return;
+        }
+        this.behaviorManager.onDestroy(engine);
+        this._maybeSpawnGravityWell(engine, context);
+        this.isDead = true;
+    }
+
+    _maybeSpawnGravityWell(engine) {
+        if (!this.createsGravityWell || !engine?.addEntity) {
+            return;
+        }
+
+        const player = this.sourcePlayer || engine.player;
+        if (!player?.abilities?.hasGravityWells) {
+            return;
+        }
+
+        const GravityWellClass = window.Game?.GravityWell;
+        if (typeof GravityWellClass !== 'function') {
+            return;
+        }
+
+        const radius = player.abilities.gravityWellRadius || 150;
+        const duration = player.abilities.gravityWellDuration || 2.5;
+        const slowAmount = Number.isFinite(player.abilities.gravityWellSlowAmount)
+            ? player.abilities.gravityWellSlowAmount
+            : 0.4;
+        const pullStrength = Number.isFinite(player.abilities.gravityWellPullStrength)
+            ? player.abilities.gravityWellPullStrength
+            : 0.3;
+        const damageMultiplier = Number.isFinite(player.abilities.gravityWellDamageMultiplier)
+            ? player.abilities.gravityWellDamageMultiplier
+            : 0.15;
+
+        try {
+            const well = new GravityWellClass({
+                x: this.x,
+                y: this.y,
+                radius,
+                duration,
+                slowAmount,
+                pullStrength,
+                damageMultiplier,
+                baseDamage: this.damage,
+                sourcePlayer: player
+            });
+            engine.addEntity(well);
+            this._createGravityWellSpawnFx();
+        } catch (error) {
+            if (window.debugProjectiles) {
+                window.logger.error('Failed to create GravityWell:', error);
+            }
+        }
+    }
+
+    _createGravityWellSpawnFx() {
+        if (!window.optimizedParticles) {
+            return;
+        }
+
+        const burst = 24;
+        for (let i = 0; i < burst; i++) {
+            const angle = (Math.PI * 2 * i) / burst;
+            const speed = 80 + Math.random() * 120;
+            window.optimizedParticles.spawnParticle({
+                x: this.x,
+                y: this.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 4 + Math.random() * 3,
+                color: i % 2 === 0 ? '#d5c4ff' : '#7f8cfc',
+                life: 0.6 + Math.random() * 0.2,
+                type: 'spark'
+            });
+        }
+
+        if (window.gameManager?.addScreenShake) {
+            window.gameManager.addScreenShake(4, 0.25);
+        }
     }
 
     /**

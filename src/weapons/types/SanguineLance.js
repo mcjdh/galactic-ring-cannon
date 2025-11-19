@@ -42,7 +42,9 @@ class SanguineLanceWeapon {
 
     _recalculateCooldown(preserveProgress = true) {
         const fireRate = this._computeEffectiveFireRate();
-        const newCooldown = fireRate > 0 ? 1 / fireRate : Infinity;
+        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
+        const safeFireRate = Math.max(0.1, fireRate);
+        const newCooldown = 1 / safeFireRate;
 
         if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
             const progress = Math.min(1, this.timer / this.cooldown);

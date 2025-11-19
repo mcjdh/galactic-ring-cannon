@@ -38,6 +38,7 @@ class ProjectileFactory {
                 if (isCrit && player.stats.lifestealCritMultiplier > 1) {
                     projectile.lifesteal *= player.stats.lifestealCritMultiplier;
                 }
+
             }
         }
 
@@ -107,7 +108,9 @@ class ProjectileFactory {
             const burnBehavior = new BurnBehavior(projectile, {
                 damage: abilities.burnDamage || 5,
                 duration: abilities.burnDuration || 3.0,
-                chance: 1.0 // Already checked above
+                chance: 1.0, // Already checked above
+                explosionDamage: abilities.burnExplosionDamage || 0,
+                explosionRadius: abilities.burnExplosionRadius || 0
             });
             projectile.behaviorManager.addBehavior(burnBehavior);
         }

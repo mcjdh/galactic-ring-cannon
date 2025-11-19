@@ -29,12 +29,29 @@ class PlayerAbilities {
         this.explosionDamage = 0;
         this.explosionChainChance = 0;
 
+        // Burn properties
+        this.hasBurn = false;
+        this.burnChance = 0;
+        this.burnDamage = 0;
+        this.burnDuration = 0;
+        this.burnExplosionDamage = 0;
+        this.burnExplosionRadius = 0;
+        this.bloodLashDamage = 0;
+        this.bloodLashRange = 0;
+        this.bloodLashChance = 0;
+        this.bloodNovaDamage = 0;
+        this.bloodNovaRadius = 0;
+
         // Ricochet properties
         this.hasRicochet = false;
         this.ricochetChance = 0.4; // Baseline 40% chance once unlocked
         this.ricochetBounces = 0;
         this.ricochetRange = 0;
         this.ricochetDamage = 0;
+        this.ricochetFinalExplosionDamage = 0;
+        this.ricochetFinalExplosionRadius = 0;
+        this.ricochetEchoChance = 0;
+        this.ricochetEchoBounces = 0;
 
         // Homing projectile properties
         this.hasHomingShots = false;
@@ -587,6 +604,7 @@ class PlayerAbilities {
                         const healAmount = damage * this.player.stats.lifestealAmount *
                             (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                         this.player.stats.heal(healAmount);
+                        this.onLifesteal(healAmount);
                         // Track lifesteal healing for achievements
                         window.achievementSystem?.onLifestealHeal?.(healAmount);
                     }
@@ -693,6 +711,7 @@ class PlayerAbilities {
                 const healAmount = finalDamage * this.player.stats.lifestealAmount *
                     (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                 this.player.stats.heal(healAmount);
+                this.onLifesteal(healAmount);
                 // Track lifesteal healing for achievements
                 window.achievementSystem?.onLifestealHeal?.(healAmount);
             }
@@ -785,6 +804,7 @@ class PlayerAbilities {
                 const healAmount = ricochetDamage * this.player.stats.lifestealAmount *
                     (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                 this.player.stats.heal(healAmount);
+                this.onLifesteal(healAmount);
                 // Track lifesteal healing for achievements
                 window.achievementSystem?.onLifestealHeal?.(healAmount);
             }
@@ -797,12 +817,56 @@ class PlayerAbilities {
                 gm.onRicochetHit?.(hitEnemies.size);
             }
 
-            // Continue ricochet
+            const nextBounces = Math.max(0, bouncesLeft - 1);
+            if (nextBounces > 0) {
+                this.processRicochet(
+                    closestEnemy.x, closestEnemy.y,
+                    damage,
+                    nextBounces,
+                    hitEnemies
+                );
+            } else {
+                this._handleRicochetFinale(closestEnemy, damage, hitEnemies);
+            }
+        }
+    }
+
+    _handleRicochetFinale(targetEnemy, baseDamage, previousHits = new Set()) {
+        if (!targetEnemy) return;
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        const game = gm?.game;
+
+        if (this.ricochetFinalExplosionDamage > 0 && game?.getEnemiesWithinRadius) {
+            const radius = Math.max(20, this.ricochetFinalExplosionRadius || 90);
+            const damage = this.ricochetFinalExplosionDamage;
+            const enemies = game.getEnemiesWithinRadius(targetEnemy.x, targetEnemy.y, radius, {
+                includeDead: false
+            }) || [];
+
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead) continue;
+                enemy.takeDamage(damage);
+            }
+
+            gm?.createExplosion?.(targetEnemy.x, targetEnemy.y, radius, '#c27bff');
+        }
+
+        if (
+            this.ricochetEchoChance > 0 &&
+            this.ricochetEchoBounces > 0 &&
+            Math.random() < this.ricochetEchoChance
+        ) {
+            const echoSet = new Set();
+            if (targetEnemy?.id) {
+                echoSet.add(targetEnemy.id);
+            }
             this.processRicochet(
-                closestEnemy.x, closestEnemy.y,
-                damage,
-                bouncesLeft - 1,
-                hitEnemies
+                targetEnemy.x,
+                targetEnemy.y,
+                baseDamage,
+                this.ricochetEchoBounces,
+                echoSet
             );
         }
     }
@@ -882,6 +946,94 @@ class PlayerAbilities {
         // Play lightning sound
         if (window.audioSystem?.play) {
             window.audioSystem.play('hit', 0.3);
+        }
+    }
+
+    onHeal(healedAmount = 0, overflowAmount = 0) {
+        if (!(overflowAmount > 0 && this.bloodNovaDamage > 0)) {
+            return;
+        }
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        const game = gm?.game;
+        const radius = this.bloodNovaRadius || 110;
+        const damage = this.bloodNovaDamage;
+
+        if (game?.getEnemiesWithinRadius) {
+            const enemies = game.getEnemiesWithinRadius(this.player.x, this.player.y, radius, {
+                includeDead: false
+            }) || [];
+
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead) continue;
+                if (typeof enemy.takeDamage === 'function') {
+                    enemy.takeDamage(damage);
+                }
+            }
+        } else if (Array.isArray(game?.enemies)) {
+            for (const enemy of game.enemies) {
+                if (!enemy || enemy.isDead) continue;
+                const dx = enemy.x - this.player.x;
+                const dy = enemy.y - this.player.y;
+                if ((dx * dx + dy * dy) <= radius * radius) {
+                    enemy.takeDamage(damage);
+                }
+            }
+        }
+
+        gm?.createExplosion?.(this.player.x, this.player.y, radius, '#c0392b');
+    }
+
+    onLifesteal(amount = 0) {
+        if (!(amount > 0 && this.bloodLashDamage > 0)) {
+            return;
+        }
+        const chance = this.bloodLashChance || 1;
+        if (Math.random() > chance) {
+            return;
+        }
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        const game = gm?.game;
+        const range = this.bloodLashRange || 240;
+
+        let target = game?.findClosestEnemy?.(
+            this.player.x,
+            this.player.y,
+            {
+                maxRadius: range,
+                includeDead: false
+            }
+        ) ?? null;
+
+        if (!target && game?.getEnemiesWithinRadius) {
+            const enemies = game.getEnemiesWithinRadius(this.player.x, this.player.y, range, {
+                includeDead: false
+            }) || [];
+            target = enemies[0] || null;
+        }
+
+        if (!target || typeof target.takeDamage !== 'function') {
+            return;
+        }
+
+        target.takeDamage(this.bloodLashDamage);
+        gm?.createHitEffect?.(target.x, target.y, this.bloodLashDamage);
+
+        if (window.optimizedParticles) {
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                window.optimizedParticles.spawnParticle({
+                    x: target.x,
+                    y: target.y,
+                    vx: Math.cos(angle) * 60,
+                    vy: Math.sin(angle) * 60,
+                    size: 3 + Math.random() * 2,
+                    color: '#ff1744',
+                    life: 0.35 + Math.random() * 0.15,
+                    type: 'spark'
+                });
+            }
         }
     }
 
@@ -1059,6 +1211,111 @@ class PlayerAbilities {
             case 'explosionChain':
                 this.explosionChainChance = upgrade.value || 0;
                 break;
+
+            case 'burn':
+                this.hasBurn = true;
+                if (typeof upgrade.burnChance === 'number') {
+                    this.burnChance = Math.max(0, Math.min(0.99, upgrade.burnChance));
+                }
+                if (typeof upgrade.chanceBonus === 'number') {
+                    const baseChance = this.burnChance || 0;
+                    this.burnChance = Math.max(0, Math.min(0.99, baseChance + upgrade.chanceBonus));
+                }
+                if (typeof upgrade.burnDamage === 'number') {
+                    this.burnDamage = upgrade.burnDamage;
+                }
+                if (typeof upgrade.damageBonus === 'number') {
+                    this.burnDamage += upgrade.damageBonus;
+                }
+                if (typeof upgrade.damageMultiplier === 'number') {
+                    this.burnDamage *= upgrade.damageMultiplier;
+                }
+                if (typeof upgrade.burnDuration === 'number') {
+                    this.burnDuration = upgrade.burnDuration;
+                }
+                if (typeof upgrade.durationBonus === 'number') {
+                    this.burnDuration += upgrade.durationBonus;
+                }
+                if (typeof upgrade.explosionDamage === 'number') {
+                    this.burnExplosionDamage = Math.max(this.burnExplosionDamage || 0, upgrade.explosionDamage);
+                }
+                if (typeof upgrade.explosionRadius === 'number') {
+                    this.burnExplosionRadius = Math.max(this.burnExplosionRadius || 0, upgrade.explosionRadius);
+                }
+                break;
+
+            case 'burnDamage':
+                this.hasBurn = true;
+                if (typeof upgrade.damageMultiplier === 'number') {
+                    this.burnDamage *= upgrade.damageMultiplier;
+                }
+                if (typeof upgrade.damageBonus === 'number') {
+                    this.burnDamage += upgrade.damageBonus;
+                }
+                if (typeof upgrade.durationBonus === 'number') {
+                    this.burnDuration += upgrade.durationBonus;
+                }
+                if (typeof upgrade.explosionDamage === 'number') {
+                    this.burnExplosionDamage = Math.max(this.burnExplosionDamage || 0, upgrade.explosionDamage);
+                }
+                if (typeof upgrade.explosionRadius === 'number') {
+                    this.burnExplosionRadius = Math.max(this.burnExplosionRadius || 0, upgrade.explosionRadius);
+                }
+                break;
+
+            case 'gravityWell': {
+                this.hasGravityWells = true;
+                if (typeof upgrade.radiusMultiplier === 'number') {
+                    this.gravityWellRadius *= Math.max(0, upgrade.radiusMultiplier);
+                }
+                if (typeof upgrade.radiusBonus === 'number') {
+                    this.gravityWellRadius += upgrade.radiusBonus;
+                }
+                if (typeof upgrade.durationMultiplier === 'number') {
+                    this.gravityWellDuration *= Math.max(0, upgrade.durationMultiplier);
+                }
+                if (typeof upgrade.durationBonus === 'number') {
+                    this.gravityWellDuration += upgrade.durationBonus;
+                }
+                if (typeof upgrade.slowBonus === 'number') {
+                    this.gravityWellSlowAmount = Math.min(0.95, this.gravityWellSlowAmount + upgrade.slowBonus);
+                }
+                if (typeof upgrade.pullBonus === 'number') {
+                    this.gravityWellPullStrength = Math.max(0, this.gravityWellPullStrength + upgrade.pullBonus);
+                }
+                if (typeof upgrade.damageMultiplier === 'number') {
+                    this.gravityWellDamageMultiplier *= Math.max(0, upgrade.damageMultiplier);
+                }
+                if (typeof upgrade.damageAdd === 'number') {
+                    this.gravityWellDamageMultiplier = Math.max(0, this.gravityWellDamageMultiplier + upgrade.damageAdd);
+                }
+                break;
+            }
+
+            case 'bloodLash': {
+                if (typeof upgrade.damage === 'number') {
+                    this.bloodLashDamage = Math.max(this.bloodLashDamage, upgrade.damage);
+                }
+                if (typeof upgrade.range === 'number') {
+                    this.bloodLashRange = Math.max(this.bloodLashRange, upgrade.range);
+                }
+                if (typeof upgrade.chance === 'number') {
+                    this.bloodLashChance = Math.min(1, Math.max(this.bloodLashChance || 0, upgrade.chance));
+                } else if (!this.bloodLashChance) {
+                    this.bloodLashChance = 1;
+                }
+                break;
+            }
+
+            case 'bloodNova': {
+                if (typeof upgrade.damage === 'number') {
+                    this.bloodNovaDamage = Math.max(this.bloodNovaDamage, upgrade.damage);
+                }
+                if (typeof upgrade.radius === 'number') {
+                    this.bloodNovaRadius = Math.max(this.bloodNovaRadius, upgrade.radius);
+                }
+                break;
+            }
 
             case 'ricochetBounces':
                 this.ricochetBounces += upgrade.value || 1;

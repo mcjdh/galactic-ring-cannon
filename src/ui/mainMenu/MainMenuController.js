@@ -28,6 +28,8 @@
                 achievements: { currentPage: 1, totalPages: 1, itemsPerPage: 1 }
             };
 
+            this.selectedCategory = 'All';
+
             // Use a shared formatter so huge progress numbers stay readable
             if (typeof Intl !== 'undefined' && typeof Intl.NumberFormat === 'function') {
                 try {
@@ -96,6 +98,7 @@
                     difficultySelect: byId('difficulty-select'),
                     achievementsCount: byId('achievements-count'),
                     achievementsList: byId('achievements-list'),
+                    achievementsSidebar: byId('achievements-sidebar'),
                     shopPageIndicator: byId('shop-page-indicator'),
                     achievementsPageIndicator: byId('achievements-page-indicator')
                 }
@@ -137,6 +140,36 @@
             this.addListener(buttons.shopNextPage, 'click', () => this.navigateShopPage(1));
             this.addListener(buttons.achievementsPrevPage, 'click', () => this.navigateAchievementsPage(-1));
             this.addListener(buttons.achievementsNextPage, 'click', () => this.navigateAchievementsPage(1));
+
+            // Bind category buttons
+            const categoryBtns = this.dom.controls.achievementsSidebar?.querySelectorAll('.category-btn');
+            categoryBtns?.forEach(btn => {
+                this.addListener(btn, 'click', () => {
+                    this.selectAchievementCategory(btn.dataset.category);
+                });
+            });
+        }
+
+        selectAchievementCategory(category) {
+            if (this.selectedCategory === category) return;
+            
+            this.selectedCategory = category;
+            
+            // Update active state of buttons
+            const categoryBtns = this.dom.controls.achievementsSidebar?.querySelectorAll('.category-btn');
+            categoryBtns?.forEach(btn => {
+                if (btn.dataset.category === category) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // Reset pagination
+            this.pagination.achievements.currentPage = 1;
+            
+            // Refresh UI
+            this.renderAchievementsPage();
         }
 
         addListener(element, event, handler, options) {
@@ -907,7 +940,12 @@
 
             if (listElement) {
                 const items = system.achievements || {};
-                const allEntries = Object.entries(items);
+                let allEntries = Object.entries(items);
+                
+                // Filter by category
+                if (this.selectedCategory && this.selectedCategory !== 'All') {
+                    allEntries = allEntries.filter(([_, achievement]) => achievement.category === this.selectedCategory);
+                }
                 
                 const totalItems = allEntries.length;
                 const itemsPerPage = this.getAchievementItemsPerPage();
@@ -1562,15 +1600,10 @@
         }
 
         getAchievementItemsPerPage() {
-            const viewportHeight = typeof window !== 'undefined' ? (window.innerHeight || 900) : 900;
-            const viewportWidth = typeof window !== 'undefined' ? (window.innerWidth || 1200) : 1200;
-            if (viewportHeight >= 950 && viewportWidth >= 1100) {
-                return 8;
-            }
-            if (viewportHeight >= 780) {
-                return 6;
-            }
-            return 4;
+            // With the new scrollable layout, we can show many more items.
+            // Return a large number to effectively disable pagination for most categories,
+            // but keep it as a safety mechanism for very large lists.
+            return 50;
         }
 
         navigateShopPage(direction) {

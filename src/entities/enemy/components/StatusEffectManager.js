@@ -12,6 +12,8 @@ class StatusEffectManager {
         this.enemy = enemy;
         this.effects = null; // Lazy initialization
         this.visualTimer = 0;
+        this._burnParticleTimer = 0;
+        this._burnGlowPhase = Math.random() * Math.PI * 2;
     }
 
     /**
@@ -89,13 +91,13 @@ class StatusEffectManager {
     _updateEffect(effect, deltaTime, game) {
         switch (effect.type) {
             case 'burn':
-                this._updateBurn(effect, deltaTime);
+                this._updateBurn(effect, deltaTime, game);
                 break;
             // Add other effects here
         }
     }
 
-    _updateBurn(effect, deltaTime) {
+    _updateBurn(effect, deltaTime, game) {
         // Burn ticks every 0.5 seconds
         const TICK_RATE = 0.5;
         effect.tickTimer += deltaTime;
@@ -128,8 +130,32 @@ class StatusEffectManager {
                         );
                     }
                 }
+
+                if (effect.data?.explosionDamage > 0) {
+                    this._triggerBurnPulse(effect, game);
+                }
             }
         }
+    }
+
+    _triggerBurnPulse(effect, game) {
+        const damage = effect.data?.explosionDamage || 0;
+        const radius = effect.data?.explosionRadius || 0;
+        if (damage <= 0 || radius <= 0) return;
+
+        if (game?.getEnemiesWithinRadius) {
+            const enemies = game.getEnemiesWithinRadius(this.enemy.x, this.enemy.y, radius, {
+                includeDead: false
+            }) || [];
+
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead) continue;
+                enemy.takeDamage(damage);
+            }
+        }
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        gm?.createExplosion?.(this.enemy.x, this.enemy.y, radius, '#ff8c42');
     }
 
     _onEffectEnd(type) {
@@ -137,32 +163,78 @@ class StatusEffectManager {
     }
 
     _updateVisuals(deltaTime) {
+        if (!this.effects || this.effects.size === 0) return;
         this.visualTimer += deltaTime;
 
-        // Example: Spawn burn particles
-        if (this.effects.has('burn') && this.visualTimer > 0.2) {
-            this.visualTimer = 0;
-            if (window.optimizedParticles) {
-                window.optimizedParticles.spawnParticle({
-                    x: this.enemy.x + (Math.random() - 0.5) * 20,
-                    y: this.enemy.y + (Math.random() - 0.5) * 20,
-                    vx: 0,
-                    vy: -20 - Math.random() * 30,
-                    size: 2 + Math.random() * 3,
-                    color: '#e74c3c',
-                    life: 0.5,
-                    type: 'spark'
-                });
-            }
+        if (this.effects.has('burn')) {
+            this._updateBurnVisuals(deltaTime);
         }
     }
 
     hasEffect(type) {
-        return this.effects.has(type);
+        return this.effects ? this.effects.has(type) : false;
     }
 
     getEffect(type) {
-        return this.effects.get(type);
+        return this.effects ? this.effects.get(type) : undefined;
+    }
+
+    _updateBurnVisuals(deltaTime) {
+        const burnEffect = this.effects?.get('burn');
+        if (!burnEffect) return;
+
+        if (typeof this.enemy._burnSeed !== 'number') {
+            this.enemy._burnSeed = Math.random() * Math.PI * 2;
+        }
+
+        this._burnGlowPhase += deltaTime * 6;
+        burnEffect._visualFlicker = 0.75 + 0.25 * Math.sin(this._burnGlowPhase + this.enemy._burnSeed);
+
+        if (!window.optimizedParticles) return;
+
+        const lowQuality = !!window.optimizedParticles.lowQuality;
+        const interval = lowQuality ? 0.3 : 0.18;
+        this._burnParticleTimer += deltaTime;
+
+        if (this._burnParticleTimer < interval) {
+            return;
+        }
+        this._burnParticleTimer = 0;
+
+        const stacks = burnEffect.stacks || 1;
+        const emberCount = lowQuality ? 1 : Math.min(5, 2 + stacks);
+        const baseRadius = (this.enemy.radius || 15) * 0.6;
+
+        for (let i = 0; i < emberCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const ringDistance = baseRadius + Math.random() * (this.enemy.radius || 15) * 0.45;
+            const x = this.enemy.x + Math.cos(angle) * ringDistance;
+            const y = this.enemy.y + Math.sin(angle) * ringDistance;
+
+            window.optimizedParticles.spawnParticle({
+                x,
+                y,
+                vx: Math.cos(angle) * 20 + (Math.random() - 0.5) * 25,
+                vy: -25 - Math.random() * 35,
+                size: 2 + Math.random() * 2.5,
+                color: '#ff8c42',
+                life: 0.45 + Math.random() * 0.35,
+                type: 'spark'
+            });
+
+            if (!lowQuality && Math.random() < 0.45) {
+                window.optimizedParticles.spawnParticle({
+                    x: this.enemy.x + (Math.random() - 0.5) * (this.enemy.radius || 15),
+                    y: this.enemy.y + (Math.random() - 0.3) * (this.enemy.radius || 10),
+                    vx: (Math.random() - 0.5) * 35,
+                    vy: -40 - Math.random() * 35,
+                    size: 3 + Math.random() * 2.5,
+                    color: '#ffd166',
+                    life: 0.35 + Math.random() * 0.25,
+                    type: 'flame'
+                });
+            }
+        }
     }
 }
 
