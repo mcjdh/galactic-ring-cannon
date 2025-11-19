@@ -1,24 +1,43 @@
 class AudioSystem {
     constructor() {
         // Check for Web Audio API support
-        this.isWebAudioSupported = typeof window.AudioContext !== 'undefined' || 
+        this.isWebAudioSupported = typeof window.AudioContext !== 'undefined' ||
                                   typeof window.webkitAudioContext !== 'undefined';
-        
+
         // Initialize audio context with error handling
         try {
             this.audioContext = null;
             this.masterGain = null;
+            this.compressor = null;
+            this.reverb = null;
             this.isMuted = false;
-            
+
+            // Volume categories (0-1)
+            this.volumes = {
+                master: 0.5,
+                music: 0.6,
+                sfx: 0.7,
+                ui: 0.5
+            };
+
             // Initialize audio context on first user interaction
             this.initialized = false;
             this.hasUserInteracted = false;
             this.pendingSounds = [];
             this.maxPendingSounds = 8;
-            
+
+            // Music system state
+            this.musicLayers = {
+                ambient: null,
+                bass: null,
+                melody: null,
+                intensity: null
+            };
+            this.currentIntensity = 0; // 0-1 scale
+            this.musicEnabled = false;
+
             // Add fallback for browsers without Web Audio API
             if (!this.isWebAudioSupported) {
-                // Use logger instead of console.warn
                 window.logger.warn('Web Audio API not supported, using fallback audio system');
                 this.initializeFallbackAudio();
             }
@@ -27,11 +46,10 @@ class AudioSystem {
             this.isWebAudioSupported = false;
         }
     }
-    
+
     // Provide simple HTMLAudioElement-based fallback so callers don't crash
     initializeFallbackAudio() {
-        // Minimal shim to avoid errors; actual SFX are WebAudio-only in this project
-        this.play = (/* soundName, volume */) => {};
+        this.play = (/* soundName, volume, position */) => {};
         this.toggleMute = () => {
             this.isMuted = !this.isMuted;
             return this.isMuted;
@@ -42,37 +60,105 @@ class AudioSystem {
         this.playBossBeat = () => {};
         this.playBossTheme = () => {};
         this.stopBossTheme = () => {};
+        this.startAmbientMusic = () => {};
+        this.stopAmbientMusic = () => {};
+        this.setMusicIntensity = () => {};
         this.handleUserInteraction = () => {};
         this.initializeAudioContext = () => {};
         this.resumeAudioContext = () => {};
         this.masterGain = { gain: { value: 0.5 } };
         this.masterGainNode = { gain: { value: 0.5 } };
     }
-    
+
     // Initialize audio context with error handling
     initializeAudioContext() {
         if (this.initialized || !this.isWebAudioSupported) return;
-        
+
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
-            
+
+            // Create master audio chain: compressor -> reverb -> master gain -> destination
+            this.compressor = this.audioContext.createDynamicsCompressor();
+            this.compressor.threshold.setValueAtTime(-24, this.audioContext.currentTime);
+            this.compressor.knee.setValueAtTime(30, this.audioContext.currentTime);
+            this.compressor.ratio.setValueAtTime(12, this.audioContext.currentTime);
+            this.compressor.attack.setValueAtTime(0.003, this.audioContext.currentTime);
+            this.compressor.release.setValueAtTime(0.25, this.audioContext.currentTime);
+
+            // Create reverb (we'll use a simple convolver with impulse response)
+            this.reverb = this.audioContext.createConvolver();
+            this.reverb.buffer = this.createReverbImpulse(2, 2, false);
+
+            // Create dry/wet mix for reverb
+            this.reverbGain = this.audioContext.createGain();
+            this.reverbGain.gain.value = 0.15; // Subtle reverb
+
+            this.dryGain = this.audioContext.createGain();
+            this.dryGain.gain.value = 0.85;
+
+            // Create master gain nodes for each category
+            this.musicGain = this.audioContext.createGain();
+            this.musicGain.gain.value = this.volumes.music;
+
+            this.sfxGain = this.audioContext.createGain();
+            this.sfxGain.gain.value = this.volumes.sfx;
+
+            this.uiGain = this.audioContext.createGain();
+            this.uiGain.gain.value = this.volumes.ui;
+
             // Create master gain node
             this.masterGain = this.audioContext.createGain();
+            this.masterGain.gain.value = this.volumes.master;
+
+            // Connect audio chain
+            // Each category goes through reverb and compressor
+            this.musicGain.connect(this.dryGain);
+            this.musicGain.connect(this.reverb);
+
+            this.sfxGain.connect(this.dryGain);
+            this.sfxGain.connect(this.reverb);
+
+            this.uiGain.connect(this.dryGain);
+
+            this.reverb.connect(this.reverbGain);
+
+            this.dryGain.connect(this.compressor);
+            this.reverbGain.connect(this.compressor);
+
+            this.compressor.connect(this.masterGain);
             this.masterGain.connect(this.audioContext.destination);
+
             // Compatibility alias for UI code expecting masterGainNode
             this.masterGainNode = this.masterGain;
-            
-            // Set initial volume
-            this.masterGain.gain.value = 0.5;
-            
+
             this.initialized = true;
+
+            // Start ambient music after initialization
+            this.startAmbientMusic();
         } catch (error) {
             window.logger.error('Error initializing audio context:', error);
             this.isWebAudioSupported = false;
         }
     }
-    
+
+    // Create a simple reverb impulse response
+    createReverbImpulse(duration, decay, reverse) {
+        const sampleRate = this.audioContext.sampleRate;
+        const length = sampleRate * duration;
+        const impulse = this.audioContext.createBuffer(2, length, sampleRate);
+        const impulseL = impulse.getChannelData(0);
+        const impulseR = impulse.getChannelData(1);
+
+        for (let i = 0; i < length; i++) {
+            const n = reverse ? length - i : i;
+            impulseL[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
+            impulseR[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
+        }
+
+        return impulse;
+    }
+
     // Resume audio context with error handling
     resumeAudioContext() {
         if (!this.audioContext || !this.isWebAudioSupported) return;
@@ -85,9 +171,42 @@ class AudioSystem {
             window.logger.error('Error resuming audio context:', error);
         }
     }
-    
-    // Play sound with error handling
-    play(soundName, volume = 0.5) {
+
+    // Set volume for specific category
+    setVolume(category, value) {
+        value = Math.max(0, Math.min(1, value));
+        this.volumes[category] = value;
+
+        if (!this.audioContext) return;
+
+        const now = this.audioContext.currentTime;
+
+        switch(category) {
+            case 'master':
+                if (this.masterGain) {
+                    this.masterGain.gain.setValueAtTime(value, now);
+                }
+                break;
+            case 'music':
+                if (this.musicGain) {
+                    this.musicGain.gain.setValueAtTime(value, now);
+                }
+                break;
+            case 'sfx':
+                if (this.sfxGain) {
+                    this.sfxGain.gain.setValueAtTime(value, now);
+                }
+                break;
+            case 'ui':
+                if (this.uiGain) {
+                    this.uiGain.gain.setValueAtTime(value, now);
+                }
+                break;
+        }
+    }
+
+    // Play sound with error handling and spatial audio support
+    play(soundName, volume = 0.5, position = null) {
         if (this.isMuted || !soundName) {
             return;
         }
@@ -104,34 +223,32 @@ class AudioSystem {
             const contextState = this.audioContext?.state;
             const awaitingGesture = contextState === 'suspended' && !this.hasUserInteracted;
             if (awaitingGesture) {
-                this.queuePendingSound(soundName, volume);
+                this.queuePendingSound(soundName, volume, position);
                 return;
             }
 
-            // Attempt to resume immediately; if the browser defers until user input,
-            // queue the sound so it plays once audio is unlocked.
             const resumeResult = this.resumeAudioContext();
             if (resumeResult && typeof resumeResult.then === 'function') {
                 resumeResult.then(() => this.flushPendingSounds()).catch(() => {});
             }
 
             if (this.audioContext?.state === 'suspended') {
-                this.queuePendingSound(soundName, volume);
+                this.queuePendingSound(soundName, volume, position);
                 return;
             }
 
-            this.playWithWebAudio(soundName, volume);
+            this.playWithWebAudio(soundName, volume, position);
         } catch (error) {
             window.logger.error("Error playing sound with Web Audio API:", error);
             this.isWebAudioSupported = false;
         }
     }
-    
-    queuePendingSound(soundName, volume) {
+
+    queuePendingSound(soundName, volume, position) {
         if (!this.pendingSounds) {
             this.pendingSounds = [];
         }
-        this.pendingSounds.push({ soundName, volume });
+        this.pendingSounds.push({ soundName, volume, position });
         if (this.pendingSounds.length > this.maxPendingSounds) {
             this.pendingSounds.shift();
         }
@@ -146,41 +263,58 @@ class AudioSystem {
         }
 
         const queue = this.pendingSounds.splice(0, this.pendingSounds.length);
-        queue.forEach(({ soundName, volume }) => {
+        queue.forEach(({ soundName, volume, position }) => {
             try {
-                this.playWithWebAudio(soundName, volume);
+                this.playWithWebAudio(soundName, volume, position);
             } catch (error) {
                 window.logger.warn('Failed to flush queued sound:', error);
             }
         });
     }
 
+    // Calculate pan value from position (-1 left, 0 center, +1 right)
+    calculatePan(position) {
+        if (!position || !position.x) return 0;
+
+        // Assuming canvas width of 800 (adjust based on actual game dimensions)
+        const canvasWidth = 800;
+        const centerX = canvasWidth / 2;
+
+        // Normalize position to -1 to 1 range
+        const pan = (position.x - centerX) / centerX;
+
+        // Clamp to valid range
+        return Math.max(-1, Math.min(1, pan));
+    }
+
     // Play sound using Web Audio API with error handling
-    playWithWebAudio(soundName, volume) {
+    playWithWebAudio(soundName, volume, position = null) {
         if (!this.audioContext) {
             this.initializeAudioContext();
         }
-        
+
         // Resume context if suspended
         this.resumeAudioContext();
-        
+
         // Adjust volume (don't exceed 1.0)
         const adjustedVolume = Math.min(volume, 1.0);
-        
+
+        // Calculate spatial pan if position provided
+        const pan = this.calculatePan(position);
+
         try {
             // Create different sounds based on sound name
             switch (soundName) {
                 case 'shoot':
-                    this.playShootSound(adjustedVolume);
+                    this.playShootSound(adjustedVolume, pan);
                     break;
                 case 'hit':
-                    this.playHitSound(adjustedVolume);
+                    this.playHitSound(adjustedVolume, pan);
                     break;
                 case 'levelUp':
                     this.playLevelUpSound(adjustedVolume);
                     break;
                 case 'upgrade':
-                    // Use pickup-like chime for upgrades
                     this.playPickupSound(adjustedVolume);
                     break;
                 case 'dodge':
@@ -188,7 +322,7 @@ class AudioSystem {
                     break;
                 case 'enemyDeath':
                 case 'enemyKilled':
-                    this.playEnemyDeathSound(adjustedVolume);
+                    this.playEnemyDeathSound(adjustedVolume, pan);
                     break;
                 case 'pickup':
                     this.playPickupSound(adjustedVolume);
@@ -207,7 +341,7 @@ class AudioSystem {
                     this.playAOEAttackSound(adjustedVolume);
                     break;
                 case 'shieldHit':
-                    this.playShieldHitSound(adjustedVolume);
+                    this.playShieldHitSound(adjustedVolume, pan);
                     break;
                 case 'shieldBreak':
                     this.playShieldBreakSound(adjustedVolume);
@@ -216,19 +350,27 @@ class AudioSystem {
                     this.playShieldRechargeSound(adjustedVolume);
                     break;
                 case 'explosion':
-                    // Map generic 'explosion' to enemy death explosion sound
-                    this.playEnemyDeathSound(adjustedVolume);
+                    this.playEnemyDeathSound(adjustedVolume, pan);
                     break;
                 case 'gameOver':
-                    // Use deep impact for game over
-                    this.playEnemyDeathSound(adjustedVolume);
+                    this.playGameOverSound(adjustedVolume);
                     break;
                 case 'victory':
-                    // Triumphant chord
-                    this.playLevelUpSound(adjustedVolume);
+                    this.playVictorySound(adjustedVolume);
+                    break;
+                case 'buttonClick':
+                    this.playButtonClickSound(adjustedVolume);
+                    break;
+                case 'buttonHover':
+                    this.playButtonHoverSound(adjustedVolume);
+                    break;
+                case 'notification':
+                    this.playNotificationSound(adjustedVolume);
+                    break;
+                case 'achievement':
+                    this.playAchievementSound(adjustedVolume);
                     break;
                 default:
-                    // Use logger instead of console.warn
                     window.logger.warn(`Unknown sound name: ${soundName}`);
             }
         } catch (error) {
@@ -239,12 +381,11 @@ class AudioSystem {
     // Enable/disable audio explicitly (used by UI)
     setEnabled(enabled) {
         try {
-            // Initialize context on first toggle if needed
             if (!this.audioContext && this.isWebAudioSupported) {
                 this.initializeAudioContext();
             }
             this.isMuted = !enabled;
-            const target = enabled ? 0.5 : 0;
+            const target = enabled ? this.volumes.master : 0;
             if (this.masterGain) {
                 this.masterGain.gain.value = target;
             }
@@ -255,7 +396,7 @@ class AudioSystem {
             window.logger.error('Error setting audio enabled state:', error);
         }
     }
-    
+
     // Initialize audio context on user interaction with error handling
     handleUserInteraction() {
         try {
@@ -277,17 +418,17 @@ class AudioSystem {
             window.logger.error('Error handling user interaction:', error);
         }
     }
-    
+
     // Toggle mute with error handling
     toggleMute() {
         try {
             this.isMuted = !this.isMuted;
+            const target = this.isMuted ? 0 : this.volumes.master;
             if (this.masterGain) {
-                this.masterGain.gain.value = this.isMuted ? 0 : 0.5;
+                this.masterGain.gain.value = target;
             }
-            // Keep alias in sync
             if (this.masterGainNode) {
-                this.masterGainNode.gain.value = this.isMuted ? 0 : 0.5;
+                this.masterGainNode.gain.value = target;
             }
             return this.isMuted;
         } catch (error) {
@@ -295,511 +436,1004 @@ class AudioSystem {
             return this.isMuted;
         }
     }
-    
-    // Shoot sound - quick high-pitched blip
-    playShootSound(volume) {
-        const oscillator = this.audioContext.createOscillator();
-        const gainNode = this.audioContext.createGain();
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, this.audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(440, this.audioContext.currentTime + 0.1);
-        
-        gainNode.gain.setValueAtTime(volume * 0.3, this.audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.15);
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(this.masterGain);
-        
-        oscillator.start();
-        oscillator.stop(this.audioContext.currentTime + 0.15);
-    }
-    
-    // Hit sound - impact noise
-    playHitSound(volume) {
-        const oscillator = this.audioContext.createOscillator();
-        const noiseBuffer = this.createNoiseBuffer(0.1);
+
+    // Enhanced shoot sound - layered for richness
+    playShootSound(volume, pan = 0) {
+        const now = this.audioContext.currentTime;
+        const panner = this.audioContext.createStereoPanner();
+        panner.pan.value = pan;
+
+        // Layer 1: High frequency pulse
+        const osc1 = this.audioContext.createOscillator();
+        const gain1 = this.audioContext.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(1200, now);
+        osc1.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+        gain1.gain.setValueAtTime(volume * 0.2, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+        // Layer 2: Mid frequency body
+        const osc2 = this.audioContext.createOscillator();
+        const gain2 = this.audioContext.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(440, now);
+        osc2.frequency.exponentialRampToValueAtTime(220, now + 0.12);
+        gain2.gain.setValueAtTime(volume * 0.25, now);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        // Layer 3: Noise burst for attack
         const noise = this.audioContext.createBufferSource();
-        const gainNode = this.audioContext.createGain();
-        const filter = this.audioContext.createBiquadFilter();
-        
-        // Configure noise
-        noise.buffer = noiseBuffer;
-        
-        // Configure filter
-        filter.type = 'lowpass';
-        filter.frequency.value = 1000;
-        
-        // Configure gain
-        gainNode.gain.setValueAtTime(volume * 0.5, this.audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
-        
-        // Connect nodes
-        noise.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(this.masterGain);
-        
-        // Play sound
-        noise.start();
-        noise.stop(this.audioContext.currentTime + 0.1);
+        noise.buffer = this.createNoiseBuffer(0.05);
+        const noiseGain = this.audioContext.createGain();
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 2000;
+        noiseGain.gain.setValueAtTime(volume * 0.15, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+        // Connect everything
+        osc1.connect(gain1);
+        osc2.connect(gain2);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+
+        gain1.connect(panner);
+        gain2.connect(panner);
+        noiseGain.connect(panner);
+        panner.connect(this.sfxGain);
+
+        // Play
+        osc1.start(now);
+        osc2.start(now);
+        noise.start(now);
+        osc1.stop(now + 0.15);
+        osc2.stop(now + 0.15);
+        noise.stop(now + 0.05);
     }
-    
-    // Level up sound - ascending tone sequence
+
+    // Enhanced hit sound - more impactful
+    playHitSound(volume, pan = 0) {
+        const now = this.audioContext.currentTime;
+        const panner = this.audioContext.createStereoPanner();
+        panner.pan.value = pan;
+
+        // Impact transient
+        const impact = this.audioContext.createOscillator();
+        const impactGain = this.audioContext.createGain();
+        impact.type = 'sine';
+        impact.frequency.setValueAtTime(250, now);
+        impact.frequency.exponentialRampToValueAtTime(50, now + 0.08);
+        impactGain.gain.setValueAtTime(volume * 0.4, now);
+        impactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+        // Noise burst
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.15);
+        const noiseGain = this.audioContext.createGain();
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1500, now);
+        filter.frequency.exponentialRampToValueAtTime(300, now + 0.15);
+        noiseGain.gain.setValueAtTime(volume * 0.5, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        // Connect
+        impact.connect(impactGain);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        impactGain.connect(panner);
+        noiseGain.connect(panner);
+        panner.connect(this.sfxGain);
+
+        // Play
+        impact.start(now);
+        noise.start(now);
+        impact.stop(now + 0.1);
+        noise.stop(now + 0.15);
+    }
+
+    // Enhanced level up sound - triumphant and satisfying
     playLevelUpSound(volume) {
         const now = this.audioContext.currentTime;
-        
-        // Create chord
-        for (let i = 0; i < 3; i++) {
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
-            
-            oscillator.type = i % 2 ? 'sine' : 'triangle';
-            
-            // Ascending notes
-            const baseFreq = 220 * (i + 1);
-            oscillator.frequency.setValueAtTime(baseFreq, now + i * 0.1);
-            oscillator.frequency.setValueAtTime(baseFreq * 1.2, now + i * 0.1 + 0.1);
-            
-            gainNode.gain.setValueAtTime(0.001, now + i * 0.1);
-            gainNode.gain.exponentialRampToValueAtTime(volume * 0.3, now + i * 0.1 + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(this.masterGain);
-            
-            oscillator.start(now + i * 0.1);
-            oscillator.stop(now + i * 0.1 + 0.4);
-        }
-    }
-    
-    // Dodge sound - whoosh effect
-    playDodgeSound(volume) {
-        const noise = this.audioContext.createBufferSource();
-        const noiseBuffer = this.createNoiseBuffer(0.3);
-        const gainNode = this.audioContext.createGain();
-        const filter = this.audioContext.createBiquadFilter();
-        
-        // Configure noise
-        noise.buffer = noiseBuffer;
-        
-        // Configure filter for whoosh effect
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(100, this.audioContext.currentTime);
-        filter.frequency.exponentialRampToValueAtTime(2000, this.audioContext.currentTime + 0.2);
-        filter.Q.value = 1.0;
-        
-        // Configure gain
-        gainNode.gain.setValueAtTime(volume * 0.05, this.audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(volume * 0.3, this.audioContext.currentTime + 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.3);
-        
-        // Connect nodes
-        noise.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(this.masterGain);
-        
-        // Play sound
-        noise.start();
-        noise.stop(this.audioContext.currentTime + 0.3);
-    }
-    
-    // Enemy death sound - explosion-like effect
-    playEnemyDeathSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // Create noise for explosion
-        const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.3);
-        
-        // Create oscillator for low tone
-        const oscillator = this.audioContext.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(150, now);
-        oscillator.frequency.exponentialRampToValueAtTime(50, now + 0.3);
-        
-        // Configure gain nodes
-        const noiseGain = this.audioContext.createGain();
-        noiseGain.gain.setValueAtTime(volume * 0.5, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        
-        const oscGain = this.audioContext.createGain();
-        oscGain.gain.setValueAtTime(volume * 0.5, now);
-        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-        
-        // Configure filter
-        const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1000, now);
-        filter.frequency.exponentialRampToValueAtTime(100, now + 0.3);
-        
-        // Connect nodes
-        noise.connect(filter);
-        filter.connect(noiseGain);
-        noiseGain.connect(this.masterGain);
-        
-        oscillator.connect(oscGain);
-        oscGain.connect(this.masterGain);
-        
-        // Play sound
-        noise.start();
-        oscillator.start();
-        noise.stop(now + 0.3);
-        oscillator.stop(now + 0.4);
-    }
-    
-    // Pickup sound - coin-like sound
-    playPickupSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // Create oscillators
-        const oscillator1 = this.audioContext.createOscillator();
-        oscillator1.type = 'sine';
-        oscillator1.frequency.setValueAtTime(880, now);
-        
-        const oscillator2 = this.audioContext.createOscillator();
-        oscillator2.type = 'sine';
-        oscillator2.frequency.setValueAtTime(1320, now + 0.03);
-        
-        // Configure gain nodes
-        const gain1 = this.audioContext.createGain();
-        gain1.gain.setValueAtTime(volume * 0.2, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        
-        const gain2 = this.audioContext.createGain();
-        gain2.gain.setValueAtTime(volume * 0.2, now + 0.03);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        
-        // Connect nodes
-        oscillator1.connect(gain1);
-        gain1.connect(this.masterGain);
-        
-        oscillator2.connect(gain2);
-        gain2.connect(this.masterGain);
-        
-        // Play sound
-        oscillator1.start(now);
-        oscillator2.start(now + 0.03);
-        oscillator1.stop(now + 0.15);
-        oscillator2.stop(now + 0.2);
-    }
-    
-    // Boss sound - powerful and menacing
-    playBossSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // Create deep oscillator for rumble
-        const oscillator1 = this.audioContext.createOscillator();
-        oscillator1.type = 'sawtooth';
-        oscillator1.frequency.setValueAtTime(80, now);
-        oscillator1.frequency.setValueAtTime(60, now + 0.2);
-        oscillator1.frequency.setValueAtTime(40, now + 0.4);
-        
-        // Create higher oscillator for alarm-like effect
-        const oscillator2 = this.audioContext.createOscillator();
-        oscillator2.type = 'square';
-        oscillator2.frequency.setValueAtTime(440, now);
-        oscillator2.frequency.setValueAtTime(466, now + 0.2);
-        oscillator2.frequency.setValueAtTime(415, now + 0.4);
-        
-        // Create noise for texture
-        const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.6);
-        
-        // Configure gain nodes
-        const gain1 = this.audioContext.createGain();
-        gain1.gain.setValueAtTime(volume * 0.3, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-        
-        const gain2 = this.audioContext.createGain();
-        gain2.gain.setValueAtTime(0.001, now);
-        gain2.gain.exponentialRampToValueAtTime(volume * 0.15, now + 0.05);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-        gain2.gain.exponentialRampToValueAtTime(volume * 0.15, now + 0.3);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-        
-        const noiseGain = this.audioContext.createGain();
-        noiseGain.gain.setValueAtTime(volume * 0.1, now);
-        noiseGain.gain.linearRampToValueAtTime(0.001, now + 0.6);
-        
-        // Configure filter for noise
-        const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 200;
-        filter.Q.value = 1.0;
-        
-        // Connect nodes
-        oscillator1.connect(gain1);
-        gain1.connect(this.masterGain);
-        
-        oscillator2.connect(gain2);
-        gain2.connect(this.masterGain);
-        
-        noise.connect(filter);
-        filter.connect(noiseGain);
-        noiseGain.connect(this.masterGain);
-        
-        // Play sound
-        oscillator1.start(now);
-        oscillator2.start(now);
-        noise.start(now);
-        oscillator1.stop(now + 0.6);
-        oscillator2.stop(now + 0.6);
-        noise.stop(now + 0.6);
-    }
-    
-    // Player hit sound - impact with player feedback
-    playPlayerHitSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // Create oscillator for the impact sound
-        const oscillator = this.audioContext.createOscillator();
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(200, now);
-        oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.2);
-        
-        // Create noise for impact texture
-        const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.2);
-        
-        // Configure gain nodes
-        const gainOsc = this.audioContext.createGain();
-        gainOsc.gain.setValueAtTime(volume * 0.3, now);
-        gainOsc.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        
-        const gainNoise = this.audioContext.createGain();
-        gainNoise.gain.setValueAtTime(volume * 0.3, now);
-        gainNoise.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        
-        // Configure filter for noise
-        const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 800;
-        
-        // Connect nodes
-        oscillator.connect(gainOsc);
-        gainOsc.connect(this.masterGain);
-        
-        noise.connect(filter);
-        filter.connect(gainNoise);
-        gainNoise.connect(this.masterGain);
-        
-        // Play sound
-        oscillator.start(now);
-        noise.start(now);
-        oscillator.stop(now + 0.2);
-        noise.stop(now + 0.2);
-    }
-    
-    // AOE attack sound - powerful wave/pulse effect
-    playAOEAttackSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // Create oscillator for the wave sound
-        const oscillator = this.audioContext.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(220, now);
-        oscillator.frequency.exponentialRampToValueAtTime(110, now + 0.3);
-        
-        // Create noise for the pulse texture
-        const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.4);
-        
-        // Configure gain nodes
-        const gainOsc = this.audioContext.createGain();
-        gainOsc.gain.setValueAtTime(volume * 0.3, now);
-        gainOsc.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-        
-        const gainNoise = this.audioContext.createGain();
-        gainNoise.gain.setValueAtTime(volume * 0.2, now);
-        gainNoise.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        
-        // Configure filter for noise
-        const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 300;
-        filter.Q.value = 0.7;
-        
-        // Connect nodes
-        oscillator.connect(gainOsc);
-        gainOsc.connect(this.masterGain);
-        
-        noise.connect(filter);
-        filter.connect(gainNoise);
-        gainNoise.connect(this.masterGain);
-        
-        // Play sound
-        oscillator.start(now);
-        noise.start(now);
-        oscillator.stop(now + 0.4);
-        noise.stop(now + 0.4);
-    }
-    
-    // Shield hit sound - high-pitched deflect
-    playShieldHitSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // High-pitched metallic ping
-        const oscillator = this.audioContext.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(2000, now);
-        oscillator.frequency.exponentialRampToValueAtTime(1500, now + 0.08);
-        
-        // Short noise burst for impact texture
-        const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.08);
-        
-        // Configure gain nodes
-        const gainOsc = this.audioContext.createGain();
-        gainOsc.gain.setValueAtTime(volume * 0.2, now);
-        gainOsc.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        
-        const gainNoise = this.audioContext.createGain();
-        gainNoise.gain.setValueAtTime(volume * 0.1, now);
-        gainNoise.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        
-        // High-pass filter for crystalline sound
-        const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'highpass';
-        filter.frequency.value = 800;
-        
-        // Connect nodes
-        oscillator.connect(gainOsc);
-        gainOsc.connect(this.masterGain);
-        
-        noise.connect(filter);
-        filter.connect(gainNoise);
-        gainNoise.connect(this.masterGain);
-        
-        // Play sound
-        oscillator.start(now);
-        noise.start(now);
-        oscillator.stop(now + 0.08);
-        noise.stop(now + 0.08);
-    }
-    
-    // Shield break sound - glass shatter + whoosh
-    playShieldBreakSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // Glass shatter (high-frequency noise burst)
-        const shatterNoise = this.audioContext.createBufferSource();
-        shatterNoise.buffer = this.createNoiseBuffer(0.2);
-        
-        // Descending tone for power failure
-        const oscillator = this.audioContext.createOscillator();
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(800, now);
-        oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.3);
-        
-        // Whoosh (filtered noise)
-        const whooshNoise = this.audioContext.createBufferSource();
-        whooshNoise.buffer = this.createNoiseBuffer(0.4);
-        
-        // Configure gain nodes
-        const gainShatter = this.audioContext.createGain();
-        gainShatter.gain.setValueAtTime(volume * 0.3, now);
-        gainShatter.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        
-        const gainOsc = this.audioContext.createGain();
-        gainOsc.gain.setValueAtTime(volume * 0.25, now);
-        gainOsc.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        
-        const gainWhoosh = this.audioContext.createGain();
-        gainWhoosh.gain.setValueAtTime(volume * 0.15, now);
-        gainWhoosh.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-        
-        // Filters
-        const shatterFilter = this.audioContext.createBiquadFilter();
-        shatterFilter.type = 'highpass';
-        shatterFilter.frequency.value = 1200;
-        
-        const whooshFilter = this.audioContext.createBiquadFilter();
-        whooshFilter.type = 'bandpass';
-        whooshFilter.frequency.setValueAtTime(200, now);
-        whooshFilter.frequency.exponentialRampToValueAtTime(1000, now + 0.4);
-        whooshFilter.Q.value = 1.0;
-        
-        // Connect nodes
-        shatterNoise.connect(shatterFilter);
-        shatterFilter.connect(gainShatter);
-        gainShatter.connect(this.masterGain);
-        
-        oscillator.connect(gainOsc);
-        gainOsc.connect(this.masterGain);
-        
-        whooshNoise.connect(whooshFilter);
-        whooshFilter.connect(gainWhoosh);
-        gainWhoosh.connect(this.masterGain);
-        
-        // Play sound
-        shatterNoise.start(now);
-        oscillator.start(now);
-        whooshNoise.start(now);
-        shatterNoise.stop(now + 0.2);
-        oscillator.stop(now + 0.3);
-        whooshNoise.stop(now + 0.4);
-    }
-    
-    // Shield recharge sound - power-up chime
-    playShieldRechargeSound(volume) {
-        const now = this.audioContext.currentTime;
-        
-        // Ascending chord sequence
-        const frequencies = [440, 554, 659, 880]; // A4, C#5, E5, A5 (A major chord)
-        
-        for (let i = 0; i < frequencies.length; i++) {
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
-            
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(frequencies[i], now + i * 0.08);
-            
-            gainNode.gain.setValueAtTime(0.001, now + i * 0.08);
-            gainNode.gain.exponentialRampToValueAtTime(volume * 0.15, now + i * 0.08 + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(this.masterGain);
-            
-            oscillator.start(now + i * 0.08);
-            oscillator.stop(now + i * 0.08 + 0.3);
-        }
-        
-        // Add shimmer effect with high-frequency oscillator
+
+        // Major chord arpeggio
+        const frequencies = [
+            261.63, // C4
+            329.63, // E4
+            392.00, // G4
+            523.25, // C5
+            659.25  // E5
+        ];
+
+        frequencies.forEach((freq, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = i % 2 ? 'sine' : 'triangle';
+            osc.frequency.setValueAtTime(freq, now + i * 0.08);
+
+            gain.gain.setValueAtTime(0.001, now + i * 0.08);
+            gain.gain.exponentialRampToValueAtTime(volume * 0.2, now + i * 0.08 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.4);
+
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+
+            osc.start(now + i * 0.08);
+            osc.stop(now + i * 0.08 + 0.5);
+        });
+
+        // Add shimmer
         const shimmer = this.audioContext.createOscillator();
         const shimmerGain = this.audioContext.createGain();
-        
         shimmer.type = 'sine';
-        shimmer.frequency.setValueAtTime(2640, now); // E7
-        shimmer.frequency.exponentialRampToValueAtTime(3520, now + 0.3); // A7
-        
-        shimmerGain.gain.setValueAtTime(0.001, now);
-        shimmerGain.gain.exponentialRampToValueAtTime(volume * 0.08, now + 0.1);
-        shimmerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        
+        shimmer.frequency.setValueAtTime(2093, now + 0.2); // C7
+        shimmer.frequency.exponentialRampToValueAtTime(4186, now + 0.6); // C8
+        shimmerGain.gain.setValueAtTime(0.001, now + 0.2);
+        shimmerGain.gain.exponentialRampToValueAtTime(volume * 0.1, now + 0.3);
+        shimmerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
         shimmer.connect(shimmerGain);
-        shimmerGain.connect(this.masterGain);
-        
-        shimmer.start(now);
-        shimmer.stop(now + 0.4);
+        shimmerGain.connect(this.sfxGain);
+        shimmer.start(now + 0.2);
+        shimmer.stop(now + 0.7);
     }
-    
+
+    // Dodge sound - improved whoosh
+    playDodgeSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Multi-band whoosh
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.25);
+
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(150, now);
+        filter.frequency.exponentialRampToValueAtTime(3000, now + 0.2);
+        filter.Q.value = 2.0;
+
+        const gain = this.audioContext.createGain();
+        gain.gain.setValueAtTime(volume * 0.08, now);
+        gain.gain.exponentialRampToValueAtTime(volume * 0.25, now + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+        // Add doppler-like oscillator
+        const doppler = this.audioContext.createOscillator();
+        const dopplerGain = this.audioContext.createGain();
+        doppler.type = 'sine';
+        doppler.frequency.setValueAtTime(100, now);
+        doppler.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+        dopplerGain.gain.setValueAtTime(volume * 0.15, now);
+        dopplerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.sfxGain);
+
+        doppler.connect(dopplerGain);
+        dopplerGain.connect(this.sfxGain);
+
+        noise.start(now);
+        doppler.start(now);
+        noise.stop(now + 0.25);
+        doppler.stop(now + 0.2);
+    }
+
+    // Enhanced enemy death sound - bigger explosion
+    playEnemyDeathSound(volume, pan = 0) {
+        const now = this.audioContext.currentTime;
+        const panner = this.audioContext.createStereoPanner();
+        panner.pan.value = pan;
+
+        // Layer 1: Sub-bass rumble
+        const sub = this.audioContext.createOscillator();
+        const subGain = this.audioContext.createGain();
+        sub.type = 'sine';
+        sub.frequency.setValueAtTime(80, now);
+        sub.frequency.exponentialRampToValueAtTime(30, now + 0.4);
+        subGain.gain.setValueAtTime(volume * 0.4, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        // Layer 2: Mid explosion tone
+        const mid = this.audioContext.createOscillator();
+        const midGain = this.audioContext.createGain();
+        mid.type = 'sawtooth';
+        mid.frequency.setValueAtTime(200, now);
+        mid.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+        midGain.gain.setValueAtTime(volume * 0.3, now);
+        midGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        // Layer 3: Noise explosion
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.4);
+        const noiseGain = this.audioContext.createGain();
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.setValueAtTime(2000, now);
+        noiseFilter.frequency.exponentialRampToValueAtTime(100, now + 0.4);
+        noiseGain.gain.setValueAtTime(volume * 0.5, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        // Connect
+        sub.connect(subGain);
+        mid.connect(midGain);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+
+        subGain.connect(panner);
+        midGain.connect(panner);
+        noiseGain.connect(panner);
+        panner.connect(this.sfxGain);
+
+        // Play
+        sub.start(now);
+        mid.start(now);
+        noise.start(now);
+        sub.stop(now + 0.5);
+        mid.stop(now + 0.4);
+        noise.stop(now + 0.4);
+    }
+
+    // Pickup sound - satisfying coin/gem sound
+    playPickupSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Dual tone chime
+        [1, 2].forEach((mult, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1047 * mult, now + i * 0.04); // C6, C7
+
+            gain.gain.setValueAtTime(volume * 0.2, now + i * 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.2);
+
+            osc.connect(gain);
+            gain.connect(this.uiGain);
+
+            osc.start(now + i * 0.04);
+            osc.stop(now + i * 0.04 + 0.25);
+        });
+    }
+
+    // Boss sound - menacing and powerful
+    playBossSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Deep rumble layers
+        [40, 60, 80].forEach((freq, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = i === 0 ? 'sawtooth' : 'square';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.setValueAtTime(freq * 0.9, now + 0.2);
+            osc.frequency.setValueAtTime(freq * 0.7, now + 0.5);
+
+            gain.gain.setValueAtTime(volume * 0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+
+            osc.start(now);
+            osc.stop(now + 0.7);
+        });
+
+        // Alarm siren
+        const siren = this.audioContext.createOscillator();
+        const sirenGain = this.audioContext.createGain();
+        siren.type = 'square';
+        siren.frequency.setValueAtTime(440, now);
+        siren.frequency.setValueAtTime(554, now + 0.15);
+        siren.frequency.setValueAtTime(415, now + 0.3);
+        siren.frequency.setValueAtTime(523, now + 0.45);
+        sirenGain.gain.setValueAtTime(0.001, now);
+        sirenGain.gain.exponentialRampToValueAtTime(volume * 0.15, now + 0.05);
+        sirenGain.gain.setValueAtTime(0.001, now + 0.12);
+        sirenGain.gain.exponentialRampToValueAtTime(volume * 0.15, now + 0.17);
+        sirenGain.gain.setValueAtTime(0.001, now + 0.27);
+        sirenGain.gain.exponentialRampToValueAtTime(volume * 0.15, now + 0.32);
+        sirenGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+        siren.connect(sirenGain);
+        sirenGain.connect(this.sfxGain);
+        siren.start(now);
+        siren.stop(now + 0.7);
+
+        // Noise layer
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.7);
+        const noiseGain = this.audioContext.createGain();
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 250;
+        noiseFilter.Q.value = 1.5;
+        noiseGain.gain.setValueAtTime(volume * 0.12, now);
+        noiseGain.gain.linearRampToValueAtTime(0.001, now + 0.7);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.sfxGain);
+        noise.start(now);
+        noise.stop(now + 0.7);
+    }
+
+    // Player hit sound - painful impact
+    playPlayerHitSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Deep impact
+        const impact = this.audioContext.createOscillator();
+        const impactGain = this.audioContext.createGain();
+        impact.type = 'square';
+        impact.frequency.setValueAtTime(150, now);
+        impact.frequency.exponentialRampToValueAtTime(60, now + 0.25);
+        impactGain.gain.setValueAtTime(volume * 0.35, now);
+        impactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+        // Harsh noise
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.2);
+        const noiseGain = this.audioContext.createGain();
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 900;
+        noiseGain.gain.setValueAtTime(volume * 0.4, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        impact.connect(impactGain);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        impactGain.connect(this.sfxGain);
+        noiseGain.connect(this.sfxGain);
+
+        impact.start(now);
+        noise.start(now);
+        impact.stop(now + 0.3);
+        noise.stop(now + 0.2);
+    }
+
+    // AOE attack sound - powerful shockwave
+    playAOEAttackSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Expanding wave
+        const wave = this.audioContext.createOscillator();
+        const waveGain = this.audioContext.createGain();
+        wave.type = 'sine';
+        wave.frequency.setValueAtTime(300, now);
+        wave.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+        waveGain.gain.setValueAtTime(volume * 0.35, now);
+        waveGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        // Noise burst
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.5);
+        const noiseGain = this.audioContext.createGain();
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.exponentialRampToValueAtTime(150, now + 0.4);
+        filter.Q.value = 1.5;
+        noiseGain.gain.setValueAtTime(volume * 0.3, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        wave.connect(waveGain);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        waveGain.connect(this.sfxGain);
+        noiseGain.connect(this.sfxGain);
+
+        wave.start(now);
+        noise.start(now);
+        wave.stop(now + 0.5);
+        noise.stop(now + 0.5);
+    }
+
+    // Shield hit sound - crystalline deflect
+    playShieldHitSound(volume, pan = 0) {
+        const now = this.audioContext.currentTime;
+        const panner = this.audioContext.createStereoPanner();
+        panner.pan.value = pan;
+
+        // High metallic ping
+        const ping = this.audioContext.createOscillator();
+        const pingGain = this.audioContext.createGain();
+        ping.type = 'sine';
+        ping.frequency.setValueAtTime(2400, now);
+        ping.frequency.exponentialRampToValueAtTime(1800, now + 0.1);
+        pingGain.gain.setValueAtTime(volume * 0.25, now);
+        pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        // Bright noise
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.08);
+        const noiseGain = this.audioContext.createGain();
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 1200;
+        noiseGain.gain.setValueAtTime(volume * 0.15, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+        ping.connect(pingGain);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        pingGain.connect(panner);
+        noiseGain.connect(panner);
+        panner.connect(this.sfxGain);
+
+        ping.start(now);
+        noise.start(now);
+        ping.stop(now + 0.12);
+        noise.stop(now + 0.08);
+    }
+
+    // Shield break sound - dramatic glass shatter
+    playShieldBreakSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Glass shatter (multi-frequency noise bursts)
+        for (let i = 0; i < 3; i++) {
+            const noise = this.audioContext.createBufferSource();
+            noise.buffer = this.createNoiseBuffer(0.15);
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 1500 + i * 500;
+            gain.gain.setValueAtTime(volume * 0.2, now + i * 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.03 + 0.15);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.sfxGain);
+            noise.start(now + i * 0.03);
+            noise.stop(now + i * 0.03 + 0.15);
+        }
+
+        // Descending power failure
+        const descent = this.audioContext.createOscillator();
+        const descentGain = this.audioContext.createGain();
+        descent.type = 'sawtooth';
+        descent.frequency.setValueAtTime(1000, now);
+        descent.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+        descentGain.gain.setValueAtTime(volume * 0.3, now);
+        descentGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+        descent.connect(descentGain);
+        descentGain.connect(this.sfxGain);
+        descent.start(now);
+        descent.stop(now + 0.5);
+
+        // Whoosh
+        const whoosh = this.audioContext.createBufferSource();
+        whoosh.buffer = this.createNoiseBuffer(0.5);
+        const whooshGain = this.audioContext.createGain();
+        const whooshFilter = this.audioContext.createBiquadFilter();
+        whooshFilter.type = 'bandpass';
+        whooshFilter.frequency.setValueAtTime(300, now);
+        whooshFilter.frequency.exponentialRampToValueAtTime(1500, now + 0.5);
+        whooshFilter.Q.value = 1.2;
+        whooshGain.gain.setValueAtTime(volume * 0.2, now);
+        whooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        whoosh.connect(whooshFilter);
+        whooshFilter.connect(whooshGain);
+        whooshGain.connect(this.sfxGain);
+        whoosh.start(now);
+        whoosh.stop(now + 0.5);
+    }
+
+    // Shield recharge sound - magical power-up
+    playShieldRechargeSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Ascending arpeggio
+        const frequencies = [440, 554, 659, 880]; // A major chord
+
+        frequencies.forEach((freq, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.08);
+
+            gain.gain.setValueAtTime(0.001, now + i * 0.08);
+            gain.gain.exponentialRampToValueAtTime(volume * 0.18, now + i * 0.08 + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.3);
+
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+
+            osc.start(now + i * 0.08);
+            osc.stop(now + i * 0.08 + 0.35);
+        });
+
+        // Sparkle shimmer
+        const shimmer = this.audioContext.createOscillator();
+        const shimmerGain = this.audioContext.createGain();
+        shimmer.type = 'sine';
+        shimmer.frequency.setValueAtTime(2637, now); // E7
+        shimmer.frequency.exponentialRampToValueAtTime(4186, now + 0.4); // C8
+        shimmerGain.gain.setValueAtTime(0.001, now);
+        shimmerGain.gain.exponentialRampToValueAtTime(volume * 0.1, now + 0.1);
+        shimmerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+        shimmer.connect(shimmerGain);
+        shimmerGain.connect(this.sfxGain);
+        shimmer.start(now);
+        shimmer.stop(now + 0.5);
+    }
+
+    // Game over sound - somber and final
+    playGameOverSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Descending minor chord
+        const frequencies = [
+            440,   // A4
+            349.23, // F4
+            329.63, // E4
+            261.63  // C4
+        ];
+
+        frequencies.forEach((freq, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + i * 0.2);
+
+            gain.gain.setValueAtTime(0.001, now + i * 0.2);
+            gain.gain.exponentialRampToValueAtTime(volume * 0.25, now + i * 0.2 + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.2 + 0.6);
+
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+
+            osc.start(now + i * 0.2);
+            osc.stop(now + i * 0.2 + 0.7);
+        });
+    }
+
+    // Victory sound - triumphant fanfare
+    playVictorySound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Triumphant ascending sequence
+        const sequence = [
+            [261.63, 329.63, 392.00], // C major (0.0s)
+            [293.66, 369.99, 440.00], // D major (0.15s)
+            [329.63, 415.30, 493.88], // E major (0.3s)
+            [392.00, 493.88, 587.33]  // G major (0.45s)
+        ];
+
+        sequence.forEach((chord, i) => {
+            chord.forEach(freq => {
+                const osc = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + i * 0.15);
+
+                gain.gain.setValueAtTime(0.001, now + i * 0.15);
+                gain.gain.exponentialRampToValueAtTime(volume * 0.15, now + i * 0.15 + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.4);
+
+                osc.connect(gain);
+                gain.connect(this.sfxGain);
+
+                osc.start(now + i * 0.15);
+                osc.stop(now + i * 0.15 + 0.5);
+            });
+        });
+
+        // High octave finale
+        const finale = this.audioContext.createOscillator();
+        const finaleGain = this.audioContext.createGain();
+        finale.type = 'sine';
+        finale.frequency.setValueAtTime(1046.5, now + 0.6); // C6
+        finaleGain.gain.setValueAtTime(0.001, now + 0.6);
+        finaleGain.gain.exponentialRampToValueAtTime(volume * 0.25, now + 0.65);
+        finaleGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+        finale.connect(finaleGain);
+        finaleGain.connect(this.sfxGain);
+        finale.start(now + 0.6);
+        finale.stop(now + 1.3);
+    }
+
+    // UI Sounds
+
+    // Button click - satisfying tactile feedback
+    playButtonClickSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        const click = this.audioContext.createOscillator();
+        const clickGain = this.audioContext.createGain();
+
+        click.type = 'sine';
+        click.frequency.setValueAtTime(800, now);
+        click.frequency.exponentialRampToValueAtTime(400, now + 0.05);
+
+        clickGain.gain.setValueAtTime(volume * 0.15, now);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+        click.connect(clickGain);
+        clickGain.connect(this.uiGain);
+
+        click.start(now);
+        click.stop(now + 0.08);
+    }
+
+    // Button hover - subtle feedback
+    playButtonHoverSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        const hover = this.audioContext.createOscillator();
+        const hoverGain = this.audioContext.createGain();
+
+        hover.type = 'sine';
+        hover.frequency.setValueAtTime(600, now);
+
+        hoverGain.gain.setValueAtTime(volume * 0.08, now);
+        hoverGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+        hover.connect(hoverGain);
+        hoverGain.connect(this.uiGain);
+
+        hover.start(now);
+        hover.stop(now + 0.05);
+    }
+
+    // Notification sound - attention getter
+    playNotificationSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        [0, 0.1].forEach((offset, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(i === 0 ? 880 : 1047, now + offset);
+
+            gain.gain.setValueAtTime(volume * 0.15, now + offset);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.15);
+
+            osc.connect(gain);
+            gain.connect(this.uiGain);
+
+            osc.start(now + offset);
+            osc.stop(now + offset + 0.2);
+        });
+    }
+
+    // Achievement sound - celebratory
+    playAchievementSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Bright ascending notes
+        const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+
+        notes.forEach((freq, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.07);
+
+            gain.gain.setValueAtTime(0.001, now + i * 0.07);
+            gain.gain.exponentialRampToValueAtTime(volume * 0.2, now + i * 0.07 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.3);
+
+            osc.connect(gain);
+            gain.connect(this.uiGain);
+
+            osc.start(now + i * 0.07);
+            osc.stop(now + i * 0.07 + 0.35);
+        });
+    }
+
+    // === CONTINUOUS AMBIENT MUSIC SYSTEM ===
+
+    // Start ambient background music
+    startAmbientMusic() {
+        if (!this.audioContext || this.musicEnabled) return;
+
+        this.musicEnabled = true;
+        this.createAmbientLayer();
+        this.createBassLayer();
+
+        // Start melody and intensity layers based on gameplay
+        this.updateMusicLayers();
+    }
+
+    // Stop ambient music
+    stopAmbientMusic() {
+        if (!this.musicEnabled) return;
+
+        this.musicEnabled = false;
+
+        // Stop all music layers
+        Object.keys(this.musicLayers).forEach(key => {
+            if (this.musicLayers[key]) {
+                try {
+                    this.musicLayers[key].forEach(node => {
+                        if (node.stop) node.stop();
+                        if (node.disconnect) node.disconnect();
+                    });
+                } catch (e) {
+                    // Layer might already be stopped
+                }
+                this.musicLayers[key] = null;
+            }
+        });
+    }
+
+    // Create ambient pad layer (always playing)
+    createAmbientLayer() {
+        if (!this.audioContext || !this.musicEnabled) return;
+
+        const now = this.audioContext.currentTime;
+        this.musicLayers.ambient = [];
+
+        // Ambient pad using filtered noise and low oscillators
+        const createPad = (freq, delay = 0) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, now);
+            filter.Q.value = 1.0;
+
+            gain.gain.setValueAtTime(0, now + delay);
+            gain.gain.linearRampToValueAtTime(0.08, now + delay + 2);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.musicGain);
+
+            osc.start(now + delay);
+
+            return { osc, gain, filter };
+        };
+
+        // Create ambient drone (A minor tonality)
+        const pad1 = createPad(110, 0);    // A2
+        const pad2 = createPad(164.81, 0.5); // E3
+        const pad3 = createPad(220, 1);    // A3
+
+        this.musicLayers.ambient.push(pad1, pad2, pad3);
+
+        // Schedule next ambient layer refresh (every 30 seconds for variety)
+        setTimeout(() => {
+            if (this.musicEnabled) {
+                this.refreshAmbientLayer();
+            }
+        }, 30000);
+    }
+
+    // Refresh ambient layer for variety
+    refreshAmbientLayer() {
+        if (!this.audioContext || !this.musicEnabled) return;
+
+        const now = this.audioContext.currentTime;
+
+        // Fade out old layer
+        if (this.musicLayers.ambient) {
+            this.musicLayers.ambient.forEach(({ osc, gain }) => {
+                if (gain && gain.gain) {
+                    gain.gain.linearRampToValueAtTime(0, now + 3);
+                }
+                if (osc && osc.stop) {
+                    try {
+                        osc.stop(now + 3.5);
+                    } catch (e) {}
+                }
+            });
+        }
+
+        // Create new layer
+        setTimeout(() => {
+            this.createAmbientLayer();
+        }, 3000);
+    }
+
+    // Create bass layer (rhythmic foundation)
+    createBassLayer() {
+        if (!this.audioContext || !this.musicEnabled) return;
+
+        const now = this.audioContext.currentTime;
+        const beatInterval = 1.2; // Slower, ambient tempo
+
+        // Bass note sequence (A minor: A, C, E, D)
+        const bassNotes = [110, 130.81, 164.81, 146.83];
+        let currentBeat = 0;
+
+        const playBassNote = () => {
+            if (!this.musicEnabled) return;
+
+            const noteNow = this.audioContext.currentTime;
+            const freq = bassNotes[currentBeat % bassNotes.length];
+
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, noteNow);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(400, noteNow);
+
+            gain.gain.setValueAtTime(0.12, noteNow);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteNow + beatInterval * 0.8);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.musicGain);
+
+            osc.start(noteNow);
+            osc.stop(noteNow + beatInterval);
+
+            currentBeat++;
+
+            // Schedule next beat
+            setTimeout(playBassNote, beatInterval * 1000);
+        };
+
+        // Start bass pattern
+        playBassNote();
+    }
+
+    // Update music layers based on intensity (0-1 scale)
+    updateMusicLayers() {
+        if (!this.audioContext || !this.musicEnabled) return;
+
+        const now = this.audioContext.currentTime;
+
+        // Adjust reverb based on intensity
+        if (this.reverbGain) {
+            const reverbAmount = 0.1 + (this.currentIntensity * 0.15);
+            this.reverbGain.gain.linearRampToValueAtTime(reverbAmount, now + 0.5);
+            this.dryGain.gain.linearRampToValueAtTime(1 - reverbAmount, now + 0.5);
+        }
+
+        // Add melody layer at medium intensity
+        if (this.currentIntensity > 0.4 && !this.musicLayers.melody) {
+            this.createMelodyLayer();
+        } else if (this.currentIntensity <= 0.4 && this.musicLayers.melody) {
+            this.fadeMelodyLayer();
+        }
+
+        // Add intensity layer at high intensity
+        if (this.currentIntensity > 0.7 && !this.musicLayers.intensity) {
+            this.createIntensityLayer();
+        } else if (this.currentIntensity <= 0.7 && this.musicLayers.intensity) {
+            this.fadeIntensityLayer();
+        }
+    }
+
+    // Set music intensity (called from game based on enemy count, boss mode, health, etc.)
+    setMusicIntensity(intensity) {
+        this.currentIntensity = Math.max(0, Math.min(1, intensity));
+        this.updateMusicLayers();
+    }
+
+    // Create melody layer for medium intensity
+    createMelodyLayer() {
+        if (!this.audioContext || !this.musicEnabled) return;
+
+        this.musicLayers.melody = [];
+
+        // Simple melodic sequence
+        const melodyNotes = [440, 493.88, 523.25, 587.33, 523.25, 493.88]; // A, B, C, D, C, B
+        const noteDuration = 2.0;
+        let currentNote = 0;
+
+        const playMelodyNote = () => {
+            if (!this.musicEnabled || this.currentIntensity <= 0.4) return;
+
+            const noteNow = this.audioContext.currentTime;
+            const freq = melodyNotes[currentNote % melodyNotes.length];
+
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, noteNow);
+
+            gain.gain.setValueAtTime(0.001, noteNow);
+            gain.gain.exponentialRampToValueAtTime(0.06, noteNow + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteNow + noteDuration * 0.9);
+
+            osc.connect(gain);
+            gain.connect(this.musicGain);
+
+            osc.start(noteNow);
+            osc.stop(noteNow + noteDuration);
+
+            currentNote++;
+
+            setTimeout(playMelodyNote, noteDuration * 1000);
+        };
+
+        playMelodyNote();
+    }
+
+    // Fade out melody layer
+    fadeMelodyLayer() {
+        this.musicLayers.melody = null;
+    }
+
+    // Create intensity layer for high action
+    createIntensityLayer() {
+        if (!this.audioContext || !this.musicEnabled) return;
+
+        this.musicLayers.intensity = [];
+
+        // Fast rhythmic pulse
+        const pulseDuration = 0.6;
+
+        const playPulse = () => {
+            if (!this.musicEnabled || this.currentIntensity <= 0.7) return;
+
+            const pulseNow = this.audioContext.currentTime;
+
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, pulseNow);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, pulseNow);
+            filter.frequency.exponentialRampToValueAtTime(200, pulseNow + pulseDuration);
+
+            gain.gain.setValueAtTime(0.1, pulseNow);
+            gain.gain.exponentialRampToValueAtTime(0.001, pulseNow + pulseDuration * 0.7);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.musicGain);
+
+            osc.start(pulseNow);
+            osc.stop(pulseNow + pulseDuration);
+
+            setTimeout(playPulse, pulseDuration * 1000);
+        };
+
+        playPulse();
+    }
+
+    // Fade out intensity layer
+    fadeIntensityLayer() {
+        this.musicLayers.intensity = null;
+    }
+
     // Utility function to create noise
     createNoiseBuffer(duration) {
         const sampleRate = this.audioContext.sampleRate;
         const bufferSize = sampleRate * duration;
         const buffer = this.audioContext.createBuffer(1, bufferSize, sampleRate);
         const output = buffer.getChannelData(0);
-        
+
         for (let i = 0; i < bufferSize; i++) {
             output[i] = Math.random() * 2 - 1;
         }
-        
+
         return buffer;
     }
 }
 
-// Create global audio system instance with error handling (guard against duplicates)
+// Create global audio system instance with error handling
 let audioSystem;
 try {
     if (typeof window !== 'undefined') {
@@ -810,9 +1444,8 @@ try {
     } else {
         audioSystem = new AudioSystem();
     }
-    
+
     // Add event listeners for user interactions to initialize audio
-    // Use { once: true } so listener auto-removes after first click (prevents memory leak)
     if (typeof document !== 'undefined') {
         const unlockAudio = () => audioSystem.handleUserInteraction();
         ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(eventName => {
@@ -821,14 +1454,18 @@ try {
     }
 } catch (error) {
     window.logger.error('Error creating audio system:', error);
-    // Create a dummy audio system that does nothing but includes all expected methods
+    // Create a dummy audio system
     audioSystem = {
         play: () => {},
         playBossBeat: () => {},
         playBossTheme: () => {},
         stopBossTheme: () => {},
+        startAmbientMusic: () => {},
+        stopAmbientMusic: () => {},
+        setMusicIntensity: () => {},
         toggleMute: () => false,
         setEnabled: () => {},
+        setVolume: () => {},
         handleUserInteraction: () => {},
         resumeAudioContext: () => {},
         initializeAudioContext: () => {},
@@ -867,15 +1504,15 @@ AudioSystem.prototype.playBossBeat = function() {
         gainNode.gain.setValueAtTime(beat.volume || 0.4, now);
         gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
         osc.connect(gainNode);
-        gainNode.connect(this.masterGain);
+        gainNode.connect(this.musicGain || this.masterGain);
         osc.start(now);
         osc.stop(now + 0.4);
 
-        // Cleanup: Remove references to prevent memory leaks
+        // Cleanup
         setTimeout(() => {
             osc.disconnect();
             gainNode.disconnect();
-        }, 450); // Slightly longer than sound duration
+        }, 450);
     } catch (error) {
         window.logger.error('Error playing boss beat:', error);
     }
