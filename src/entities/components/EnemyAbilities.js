@@ -7,6 +7,12 @@
 // Constants for damage zone abilities
 const TELEGRAPH_DURATION_MS = 700; // Match the 0.7 second telegraph duration
 
+// Constants for visual effects
+const BOSS_DEATH_RING_COUNT = 3;
+const BOSS_DEATH_PARTICLES_PER_RING = 40;
+const BOSS_DEATH_RING_DELAY_MS = 50;
+const BOSS_DEATH_SOUND_DELAY_MS = 150;
+
 class EnemyAbilities {
     constructor(enemy) {
         this.enemy = enemy;
@@ -857,10 +863,14 @@ class EnemyAbilities {
 
         // Create massive multi-ring explosion
         if (window.optimizedParticles) {
+            // Store coordinates to avoid stale reference after delay
+            const enemyX = this.enemy.x;
+            const enemyY = this.enemy.y;
+            
             // Large outer ring
-            for (let ring = 0; ring < 3; ring++) {
-                const particlesInRing = 40;
-                const delay = ring * 50;  // Delayed rings for wave effect
+            for (let ring = 0; ring < BOSS_DEATH_RING_COUNT; ring++) {
+                const particlesInRing = BOSS_DEATH_PARTICLES_PER_RING;
+                const delay = ring * BOSS_DEATH_RING_DELAY_MS;  // Delayed rings for wave effect
 
                 setTimeout(() => {
                     for (let i = 0; i < particlesInRing; i++) {
@@ -868,13 +878,13 @@ class EnemyAbilities {
                         const speed = 150 + ring * 50 + Math.random() * 80;
 
                         window.optimizedParticles.spawnParticle({
-                            x: this.enemy.x,
-                            y: this.enemy.y,
+                            x: enemyX,
+                            y: enemyY,
                             vx: Math.cos(angle) * speed,
                             vy: Math.sin(angle) * speed,
                             size: 6 + Math.random() * 4,
                             color: ring === 0 ? '#ff0000' : ring === 1 ? '#ff6b35' : '#ffd700',
-                            lifetime: 1.5 + Math.random() * 0.8
+                            life: 1.5 + Math.random() * 0.8
                         });
                     }
                 }, delay);
@@ -886,13 +896,13 @@ class EnemyAbilities {
                 const speed = 50 + Math.random() * 200;
 
                 window.optimizedParticles.spawnParticle({
-                    x: this.enemy.x + (Math.random() - 0.5) * 30,
-                    y: this.enemy.y + (Math.random() - 0.5) * 30,
+                    x: enemyX + (Math.random() - 0.5) * 30,
+                    y: enemyY + (Math.random() - 0.5) * 30,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
                     size: 4 + Math.random() * 5,
                     color: ['#ff0000', '#ff6b35', '#ffd700', '#fff'][Math.floor(Math.random() * 4)],
-                    lifetime: 1.2 + Math.random() * 1.0
+                    life: 1.2 + Math.random() * 1.0
                 });
             }
         }
@@ -921,7 +931,7 @@ class EnemyAbilities {
                 if (window.audioSystem) {
                     window.audioSystem.play('explosion', 0.7);
                 }
-            }, 150);
+            }, BOSS_DEATH_SOUND_DELAY_MS);
         }
     }
 
@@ -968,7 +978,7 @@ class EnemyAbilities {
                     vy: Math.sin(angle) * speed,
                     size: 2 + Math.random(),
                     color: '#2ecc71',  // Green healing particles
-                    lifetime: 0.6
+                    life: 0.6
                 });
             }
 
@@ -983,7 +993,7 @@ class EnemyAbilities {
                     vy: Math.sin(angle) * speed - 30,  // Float upward
                     size: 3,
                     color: '#2ecc71',
-                    lifetime: 0.8
+                    life: 0.8
                 });
             }
         }
