@@ -201,7 +201,7 @@ const ACHIEVEMENT_DEFINITIONS = {
     },
     'grim_harvest': {
         name: 'Grim Harvest',
-        description: 'Lifesteal 1000 HP in a single run',
+        description: 'Lifesteal 1,000 HP in a single run',
         icon: '†',
         progress: 0,
         target: 1000,

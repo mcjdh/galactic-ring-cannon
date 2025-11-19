@@ -173,27 +173,17 @@ class VoidScytheWeapon {
         // Apply sweep offset to create reaping motion
         const centerAngle = targetAngle + this.sweepAngle;
 
-        // Determine number of projectiles in the arc
-        const baseCount = this.baseProjectileCount;
-        const playerCount = this.combat?.projectileCount || 1;
-        const totalCount = Math.max(3, baseCount + playerCount - 1);
-
         // Fire projectiles in an arc formation (like a scythe swing)
-        for (let i = 0; i < totalCount; i++) {
-            const progress = totalCount > 1 ? i / (totalCount - 1) : 0.5;
-            const offset = -this.arcSpread / 2 + this.arcSpread * progress;
-            const projectileAngle = centerAngle + offset;
-
-            this.combat.fireProjectile(game, projectileAngle, {
-                damageMultiplier: this.baseDamageMultiplier,
-                speedMultiplier: this.baseSpeedMultiplier,
-                spreadDegrees: 0, // We handle spread manually
-                applyBehaviors: true
-            });
-        }
+        this.combat.fireProjectile(game, centerAngle, {
+            damageMultiplier: this.baseDamageMultiplier,
+            speedMultiplier: this.baseSpeedMultiplier,
+            spreadDegrees: this.arcSpread,
+            applyBehaviors: true,
+            additionalProjectiles: this.baseProjectileCount - 1
+        });
 
         // Visual effects
-        this._spawnScytheTrailEffect(centerAngle, Math.min(8, totalCount));
+        this._spawnScytheTrailEffect(centerAngle, Math.min(8, this.baseProjectileCount));
         this._playFireSound();
 
         return true;
