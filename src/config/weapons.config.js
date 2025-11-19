@@ -107,28 +107,29 @@ const WEAPON_DEFINITIONS = {
             description: 'Critical hits briefly overcharge the array, increasing volley size.'
         }
     },
-    void_scythe: {
-        id: 'void_scythe',
-        name: 'Void Scythe',
-        description: 'Death harvester that reaps souls in sweeping arc patterns.',
-        archetype: 'reaper',
-        fireRate: 1.1,
+    magma_launcher: {
+        id: 'magma_launcher',
+        name: 'Magma Launcher',
+        icon: '🔥',
+        description: 'Lobs volatile magma charges that explode and ignite enemies.',
+        archetype: 'explosive',
+        fireRate: 0.9,
         startupDelay: 0,
         targeting: 'nearest',
         projectileTemplate: {
-            count: 3,
-            spreadDegrees: 60,
-            damageMultiplier: 1.0,
-            speedMultiplier: 1.0,
+            count: 1,
+            spreadDegrees: 0,
+            damageMultiplier: 1.2,
+            speedMultiplier: 0.8,
             inheritsPlayerCrit: true,
-            inheritsPlayerPierce: true,
+            inheritsPlayerPierce: false, // Explosives don't pierce usually
             appliesBehaviors: true
         },
-        upgradeTags: ['reaper', 'explosive', 'support'],
+        upgradeTags: ['explosive', 'core'],
         secondary: {
-            id: 'soul_harvest',
+            id: 'eruption',
             cooldown: 8.0,
-            description: 'Consuming souls temporarily increases damage for each kill.'
+            description: 'Create a massive pool of lava that burns all enemies inside.'
         }
     },
     sanguine_lance: {
@@ -204,28 +205,29 @@ const WEAPON_DEFINITIONS = {
             description: 'Release a burst of phantom energy that ricochets to all nearby enemies.'
         }
     },
-    void_piercer: {
-        id: 'void_piercer',
-        name: 'Void Piercer',
-        description: 'Precision entropy rifle that grows deadlier as death approaches.',
+    plasma_cutter: {
+        id: 'plasma_cutter',
+        name: 'Plasma Cutter',
+        icon: '⚡',
+        description: 'High-frequency energy beam that slices through armor.',
         archetype: 'precision',
-        fireRate: 0.85, // Slower fire rate
+        fireRate: 1.5, // Fast fire rate
         startupDelay: 0,
         targeting: 'nearest',
         projectileTemplate: {
             count: 1,
             spreadDegrees: 0,
-            damageMultiplier: 1.35, // Higher base damage
-            speedMultiplier: 1.3,   // Faster projectiles
+            damageMultiplier: 0.8, // Lower per-shot damage but fast
+            speedMultiplier: 1.5,   // Very fast projectiles
             inheritsPlayerCrit: true,
             inheritsPlayerPierce: true,
             appliesBehaviors: true
         },
-        upgradeTags: ['core', 'explosive'],
+        upgradeTags: ['core', 'chain'],
         secondary: {
-            id: 'entropy_burst',
-            cooldown: 8.0,
-            description: 'Channel void energy into a devastating piercing shot.'
+            id: 'overcharge',
+            cooldown: 10.0,
+            description: 'Temporarily double attack speed at the cost of health.'
         }
     }
 };

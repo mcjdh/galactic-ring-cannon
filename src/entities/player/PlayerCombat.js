@@ -66,7 +66,17 @@ class PlayerCombat {
         // Prevent division by zero and ensure minimum cooldown
         // Apply kill streak attack speed bonus
         const streakBonuses = this.player.stats?.getKillStreakBonuses?.() || { attackSpeed: 1.0 };
-        const effectiveAttackSpeed = this.attackSpeed * streakBonuses.attackSpeed;
+
+        // Apply Berserker bonus (low health = faster attacks)
+        let berserkerMultiplier = 1.0;
+        if (this.player.abilities?.hasBerserker) {
+            const healthPercent = this.player.health / (this.player.maxHealth || 100);
+            const missingHealth = 1.0 - healthPercent;
+            // Up to +50% attack speed at 0% health
+            berserkerMultiplier = 1.0 + (missingHealth * (this.player.abilities.berserkerScaling || 0.5));
+        }
+
+        const effectiveAttackSpeed = this.attackSpeed * streakBonuses.attackSpeed * berserkerMultiplier;
         const safeAttackSpeed = Math.max(effectiveAttackSpeed, 0.1);
         const newCooldown = 1 / safeAttackSpeed;
         if (this.attackCooldown !== newCooldown && this.attackCooldown > 0) {
@@ -274,7 +284,17 @@ class PlayerCombat {
 
             // Apply kill streak bonuses
             const streakBonuses = this.player.stats?.getKillStreakBonuses?.() || { damage: 1.0 };
-            const baseDamage = this.attackDamage * damageMultiplier * streakBonuses.damage;
+
+            // Apply Berserker damage bonus
+            let berserkerDamageMultiplier = 1.0;
+            if (this.player.abilities?.hasBerserker) {
+                const healthPercent = this.player.health / (this.player.maxHealth || 100);
+                const missingHealth = 1.0 - healthPercent;
+                // Up to +50% damage at 0% health
+                berserkerDamageMultiplier = 1.0 + (missingHealth * (this.player.abilities.berserkerScaling || 0.5));
+            }
+
+            const baseDamage = this.attackDamage * damageMultiplier * streakBonuses.damage * berserkerDamageMultiplier;
             const damage = isCrit ? baseDamage * (this.critMultiplier || 2) : baseDamage;
 
             // Determine special effects for THIS projectile (independent roll per projectile)
@@ -309,7 +329,7 @@ class PlayerCombat {
                 }
                 // Track projectile fired for statistics
                 window.gameManager?.statsManager?.trackProjectileFired?.();
-                
+
                 if (isCrit) {
                     window.gameManager?.statsManager?.trackSpecialEvent?.('critical_hit');
                 }
@@ -370,7 +390,7 @@ class PlayerCombat {
 
         if (totalProjectiles === 2) {
             // Two projectiles: one left, one right of center
-            return baseAngle + (projectileIndex === 0 ? -totalSpread/2 : totalSpread/2);
+            return baseAngle + (projectileIndex === 0 ? -totalSpread / 2 : totalSpread / 2);
         }
 
         // For 3+ projectiles: distribute evenly from -spread/2 to +spread/2

@@ -26,12 +26,11 @@ class PlayerStats {
         this.invulnerabilityTime = PLAYER_CONSTANTS.INVULNERABILITY_TIME || 0.5;
         this.invulnerabilityTimer = 0;
 
-        // Kill streak tracking with rewards
+        // Kill streak tracking for gameplay bonuses only
+        // (Visual feedback handled by GameState combo system)
         this.killStreak = 0;
         this.killStreakTimer = 0;
         this.killStreakTimeout = 5.0;
-        this.highestKillStreak = 0; // Track best streak for session
-        this.lastStreakMilestone = 0; // For visual feedback throttling
 
         this._uiElements = null;
         this._lastUiState = {
@@ -77,19 +76,7 @@ class PlayerStats {
         if (this.killStreak > 0) {
             this.killStreakTimer += deltaTime;
             if (this.killStreakTimer >= this.killStreakTimeout) {
-                // Streak ended - show notification if it was significant
-                if (this.killStreak >= 10) {
-                    const gm = window.gameManager || window.gameManagerBridge;
-                    if (gm?.showFloatingText) {
-                        gm.showFloatingText(
-                            `Streak Ended: ${this.killStreak}`,
-                            this.player.x,
-                            this.player.y - 40,
-                            '#e67e22',
-                            18
-                        );
-                    }
-                }
+                // Streak ended - reset silently
                 this.killStreak = 0;
                 this.killStreakTimer = 0;
             }
@@ -102,82 +89,12 @@ class PlayerStats {
     addKillToStreak() {
         this.killStreak++;
         this.killStreakTimer = 0; // Reset timer
-
-        // Track highest streak
-        if (this.killStreak > this.highestKillStreak) {
-            this.highestKillStreak = this.killStreak;
-        }
-
-        // Show visual feedback at milestones
-        this.checkStreakMilestone();
+        // No visual feedback - handled by GameState combo system
     }
 
-    /**
-     * Check if we hit a streak milestone and show feedback
-     */
-    checkStreakMilestone() {
-        const milestones = [5, 10, 15, 20, 25, 30, 40, 50];
-        const currentMilestone = milestones.find(m => m === this.killStreak);
 
-        if (currentMilestone && currentMilestone > this.lastStreakMilestone) {
-            this.lastStreakMilestone = currentMilestone;
-            const gm = window.gameManager || window.gameManagerBridge;
 
-            if (gm?.showFloatingText) {
-                const messages = {
-                    5: '⚡ ON FIRE!',
-                    10: '🔥 UNSTOPPABLE!',
-                    15: '💥 DOMINATING!',
-                    20: '⭐ LEGENDARY!',
-                    25: '🌟 GODLIKE!',
-                    30: '👑 IMMORTAL!',
-                    40: '💫 TRANSCENDENT!',
-                    50: '🌌 COSMIC FORCE!'
-                };
 
-                const message = messages[currentMilestone] || `STREAK ${currentMilestone}!`;
-                gm.showFloatingText(
-                    message,
-                    this.player.x,
-                    this.player.y - 60,
-                    '#f39c12',
-                    28
-                );
-            }
-
-            // Play sound effect
-            if (window.audioSystem?.play) {
-                window.audioSystem.play('levelUp', 0.4);
-            }
-
-            // Update achievements for streak milestones
-            this.updateStreakAchievements(currentMilestone);
-        }
-    }
-
-    /**
-     * Update kill streak achievements
-     */
-    updateStreakAchievements(streakCount) {
-        const achievementSystem = window.achievementSystem;
-        if (!achievementSystem || typeof achievementSystem.updateAchievement !== 'function') {
-            return;
-        }
-
-        // Update progressive streak achievements
-        if (streakCount >= 10) {
-            achievementSystem.updateAchievement('on_fire', streakCount);
-        }
-        if (streakCount >= 20) {
-            achievementSystem.updateAchievement('unstoppable', streakCount);
-        }
-        if (streakCount >= 30) {
-            achievementSystem.updateAchievement('godlike', streakCount);
-        }
-        if (streakCount >= 50) {
-            achievementSystem.updateAchievement('immortal', streakCount);
-        }
-    }
 
     /**
      * Get kill streak bonuses as multipliers
@@ -556,7 +473,6 @@ class PlayerStats {
         this._lastUiState.levelText = levelText;
     }
 
-    // Get debug information
     getDebugInfo() {
         return {
             health: this.health,

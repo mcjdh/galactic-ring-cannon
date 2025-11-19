@@ -526,6 +526,65 @@ const UPGRADE_DEFINITIONS = [
         buildPath: 'support',
         characterRestriction: 'aegis_vanguard',
         specialEffect: 'shield_burst' // Explosion effect on shield break
+    },
+
+    // ========================================
+    // PYROMANCY BUILD PATH (Inferno Juggernaut)
+    // ========================================
+    {
+        id: 'pyromancy_1',
+        name: 'Pyromancy',
+        description: 'Projectiles apply burning status to enemies (5 damage/sec for 3s)',
+        type: 'burn',
+        burnDamage: 5,
+        burnDuration: 3.0,
+        icon: "🔥",
+        rarity: 'rare',
+        buildPath: 'explosive',
+        synergies: ['explosive_shots_1', 'attack_damage_1'],
+        specialEffect: 'burn_visual'
+    },
+    {
+        id: 'pyromancy_2',
+        name: 'Intense Flames',
+        description: 'Burn damage increased by 50% and lasts 2 seconds longer',
+        type: 'burnDamage',
+        damageMultiplier: 1.5,
+        durationBonus: 2.0,
+        icon: "🔥🔥",
+        rarity: 'rare',
+        requires: ['pyromancy_1'],
+        buildPath: 'explosive',
+        specialEffect: 'burn_intensify'
+    },
+
+    // ========================================
+    // OVERCLOCK BUILD PATH (Cybernetic Berserker)
+    // ========================================
+    {
+        id: 'overclock_1',
+        name: 'Overclock Protocol',
+        description: 'Berserker bonuses increased by 20% (gain more power at low HP)',
+        type: 'berserkerScaling',
+        value: 0.2,  // +20% to scaling
+        icon: "⚡",
+        rarity: 'rare',
+        buildPath: 'core',
+        characterRestriction: 'cybernetic_berserker',
+        specialEffect: 'berserker_visual'
+    },
+    {
+        id: 'overclock_2',
+        name: 'Critical Overclock',
+        description: 'Gain +5% crit chance at low health',
+        type: 'berserkerCrit',
+        value: 0.05,
+        icon: "⚡⚡",
+        rarity: 'rare',
+        requires: ['overclock_1'],
+        buildPath: 'core',
+        characterRestriction: 'cybernetic_berserker',
+        specialEffect: 'berserker_crit'
     }
 ];
 

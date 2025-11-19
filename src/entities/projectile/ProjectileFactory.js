@@ -101,6 +101,16 @@ class ProjectileFactory {
             });
             projectile.behaviorManager.addBehavior(homingBehavior);
         }
+
+        // Burn Behavior (chance-based)
+        if (abilities.hasBurn && Math.random() < (abilities.burnChance || 0.2)) {
+            const burnBehavior = new BurnBehavior(projectile, {
+                damage: abilities.burnDamage || 5,
+                duration: abilities.burnDuration || 3.0,
+                chance: 1.0 // Already checked above
+            });
+            projectile.behaviorManager.addBehavior(burnBehavior);
+        }
     }
 
     /**

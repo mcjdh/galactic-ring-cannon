@@ -74,7 +74,7 @@ class GameState {
         this.combo = {
             count: 0,
             timer: 0,
-            timeout: 0.8,             // From GAME_CONSTANTS
+            timeout: 1.2,             // Rebalanced: 1.2s window for easier streaks
             highest: 0,
             multiplier: 1.0
         };
@@ -392,11 +392,12 @@ class GameState {
             }
         }
 
-        // Calculate combo multiplier
-        const comboTarget = 8; // From GAME_CONSTANTS
+        // Calculate combo multiplier (rebalanced for better scaling)
+        const comboTarget = 8; // Combo starts giving bonus at 8
         if (this.combo.count >= comboTarget) {
             const bonusCombo = this.combo.count - comboTarget;
-            this.combo.multiplier = Math.min(2.5, 1.0 + bonusCombo * 0.1);
+            // Improved scaling: caps at 3.0x (was 2.5x)
+            this.combo.multiplier = Math.min(3.0, 1.0 + bonusCombo * 0.12);
         } else {
             this.combo.multiplier = 1.0;
         }

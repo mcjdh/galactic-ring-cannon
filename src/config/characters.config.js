@@ -38,10 +38,15 @@
  *   These paths receive +40% weight during upgrade selection for this character
  *   
  *   Character Synergies:
- *   - Aegis Vanguard: ['support', 'core'] - Shield specialist with barrier tech (reworked v1.1.2)
- *   - Nova Corsair: ['ricochet', 'explosive'] - Aggressive, burst damage
- *   - Stormcaller: ['chain'] - Amplifies built-in chain lightning
- *   - Nexus Architect: ['orbit', 'support'] - Orbital specialist (NEW v1.1.1)
+ *   - Aegis Vanguard: ['support', 'core'] - Shield specialist
+ *   - Nova Corsair: ['ricochet', 'explosive'] - Aggressive burst damage
+ *   - Stormcaller: ['chain'] - Chain lightning specialist
+ *   - Nexus Architect: ['orbit', 'support'] - Orbital specialist
+ *   - Inferno Juggernaut: ['explosive', 'core'] - Fire & explosions (NEW!)
+ *   - Crimson Reaver: ['explosive', 'core'] - Lifesteal vampire
+ *   - Void Warden: ['explosive', 'support'] - Gravity control
+ *   - Phantom Striker: ['ricochet', 'explosive', 'homing'] - Ricochet assassin
+ *   - Cybernetic Berserker: ['core', 'chain'] - Low-HP scaling (NEW!)
  */
 
 const CHARACTER_DEFINITIONS = [
@@ -207,49 +212,55 @@ const CHARACTER_DEFINITIONS = [
         flavor: '"Precision is not perfection. It is the path to it."'
     },
     {
-        id: 'eclipse_reaper',
-        name: 'Eclipse Reaper',
-        icon: '†',
-        tagline: 'Soul Harvester',
-        description: 'A dark necromancer who reaps the void and grows stronger with each kill. Thrives on death itself with high-risk, high-reward gameplay.',
-        difficulty: 'reaper',
-        weaponId: 'void_scythe',
+        id: 'inferno_juggernaut',
+        name: 'Inferno Juggernaut',
+        icon: '🔥',
+        tagline: 'Pyromancer Tank',
+        description: 'A walking blast furnace who sets the battlefield ablaze. High durability and explosive firepower, but moves slowly.',
+        difficulty: 'destructive',
+        weaponId: 'magma_launcher',
         highlights: [
-            'Projectiles have 12% chance to explode on hit',
-            '+15% base lifesteal - restore HP on damage dealt',
-            '+15% damage but -20% max health (glass scythe)',
-            'Void Scythe fires in sweeping reaping arcs'
+            'Projectiles ignite enemies (Burn DoT)',
+            '+25% max health & +15% armor',
+            'Explosive shots deal area damage',
+            'Slow but unstoppable'
         ],
         modifiers: {
             stats: {
-                healthMultiplier: 0.8,    // -20% health (high risk)
-                lifesteal: 0.15,          // 15% base lifesteal (high reward)
-                regeneration: 0.5         // Low natural regen (relies on lifesteal)
+                healthMultiplier: 1.25,   // +25% health (tanky)
+                damageReduction: 0.15,    // 15% armor
+                regeneration: 1.0         // Standard regen
             },
             combat: {
-                attackSpeedMultiplier: 1.0,   // Normal attack speed
-                attackDamageMultiplier: 1.15  // +15% damage (death dealer)
+                attackSpeedMultiplier: 0.9,   // -10% attack speed (heavy weapons)
+                attackDamageMultiplier: 1.2,  // +20% damage
+                projectileSpeedMultiplier: 0.85 // Slower, heavier shots
             },
             movement: {
-                speedMultiplier: 1.08,         // +8% movement (agile reaper)
-                magnetRangeBonus: 120          // Extended pickup range for souls
+                speedMultiplier: 0.85,         // -15% movement (juggernaut)
+                magnetRangeBonus: 60
             },
             abilities: {
                 explosive: {
-                    baseChance: 0.12,          // 12% chance for projectiles to explode on hit
-                    damageMultiplier: 1.0,     // Normal explosive damage
-                    radiusMultiplier: 1.1      // +10% explosion radius
-                }
+                    baseChance: 0.4,           // 40% chance for projectiles to explode
+                    damageMultiplier: 0.8,     // 80% explosive damage
+                    radiusMultiplier: 1.2      // +20% explosion radius
+                },
+                // New Burn Ability
+                hasBurn: true,
+                burnChance: 1.0,               // 100% burn chance on primary
+                burnDamage: 5,
+                burnDuration: 3.0
             }
         },
-        // Build path preferences - explosive deaths and lifesteal synergy
-        preferredBuildPaths: ['explosive', 'support'],
+        // Build path preferences - fire and explosions
+        preferredBuildPaths: ['explosive', 'core'],
         unlockRequirement: {
             type: 'achievement',
-            ids: ['grim_harvest'],
-            hint: 'Master the art of death by achieving the Grim Harvest.'
+            ids: ['grim_harvest'], // Reuse existing ID for now to keep unlock logic simple
+            hint: 'Survive the firestorm to unlock the Juggernaut.'
         },
-        flavor: '"Death is not the end—it is the currency of power."'
+        flavor: '"I don\'t just set the world on fire. I AM the fire."'
     },
     {
         id: 'crimson_reaver',
@@ -291,8 +302,8 @@ const CHARACTER_DEFINITIONS = [
         flavor: '"Every drop spilled is a gift. Every wound dealt, a feast."'
     },
     {
-        id: 'void_reaver',
-        name: 'Void Reaver',
+        id: 'void_warden',
+        name: 'Void Warden',
         icon: '%',
         tagline: 'Gravitational Enforcer',
         description: 'Warps spacetime itself, firing devastating singularity projectiles that trap enemies in crushing gravity wells. Master of area denial and tactical positioning.',
@@ -385,47 +396,49 @@ const CHARACTER_DEFINITIONS = [
         flavor: '"They never see the second shot coming—or the third."'
     },
     {
-        id: 'void_harbinger',
-        name: 'Void Harbinger',
-        icon: 'V',
-        tagline: 'Entropy\'s Harbinger',
-        description: 'Embraces the void between life and death, growing exponentially more lethal as health wanes. Thrives on risk with devastating precision strikes and vampiric sustainability.',
+        id: 'cybernetic_berserker',
+        name: 'Cybernetic Berserker',
+        icon: '⚡',
+        tagline: 'Critical Overclock',
+        description: 'A cyborg warrior who fights harder as systems fail. Gains massive attack speed and damage when health is low.',
         difficulty: 'expert',
-        weaponId: 'void_piercer',
+        weaponId: 'plasma_cutter',
         highlights: [
-            'Gains damage & attack speed as health decreases',
-            '+20% movement speed & +8% base crit chance',
-            '15% lifesteal keeps you in the danger zone',
-            'Enhanced critical damage with Void Piercer',
-            'Starts with +2 pierce & faster projectiles'
+            'Berserker Protocol: +Damage/Speed as HP drops',
+            '+20% movement speed & +10% crit chance',
+            'High risk, extreme reward',
+            'Plasma Cutter shreds armor'
         ],
         modifiers: {
             stats: {
-                healthMultiplier: 0.8,      // -20% health (glass cannon)
-                lifesteal: 0.15,            // 15% lifesteal
-                regeneration: 0.5           // Lower regen (relies on lifesteal)
+                healthMultiplier: 1.1,      // +10% health (needs buffer to play low HP)
+                regeneration: 0.2           // Very low regen (wants to stay low HP)
             },
             combat: {
-                attackSpeedMultiplier: 1.0, // Base speed (gains more at low health via weapon)
-                attackDamageMultiplier: 1.15, // +15% damage (gains more at low health via weapon)
-                piercing: 2,                // +2 base pierce
-                critChanceBonus: 0.08,      // +8% crit chance
+                attackSpeedMultiplier: 1.1, // +10% base speed
+                attackDamageMultiplier: 1.0,
+                piercing: 1,                // +1 base pierce
+                critChanceBonus: 0.10,      // +10% crit chance
                 projectileSpeedMultiplier: 1.2 // +20% projectile speed
             },
             movement: {
-                speedMultiplier: 1.2,       // +20% movement (need to dodge!)
+                speedMultiplier: 1.15,       // +15% movement (chase down targets)
                 dodgeCooldownMultiplier: 0.9, // 10% faster dodge
-                magnetRangeBonus: 120       // Larger magnet range to recover
+            },
+            abilities: {
+                // New Berserker Ability
+                hasBerserker: true,
+                berserkerScaling: 0.6        // up to +60% stats at 0 HP
             }
         },
         // Build path preferences - critical hits and core damage
-        preferredBuildPaths: ['core', 'explosive'],
+        preferredBuildPaths: ['core', 'chain'],
         unlockRequirement: {
             type: 'achievement',
             ids: ['edge_walker'],
-            hint: 'Dance with death—survive 3 minutes below 30% health to unlock the Reaver.'
+            hint: 'Live on the edge—survive at critical health to unlock.'
         },
-        flavor: '"The closer to oblivion, the sharper my edge becomes."'
+        flavor: '"Pain is just data. And the data says I\'m winning."'
     }
 ];
 

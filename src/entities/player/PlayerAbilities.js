@@ -303,12 +303,12 @@ class PlayerAbilities {
         if (window.optimizedParticles) {
             this.createShieldBurstEffect();
         }
-        
+
         // Screen shake for impact
         if (window.gameManager?.addScreenShake) {
             window.gameManager.addScreenShake(8, 0.4);  // Strong shake for powerful explosion
         }
-        
+
         if (window.audioSystem?.play) {
             window.audioSystem.play('explosion', 0.7);  // Louder explosion
         }
@@ -319,12 +319,12 @@ class PlayerAbilities {
         // Converging energy spiraling into shield
         const segments = 32;
         const radius = (this.player.radius || 20) + 20;
-        
+
         for (let i = 0; i < segments; i++) {
             const angle = (i / segments) * Math.PI * 2;
             const x = this.player.x + Math.cos(angle) * radius;
             const y = this.player.y + Math.sin(angle) * radius;
-            
+
             window.optimizedParticles.spawnParticle({
                 x, y,
                 vx: Math.cos(angle) * -40,  // Inward motion
@@ -334,7 +334,7 @@ class PlayerAbilities {
                 life: 0.7,
                 type: 'spark'
             });
-            
+
             // Additional sparkle layer
             if (i % 2 === 0) {
                 window.optimizedParticles.spawnParticle({
@@ -354,13 +354,13 @@ class PlayerAbilities {
         // Shattering glass effect with expanding fragments
         const segments = 48;  // More fragments for dramatic effect
         const radius = (this.player.radius || 20) + 15;
-        
+
         for (let i = 0; i < segments; i++) {
             const angle = (i / segments) * Math.PI * 2;
             const x = this.player.x + Math.cos(angle) * radius;
             const y = this.player.y + Math.sin(angle) * radius;
             const speed = 120 + Math.random() * 80;
-            
+
             window.optimizedParticles.spawnParticle({
                 x, y,
                 vx: Math.cos(angle) * speed,
@@ -371,7 +371,7 @@ class PlayerAbilities {
                 type: 'spark'
             });
         }
-        
+
         // Screen shake for impact
         if (window.gameManager?.addScreenShake) {
             window.gameManager.addScreenShake(4, 0.25);
@@ -382,21 +382,21 @@ class PlayerAbilities {
         // Expanding ring waves for powerful visual
         const ringCount = 3;
         const radius = this.shieldExplosionRadius;
-        
+
         // Capture player position (player moves during setTimeout delays)
         const playerX = this.player.x;
         const playerY = this.player.y;
-        
+
         for (let ring = 0; ring < ringCount; ring++) {
             const delay = ring * 50; // Stagger rings
             const segments = 36;
-            
+
             setTimeout(() => {
                 for (let i = 0; i < segments; i++) {
                     const angle = (i / segments) * Math.PI * 2;
                     const x = playerX + Math.cos(angle) * (radius * 0.3);
                     const y = playerY + Math.sin(angle) * (radius * 0.3);
-                    
+
                     window.optimizedParticles.spawnParticle({
                         x, y,
                         vx: Math.cos(angle) * (200 + ring * 50),  // Faster outer rings
@@ -409,13 +409,13 @@ class PlayerAbilities {
                 }
             }, delay);
         }
-        
+
         // Central explosion burst
         const burstParticles = 24;
         for (let i = 0; i < burstParticles; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 100 + Math.random() * 100;
-            
+
             window.optimizedParticles.spawnParticle({
                 x: playerX,
                 y: playerY,
@@ -433,12 +433,12 @@ class PlayerAbilities {
         // Lightning-like reflection bolts radiating outward
         const segments = 24;
         const radius = (this.player.radius || 20) + 12;
-        
+
         for (let i = 0; i < segments; i++) {
             const angle = (i / segments) * Math.PI * 2;
             const x = this.player.x + Math.cos(angle) * radius;
             const y = this.player.y + Math.sin(angle) * radius;
-            
+
             // Double particle trail for lightning effect
             for (let j = 0; j < 2; j++) {
                 const offset = (j - 0.5) * 0.2;
@@ -453,7 +453,7 @@ class PlayerAbilities {
                 });
             }
         }
-        
+
         // Small screen shake
         if (window.gameManager?.addScreenShake) {
             window.gameManager.addScreenShake(2, 0.15);
@@ -588,7 +588,7 @@ class PlayerAbilities {
                             (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                         this.player.stats.heal(healAmount);
                         // Track lifesteal healing for achievements
-                        if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
+                        window.achievementSystem?.onLifestealHeal?.(healAmount);
                     }
 
                     // Add to set of hit enemies for this orbit with cooldown
@@ -694,7 +694,7 @@ class PlayerAbilities {
                     (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                 this.player.stats.heal(healAmount);
                 // Track lifesteal healing for achievements
-                if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
+                window.achievementSystem?.onLifestealHeal?.(healAmount);
             }
 
             // Add to hit enemies
@@ -786,7 +786,7 @@ class PlayerAbilities {
                     (isCrit ? this.player.stats.lifestealCritMultiplier : 1);
                 this.player.stats.heal(healAmount);
                 // Track lifesteal healing for achievements
-                if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
+                window.achievementSystem?.onLifestealHeal?.(healAmount);
             }
 
             // Add to hit enemies
@@ -862,7 +862,7 @@ class PlayerAbilities {
                 'spark'
             );
 
-            points.push({x, y});
+            points.push({ x, y });
             prevX = x;
             prevY = y;
         }

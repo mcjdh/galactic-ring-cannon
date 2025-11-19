@@ -1,15 +1,13 @@
 /**
- * VoidPiercerWeapon - High-damage precision rifle that excels at critical hits
- * and penetrating shots. Designed for the Void Reaver character.
+ * SanguineLanceWeapon - Fast-firing vampiric weapon that synergizes with lifesteal.
+ * Designed for the Crimson Reaver character.
  *
  * Core mechanics:
- * - Slower fire rate, higher damage per shot
- * - Enhanced critical hit scaling
- * - Long-range precision targeting
- * - Natural piercing capability
- * - Scales with low health (via character passive)
+ * - Fast fire rate for consistent healing
+ * - Natural piercing for multi-target lifesteal
+ * - Crimson visual effects
  */
-class VoidPiercerWeapon {
+class SanguineLanceWeapon {
     constructor({ player, combat, definition, manager }) {
         this.player = player;
         this.combat = combat;
@@ -39,19 +37,7 @@ class VoidPiercerWeapon {
         const weaponRate = Math.max(0.1, this._getDefinitionFireRate());
 
         const normalizedModifier = weaponRate / baseRate;
-        let effectiveRate = Math.max(0.05, playerRate * normalizedModifier);
-
-        // Void Reaver passive: gain attack speed as health decreases
-        if (this.player?.stats) {
-            const healthPercent = this.player.stats.health / this.player.stats.maxHealth;
-            // Below 50% health, gain up to 30% attack speed bonus
-            if (healthPercent < 0.5) {
-                const lowHealthBonus = 1 + ((0.5 - healthPercent) * 0.6); // 0-30% bonus
-                effectiveRate *= lowHealthBonus;
-            }
-        }
-
-        return effectiveRate;
+        return Math.max(0.05, playerRate * normalizedModifier);
     }
 
     _recalculateCooldown(preserveProgress = true) {
@@ -67,7 +53,6 @@ class VoidPiercerWeapon {
             this.timer = Math.min(this.timer, this.cooldown);
         }
 
-        // Sync legacy combat fields for debugging/UI
         this.combat.attackCooldown = this.cooldown;
         this._needsRecalc = false;
     }
@@ -97,7 +82,6 @@ class VoidPiercerWeapon {
             this.timer -= this.cooldown;
             const fired = this.fire(game);
             if (!fired) {
-                // If no target, reset timer for quick retry
                 this.timer = 0;
             }
         }
@@ -117,26 +101,13 @@ class VoidPiercerWeapon {
             window.audioSystem.playBossBeat();
         }
 
-        // Enhanced damage based on low health (Void Reaver passive)
-        let damageBonus = 1.0;
-        if (this.player?.stats) {
-            const healthPercent = this.player.stats.health / this.player.stats.maxHealth;
-            // Below 50% health, gain up to 40% damage bonus
-            if (healthPercent < 0.5) {
-                damageBonus = 1 + ((0.5 - healthPercent) * 0.8); // 0-40% bonus
-            }
-        }
+        // Sanguine Lance: Fast crimson bolts
+        const baseDamageMult = this.definition?.projectileTemplate?.damageMultiplier || 1.05;
 
-        const baseDamageMult = this.definition?.projectileTemplate?.damageMultiplier || 1.0;
-        const finalDamageMult = baseDamageMult * damageBonus;
-
-        // Build overrides with enhanced critical hit scaling
         const overrides = {
-            damageMultiplier: finalDamageMult,
-            speedMultiplier: this.definition?.projectileTemplate?.speedMultiplier || 1.3,
-            applyBehaviors: this.definition?.projectileTemplate?.appliesBehaviors !== false,
-            // Void Piercer benefits more from crits
-            critDamageBonus: 0.15 // +15% crit damage for this weapon
+            damageMultiplier: baseDamageMult,
+            speedMultiplier: this.definition?.projectileTemplate?.speedMultiplier || 1.1,
+            applyBehaviors: this.definition?.projectileTemplate?.appliesBehaviors !== false
         };
 
         this.combat.fireProjectile(game, baseAngle, overrides);
@@ -145,7 +116,6 @@ class VoidPiercerWeapon {
     }
 
     fireImmediate(game) {
-        // Reset timer so cadence feels consistent with manual triggers
         this.timer = 0;
         return this.fire(game);
     }
@@ -159,7 +129,6 @@ class VoidPiercerWeapon {
     }
 
     applyUpgrade(upgrade) {
-        // Recalculate on any combat stat changes
         switch (upgrade.type) {
             case 'attackSpeed':
             case 'attackDamage':
@@ -181,6 +150,6 @@ if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.Weapons = window.Game.Weapons || {};
     if (typeof window.Game.Weapons.registerType === 'function') {
-        window.Game.Weapons.registerType('void_piercer', VoidPiercerWeapon);
+        window.Game.Weapons.registerType('sanguine_lance', SanguineLanceWeapon);
     }
 }

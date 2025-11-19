@@ -75,6 +75,16 @@ class Enemy {
         this.abilities = new EnemyAbilities(this);
         this.movement = new EnemyMovement(this);
 
+        // Initialize StatusEffectManager (graceful fallback if class not loaded)
+        if (typeof window.Game?.StatusEffectManager === 'function') {
+            this.statusEffects = new window.Game.StatusEffectManager(this);
+        } else if (typeof StatusEffectManager === 'function') {
+            this.statusEffects = new StatusEffectManager(this);
+        } else {
+            // Fallback stub
+            this.statusEffects = { update: () => { }, applyEffect: () => { } };
+        }
+
         // Configure based on enemy type using type system
         this.configureEnemyType(type);
     }
@@ -115,6 +125,11 @@ class Enemy {
         this.ai.update(deltaTime, game);
         this.abilities.update(deltaTime, game);
         this.movement.update(deltaTime, game);
+
+        // Update status effects
+        if (this.statusEffects) {
+            this.statusEffects.update(deltaTime, game);
+        }
 
         // Update boss-specific mechanics
         if (this.isBoss) {
@@ -265,7 +280,8 @@ class Enemy {
             // Component states
             ai: this.ai.getAIState(),
             abilities: this.abilities.getAbilitiesState(),
-            movement: this.movement.getMovementState()
+            movement: this.movement.getMovementState(),
+            statusEffects: this.statusEffects ? Array.from(this.statusEffects.effects.entries()) : []
         };
     }
 }

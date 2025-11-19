@@ -25,7 +25,7 @@ class StatsManager {
         this.projectilesFired = 0;
         this.distanceTraveled = 0;
         this.lastPlayerPosition = null;
-        
+
         // Combo configuration
         this.comboTimeout = (COMBO_CONFIG && COMBO_CONFIG.TIMEOUT != null) ? COMBO_CONFIG.TIMEOUT : 0.8;
         this.comboTarget = (COMBO_CONFIG && COMBO_CONFIG.TARGET != null) ? COMBO_CONFIG.TARGET : 8;
@@ -59,7 +59,7 @@ class StatsManager {
             projectilesFired: 0, // Track session projectiles for accuracy achievements
             projectileHits: 0 // Track successful projectile hits for accuracy calculation
         };
-        
+
         // Achievement tracking
         this.achievementProgress = new Map();
         this.unlockedAchievements = new Set();
@@ -80,7 +80,7 @@ class StatsManager {
             }
         }
         this.starTokensEarned = 0;
-        
+
         // Progression tracking
         this.gameStats = {
             highestEnemyCount: 0,
@@ -90,7 +90,7 @@ class StatsManager {
             upgradesChosen: 0,
             deathsThisSession: 0
         };
-        
+
         // Performance analytics
         this.performanceMetrics = {
             averageKillsPerMinute: 0,
@@ -230,20 +230,20 @@ class StatsManager {
 
         }
     }
-    
+
     /**
      * Update internal timers
      */
     updateTimers(deltaTime) {
         if (this.comboTimer > 0) {
             this.comboTimer -= deltaTime;
-            
+
             if (this.comboTimer <= 0) {
                 this.resetCombo();
             }
         }
     }
-    
+
     /**
      * Update combo system
      */
@@ -259,35 +259,35 @@ class StatsManager {
 
         this.achievementSystem?.updateAchievement?.('combo_master', this.highestCombo);
     }
-    
+
     /**
      * Update performance metrics
      */
     updatePerformanceMetrics() {
         const timeMinutes = Math.max(0.1, this.gameManager.gameTime / 60);
-        
+
         this.performanceMetrics.averageKillsPerMinute = this.killCount / timeMinutes;
         this.performanceMetrics.averageXPPerMinute = this.xpCollected / timeMinutes;
         this.performanceMetrics.survivalTime = this.gameManager.gameTime;
-        
+
         // Calculate efficiency score (0-100)
         const player = this.gameManager.game.player;
         if (player) {
             const healthEfficiency = player.health / player.maxHealth;
             const levelEfficiency = Math.min(1.0, player.level / 20); // Normalize to level 20
             const killEfficiency = Math.min(1.0, this.performanceMetrics.averageKillsPerMinute / 30); // 30 KPM is excellent
-            
+
             this.performanceMetrics.efficiencyScore = Math.floor(
                 (healthEfficiency * 30 + levelEfficiency * 35 + killEfficiency * 35)
             );
         }
-        
+
         // Calculate difficulty rating
         if (this.gameManager.difficultyManager) {
             this.performanceMetrics.difficultyRating = this.gameManager.difficultyManager.difficultyFactor;
         }
     }
-    
+
     /**
      * Check for milestone achievements
      */
@@ -300,7 +300,7 @@ class StatsManager {
                 this.triggerMilestone('kills', milestone);
             }
         });
-        
+
         // Level milestones
         const player = this.gameManager.game.player;
         if (player) {
@@ -312,7 +312,7 @@ class StatsManager {
                 }
             });
         }
-        
+
         // Time milestones
         this.milestones.time.forEach(milestone => {
             const key = `time_${milestone}`;
@@ -321,7 +321,7 @@ class StatsManager {
                 this.triggerMilestone('time', milestone);
             }
         });
-        
+
         // Boss milestones
         this.milestones.bosses.forEach(milestone => {
             const key = `bosses_${milestone}`;
@@ -331,14 +331,14 @@ class StatsManager {
             }
         });
     }
-    
+
     /**
      * Trigger milestone achievement
      */
     triggerMilestone(type, value) {
         let message = '';
         let color = 'combo';
-        
+
         switch (type) {
             case 'kills':
                 message = `${value} KILLS MILESTONE!`;
@@ -352,7 +352,7 @@ class StatsManager {
             case 'time':
                 const minutes = Math.floor(value / 60);
                 const seconds = value % 60;
-                message = seconds > 0 ? 
+                message = seconds > 0 ?
                     `${minutes}:${seconds.toString().padStart(2, '0')} SURVIVED!` :
                     `${minutes} MINUTE${minutes > 1 ? 'S' : ''} SURVIVED!`;
                 color = 'heal';
@@ -363,7 +363,7 @@ class StatsManager {
                 this.achievementSystem?.updateAchievement?.('boss_slayer', value);
                 break;
         }
-        
+
         // Show milestone notification
         if (this.gameManager.effectsManager && this.gameManager.game.player) {
             this.gameManager.effectsManager.showCombatText(
@@ -372,23 +372,23 @@ class StatsManager {
                 this.gameManager.game.player.y - 60,
                 color, 24
             );
-            
+
             // Add screen shake for major milestones
             if (type === 'bosses' || (type === 'kills' && value >= 100)) {
                 this.gameManager.effectsManager.addScreenShake(5, 0.5);
             }
         }
-        
+
         // Award star tokens for significant milestones
         this.awardMilestoneTokens(type, value);
     }
-    
+
     /**
      * Award star tokens for milestones
      */
     awardMilestoneTokens(type, value) {
         let tokensToAward = 0;
-        
+
         switch (type) {
             case 'kills':
                 if (value >= 500) tokensToAward = 3;
@@ -410,12 +410,12 @@ class StatsManager {
                 tokensToAward = value; // 1 token per boss milestone
                 break;
         }
-        
+
         if (tokensToAward > 0) {
             this.earnStarTokens(tokensToAward);
         }
     }
-    
+
     /**
      * Increment kill count and handle combo
      */
@@ -442,12 +442,6 @@ class StatsManager {
         this.bindAchievementSystem();
 
         const killCount = this.incrementKills();
-
-        // Show combo milestone feedback
-        const combo = this.comboCount;
-        if (combo > 0 && combo % 5 === 0) {
-            this.showComboMilestone(combo, enemy);
-        }
 
         if (enemy?.isElite) {
             this.trackSpecialEvent('elite_kill');
@@ -491,99 +485,10 @@ class StatsManager {
         this.bindAchievementSystem();
         this.achievementSystem?.onPlayerDamaged?.();
     }
-    
-    /**
-     * Show combo milestone visual feedback
-     */
-    showComboMilestone(combo, enemy) {
-        if (!this.gameManager?.game?.player) return;
 
-        const player = this.gameManager.game.player;
-        const x = enemy?.x || player.x;
-        const y = enemy?.y || player.y;
 
-        // Determine milestone tier for visual intensity
-        let tier = 1;
-        let color = '#3498db';
-        let message = `${combo}x COMBO!`;
 
-        if (combo >= 50) {
-            tier = 4;
-            color = '#9b59b6'; // Purple for ultra combo
-            message = `⚡ ${combo}x ULTRA COMBO! ⚡`;
-        } else if (combo >= 25) {
-            tier = 3;
-            color = '#e74c3c'; // Red for mega combo
-            message = `🔥 ${combo}x MEGA COMBO! 🔥`;
-        } else if (combo >= 10) {
-            tier = 2;
-            color = '#f39c12'; // Orange for big combo
-            message = `✨ ${combo}x COMBO! ✨`;
-        }
 
-        // Show combo text
-        if (this.gameManager.showFloatingText) {
-            this.gameManager.showFloatingText(
-                message,
-                x,
-                y - 40,
-                color,
-                18 + (tier * 4)
-            );
-        }
-
-        // Create particle effect based on tier
-        if (window.optimizedParticles) {
-            const particleCount = 8 + (tier * 4);
-            const radius = 20 + (tier * 10);
-
-            for (let i = 0; i < particleCount; i++) {
-                const angle = (i / particleCount) * Math.PI * 2;
-                const speed = 60 + (tier * 20) + Math.random() * 40;
-
-                window.optimizedParticles.spawnParticle({
-                    x: x + Math.cos(angle) * radius,
-                    y: y + Math.sin(angle) * radius,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    size: 2 + tier,
-                    color: color,
-                    life: 0.5 + (tier * 0.15),
-                    type: 'spark',
-                    friction: 0.9
-                });
-            }
-
-            // Add extra burst for higher tiers
-            if (tier >= 3) {
-                for (let i = 0; i < 12; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = 80 + Math.random() * 80;
-                    window.optimizedParticles.spawnParticle({
-                        x: x,
-                        y: y,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        size: 3 + Math.random() * 2,
-                        color: tier >= 4 ? '#9b59b6' : '#e74c3c',
-                        life: 0.8,
-                        type: 'spark',
-                        friction: 0.92
-                    });
-                }
-            }
-        }
-
-        // Screen shake for higher tiers
-        if (tier >= 2 && this.gameManager.addScreenShake) {
-            this.gameManager.addScreenShake(2 + tier, 0.25);
-        }
-
-        // Play sound
-        if (window.audioSystem?.play) {
-            window.audioSystem.play('combo', 0.4 + (tier * 0.1));
-        }
-    }
 
     /**
      * Reset combo system
@@ -594,7 +499,7 @@ class StatsManager {
             this.state.resetCombo();
         }
     }
-    
+
     /**
      * Track boss kill
      */
@@ -618,7 +523,7 @@ class StatsManager {
 
         this.achievementSystem?.updateAchievement?.('boss_slayer', this.sessionStats.bossesKilled);
     }
-    
+
     /**
      * Track XP collection
      */
@@ -643,7 +548,7 @@ class StatsManager {
 
         return amount;
     }
-    
+
     /**
      * Track damage dealt
      */
@@ -661,14 +566,14 @@ class StatsManager {
             }
         }
     }
-    
+
     /**
      * Track damage taken
      */
     trackDamageTaken(amount) {
         this.totalDamageTaken += amount;
     }
-    
+
     /**
      * Track projectile fired
      */
@@ -676,14 +581,14 @@ class StatsManager {
         this.projectilesFired++; // Lifetime counter
         this.sessionStats.projectilesFired++; // Session counter for accuracy tracking
     }
-    
+
     /**
      * Track projectile hit (successful hit on enemy)
      */
     trackProjectileHit() {
         this.sessionStats.projectileHits++;
     }
-    
+
     /**
      * Track special events
      */
@@ -723,17 +628,17 @@ class StatsManager {
                 break;
         }
     }
-    
+
     /**
      * Update session statistics
      */
     updateSessionStats(eventType) {
         const player = this.gameManager.game.player;
-        
+
         if (player && player.level > this.sessionStats.highestLevel) {
             this.sessionStats.highestLevel = player.level;
         }
-        
+
         // Update enemy count tracking
         const enemies = this.gameManager?.game?.getEnemies?.() ?? this.gameManager?.game?.enemies ?? [];
         const currentEnemyCount = Array.isArray(enemies) ? enemies.length : 0;
@@ -746,7 +651,7 @@ class StatsManager {
             this.gameStats.totalEnemiesSpawned = this.gameManager.enemySpawner.totalEnemiesSpawned;
         }
     }
-    
+
     /**
      * Earn star tokens
      */
@@ -802,7 +707,7 @@ class StatsManager {
                 this.gameManager.saveStarTokens();
             }
         }
-        
+
         // Show notification
         if (this.gameManager.effectsManager && this.gameManager.game.player) {
             const displayText = finalAmount > amount ?
@@ -816,7 +721,7 @@ class StatsManager {
             );
         }
     }
-    
+
     /**
      * Spend star tokens
      */
@@ -894,7 +799,7 @@ class StatsManager {
         }
         return Math.floor(value); // Ensure integer values
     }
-    
+
     /**
      * Save persistent statistics
      */
@@ -907,13 +812,13 @@ class StatsManager {
                 distanceTraveled: this.distanceTraveled,
                 lastSaved: Date.now()
             };
-            
+
             window.StorageManager.setJSON('gameStats', statsToSave);
         } catch (error) {
             window.logger.warn('Failed to save persistent stats:', error);
         }
     }
-    
+
     /**
      * Get comprehensive statistics summary
      */
@@ -925,38 +830,38 @@ class StatsManager {
             totalDamageDealt: this.totalDamageDealt,
             totalDamageTaken: this.totalDamageTaken,
             projectilesFired: this.projectilesFired,
-            
+
             // Session stats
             ...this.sessionStats,
-            
+
             // Game stats
             ...this.gameStats,
-            
+
             // Combo system
             comboCount: this.comboCount,
             highestCombo: this.highestCombo,
             comboMultiplier: this.comboMultiplier,
-            
+
             // Performance metrics
             ...this.performanceMetrics,
-            
+
             // Star tokens
             starTokens: this.starTokens,
             starTokensEarned: this.starTokensEarned,
-            
+
             // Calculated stats
             accuracy: this.sessionStats.projectilesFired > 0 ? (this.sessionStats.projectileHits / this.sessionStats.projectilesFired * 100).toFixed(1) + '%' : '0%',
             damageRatio: this.totalDamageTaken > 0 ? (this.totalDamageDealt / this.totalDamageTaken).toFixed(2) : 'Infinite',
             survivalRating: this.calculateSurvivalRating()
         };
     }
-    
+
     /**
      * Calculate survival rating (S, A, B, C, D, F)
      */
     calculateSurvivalRating() {
         const score = this.performanceMetrics.efficiencyScore;
-        
+
         if (score >= 90) return 'S';
         if (score >= 80) return 'A';
         if (score >= 70) return 'B';
@@ -964,7 +869,7 @@ class StatsManager {
         if (score >= 50) return 'D';
         return 'F';
     }
-    
+
     /**
      * Reset session statistics (for new game)
      */
@@ -973,7 +878,7 @@ class StatsManager {
         // GameState resetSession is called by GameManagerBridge
         // Just reset local tracking
         this.starTokensEarned = 0;
-        
+
         this.sessionStats = {
             startTime: Date.now(),
             gameTime: 0,
@@ -989,7 +894,7 @@ class StatsManager {
             projectilesFired: 0,
             projectileHits: 0
         };
-        
+
         this.gameStats = {
             highestEnemyCount: 0,
             totalEnemiesSpawned: 0,
@@ -998,15 +903,15 @@ class StatsManager {
             upgradesChosen: 0,
             deathsThisSession: 0
         };
-        
+
         this.achievedMilestones.clear();
         this.performanceMetrics.efficiencyScore = 0;
-        
+
         // Reset achievement update throttling
         this.lastLifetimeAchievementUpdate = 0;
         this.lastPlayerPosition = null;
     }
-    
+
     /**
      * Get stats state for debugging/UI
      */

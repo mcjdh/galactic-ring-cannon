@@ -1,8 +1,8 @@
 /**
- * VoidScytheWeapon - Death harvester weapon that fires in sweeping arc patterns.
- * Creates a reaping effect by rotating the firing arc over time.
+ * MagmaLauncherWeapon - Explosive fire weapon that lobs magma charges.
+ * Creates burning and explosive effects.
  */
-class VoidScytheWeapon {
+class MagmaLauncherWeapon {
     constructor({ player, combat, definition, manager }) {
         this.player = player;
         this.combat = combat;
@@ -259,6 +259,6 @@ if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.Weapons = window.Game.Weapons || {};
     if (typeof window.Game.Weapons.registerType === 'function') {
-        window.Game.Weapons.registerType('void_scythe', VoidScytheWeapon);
+        window.Game.Weapons.registerType('magma_launcher', MagmaLauncherWeapon);
     }
 }
