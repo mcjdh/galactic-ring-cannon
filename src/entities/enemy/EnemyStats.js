@@ -267,7 +267,8 @@ class EnemyStats {
                     size: 3 + Math.random() * 2,
                     color: '#f1c40f', // Golden for crits
                     life: 0.6 + Math.random() * 0.3,
-                    type: 'spark'
+                    type: 'spark',
+                    friction: 0.9
                 });
             }
         } else {
