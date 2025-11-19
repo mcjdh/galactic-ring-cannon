@@ -250,8 +250,48 @@ const CHARACTER_DEFINITIONS = [
             hint: 'Master the art of death by achieving the Grim Harvest.'
         },
         flavor: '"Death is not the end—it is the currency of power."'
+    },
+    {
+        id: 'crimson_reaver',
+        name: 'Crimson Reaver',
+        icon: '♦',
+        tagline: 'Vampiric Striker',
+        description: 'A predator who feeds on the battlefield, converting carnage into vitality. Strikes fast and hard, draining life from every wound inflicted.',
+        difficulty: 'aggressive',
+        weaponId: 'sanguine_lance',
+        highlights: [
+            'Extreme lifesteal (20%) - damage is survival',
+            '+15% attack tempo & +12% damage output',
+            'Glass cannon: -30% max health',
+            '+8% critical chance for devastating strikes'
+        ],
+        modifiers: {
+            stats: {
+                healthMultiplier: 0.7,      // Glass cannon - only 84 HP
+                lifesteal: 0.20,            // Core identity: 20% lifesteal
+                critChance: 0.08            // +8% base crit chance (18% total)
+            },
+            combat: {
+                attackSpeedMultiplier: 1.15,    // +15% attack speed for more healing
+                attackDamageMultiplier: 1.12,   // +12% damage to amplify lifesteal
+                piercing: 1                     // Base +1 pierce for multi-target drain
+            },
+            movement: {
+                speedMultiplier: 1.10,          // +10% movement - aggressive positioning
+                magnetRangeBonus: 50            // Modest magnet range
+            }
+        },
+        // Build path preferences - maximize damage for maximum healing
+        preferredBuildPaths: ['explosive', 'core'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['crimson_pact'],
+            hint: 'Embrace the blood pact: heal 3000 HP via lifesteal to awaken the Reaver.'
+        },
+        flavor: '"Every drop spilled is a gift. Every wound dealt, a feast."'
     }
 ];
+
 
 if (typeof window !== 'undefined') {
     window.CHARACTER_DEFINITIONS = CHARACTER_DEFINITIONS;

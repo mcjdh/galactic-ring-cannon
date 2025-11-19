@@ -49,6 +49,9 @@ class AchievementSystem {
         // Track Split Shot selections in current run
         this.splitShotSelections = 0;
 
+        // Track total lifesteal healing in current run (for Crimson Pact achievement)
+        this.totalLifestealHealed = 0;
+
     }
 
     /**
@@ -437,7 +440,8 @@ class AchievementSystem {
     }
 
     // ========================================
-    // LIFESTEAL TRACKING (Eclipse Reaper)
+    // ========================================
+    // LIFESTEAL TRACKING (Eclipse Reaper & Crimson Reaver)
     // ========================================
 
     // Track total HP lifesteal in current run (PER RUN, not cumulative)
@@ -452,7 +456,10 @@ class AchievementSystem {
         }
 
         this.runLifestealTotal += healAmount;
+        
+        // Update both achievements
         this.updateAchievement('grim_harvest', Math.floor(this.runLifestealTotal));
+        this.updateAchievement('crimson_pact', Math.floor(this.runLifestealTotal));
     }
 
     showAchievementNotification(achievement) {

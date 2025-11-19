@@ -33,6 +33,10 @@
                 nexus_architect: {
                     core: '#4169e1',  // Royal blue
                     glow: '#87ceeb'   // Sky blue
+                },
+                crimson_reaver: {
+                    core: '#dc143c',  // Crimson
+                    glow: '#ff1744'   // Deep red/blood red
                 }
             },
 

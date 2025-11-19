@@ -243,6 +243,16 @@ const ACHIEVEMENT_DEFINITIONS = {
         unlocked: false,
         unlocksCharacter: 'eclipse_reaper'
     },
+    'crimson_pact': {
+        name: 'Crimson Pact',
+        description: 'Heal 3000 HP via lifesteal in a single run',
+        icon: '♦',
+        progress: 0,
+        target: 3000,
+        unlocked: false,
+        unlocksCharacter: 'crimson_reaver',
+        important: true
+    },
 
     // ========================================
     // SPECIAL ACHIEVEMENTS (Build-Specific)
