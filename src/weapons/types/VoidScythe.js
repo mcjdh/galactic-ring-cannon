@@ -89,9 +89,10 @@ class VoidScytheWeapon {
 
         // Create a trailing void effect along the arc
         const radius = 30;
+        const spreadRadians = (this.arcSpread * Math.PI) / 180;
         for (let i = 0; i < arcCount; i++) {
             const progress = i / Math.max(1, arcCount - 1);
-            const angle = centerAngle - this.arcSpread / 2 + this.arcSpread * progress;
+            const angle = centerAngle - spreadRadians / 2 + spreadRadians * progress;
             const cos = Math.cos(angle);
             const sin = Math.sin(angle);
 
