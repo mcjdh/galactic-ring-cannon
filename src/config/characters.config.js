@@ -215,8 +215,8 @@ const CHARACTER_DEFINITIONS = [
         difficulty: 'reaper',
         weaponId: 'void_scythe',
         highlights: [
-            'Enemies explode on death (12% base chance)',
-            '+15% base lifesteal - drain life from kills',
+            'Projectiles have 12% chance to explode on hit',
+            '+15% base lifesteal - restore HP on damage dealt',
             '+15% damage but -20% max health (glass scythe)',
             'Void Scythe fires in sweeping reaping arcs'
         ],
@@ -236,7 +236,7 @@ const CHARACTER_DEFINITIONS = [
             },
             abilities: {
                 explosive: {
-                    baseChance: 0.12,          // 12% chance enemies explode on death
+                    baseChance: 0.12,          // 12% chance for projectiles to explode on hit
                     damageMultiplier: 1.0,     // Normal explosive damage
                     radiusMultiplier: 1.1      // +10% explosion radius
                 }
