@@ -227,6 +227,16 @@ const ACHIEVEMENT_DEFINITIONS = {
         target: 3,
         unlocked: false
     },
+    'ricochet_rampage': {
+        name: 'Ricochet Rampage',
+        description: 'Land 75 ricochet bounces in a single run',
+        icon: '<<',
+        progress: 0,
+        target: 75,
+        unlocked: false,
+        important: true,
+        unlocksCharacter: 'phantom_striker'
+    },
     'orbital_master': {
         name: 'Orbital Master',
         description: 'Have 5 orbital projectiles at once',

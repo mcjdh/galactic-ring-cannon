@@ -265,19 +265,19 @@ class Player {
             // NEW: Shield ability modifiers
             if (abilityMods.shield) {
                 const shield = abilityMods.shield;
-                
+
                 // Grant starter shield
                 if (typeof shield.starterCapacity === 'number' && shield.starterCapacity > 0) {
                     this.abilities.hasShield = true;
                     this.abilities.shieldMaxCapacity = shield.starterCapacity;
                     this.abilities.shieldCurrent = shield.starterCapacity; // Start at full capacity
-                    
+
                     // Set shield base stats
                     if (!this.abilities.shieldRechargeTime) {
                         this.abilities.shieldRechargeTime = 6.0; // Base recharge time in seconds
                     }
                 }
-                
+
                 // Apply shield stat multipliers
                 if (typeof shield.capacityMultiplier === 'number' && this.abilities.shieldMaxCapacity) {
                     this.abilities.shieldMaxCapacity *= shield.capacityMultiplier;
@@ -288,6 +288,33 @@ class Player {
                 }
                 if (typeof shield.rechargeMultiplier === 'number' && this.abilities.shieldRechargeTime) {
                     this.abilities.shieldRechargeTime /= shield.rechargeMultiplier; // Higher multiplier = faster recharge
+                }
+            }
+
+            // NEW: Ricochet ability modifiers (Phantom Striker)
+            if (abilityMods.ricochet) {
+                const ricochet = abilityMods.ricochet;
+
+                // Grant guaranteed ricochet
+                if (ricochet.guaranteed || (typeof ricochet.baseBounces === 'number' && ricochet.baseBounces > 0)) {
+                    this.abilities.hasGuaranteedRicochet = true;
+                    this.abilities.ricochetBounces = ricochet.baseBounces || 2;
+
+                    // Set ricochet base stats
+                    if (!this.abilities.ricochetDamage) {
+                        this.abilities.ricochetDamage = 0.8; // Base ricochet damage multiplier
+                    }
+                    if (!this.abilities.ricochetRange) {
+                        this.abilities.ricochetRange = 280; // Base ricochet search range
+                    }
+                }
+
+                // Apply ricochet stat multipliers
+                if (typeof ricochet.damageMultiplier === 'number') {
+                    this.abilities.ricochetDamage = ricochet.damageMultiplier;
+                }
+                if (typeof ricochet.range === 'number') {
+                    this.abilities.ricochetRange = ricochet.range;
                 }
             }
         }

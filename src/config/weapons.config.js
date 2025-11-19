@@ -106,6 +106,30 @@ const WEAPON_DEFINITIONS = {
             cooldown: 10.0,
             description: 'Critical hits briefly overcharge the array, increasing volley size.'
         }
+    },
+    phantom_repeater: {
+        id: 'phantom_repeater',
+        name: 'Phantom Repeater',
+        description: 'Twin void-charged projectiles that phase through dimensional rifts, bouncing between enemies with ghostly precision.',
+        archetype: 'ricochet',
+        fireRate: 1.05,
+        startupDelay: 0,
+        targeting: 'nearest',
+        projectileTemplate: {
+            count: 2,
+            spreadDegrees: 10,
+            damageMultiplier: 1.0,
+            speedMultiplier: 1.05,
+            inheritsPlayerCrit: true,
+            inheritsPlayerPierce: false,
+            appliesBehaviors: true
+        },
+        upgradeTags: ['ricochet', 'explosive', 'homing', 'core'],
+        secondary: {
+            id: 'phase_burst',
+            cooldown: 8.0,
+            description: 'Release a burst of phantom energy that ricochets to all nearby enemies.'
+        }
     }
 };
 

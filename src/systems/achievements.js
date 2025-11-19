@@ -35,6 +35,9 @@ class AchievementSystem {
         // Track ricochet hits (will be restored from saved progress in loadAchievements)
         this.currentRicochetHits = 0;
 
+        // Track total ricochet bounces in current run for Ricochet Rampage
+        this.totalRicochetBounces = 0;
+
         // Track best chain lightning burst for Storm Surge
         this.maxStormSurgeHits = 0;
 
@@ -66,6 +69,9 @@ class AchievementSystem {
         this.recentKills = [];
         this.novaBlitzKills = [];
         this.splitShotSelections = 0;
+
+        // Reset ricochet rampage tracking (per-run achievement)
+        this.totalRicochetBounces = 0;
 
         window.logger.log('Achievement run tracking reset');
     }
@@ -304,6 +310,13 @@ class AchievementSystem {
     onRicochetHit(hitCount) {
         this.currentRicochetHits = Math.max(this.currentRicochetHits, hitCount);
         this.updateAchievement('ricochet_master', this.currentRicochetHits);
+
+        // Track total ricochet bounces for Ricochet Rampage (cumulative per run)
+        // Each ricochet adds 1 bounce to the total
+        if (hitCount > 1) {
+            this.totalRicochetBounces++;
+            this.updateAchievement('ricochet_rampage', this.totalRicochetBounces);
+        }
     }
     
     // Track orbital projectiles

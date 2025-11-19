@@ -33,6 +33,10 @@
                 nexus_architect: {
                     core: '#4169e1',  // Royal blue
                     glow: '#87ceeb'   // Sky blue
+                },
+                phantom_striker: {
+                    core: '#9370db',  // Medium purple
+                    glow: '#da70d6'   // Orchid/violet
                 }
             },
 
