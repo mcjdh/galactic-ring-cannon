@@ -380,7 +380,8 @@ class EnemyAI {
                             size: 4 + ring,
                             color: ring === 0 ? '#ff6b35' : (ring === 1 ? '#e74c3c' : '#c0392b'),
                             life: 0.8 - (ring * 0.15),
-                            type: 'spark'
+                            type: 'spark',
+                            friction: 0.95
                         });
                     }
                 }, delay);
@@ -398,7 +399,8 @@ class EnemyAI {
                     size: 3 + Math.random() * 3,
                     color: Math.random() > 0.5 ? '#ff6b35' : '#f39c12',
                     life: 1.0 + Math.random() * 0.5,
-                    type: 'spark'
+                    type: 'spark',
+                    friction: 0.92
                 });
             }
         }

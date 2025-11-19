@@ -544,7 +544,8 @@ class StatsManager {
                     size: 2 + tier,
                     color: color,
                     life: 0.5 + (tier * 0.15),
-                    type: 'spark'
+                    type: 'spark',
+                    friction: 0.9
                 });
             }
 
@@ -561,7 +562,8 @@ class StatsManager {
                         size: 3 + Math.random() * 2,
                         color: tier >= 4 ? '#9b59b6' : '#e74c3c',
                         life: 0.8,
-                        type: 'spark'
+                        type: 'spark',
+                        friction: 0.92
                     });
                 }
             }
