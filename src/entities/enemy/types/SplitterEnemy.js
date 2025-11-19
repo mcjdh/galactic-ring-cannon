@@ -1,6 +1,6 @@
 /**
  * SplitterEnemy - Divides into smaller enemies on death
- * Medium health, splits into 2-3 fast mini-splitters when killed
+ * Medium health, splits into 3 fast mini-splitters when killed
  */
 class SplitterEnemy extends EnemyTypeBase {
     static getConfig() {
