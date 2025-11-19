@@ -10,25 +10,25 @@ const { createMockLocalStorage, createStorageManagerStub } = require('./testUtil
 function createDocumentStub() {
     const emptyElement = () => ({
         className: '',
-        classList: { add() {}, remove() {} },
+        classList: { add() { }, remove() { } },
         style: {},
-        appendChild() {},
-        removeChild() {},
-        setAttribute() {},
+        appendChild() { },
+        removeChild() { },
+        setAttribute() { },
         textContent: ''
     });
 
     return {
         createElement: emptyElement,
         body: {
-            appendChild() {},
-            removeChild() {}
+            appendChild() { },
+            removeChild() { }
         },
         getElementById() {
             return null;
         },
-        addEventListener() {},
-        removeEventListener() {}
+        addEventListener() { },
+        removeEventListener() { }
     };
 }
 
@@ -39,14 +39,14 @@ function setupGlobalEnvironment() {
     const windowStub = {
         Game: {},
         logger: {
-            log() {},
-            warn() {},
-            error() {}
+            log() { },
+            warn() { },
+            error() { }
         },
         StorageManager,
         localStorage,
-        addEventListener() {},
-        removeEventListener() {},
+        addEventListener() { },
+        removeEventListener() { },
         __dispatchedEvents: [],
         dispatchEvent(event) {
             this.__dispatchedEvents.push(event);

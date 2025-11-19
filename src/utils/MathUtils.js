@@ -2,6 +2,7 @@
 const MathUtils = {
     /**
      * Calculate distance between two points
+     * Delegates to FastMath for optimization if available
      * @param {number} x1 - First point X
      * @param {number} y1 - First point Y
      * @param {number} x2 - Second point X
@@ -9,8 +10,11 @@ const MathUtils = {
      * @returns {number} Distance between points
      */
     distance(x1, y1, x2, y2) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.distance(x1, y1, x2, y2);
+        }
         // Validate all inputs are numbers
-        if (!Number.isFinite(x1) || !Number.isFinite(y1) || 
+        if (!Number.isFinite(x1) || !Number.isFinite(y1) ||
             !Number.isFinite(x2) || !Number.isFinite(y2)) {
             return Infinity; // Return large distance for invalid inputs
         }
@@ -23,6 +27,9 @@ const MathUtils = {
      * Linear interpolation between two values
      */
     lerp(a, b, t) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.lerp(a, b, t);
+        }
         return a + (b - a) * t;
     },
 
@@ -34,6 +41,9 @@ const MathUtils = {
      * @returns {number} Clamped value
      */
     clamp(value, min, max) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.clamp(value, min, max);
+        }
         return Math.min(Math.max(value, min), max);
     },
 
@@ -51,10 +61,10 @@ const MathUtils = {
         if (!Number.isFinite(factor) || factor < 0) factor = 0;
         if (!Number.isFinite(maxAllowed) || maxAllowed < 0) maxAllowed = 100;
         if (!Number.isFinite(currentUsed) || currentUsed < 0) currentUsed = 0;
-        
+
         // Clamp factor between 0 and 1
-        factor = Math.max(0, Math.min(1, factor));
-        
+        factor = this.clamp(factor, 0, 1);
+
         const available = Math.max(0, maxAllowed - currentUsed);
         return Math.min(baseAmount * factor, available);
     },
@@ -104,6 +114,9 @@ const MathUtils = {
      * @returns {number} Squared distance
      */
     distanceSquared(x1, y1, x2, y2) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.distanceSquared(x1, y1, x2, y2);
+        }
         const dx = x2 - x1;
         const dy = y2 - y1;
         return dx * dx + dy * dy;
@@ -115,12 +128,15 @@ const MathUtils = {
      * @returns {Object} Normalized vector
      */
     normalizeVector(vector) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.normalize(vector.x, vector.y);
+        }
         // Validate input
-        if (!vector || typeof vector !== 'object' || 
+        if (!vector || typeof vector !== 'object' ||
             !Number.isFinite(vector.x) || !Number.isFinite(vector.y)) {
             return { x: 0, y: 0 }; // Return zero vector for invalid input
         }
-        
+
         const length = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
         if (length === 0 || !Number.isFinite(length)) return { x: 0, y: 0 };
         return {
@@ -138,6 +154,9 @@ const MathUtils = {
      * @returns {number} Angle in radians
      */
     angleBetween(x1, y1, x2, y2) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.atan2(y2 - y1, x2 - x1);
+        }
         return Math.atan2(y2 - y1, x2 - x1);
     },
 
@@ -147,6 +166,9 @@ const MathUtils = {
      * @returns {number} Angle in radians
      */
     toRadians(degrees) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.degToRad(degrees);
+        }
         return degrees * Math.PI / 180;
     },
 
@@ -156,6 +178,9 @@ const MathUtils = {
      * @returns {number} Angle in degrees
      */
     toDegrees(radians) {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return window.FastMath.radToDeg(radians);
+        }
         return radians * 180 / Math.PI;
     },
 
@@ -180,7 +205,7 @@ const MathUtils = {
     wrap(value, min, max) {
         const range = max - min;
         if (range <= 0) return min;
-        
+
         const result = ((value - min) % range + range) % range + min;
         return result;
     },
@@ -241,6 +266,12 @@ const MathUtils = {
      * @returns {Object} Object with angle and speed properties
      */
     randomParticleMotion() {
+        if (typeof window !== 'undefined' && window.FastMath) {
+            return {
+                angle: window.FastMath.randomAngle(),
+                speed: 50 + Math.random() * 100
+            };
+        }
         return {
             angle: Math.random() * Math.PI * 2,
             speed: 50 + Math.random() * 100

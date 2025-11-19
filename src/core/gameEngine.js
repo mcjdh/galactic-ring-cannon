@@ -109,8 +109,7 @@ class GameEngine {
         // this.lowGpuMode = false; // Accessed via getter
         // this.lowPerformanceMode = false; // Accessed via getter
         // this._autoLowQualityCosmic = false; // Managed by PerformanceManager
-        // this._autoParticleLowQuality = false; // Managed by PerformanceManager
-        // this._manualPerformanceOverride = null; // Managed by PerformanceManager
+
         this._visibleEntitiesScratch = [];
         this._visibleEntitiesGeneration = 1;
         this._domCache = new Map();

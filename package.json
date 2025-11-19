@@ -8,7 +8,7 @@
     "dev": "echo 'Use VS Code Live Server extension for development'",
     "serve": "python -m http.server 8000 || npx http-server",
     "docs": "echo 'Documentation available in docs/ folder'",
-    "test": "node src/core/GameState.test.js && node tests/namespaceSmoke.test.js && node tests/upgradeSystemMutation.test.js && node tests/storageManager.test.js && node tests/mathCalculations.test.js && node tests/collisionUtils.test.js && node tests/configValidation.test.js && node tests/enemySpawner.test.js && node tests/difficultyManager.test.js && node tests/achievementSystem.test.js && node tests/enemyStatsTracking.test.js && node tests/statsManagerStarTokens.test.js"
+    "test": "node scripts/run_tests.js"
   },
   "repository": {
     "type": "git",
