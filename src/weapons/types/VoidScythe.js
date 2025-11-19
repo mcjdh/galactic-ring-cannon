@@ -17,7 +17,7 @@ class VoidScytheWeapon {
         this.sweepAngle = 0;          // Current sweep rotation
         this.sweepDirection = 1;      // 1 for clockwise, -1 for counter-clockwise
         this.sweepSpeed = Math.PI / 2; // Radians per second
-        this.arcSpread = Math.PI / 3;  // 60-degree arc spread
+        this.arcSpread = 60;  // 60-degree arc spread
 
         // Weapon stats from definition
         const template = this.definition.projectileTemplate || {};
