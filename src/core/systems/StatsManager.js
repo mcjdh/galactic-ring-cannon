@@ -198,6 +198,11 @@ class StatsManager {
         // Update Tank Commander achievement (time without dodging)
         this.achievementSystem?.updateTankCommander?.(deltaTime);
 
+        // Update Edge Walker achievement (time at low health for Void Reaver unlock)
+        if (this.game?.player) {
+            this.achievementSystem?.updateEdgeWalker?.(deltaTime, this.game.player);
+        }
+
         // No additional Aegis-specific tracking required
     }
 

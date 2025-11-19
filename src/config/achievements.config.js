@@ -199,6 +199,16 @@ const ACHIEVEMENT_DEFINITIONS = {
         unlocked: false,
         unlocksCharacter: 'stormcaller'
     },
+    'edge_walker': {
+        name: 'Edge Walker',
+        description: 'Survive for 3 minutes with less than 30% health in a single run',
+        icon: 'V',
+        progress: 0,
+        target: 180, // 3 minutes in seconds
+        unlocked: false,
+        important: true,
+        unlocksCharacter: 'void_reaver'
+    },
 
     // ========================================
     // SPECIAL ACHIEVEMENTS (Build-Specific)
