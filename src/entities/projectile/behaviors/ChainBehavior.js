@@ -262,3 +262,12 @@ class ChainBehavior extends ProjectileBehaviorBase {
         }
     }
 }
+
+// Make globally available
+if (typeof window !== 'undefined') {
+    window.ChainBehavior = ChainBehavior;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ChainBehavior;
+}

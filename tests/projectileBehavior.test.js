@@ -6,8 +6,11 @@ const windowStub = {
 global.window = windowStub;
 
 // Load dependencies
-require('../src/entities/ProjectileBehavior.js');
-const ProjectileBehaviorManager = window.Game.ProjectileBehaviorManager;
+// Load Real Dependencies
+require('../src/entities/projectile/behaviors/BehaviorBase.js');
+global.ProjectileBehaviorBase = window.ProjectileBehaviorBase;
+require('../src/entities/projectile/behaviors/BehaviorManager.js');
+const ProjectileBehaviorManager = window.ProjectileBehaviorManager;
 
 async function runTests() {
     console.log('Running ProjectileBehavior Tests...');
@@ -35,18 +38,26 @@ async function runTests() {
         const projectile = { id: 1 };
         const manager = new ProjectileBehaviorManager(projectile);
 
-        manager.addBehavior('ricochet', { count: 2 });
+        class MockRicochetBehavior extends ProjectileBehaviorBase {
+            getType() { return 'ricochet'; }
+        }
+        const behavior = new MockRicochetBehavior(projectile, { count: 2 });
+        manager.addBehavior(behavior);
 
         if (!manager.hasBehavior('ricochet')) throw new Error('Behavior not added');
-        const config = manager.getBehaviorConfig('ricochet');
-        if (config.count !== 2) throw new Error('Behavior config mismatch');
+        const retrieved = manager.getBehavior('ricochet');
+        if (retrieved.config.count !== 2) throw new Error('Behavior config mismatch');
     });
 
     await test('Manager removes behaviors', () => {
         const projectile = { id: 1 };
         const manager = new ProjectileBehaviorManager(projectile);
 
-        manager.addBehavior('homing', { strength: 1 });
+        class MockHomingBehavior extends ProjectileBehaviorBase {
+            getType() { return 'homing'; }
+        }
+        const behavior = new MockHomingBehavior(projectile, { strength: 1 });
+        manager.addBehavior(behavior);
         manager.removeBehavior('homing');
 
         if (manager.hasBehavior('homing')) throw new Error('Behavior not removed');

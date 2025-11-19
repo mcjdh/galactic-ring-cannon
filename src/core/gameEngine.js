@@ -187,10 +187,10 @@ class GameEngine {
         this.autoPaused = false;
 
         // Object pools - partially implemented for projectiles and particles
-        // [AI NOTE] FOR ALL CODING AGENTS:
-        // Object pooling (simplified) - projectile pooling removed due to state corruption bugs
-        // Current pools: particlePool, enemyProjectilePool
+        // Object pools
+        // Current pools: particlePool, enemyProjectilePool, projectilePool (global)
         this.enemyProjectilePool = [];
+        this.particlePool = [];
         this.particlePool = [];
         this.maxPoolSize = 100; // Pool size works well for most devices
 

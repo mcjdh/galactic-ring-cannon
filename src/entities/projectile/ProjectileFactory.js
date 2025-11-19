@@ -57,6 +57,10 @@ class ProjectileFactory {
             if (forcedTypes.has(type)) {
                 return true;
             }
+            // Check if behavior already exists (prevent duplication from pooling/reset)
+            if (projectile.behaviorManager.hasBehavior(type)) {
+                return false;
+            }
             return allowBehaviors && condition;
         };
 

@@ -383,7 +383,7 @@ class Projectile {
                 if (window.achievementSystem && typeof window.achievementSystem.onLifestealHealing === 'function') {
                     window.achievementSystem.onLifestealHealing(healAmount);
                 }
-                
+
                 // Debug logging for lifesteal tracking
                 if (window.debugManager?.debugMode) {
                     console.log(`[Projectile] Lifesteal: ${healAmount.toFixed(2)} HP (${(this.lifesteal * 100).toFixed(1)}% of ${this.damage})`);
@@ -603,11 +603,32 @@ class Projectile {
         }
 
         // 2. Legacy flags from config
-        if (config.hasChainLightning) this._tryAddBehaviorFromFlag('chain', config.chainData);
-        if (config.hasExplosive) this._tryAddBehaviorFromFlag('explosive', config.explosiveData);
-        if (config.hasRicochet) this._tryAddBehaviorFromFlag('ricochet', config.ricochetData);
-        if (config.hasHoming) this._tryAddBehaviorFromFlag('homing', config.homingData);
-        if (config.hasBurn) this._tryAddBehaviorFromFlag('burn', config.burnData);
+        // 2. Legacy flags from config
+        if (config.hasChainLightning) {
+            this._oldFlags.hasChainLightning = true;
+            this._chainData = config.chainData;
+            this._tryAddBehaviorFromFlag('chain');
+        }
+        if (config.hasExplosive) {
+            this._oldFlags.hasExplosive = true;
+            this._explosiveData = config.explosiveData;
+            this._tryAddBehaviorFromFlag('explosive');
+        }
+        if (config.hasRicochet) {
+            this._oldFlags.hasRicochet = true;
+            this._ricochetData = config.ricochetData;
+            this._tryAddBehaviorFromFlag('ricochet');
+        }
+        if (config.hasHoming) {
+            this._oldFlags.hasHoming = true;
+            this._homingData = config.homingData;
+            this._tryAddBehaviorFromFlag('homing');
+        }
+        if (config.hasBurn) {
+            // Burn doesn't have a legacy flag in _oldFlags but we handle it for consistency
+            this._burnData = config.burnData;
+            this._tryAddBehaviorFromFlag('burn');
+        }
 
         // 3. Special types
         if (config.specialType) {

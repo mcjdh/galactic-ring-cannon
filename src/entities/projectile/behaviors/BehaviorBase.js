@@ -56,6 +56,14 @@ class ProjectileBehaviorBase {
     }
 
     /**
+     * Called when projectile is destroyed
+     * @param {object} engine - Game engine reference
+     */
+    onDestroy(engine) {
+        // Override in subclasses for cleanup (e.g., removing particles/listeners)
+    }
+
+    /**
      * Called when behavior is first added to projectile
      */
     onAdd() {
@@ -89,4 +97,15 @@ class ProjectileBehaviorBase {
     enable() {
         this.enabled = true;
     }
+}
+
+// Make globally available
+if (typeof window !== 'undefined') {
+    window.ProjectileBehaviorBase = ProjectileBehaviorBase;
+    window.Game = window.Game || {};
+    window.Game.ProjectileBehaviorBase = ProjectileBehaviorBase;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ProjectileBehaviorBase;
 }
