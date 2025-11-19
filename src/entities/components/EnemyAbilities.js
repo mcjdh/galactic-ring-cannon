@@ -7,6 +7,12 @@
 // Constants for damage zone abilities
 const TELEGRAPH_DURATION_MS = 700; // Match the 0.7 second telegraph duration
 
+// Constants for visual effects
+const BOSS_DEATH_RING_COUNT = 3;
+const BOSS_DEATH_PARTICLES_PER_RING = 40;
+const BOSS_DEATH_RING_DELAY_MS = 50;
+const BOSS_DEATH_SOUND_DELAY_MS = 150;
+
 class EnemyAbilities {
     constructor(enemy) {
         this.enemy = enemy;
@@ -63,6 +69,13 @@ class EnemyAbilities {
         this.deathEffect = 'normal';
         this.explosionRadius = 80;
         this.explosionDamage = 30;
+
+        // Healing ability
+        this.canHeal = false;
+        this.healCooldown = 3.0;
+        this.healTimer = 0;
+        this.healAmount = 20;
+        this.healRange = 150;
     }
     
     /**
@@ -102,6 +115,10 @@ class EnemyAbilities {
         if (this.damageZoneTimer > 0) {
             this.damageZoneTimer -= deltaTime;
         }
+
+        if (this.healTimer > 0) {
+            this.healTimer -= deltaTime;
+        }
     }
     
     /**
@@ -138,6 +155,12 @@ class EnemyAbilities {
         if (this.canCreateDamageZones && this.damageZoneTimer <= 0) {
             this.createDamageZone(game);
             this.damageZoneTimer = this.damageZoneCooldown;
+        }
+
+        // Healer healing
+        if (this.canHeal && this.healTimer <= 0) {
+            this.healNearbyEnemies(game);
+            this.healTimer = this.healCooldown;
         }
     }
     
@@ -701,6 +724,12 @@ class EnemyAbilities {
             case 'poison':
                 this.createPoisonCloud(game);
                 break;
+            case 'split':
+                this.createSplitEffect(game);
+                break;
+            case 'boss_explosion':
+                this.createBossDeathEffect(game);
+                break;
             case 'normal':
             default:
                 this.createNormalDeathEffect();
@@ -775,6 +804,217 @@ class EnemyAbilities {
         }
     }
     
+    /**
+     * Create split effect - spawn smaller enemies
+     */
+    createSplitEffect(game) {
+        if (!game || !game.addEntity) return;
+
+        const splitCount = this.splitCount || 3;
+        const splitType = this.splitType || 'fast';
+
+        // Spawn smaller enemies in a circle around the death position
+        for (let i = 0; i < splitCount; i++) {
+            const angle = (i / splitCount) * Math.PI * 2;
+            const distance = 40 + Math.random() * 20;
+
+            const x = this.enemy.x + Math.cos(angle) * distance;
+            const y = this.enemy.y + Math.sin(angle) * distance;
+
+            // Create smaller enemy
+            const splitEnemy = new Enemy(x, y, splitType);
+
+            // Make them slightly weaker than normal
+            splitEnemy.maxHealth = Math.floor(splitEnemy.maxHealth * 0.6);
+            splitEnemy.health = splitEnemy.maxHealth;
+            splitEnemy.damage = Math.floor(splitEnemy.damage * 0.7);
+
+            // Give them a slight outward velocity
+            if (splitEnemy.movement) {
+                splitEnemy.velocityX = Math.cos(angle) * 150;
+                splitEnemy.velocityY = Math.sin(angle) * 150;
+            }
+
+            game.addEntity(splitEnemy);
+        }
+
+        // Create split effect particles
+        const helpers = window.Game?.ParticleHelpers;
+        if (helpers && typeof helpers.createExplosion === 'function') {
+            helpers.createExplosion(
+                this.enemy.x,
+                this.enemy.y,
+                50,
+                '#9b59b6'  // Purple to match splitter color
+            );
+        }
+
+        // Play split sound
+        if (window.audioSystem) {
+            window.audioSystem.play('hit', 0.4);
+        }
+    }
+
+    /**
+     * Create spectacular boss death effect
+     */
+    createBossDeathEffect(game) {
+        if (!game) return;
+
+        // Create massive multi-ring explosion
+        if (window.optimizedParticles) {
+            // Store coordinates to avoid stale reference after delay
+            const enemyX = this.enemy.x;
+            const enemyY = this.enemy.y;
+            
+            // Large outer ring
+            for (let ring = 0; ring < BOSS_DEATH_RING_COUNT; ring++) {
+                const particlesInRing = BOSS_DEATH_PARTICLES_PER_RING;
+                const delay = ring * BOSS_DEATH_RING_DELAY_MS;  // Delayed rings for wave effect
+
+                setTimeout(() => {
+                    for (let i = 0; i < particlesInRing; i++) {
+                        const angle = (i / particlesInRing) * Math.PI * 2;
+                        const speed = 150 + ring * 50 + Math.random() * 80;
+
+                        window.optimizedParticles.spawnParticle({
+                            x: enemyX,
+                            y: enemyY,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            size: 6 + Math.random() * 4,
+                            color: ring === 0 ? '#ff0000' : ring === 1 ? '#ff6b35' : '#ffd700',
+                            life: 1.5 + Math.random() * 0.8
+                        });
+                    }
+                }, delay);
+            }
+
+            // Central explosion burst
+            for (let i = 0; i < 60; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 50 + Math.random() * 200;
+
+                window.optimizedParticles.spawnParticle({
+                    x: enemyX + (Math.random() - 0.5) * 30,
+                    y: enemyY + (Math.random() - 0.5) * 30,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 4 + Math.random() * 5,
+                    color: ['#ff0000', '#ff6b35', '#ffd700', '#fff'][Math.floor(Math.random() * 4)],
+                    life: 1.2 + Math.random() * 1.0
+                });
+            }
+        }
+
+        // Create boss explosion effect with ParticleHelpers
+        const helpers = window.Game?.ParticleHelpers;
+        if (helpers && typeof helpers.createExplosion === 'function') {
+            helpers.createExplosion(
+                this.enemy.x,
+                this.enemy.y,
+                120,  // Large radius
+                '#ff0000'
+            );
+        }
+
+        // Massive screen shake
+        if (window.gameManager?.addScreenShake) {
+            window.gameManager.addScreenShake(8, 0.5);
+        }
+
+        // Play boss death sound
+        if (window.audioSystem) {
+            window.audioSystem.play('explosion', 0.9);
+            // Add a second delayed explosion sound for extra impact
+            setTimeout(() => {
+                if (window.audioSystem) {
+                    window.audioSystem.play('explosion', 0.7);
+                }
+            }, BOSS_DEATH_SOUND_DELAY_MS);
+        }
+    }
+
+    /**
+     * Heal nearby enemies
+     */
+    healNearbyEnemies(game) {
+        if (!game || !game.getEnemiesWithinRadius) return;
+
+        // Find damaged enemies within range
+        const nearbyEnemies = game.getEnemiesWithinRadius(
+            this.enemy.x,
+            this.enemy.y,
+            this.healRange,
+            {
+                includeDead: false,
+                predicate: (enemy) => enemy !== this.enemy && enemy.health < enemy.maxHealth
+            }
+        );
+
+        if (nearbyEnemies.length === 0) return;
+
+        // Sort by health (prioritize most damaged)
+        nearbyEnemies.sort((a, b) => {
+            const aHealthPercent = a.health / a.maxHealth;
+            const bHealthPercent = b.health / b.maxHealth;
+            return aHealthPercent - bHealthPercent;
+        });
+
+        // Heal the most damaged enemy
+        const targetEnemy = nearbyEnemies[0];
+        const healAmount = Math.min(this.healAmount, targetEnemy.maxHealth - targetEnemy.health);
+        targetEnemy.health += healAmount;
+
+        // Create healing effect particles
+        if (window.optimizedParticles) {
+            for (let i = 0; i < 10; i++) {
+                const angle = (i / 10) * Math.PI * 2;
+                const speed = 60 + Math.random() * 30;
+                window.optimizedParticles.spawnParticle({
+                    x: this.enemy.x,
+                    y: this.enemy.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random(),
+                    color: '#2ecc71',  // Green healing particles
+                    life: 0.6
+                });
+            }
+
+            // Particles on the healed enemy
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 40;
+                window.optimizedParticles.spawnParticle({
+                    x: targetEnemy.x,
+                    y: targetEnemy.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 30,  // Float upward
+                    size: 3,
+                    color: '#2ecc71',
+                    life: 0.8
+                });
+            }
+        }
+
+        // Show floating heal text
+        if (window.gameManager?.showFloatingText) {
+            window.gameManager.showFloatingText(
+                `+${Math.round(healAmount)}`,
+                targetEnemy.x,
+                targetEnemy.y - 20,
+                '#2ecc71',
+                16
+            );
+        }
+
+        // Play heal sound
+        if (window.audioSystem) {
+            window.audioSystem.play('hit', 0.3, 1.5);  // Higher pitch for heal sound
+        }
+    }
+
     /**
      * Visual effect methods
      */
@@ -1023,6 +1263,17 @@ class EnemyAbilities {
                 this.explosionRadius = 80;
                 this.explosionDamage = 30;
                 break;
+            case 'splitter':
+                this.deathEffect = 'split';
+                this.splitCount = 3;
+                this.splitType = 'fast';
+                break;
+            case 'healer':
+                this.canHeal = true;
+                this.healCooldown = 3.0;
+                this.healAmount = 20;
+                this.healRange = 150;
+                break;
             case 'boss':
                 this.canRangeAttack = true;
                 this.canSpawnMinions = true;
@@ -1031,6 +1282,7 @@ class EnemyAbilities {
                 this.rangeAttackCooldown = 2.0;
                 this.spawnMinionCooldown = 8.0;
                 this.damageZoneCooldown = 6.0;
+                this.deathEffect = 'boss_explosion';  // Special boss death effect
                 break;
         }
     }

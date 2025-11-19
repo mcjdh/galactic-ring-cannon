@@ -16,6 +16,8 @@ class EnemyTypeRegistry {
         'ranged': RangedEnemy,
         'dasher': DasherEnemy,
         'exploder': ExploderEnemy,
+        'splitter': SplitterEnemy,
+        'healer': HealerEnemy,
         'teleporter': TeleporterEnemy,
         'phantom': PhantomEnemy,
         'shielder': ShielderEnemy,
