@@ -10,25 +10,25 @@ const { createMockLocalStorage, createStorageManagerStub } = require('./testUtil
 function createDocumentStub() {
     const emptyElement = () => ({
         className: '',
-        classList: { add() {}, remove() {} },
+        classList: { add() { }, remove() { } },
         style: {},
-        appendChild() {},
-        removeChild() {},
-        setAttribute() {},
+        appendChild() { },
+        removeChild() { },
+        setAttribute() { },
         textContent: ''
     });
 
     return {
         createElement: emptyElement,
         body: {
-            appendChild() {},
-            removeChild() {}
+            appendChild() { },
+            removeChild() { }
         },
         getElementById() {
             return null;
         },
-        addEventListener() {},
-        removeEventListener() {}
+        addEventListener() { },
+        removeEventListener() { }
     };
 }
 
@@ -39,14 +39,14 @@ function setupGlobalEnvironment() {
     const windowStub = {
         Game: {},
         logger: {
-            log() {},
-            warn() {},
-            error() {}
+            log() { },
+            warn() { },
+            error() { }
         },
         StorageManager,
         localStorage,
-        addEventListener() {},
-        removeEventListener() {},
+        addEventListener() { },
+        removeEventListener() { },
         __dispatchedEvents: [],
         dispatchEvent(event) {
             this.__dispatchedEvents.push(event);
@@ -244,14 +244,14 @@ function testSavedUnlocksSyncToGameState() {
 
 function testSplitShotSpecialistUnlocksViaUpgradeSelection() {
     const system = createSystem();
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
         system.onUpgradeSelected('multi_shot_1');
     }
 
-    assert(system.achievements.split_shot_specialist.progress === 4,
+    assert(system.achievements.split_shot_specialist.progress === 5,
         'Split Shot Specialist progress should match number of selections');
     assert(system.achievements.split_shot_specialist.unlocked === true,
-        'Split Shot Specialist should unlock after four selections');
+        'Split Shot Specialist should unlock after five selections');
 
     const state = window.gameManager.game.state;
     assert(state.meta.achievements.has('split_shot_specialist'),
