@@ -46,7 +46,6 @@
                     core: '#9370db',  // Medium purple
                     glow: '#da70d6'   // Orchid/violet
                 }
-                }
             },
 
             // Combat Scaling & Limits
