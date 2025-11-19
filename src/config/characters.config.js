@@ -383,7 +383,49 @@ const CHARACTER_DEFINITIONS = [
             hint: 'Master the art of ricochets to summon the Phantom.'
         },
         flavor: '"They never see the second shot coming—or the third."'
-
+    },
+    {
+        id: 'void_harbinger',
+        name: 'Void Harbinger',
+        icon: 'V',
+        tagline: 'Entropy\'s Harbinger',
+        description: 'Embraces the void between life and death, growing exponentially more lethal as health wanes. Thrives on risk with devastating precision strikes and vampiric sustainability.',
+        difficulty: 'expert',
+        weaponId: 'void_piercer',
+        highlights: [
+            'Gains damage & attack speed as health decreases',
+            '+20% movement speed & +8% base crit chance',
+            '15% lifesteal keeps you in the danger zone',
+            'Enhanced critical damage with Void Piercer',
+            'Starts with +2 pierce & faster projectiles'
+        ],
+        modifiers: {
+            stats: {
+                healthMultiplier: 0.8,      // -20% health (glass cannon)
+                lifesteal: 0.15,            // 15% lifesteal
+                regeneration: 0.5           // Lower regen (relies on lifesteal)
+            },
+            combat: {
+                attackSpeedMultiplier: 1.0, // Base speed (gains more at low health via weapon)
+                attackDamageMultiplier: 1.15, // +15% damage (gains more at low health via weapon)
+                piercing: 2,                // +2 base pierce
+                critChanceBonus: 0.08,      // +8% crit chance
+                projectileSpeedMultiplier: 1.2 // +20% projectile speed
+            },
+            movement: {
+                speedMultiplier: 1.2,       // +20% movement (need to dodge!)
+                dodgeCooldownMultiplier: 0.9, // 10% faster dodge
+                magnetRangeBonus: 120       // Larger magnet range to recover
+            }
+        },
+        // Build path preferences - critical hits and core damage
+        preferredBuildPaths: ['core', 'explosive'],
+        unlockRequirement: {
+            type: 'achievement',
+            ids: ['edge_walker'],
+            hint: 'Dance with death—survive 3 minutes below 30% health to unlock the Reaver.'
+        },
+        flavor: '"The closer to oblivion, the sharper my edge becomes."'
     }
 ];
 

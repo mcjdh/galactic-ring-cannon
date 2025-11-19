@@ -52,8 +52,16 @@ class AchievementSystem {
         // Track Split Shot selections in current run
         this.splitShotSelections = 0;
 
-        // Track total lifesteal healing in current run (for Crimson Pact achievement)
-        this.totalLifestealHealed = 0;
+        // Track total lifesteal healing in current run
+        this.runLifestealTotal = 0;
+        
+        // Track ricochet bounces
+        this.totalRicochetBounces = 0;
+
+        // Track time at low health for 'Edge Walker' achievement
+        this.timeAtLowHealth = 0;
+        this.maxTimeAtLowHealth = 0;
+        this.lowHealthThreshold = 0.3; // 30% health
 
     }
 
@@ -78,6 +86,10 @@ class AchievementSystem {
         
         // Reset ricochet rampage tracking (per-run achievement)
         this.totalRicochetBounces = 0;
+
+        // Reset low health tracking
+        this.timeAtLowHealth = 0;
+        this.maxTimeAtLowHealth = 0;
 
         window.logger.log('Achievement run tracking reset');
     }
@@ -368,6 +380,30 @@ class AchievementSystem {
     // Reset dodge-free time when player dodges
     onPlayerDodged() {
         this.timeSinceLastDodge = 0;
+    }
+
+    // Track time at low health for 'Edge Walker' achievement (Void Reaver unlock)
+    updateEdgeWalker(deltaTime, player) {
+        if (!player?.stats) {
+            return;
+        }
+
+        const healthPercent = player.stats.health / player.stats.maxHealth;
+
+        if (healthPercent < this.lowHealthThreshold) {
+            // Player is below 30% health, accumulate time
+            this.timeAtLowHealth += deltaTime;
+            this.maxTimeAtLowHealth = Math.max(this.maxTimeAtLowHealth, this.timeAtLowHealth);
+
+            // Only update achievement if progress changed by at least 1 second or achievement is about to unlock
+            if (Math.floor(this.maxTimeAtLowHealth) > Math.floor(this.achievements.edge_walker?.progress || 0)
+                || this.maxTimeAtLowHealth >= 180) {
+                this.updateAchievement('edge_walker', this.maxTimeAtLowHealth);
+            }
+        } else {
+            // Player is above 30% health, reset current streak but keep max
+            this.timeAtLowHealth = 0;
+        }
     }
 
     // Track Nova Blitz kills (75 kills in 30 seconds)

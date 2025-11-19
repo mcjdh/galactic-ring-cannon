@@ -263,6 +263,17 @@ const ACHIEVEMENT_DEFINITIONS = {
         unlocksCharacter: 'void_reaver',
         important: true
     },
+    'edge_walker': {
+        name: 'Edge Walker',
+        description: 'Survive for 3 minutes with less than 30% health in a single run',
+        icon: 'V',
+        progress: 0,
+        target: 180, // 3 minutes in seconds
+        unlocked: false,
+        important: true,
+        unlocksCharacter: 'void_harbinger'
+
+    },
 
     // ========================================
     // SPECIAL ACHIEVEMENTS (Build-Specific)

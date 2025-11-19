@@ -203,6 +203,30 @@ const WEAPON_DEFINITIONS = {
             cooldown: 8.0,
             description: 'Release a burst of phantom energy that ricochets to all nearby enemies.'
         }
+    },
+    void_piercer: {
+        id: 'void_piercer',
+        name: 'Void Piercer',
+        description: 'Precision entropy rifle that grows deadlier as death approaches.',
+        archetype: 'precision',
+        fireRate: 0.85, // Slower fire rate
+        startupDelay: 0,
+        targeting: 'nearest',
+        projectileTemplate: {
+            count: 1,
+            spreadDegrees: 0,
+            damageMultiplier: 1.35, // Higher base damage
+            speedMultiplier: 1.3,   // Faster projectiles
+            inheritsPlayerCrit: true,
+            inheritsPlayerPierce: true,
+            appliesBehaviors: true
+        },
+        upgradeTags: ['core', 'explosive'],
+        secondary: {
+            id: 'entropy_burst',
+            cooldown: 8.0,
+            description: 'Channel void energy into a devastating piercing shot.'
+        }
     }
 };
 

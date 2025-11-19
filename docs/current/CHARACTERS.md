@@ -1,11 +1,11 @@
 # Character System Documentation
-**Last Updated**: November 7, 2025
-**Version**: 1.1.1
+**Last Updated**: November 19, 2025
+**Version**: 1.2.0
 **Status**: Production Ready
 
 ## Overview
 
-The Galactic Ring Cannon features a **character class system** that provides distinct playstyles through starting weapons and stat modifiers. With **4 unique characters** to choose from, each offers unique strengths, weaknesses, and strategic approaches to survival.
+The Galactic Ring Cannon features a **character class system** that provides distinct playstyles through starting weapons and stat modifiers. With **5 unique characters** to choose from, each offers unique strengths, weaknesses, and strategic approaches to survival.
 
 ---
 
@@ -296,6 +296,96 @@ Trade-offs:
 
 ---
 
+### 5. Void Reaver 💀
+
+**Tagline**: Entropy's Harbinger
+**Difficulty**: Expert
+**Starting Weapon**: Void Piercer
+**Archetype**: Glass Cannon / Risk-Reward Specialist
+**Unlock**: Complete the "Edge Walker" achievement (survive 3 minutes below 30% health)
+
+#### Stats
+- **-20% max health** (0.8x health multiplier - glass cannon!)
+- **15% lifesteal** (heal on damage dealt - keeps you alive)
+- **0.5 HP/sec regeneration** (low passive regen)
+- **+15% base damage** (1.15x damage multiplier)
+- **+2 base piercing** (projectiles pierce two enemies)
+- **+8% crit chance** (bonus critical hit chance)
+- **+20% movement speed** (1.2x move speed - dodge or die!)
+- **+20% projectile speed** (1.2x projectile speed)
+- **-10% dodge cooldown** (0.9x multiplier = faster dodge)
+- **+120 magnet range** (larger XP collection radius)
+
+#### Special Mechanics - Death's Edge Passive
+**The Void Reaver grows exponentially stronger as health decreases:**
+- Below 50% health: Gains up to **+30% attack speed** (scales from 50% → 0% HP)
+- Below 50% health: Gains up to **+40% damage** (scales from 50% → 0% HP)
+- **Critical damage bonus**: +15% crit damage when using Void Piercer
+- **Risk-reward loop**: Lower health = higher DPS, but one mistake ends the run
+
+#### Highlights
+- **Extreme glass cannon** - lowest health, highest potential damage
+- **Scales inversely with health** - becomes a monster at low HP
+- **High-precision gameplay** - Void Piercer rewards accuracy
+- **Lifesteal sustain** - damage keeps you alive in the danger zone
+- **Fastest movement** - +20% speed for dodging and positioning
+- **Critical hit specialist** - enhanced crit chance and damage
+- **Requires expert-level skill** - unforgiving but incredibly rewarding
+
+#### Playstyle
+The Void Reaver is the **ultimate risk-reward character** - designed for expert players who thrive under pressure. With only 80% base health, you're constantly dancing with death. But in that danger zone (below 50% HP), you transform into a devastating force with massive damage and attack speed bonuses.
+
+The key is **controlled aggression**: use lifesteal to stay in the 30-50% health range where you're lethal but not dead. The Void Piercer's long-range precision shots combined with high pierce and crit make every shot count.
+
+Trade-offs:
+- **Extremely fragile** - lowest health pool in the game
+- **Punishing mistakes** - one wrong move can be fatal
+- **Requires constant awareness** - must track health percentage
+- **Lifesteal dependency** - need to deal damage to survive
+- **No safety net** - low regen means mistakes compound
+
+#### Strategic Tips
+1. **Embrace the danger zone** - 30-50% HP is your power spike
+2. **Master dodging** - your survival depends on perfect timing
+3. **Maximize lifesteal** - it's your only sustain mechanism
+4. **Use speed advantage** - outmaneuver everything
+5. **Pick targets carefully** - high pierce means line up shots
+6. **Track your health** - know when you're in power mode
+7. **Play the edge** - too high HP = wasted damage, too low = instant death
+
+#### Best Upgrades
+- 💀 **Critical Damage** (synergizes with base +8% crit chance)
+- ❤️ **Lifesteal** (stack with base 15% for insane sustain)
+- ⚡ **Attack Speed** (more shots = more lifesteal = more survival)
+- 💥 **Explosive** (AoE damage for lifesteal on multiple targets)
+- 🎯 **Piercing** (stack with base +2 for crowd piercing)
+- 🏃 **Move Speed** (enhance already high mobility)
+- ⚔️ **Attack Damage** (multiply with low-HP damage bonus)
+
+#### Advanced Tactics
+- **Health management**: Let yourself drop to 30-40% HP intentionally
+- **Lifesteal loop**: High damage + lifesteal = sustain at low HP
+- **Precision sniping**: Void Piercer excels at long-range headshots
+- **Kiting mastery**: Use 20% move speed to maintain distance
+- **Critical burst**: Stack crit upgrades for massive spike damage
+- **Controlled descent**: Slowly drop HP early game to unlock power
+- **Emergency escape**: +20% speed and fast dodge for panic situations
+- **Pierce lines**: Position to hit multiple enemies per shot for lifesteal
+
+#### Character Identity
+- **Early Game**: ★★☆☆☆ (fragile, needs upgrades)
+- **Mid Game**: ★★★★☆ (upgrades unlock potential)
+- **Late Game**: ★★★★★ (highest DPS ceiling when mastered)
+- **Skill Floor**: ★★★★★ (expert players only)
+- **Skill Ceiling**: ★★★★★ (unlimited potential with perfect play)
+
+#### Unlock Challenge
+**Edge Walker Achievement**: Survive for 3 minutes with less than 30% health in a single run
+
+This achievement teaches the core mechanic: thriving at low health. Practice staying in the danger zone before unlocking this high-skill character.
+
+---
+
 ## Character Selection
 
 ### How to Choose
@@ -307,20 +397,23 @@ Characters are selected at game start through the main menu.
 - Or try **Nexus Architect** - methodical and rewards planning
 - Learn core mechanics without high punishment
 - Graduate to aggressive characters once comfortable
+- **Avoid Void Reaver** - requires expert-level skill
 
 **For Experienced Players:**
 - **Nova Corsair** - skill-based, high-ceiling gameplay
 - **Stormcaller Adept** - strategic positioning and planning
 - **Nexus Architect** - orbital mastery and sustained combat
+- **Void Reaver** - extreme risk-reward, highest skill ceiling
 
 ### Difficulty Ratings
 
-| Character | Difficulty | Skill Floor | Skill Ceiling |
-|-----------|-----------|-------------|---------------|
-| Aegis Vanguard | Balanced | Low | Medium |
-| Nova Corsair | Aggressive | High | Very High |
-| Stormcaller Adept | Control | Medium | High |
-| Nexus Architect | Tactical | Low-Medium | Very High |
+| Character | Difficulty | Skill Floor | Skill Ceiling | Unlock |
+|-----------|-----------|-------------|---------------|--------|
+| Aegis Vanguard | Balanced | Low | Medium | Default |
+| Nova Corsair | Aggressive | High | Very High | Achievement |
+| Stormcaller Adept | Control | Medium | High | Achievement |
+| Nexus Architect | Tactical | Low-Medium | Very High | Achievement |
+| Void Reaver | **Expert** | **Very High** | **Maximum** | Achievement |
 
 ---
 
@@ -333,9 +426,10 @@ Characters are selected at game start through the main menu.
 | Aegis Vanguard | Pulse Cannon | ⭐⭐⭐⭐⭐ Perfect |
 | Nova Corsair | Nova Shotgun | ⭐⭐⭐⭐⭐ Perfect |
 | Stormcaller Adept | Arc Burst | ⭐⭐⭐⭐⭐ Perfect |
-| Nexus Architect | Pulse Cannon | ⭐⭐⭐⭐⭐ Perfect |
+| Nexus Architect | Constellation Array | ⭐⭐⭐⭐⭐ Perfect |
+| Void Reaver | Void Piercer | ⭐⭐⭐⭐⭐ Perfect |
 
-*Currently, each character's weapon is optimized for their playstyle.*
+*Each character's weapon is uniquely designed and optimized for their playstyle.*
 
 ### Meta Upgrade Priorities
 
@@ -366,6 +460,13 @@ Characters are selected at game start through the main menu.
 3. Reinforced Hull (survive to maximize orbital uptime)
 4. Stellar Fortune (long game scaling)
 5. Lightning Mastery (situational, if taking chains)
+
+**Void Reaver:**
+1. Enhanced Firepower (amplify damage bonuses!)
+2. Stellar Fortune (critical hit synergy!)
+3. Ion Thrusters (enhance speed advantage)
+4. Reinforced Hull (only if struggling to survive)
+5. Lightning Mastery (situational)
 
 ---
 
@@ -422,18 +523,21 @@ Characters are balanced for **different skill levels and playstyles**, not for e
 - Nova Corsair: ★★★☆☆ (risky without upgrades)
 - Stormcaller: ★★★★☆ (chains effective early)
 - Nexus Architect: ★★★★☆ (2 free orbitals give edge)
+- Void Reaver: ★★☆☆☆ (extremely fragile, needs upgrades)
 
 **Mid Game (Levels 10-20):**
 - Aegis Vanguard: ★★★★☆ (solid scaling)
 - Nova Corsair: ★★★★★ (upgrades unlock potential)
 - Stormcaller: ★★★★★ (chain scaling peaks)
 - Nexus Architect: ★★★★★ (orbital build coming online)
+- Void Reaver: ★★★★☆ (power spike begins)
 
 **Late Game (Boss 3+):**
 - Aegis Vanguard: ★★★★☆ (survivability critical)
 - Nova Corsair: ★★★★★ (max DPS with skill)
 - Stormcaller: ★★★★☆ (scaling depends on upgrades)
 - Nexus Architect: ★★★★★ (full orbital build is devastating)
+- Void Reaver: ★★★★★ (highest DPS ceiling when mastered)
 
 ---
 
@@ -538,6 +642,7 @@ Characters are balanced for **different skill levels and playstyles**, not for e
 
 ---
 
-*Last updated: November 7, 2025*
+*Last updated: November 19, 2025*
 *Architecture: Data-driven character system with stat modifiers*
-*Status: Production ready, 4 characters implemented*
+*Status: Production ready, 5 characters implemented*
+*Latest Addition: Void Reaver - Expert-level glass cannon character*
