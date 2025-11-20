@@ -95,6 +95,11 @@ class SystemPerformanceManager {
         if (window.FastMath && typeof window.FastMath.installGlobals === 'function') {
             window.FastMath.installGlobals();
         }
+
+        // Enemy AI optimizations (cache lifetime)
+        if (window.Game?.EnemyAI && window.Game.EnemyAI.prototype) {
+            window.Game.EnemyAI.prototype._pi5OptimizationApplied = true;
+        }
     }
 
     /**
@@ -208,6 +213,12 @@ class SystemPerformanceManager {
 
         if (typeof window !== 'undefined' && window.optimizedParticles && typeof window.optimizedParticles.setLowQuality === 'function') {
             window.optimizedParticles.setLowQuality(shouldEnable);
+
+            // Pi5 specific particle limits
+            if (this.isRaspberryPi && shouldEnable) {
+                window.optimizedParticles.maxParticles = 80;
+                window.optimizedParticles.densityMultiplier = 0.5;
+            }
         }
 
         if (typeof window !== 'undefined' && window.gameManager) {

@@ -135,15 +135,18 @@ class PerformanceManager {
         const oldMode = this.performanceMode;
         this.performanceMode = newMode;
         
+        // Delegate to SystemPerformanceManager if available
+        const systemPerfManager = window.gameEngine?.performanceManager;
+        
         switch (newMode) {
             case 'critical':
-                this.enableCriticalOptimizations();
+                this.enableCriticalOptimizations(systemPerfManager);
                 break;
             case 'low':
-                this.enableLowOptimizations();
+                this.enableLowOptimizations(systemPerfManager);
                 break;
             case 'normal':
-                this.disableOptimizations();
+                this.disableOptimizations(systemPerfManager);
                 break;
         }
         
@@ -153,24 +156,31 @@ class PerformanceManager {
         }
     }
     
-    enableCriticalOptimizations() {
-        // Simplified critical optimizations
+    enableCriticalOptimizations(systemPerfManager) {
+        if (systemPerfManager) {
+            systemPerfManager.setPerformanceOverride('on');
+        }
+        // Fallback for legacy or direct control
         if (window.gameManager) {
             window.gameManager.maxParticles = 30;
             window.gameManager.particleReductionFactor = 0.25;
         }
     }
     
-    enableLowOptimizations() {
-        // Simplified low optimizations
+    enableLowOptimizations(systemPerfManager) {
+        if (systemPerfManager) {
+            systemPerfManager.setPerformanceOverride('on');
+        }
         if (window.gameManager) {
             window.gameManager.maxParticles = 100;
             window.gameManager.particleReductionFactor = 0.6;
         }
     }
     
-    disableOptimizations() {
-        // Restore normal limits
+    disableOptimizations(systemPerfManager) {
+        if (systemPerfManager) {
+            systemPerfManager.setPerformanceOverride('off');
+        }
         if (window.gameManager) {
             window.gameManager.maxParticles = 200;
             window.gameManager.particleReductionFactor = 1.0;
