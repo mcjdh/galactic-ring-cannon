@@ -159,15 +159,15 @@ Runtime classes and helpers are exposed through a single `window.Game` namespace
 | `window.Game.Player`, `window.Game.Enemy`, `window.Game.EnemyProjectile`, `window.Game.Projectile`, `window.Game.XPOrb`, `window.Game.DamageZone` | Primary entity classes |
 | `window.Game.InputManager`, `window.Game.UpgradeSystem`, `window.Game.AudioSystem`, `window.Game.PerformanceManager`, `window.Game.AchievementSystem`, `window.Game.EnemySpawner` | Major gameplay systems instantiated at bootstrap |
 | `window.Game.EffectsManager`, `window.Game.MinimapSystem`, `window.Game.CollisionSystem`, `window.Game.UnifiedUIManager`, `window.Game.FloatingTextSystem`, `window.Game.StatsManager`, `window.Game.DifficultyManager`, `window.Game.OptimizedParticlePool` | Shared subsystem classes |
-| `window.Game.MathUtils`, `window.Game.ParticleHelpers`, `window.Game.urlParams`, `window.Game.logger` | Utility modules |
+| `window.Game.FastMath`, `window.Game.CollisionCache`, `window.Game.ParticleHelpers`, `window.Game.urlParams`, `window.Game.logger` | Utility modules & helpers |
 | `window.Game.testGameState` | Browser helper to run quick GameState integration tests |
 
 Example usage:
 
 ```js
-const { Player, MathUtils } = window.Game;
+const { Player, FastMath } = window.Game;
 const newPlayer = new Player(0, 0);
-const xpForLevel5 = MathUtils.xpForLevel(5);
+const isWithinDashRange = FastMath.isWithinDistance(0, 0, 3, 4, 5); // 3-4-5 triangle
 ```
 
 Accessing classes through `window.Game` keeps the global scope clean and makes future module migration straightforward.
