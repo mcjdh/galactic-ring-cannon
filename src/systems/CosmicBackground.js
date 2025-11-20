@@ -29,10 +29,11 @@ class CosmicBackground {
 
         // Star layers (parallax effect)
         this.starLayers = [
-            { stars: [], count: 150, speed: 0.15, size: 1, brightness: 0.4 },   // Far stars (slow parallax)
-            { stars: [], count: 100, speed: 0.4, size: 1.5, brightness: 0.6 },  // Mid stars
-            { stars: [], count: 50, speed: 0.7, size: 2, brightness: 0.9 }      // Near stars (faster parallax)
+            { stars: [], count: 150, speed: 0.15, size: 1, brightness: 0.4, activeCount: 150 },   // Far stars (slow parallax)
+            { stars: [], count: 100, speed: 0.4, size: 1.5, brightness: 0.6, activeCount: 100 },  // Mid stars
+            { stars: [], count: 50, speed: 0.7, size: 2, brightness: 0.9, activeCount: 50 }      // Near stars (faster parallax)
         ];
+        this._baseStarCounts = this.starLayers.map(l => l.count);
 
         // Star rendering cache (uses RAM to offload CPU/GPU draw calls)
         this._starBuffer = null;
@@ -120,6 +121,11 @@ class CosmicBackground {
                     cachedTwinkle: 0.5 + Math.random() * 0.5 // Pre-calculated twinkle value
                 });
             }
+            layer.activeCount = layer.stars.length;
+        }
+        // Preserve original/base counts across reinitializations
+        if (!this._baseStarCounts) {
+            this._baseStarCounts = this.starLayers.map(l => l.count);
         }
 
         // Reset parallax baseline after reinitializing
@@ -601,6 +607,8 @@ class CosmicBackground {
         for (const layer of this.starLayers) {
             const layerStars = layer.stars;
             if (!layerStars || layerStars.length === 0) continue;
+            const activeCount = Math.min(layer.activeCount ?? layerStars.length, layerStars.length);
+            if (activeCount === 0) continue;
 
             const size = layer.size;
             const brightness = layer.brightness;
@@ -610,7 +618,7 @@ class CosmicBackground {
                 const baseAlpha = brightness * (skipTwinkle ? 0.7 : 0.8);
                 ctx.globalAlpha = baseAlpha;
 
-                for (let i = 0; i < layerStars.length; i++) {
+                for (let i = 0; i < activeCount; i++) {
                     const star = layerStars[i];
                     if (!star) continue;
 
@@ -627,7 +635,7 @@ class CosmicBackground {
 
                 let seed = shouldUpdateTwinkle ? ((layer.seed || 0) + (time * layer.twinkleSpeedScalar || time)) : 0;
 
-                for (let i = 0; i < layerStars.length; i++) {
+                for (let i = 0; i < activeCount; i++) {
                     const star = layerStars[i];
                     if (!star) continue;
 
@@ -789,10 +797,10 @@ class CosmicBackground {
     }
 
     /**
-     * Adjust star layer counts without reinitializing the entire background.
-     * This avoids parallax resets and nebula cache clears when performance mode toggles.
+     * Ensure star layers have enough stars for requested active counts without clearing or reinitializing.
+     * Keeps parallax and buffers stable while letting quality toggles thin the drawn set.
      */
-    _adjustStarCounts(targetCounts) {
+    _setActiveStarCounts(targetCounts) {
         const width = this.canvas.width || 800;
         const height = this.canvas.height || 600;
 
@@ -801,16 +809,15 @@ class CosmicBackground {
             const targetCount = Math.max(0, Math.floor(targetCounts[i] ?? layer.count ?? 0));
             const stars = layer.stars || (layer.stars = []);
 
-            if (stars.length > targetCount) {
-                stars.length = targetCount;
-            } else if (stars.length < targetCount) {
+            // Never trim; keep full parallax history stable and just adjust how many we draw
+            if (stars.length < targetCount) {
                 const needed = targetCount - stars.length;
                 for (let n = 0; n < needed; n++) {
                     stars.push(this._createStar(width, height));
                 }
             }
 
-            layer.count = targetCount;
+            layer.activeCount = targetCount;
         }
 
         this._starBufferDirty = true;
@@ -926,7 +933,7 @@ class CosmicBackground {
             updateFrequency: this._updateFrequency,
             cameraThreshold: this._cameraMovementThreshold,
             twinkleUpdateFrequency: this._twinkleUpdateFrequency,
-            starCount: this.starLayers.reduce((sum, layer) => sum + layer.stars.length, 0),
+            starCount: this.starLayers.reduce((sum, layer) => sum + (layer.activeCount ?? layer.stars.length), 0),
             nebulaCount: this._nebulaActiveCount ?? this.nebulaClouds.length
         };
     }
@@ -940,7 +947,8 @@ class CosmicBackground {
         
         // [R] FIX: Track if counts actually changed to avoid unnecessary reinitialization
         // This prevents nebula flashing when _applyBackgroundQuality() is called repeatedly
-        const targetStarCounts = [this.starLayers[0].count, this.starLayers[1].count, this.starLayers[2].count];
+        const baseCounts = this._originalStarCounts || this._baseStarCounts || this.starLayers.map(l => l.stars.length || l.count);
+        const targetStarCounts = [...baseCounts];
         const isPi = typeof window !== 'undefined' && window.isRaspberryPi;
         
         if (enabled) {
@@ -998,12 +1006,9 @@ class CosmicBackground {
         this._nebulaActiveCount = Math.min(this._nebulaActiveCount, this.nebulaClouds.length || this.nebulaCount || 0);
 
         // Adjust stars in place instead of reinitializing (prevents parallax and nebula pop-in)
-        const starCountsChanged = this.starLayers.some((layer, idx) => layer.count !== targetStarCounts[idx]);
-        if (starCountsChanged) {
-            this._adjustStarCounts(targetStarCounts);
-            this._gridFrameCounter = 0;
-            this._gridBufferDirty = true;
-        }
+        this._setActiveStarCounts(targetStarCounts);
+        this._gridFrameCounter = 0;
+        this._gridBufferDirty = true;
 
         if (window.logger?.isDebugEnabled?.('systems')) {
             window.logger.log(`[C] CosmicBackground quality set to ${enabled ? 'low' : 'high'} (stars=${targetStarCounts.join('/')}, nebulae=${this._nebulaActiveCount})`);
