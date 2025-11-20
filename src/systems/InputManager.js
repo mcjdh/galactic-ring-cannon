@@ -127,7 +127,7 @@ class InputManager {
         this.mouseState.buttons = 0;
         
         // Log for debugging if needed
-        if (window.debugMode) {
+        if (window.logger?.debug) {
             window.logger.log('[InputManager] Cleared all key states (focus lost)');
         }
     }

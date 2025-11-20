@@ -1208,7 +1208,7 @@ class GameManagerBridge {
         const currentSecond = Math.floor(this.gameTime);
         if (currentSecond !== this._lastBossDebugSecond) {
             this._lastBossDebugSecond = currentSecond;
-            if (window.debugManager?.enabled) {
+            if (window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.log(`[Boss Countdown] Timer: ${this.enemySpawner.bossTimer.toFixed(1)}s, Interval: ${bossInterval}s, Time until: ${timeUntilBoss.toFixed(1)}s`);
             }
         }

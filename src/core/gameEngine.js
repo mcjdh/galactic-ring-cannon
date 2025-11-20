@@ -979,7 +979,7 @@ class GameEngine {
         // Validate and smooth deltaTime to prevent jitter
         if (!Number.isFinite(deltaTime) || deltaTime < 0 || deltaTime > 1) {
             // [AI NOTE]: Reduced console spam - only log critical deltaTime issues
-            if (deltaTime > 0.1 && window.debugManager?.enabled) {
+            if (deltaTime > 0.1 && window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.warn('Invalid deltaTime:', deltaTime);
             }
             deltaTime = 1 / 60; // Fallback to 60fps
@@ -1105,7 +1105,7 @@ class GameEngine {
                     }
                 }
             } catch (error) {
-                if (window.debugManager?.enabled) {
+                if (window.logger?.isDebugEnabled?.('systems')) {
                     window.logger.error('GameManager update error:', error);
                 }
             }
@@ -1530,12 +1530,12 @@ class GameEngine {
     }
 
     _handleProjectileEnemyCollision(projectile, enemy) {
-        if (window.debugProjectiles) {
+        if (window.logger?.isDebugEnabled?.('projectiles')) {
             window.logger.log(`[GameEngine] _handleProjectileEnemyCollision: Projectile ${projectile.id} hitting enemy ${enemy.id}. Projectile piercing: ${projectile.piercing}`);
         }
 
         if (enemy.isDead || (projectile.hitEnemies && projectile.hitEnemies.has(enemy.id))) {
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[GameEngine] Collision skipped - enemy dead: ${enemy.isDead}, already hit: ${projectile.hitEnemies && projectile.hitEnemies.has(enemy.id)}`);
             }
             return;
@@ -1585,7 +1585,7 @@ class GameEngine {
 
         // Handle piercing - projectile continues if it still has piercing charges
         if (typeof projectile.piercing === 'number' && projectile.piercing > 0) {
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[Collision] Projectile ${projectile.id} piercing hit. Piercing: ${projectile.piercing} -> ${projectile.piercing - 1}`);
             }
             projectile.piercing--;
@@ -1595,11 +1595,11 @@ class GameEngine {
             if (projectile.piercing < 0) {
                 piercingExhausted = true;
                 projectileShouldDie = true; // Now it should die unless ricochet saves it
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[Collision] Projectile ${projectile.id} piercing exhausted, should die unless ricochet saves it`);
                 }
             } else {
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[Collision] Projectile ${projectile.id} still has piercing charges: ${projectile.piercing}`);
                 }
             }
@@ -1608,7 +1608,7 @@ class GameEngine {
         // Check for ricochet only when projectile would normally die
         // This allows ricochet to work after piercing is exhausted OR for non-piercing projectiles
         if (projectileShouldDie && projectile.behaviorManager && projectile.behaviorManager.hasBehavior('ricochet')) {
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[Collision] Projectile ${projectile.id} attempting ricochet. hasRicochet: ${projectile.behaviorManager.hasBehavior('ricochet')}`);
             }
             if (projectile.type === 'projectile') {
@@ -1616,23 +1616,23 @@ class GameEngine {
                     const ok = Projectile.prototype.ricochet.call(projectile, this);
                     if (ok) {
                         projectileShouldDie = false; // Ricochet successful, projectile continues
-                        if (window.debugProjectiles) {
+                        if (window.logger?.isDebugEnabled?.('projectiles')) {
                             window.logger.log(`[Collision] Projectile ${projectile.id} ricochet successful!`);
                         }
                         // Reset piercing if projectile ricocheted (balanced gameplay choice)
                         if (piercingExhausted && projectile.originalPiercing > 0) {
                             projectile.piercing = Math.max(0, Math.floor(projectile.originalPiercing / 2));
-                            if (window.debugProjectiles) {
+                            if (window.logger?.isDebugEnabled?.('projectiles')) {
                                 window.logger.log(`[Collision] Projectile ${projectile.id} piercing restored: ${projectile.piercing}`);
                             }
                         }
                     } else {
-                        if (window.debugProjectiles) {
+                        if (window.logger?.isDebugEnabled?.('projectiles')) {
                             window.logger.log(`[Collision] Projectile ${projectile.id} ricochet failed`);
                         }
                     }
                 } catch (e) {
-                    if (window.debugProjectiles) {
+                    if (window.logger?.isDebugEnabled?.('projectiles')) {
                         window.logger.log(`[Collision] Projectile ${projectile.id} ricochet error:`, e);
                     }
                 }
@@ -2157,7 +2157,7 @@ class GameEngine {
             }
 
             // Debug logging
-            if (window.debugProjectiles && (config.piercing > 0 || proj.piercing > 0)) {
+            if (window.logger?.isDebugEnabled?.('projectiles') && (config.piercing > 0 || proj.piercing > 0)) {
                 window.logger.log(`[GameEngine] Projectile ${proj.id} spawned: piercing=${proj.piercing}`);
             }
 

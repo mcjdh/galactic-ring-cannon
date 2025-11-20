@@ -151,7 +151,7 @@ class ProjectileBehaviorManager {
                 shouldDie = false;
                 deathPreventedBy = 'ricochet';
 
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[BehaviorManager] Ricochet succeeded on initial hit - projectile continues!`);
                 }
 
@@ -170,7 +170,7 @@ class ProjectileBehaviorManager {
                 shouldDie = false;
                 deathPreventedBy = 'piercing';
 
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[BehaviorManager] Piercing prevented death (ricochet unavailable)`);
                 }
 

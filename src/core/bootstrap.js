@@ -455,7 +455,7 @@
             // [Pi] Enable performance profiler now that Pi detection is confirmed
             if (window.performanceProfiler && typeof window.performanceProfiler.setEnabled === 'function') {
                 window.performanceProfiler.setEnabled(true);
-                if (typeof window.performanceProfiler.setVerbose === 'function' && window.debugMode) {
+                if (typeof window.performanceProfiler.setVerbose === 'function' && window.logger?.debug) {
                     window.performanceProfiler.setVerbose(true);
                 }
                 this.log('+ Performance profiler enabled for Pi5 monitoring');

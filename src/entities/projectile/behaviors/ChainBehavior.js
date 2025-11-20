@@ -29,13 +29,13 @@ class ChainBehavior extends ProjectileBehaviorBase {
      */
     onHit(target, engine) {
         if (this.chainsUsed >= this.maxChains) {
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[ChainBehavior] Projectile ${this.projectile.id} already at maxChains (${this.chainsUsed}/${this.maxChains}), ignoring hit on ${target.id}`);
             }
             return true; // No more chains
         }
         if (this.chainedEnemies.has(target.id)) {
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[ChainBehavior] Projectile ${this.projectile.id} already chained to ${target.id}, ignoring`);
             }
             return true; // Already chained this enemy
@@ -44,7 +44,7 @@ class ChainBehavior extends ProjectileBehaviorBase {
         this.chainedEnemies.add(target.id);
         this.chainsUsed++; // Count the initial hit!
 
-        if (window.debugProjectiles) {
+        if (window.logger?.isDebugEnabled?.('projectiles')) {
             window.logger.log(`[ChainBehavior] Projectile ${this.projectile.id} hit enemy ${target.id}. Chains used: ${this.chainsUsed}/${this.maxChains}`);
         }
 
@@ -149,7 +149,7 @@ class ChainBehavior extends ProjectileBehaviorBase {
                 window.audioSystem.play('hit', 0.25);
             }
 
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[ChainBehavior] Projectile ${this.projectile.id} chained to enemy ${nearest.id}. Chains: ${this.chainsUsed}/${this.maxChains}`);
             }
 

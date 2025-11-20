@@ -46,7 +46,7 @@ class PlayerCombat {
 
         const WeaponManagerClass = (typeof window !== 'undefined' && window.Game?.WeaponManager) || null;
         this.weaponManager = WeaponManagerClass ? new WeaponManagerClass(player, this) : null;
-        if (!this.weaponManager && window.debugManager?.debugMode) {
+        if (!this.weaponManager && window.logger?.debug) {
             window.logger.warn('[PlayerCombat] WeaponManager not available. Using legacy combat loop.');
         }
     }
@@ -305,7 +305,7 @@ class PlayerCombat {
             const damage = isCrit ? baseDamage * (this.critMultiplier || 2) : baseDamage;
 
             // Debug logging for piercing value tracing
-            if (window.debugProjectiles && piercingBase > 0) {
+            if (window.logger?.isDebugEnabled?.('projectiles') && piercingBase > 0) {
                 window.logger.log(`[PlayerCombat] Spawning projectile with piercing. base = ${piercingBase}`);
             }
 
@@ -356,14 +356,14 @@ class PlayerCombat {
                 if (isCrit) {
                     window.gameManager?.statsManager?.trackSpecialEvent?.('critical_hit');
                 }
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
                 }
                 // NOTE: Piercing handled by new BehaviorManager system via setters
                 // Old piercing normalization code kept for backwards compatibility
                 const basePiercing = Number.isFinite(piercingBase) ? Math.max(0, piercingBase) : 0;
                 if (projectile.piercing !== basePiercing) {
-                    if (window.debugProjectiles) {
+                    if (window.logger?.isDebugEnabled?.('projectiles')) {
                         window.logger.log(`[PlayerCombat] Normalizing projectile ${projectile.id} piercing: ${projectile.piercing} -> ${basePiercing}`);
                     }
                     projectile.piercing = basePiercing;
@@ -508,7 +508,7 @@ class PlayerCombat {
             case 'piercing':
                 const oldPiercing = this.piercing;
                 this.piercing += upgrade.value || 1; // Add piercing count
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[PlayerCombat] Piercing upgrade applied: ${oldPiercing} -> ${this.piercing} (added ${upgrade.value || 1})`);
                 }
                 break;

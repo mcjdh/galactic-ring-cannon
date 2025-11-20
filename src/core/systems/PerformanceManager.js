@@ -13,6 +13,9 @@ class SystemPerformanceManager {
         this._autoLowQualityCosmic = false;
         this._autoParticleLowQuality = false;
         this._manualPerformanceOverride = null;
+        this._lastBackgroundQuality = null;
+        this._lastBackgroundSwitchTime = 0;
+        this._backgroundSwitchBurst = 0;
 
         // Device info
         this.isRaspberryPi = false;
@@ -236,9 +239,27 @@ class SystemPerformanceManager {
             shouldUseLowQuality = !!(this.lowGpuMode || this._autoLowQualityCosmic);
         }
 
-        const debugEnabled = this.gameEngine?.debugMode || (typeof window !== 'undefined' && window.debugMode);
+        const debugEnabled = this.gameEngine?.debugMode || (typeof window !== 'undefined' && window.logger?.debug);
         if (debugEnabled) {
             window.logger.log(`[R] _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
+        }
+
+        // Detect rapid flipping between quality states for diagnostics
+        if (shouldUseLowQuality !== this._lastBackgroundQuality) {
+            const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+                ? performance.now()
+                : Date.now();
+            const timeSinceLastSwitch = now - this._lastBackgroundSwitchTime;
+            if (timeSinceLastSwitch < 2000) {
+                this._backgroundSwitchBurst += 1;
+                if (this._backgroundSwitchBurst >= 3 && window.logger?.warn) {
+                    window.logger.warn(`[R] CosmicBackground quality flapped ${this._backgroundSwitchBurst} times in ${(timeSinceLastSwitch).toFixed(0)}ms`);
+                }
+            } else {
+                this._backgroundSwitchBurst = 1;
+            }
+            this._lastBackgroundSwitchTime = now;
+            this._lastBackgroundQuality = shouldUseLowQuality;
         }
 
         cosmicBackground.setLowQuality(shouldUseLowQuality);

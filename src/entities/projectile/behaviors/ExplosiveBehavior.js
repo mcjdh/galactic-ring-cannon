@@ -75,7 +75,7 @@ class ExplosiveBehavior extends ProjectileBehaviorBase {
             window.audioSystem.play('explosion', 0.4);
         }
 
-        if (window.debugProjectiles) {
+        if (window.logger?.isDebugEnabled?.('projectiles')) {
             window.logger.log(`[ExplosiveBehavior] Projectile ${this.projectile.id} exploded, hit ${enemiesHit} enemies`);
         }
     }

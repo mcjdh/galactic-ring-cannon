@@ -92,7 +92,7 @@ class GravityWell {
             levelBonus = 1.0 + (playerLevel * 0.15); // +15% damage per level (increased from 8%)
 
             // Enhanced debug logging to show actual damage
-            if (window.debugProjectiles && playerLevel > 1) {
+            if (window.logger?.isDebugEnabled?.('projectiles') && playerLevel > 1) {
                 const baseDPS = baseDamagePerSecond.toFixed(1);
                 const scaledDPS = (baseDamagePerSecond * levelBonus).toFixed(1);
                 window.logger.log(`[GravityWell] Void Warden L${playerLevel}: ${baseDPS} → ${scaledDPS} DPS (${levelBonus.toFixed(2)}x)`);

@@ -245,7 +245,7 @@
                 }
 
                 // + LOG PERFORMANCE STATISTICS periodically
-                if (window.debugManager?.enabled && startTime - this.stats.lastResetTime > 5000) {
+                if (window.logger?.isDebugEnabled?.('systems') && startTime - this.stats.lastResetTime > 5000) {
                     this.logPerformanceStats(performance.now() - startTime);
                     this.stats.lastResetTime = startTime;
                 }
@@ -457,7 +457,7 @@
                         // Handle piercing and death - UPDATED to match gameEngine logic
                         let piercingExhausted = false;
                         if (typeof entity1.piercing === 'number' && entity1.piercing > 0) {
-                            if (window.debugProjectiles) {
+                            if (window.logger?.isDebugEnabled?.('projectiles')) {
                                 window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing hit. Piercing: ${entity1.piercing} -> ${entity1.piercing - 1}`);
                             }
                             entity1.piercing--;
@@ -466,11 +466,11 @@
                             if (entity1.piercing < 0) {
                                 piercingExhausted = true;
                                 projectileShouldDie = true; // Should die unless ricochet saves it
-                                if (window.debugProjectiles) {
+                                if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing exhausted, should die unless ricochet saves it`);
                                 }
                             } else {
-                                if (window.debugProjectiles) {
+                                if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity1.id} still has piercing charges: ${entity1.piercing}`);
                                 }
                             }
@@ -478,30 +478,30 @@
 
                         // Check for ricochet only when projectile would normally die
                         if (projectileShouldDie && (entity1.hasRicochet || entity1.ricochet || entity1.specialType === 'ricochet')) {
-                            if (window.debugProjectiles) {
+                            if (window.logger?.isDebugEnabled?.('projectiles')) {
                                 window.logger.log(`[CollisionSystem] Projectile ${entity1.id} attempting ricochet. hasRicochet: ${!!entity1.hasRicochet}, specialType: ${entity1.specialType}`);
                             }
                             try {
                                 const ok = entity1.ricochet(engine);
                                 if (ok) {
                                     projectileShouldDie = false; // Ricochet successful
-                                    if (window.debugProjectiles) {
+                                    if (window.logger?.isDebugEnabled?.('projectiles')) {
                                         window.logger.log(`[CollisionSystem] Projectile ${entity1.id} ricochet successful!`);
                                     }
                                     // Reset piercing if projectile ricocheted
                                     if (piercingExhausted && entity1.originalPiercing > 0) {
                                         entity1.piercing = Math.max(1, Math.floor(entity1.originalPiercing / 2));
-                                        if (window.debugProjectiles) {
+                                        if (window.logger?.isDebugEnabled?.('projectiles')) {
                                             window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing restored: ${entity1.piercing}`);
                                         }
                                     }
                                 } else {
-                                    if (window.debugProjectiles) {
+                                    if (window.logger?.isDebugEnabled?.('projectiles')) {
                                         window.logger.log(`[CollisionSystem] Projectile ${entity1.id} ricochet failed`);
                                     }
                                 }
                             } catch (e) {
-                                if (window.debugProjectiles) {
+                                if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity1.id} ricochet error:`, e);
                                 }
                             }
@@ -565,7 +565,7 @@
                         let projectileShouldDie2 = true;
                         let piercingExhausted2 = false;
                         if (typeof entity2.piercing === 'number' && entity2.piercing > 0) {
-                            if (window.debugProjectiles) {
+                            if (window.logger?.isDebugEnabled?.('projectiles')) {
                                 window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing hit. Piercing: ${entity2.piercing} -> ${entity2.piercing - 1}`);
                             }
                             entity2.piercing--;
@@ -574,11 +574,11 @@
                             if (entity2.piercing < 0) {
                                 piercingExhausted2 = true;
                                 projectileShouldDie2 = true; // Should die unless ricochet saves it
-                                if (window.debugProjectiles) {
+                                if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing exhausted, should die unless ricochet saves it`);
                                 }
                             } else {
-                                if (window.debugProjectiles) {
+                                if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity2.id} still has piercing charges: ${entity2.piercing}`);
                                 }
                             }
@@ -586,30 +586,30 @@
 
                         // Check for ricochet only when projectile would normally die
                         if (projectileShouldDie2 && (entity2.hasRicochet || entity2.ricochet || entity2.specialType === 'ricochet')) {
-                            if (window.debugProjectiles) {
+                            if (window.logger?.isDebugEnabled?.('projectiles')) {
                                 window.logger.log(`[CollisionSystem] Projectile ${entity2.id} attempting ricochet. hasRicochet: ${!!entity2.hasRicochet}, specialType: ${entity2.specialType}`);
                             }
                             try {
                                 const ok = entity2.ricochet(engine);
                                 if (ok) {
                                     projectileShouldDie2 = false; // Ricochet successful
-                                    if (window.debugProjectiles) {
+                                    if (window.logger?.isDebugEnabled?.('projectiles')) {
                                         window.logger.log(`[CollisionSystem] Projectile ${entity2.id} ricochet successful!`);
                                     }
                                     // Reset piercing if projectile ricocheted
                                     if (piercingExhausted2 && entity2.originalPiercing > 0) {
                                         entity2.piercing = Math.max(1, Math.floor(entity2.originalPiercing / 2));
-                                        if (window.debugProjectiles) {
+                                        if (window.logger?.isDebugEnabled?.('projectiles')) {
                                             window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing restored: ${entity2.piercing}`);
                                         }
                                     }
                                 } else {
-                                    if (window.debugProjectiles) {
+                                    if (window.logger?.isDebugEnabled?.('projectiles')) {
                                         window.logger.log(`[CollisionSystem] Projectile ${entity2.id} ricochet failed`);
                                     }
                                 }
                             } catch (e) {
-                                if (window.debugProjectiles) {
+                                if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity2.id} ricochet error:`, e);
                                 }
                             }
@@ -656,7 +656,7 @@
                     }
                 }
 
-                if (window.debugManager?.enabled) {
+                if (window.logger?.isDebugEnabled?.('systems')) {
                     window.logger.log(`Cell pool cleaned: ${this.cellPool.size} cells remaining`);
                 }
             }

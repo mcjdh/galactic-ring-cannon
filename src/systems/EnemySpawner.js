@@ -378,7 +378,7 @@ class EnemySpawner {
         // Debug logging
         if (Math.floor(this.bossTimer) !== this._lastLoggedBossTimer) {
             this._lastLoggedBossTimer = Math.floor(this.bossTimer);
-            if (window.debugManager?.enabled) {
+            if (window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.log(`[EnemySpawner] Boss timer: ${this.bossTimer.toFixed(1)}s / ${this.bossInterval}s (lag: ${this.performanceMonitor.isLagging})`);
             }
         }
@@ -598,7 +598,7 @@ class EnemySpawner {
             // Fallback to canvas center if player position is invalid
             const fallbackX = this.game.canvas ? this.game.canvas.width / 2 : 400;
             const fallbackY = this.game.canvas ? this.game.canvas.height / 2 : 300;
-            if (window.debugManager?.enabled) {
+            if (window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.warn('[EnemySpawner] Invalid player position, using fallback:', { fallbackX, fallbackY });
             }
             return { x: fallbackX, y: fallbackY };
@@ -628,7 +628,7 @@ class EnemySpawner {
 
         // Final validation - ensure no NaN or Infinity values
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
-            if (window.debugManager?.enabled) {
+            if (window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.warn('[EnemySpawner] Calculated position is invalid:', { x, y, angle, distance });
             }
             // Return player position as last resort
@@ -753,7 +753,7 @@ class EnemySpawner {
 
         // Prevent multiple bosses from stacking
         if (window.gameManager?.bossActive || this.isBossAlive()) {
-            if (window.debugManager?.enabled) {
+            if (window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.log('[EnemySpawner] Boss spawn skipped - boss already active');
             }
             return;
@@ -1039,7 +1039,7 @@ class EnemySpawner {
      * Applies conservative limits for smooth 60fps gameplay on Pi5
      */
     enablePi5Mode() {
-        if (window.debugManager?.enabled) {
+        if (window.logger?.isDebugEnabled?.('systems')) {
             window.logger.log('[Pi] EnemySpawner: Enabling Pi5 optimization mode...');
         }
 
@@ -1060,7 +1060,7 @@ class EnemySpawner {
         this.eliteChance = Math.min(this.eliteChance, 0.08);
         this.baseEliteChance = 0.03;
 
-        if (window.debugManager?.enabled) {
+        if (window.logger?.isDebugEnabled?.('systems')) {
             window.logger.log('+ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
         }
     }

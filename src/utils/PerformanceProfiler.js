@@ -12,7 +12,7 @@ class PerformanceProfiler {
         this.verbose = false;
         
         // Auto-enable on Pi5 or when debug mode is active
-        this.enabled = window.isRaspberryPi || window.debugMode || false;
+        this.enabled = window.isRaspberryPi || window.logger?.debug || false;
         
         // Performance targets for Pi5
         this.targets = {

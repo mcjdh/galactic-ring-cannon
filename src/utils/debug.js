@@ -82,12 +82,24 @@ class DebugManager {
     enable() {
         this.enabled = true;
         window.StorageManager.setItem('debugMode', 'true');
+
+        // Sync with Logger system
+        if (window.logger && !window.logger?.debug) {
+            window.logger.setDebug(true);
+        }
+
         this.createOverlay();
     }
-    
+
     disable() {
         this.enabled = false;
         window.StorageManager.setItem('debugMode', 'false');
+
+        // Sync with Logger system
+        if (window.logger && window.logger?.debug) {
+            window.logger.setDebug(false);
+        }
+
         this.removeOverlay();
     }
     

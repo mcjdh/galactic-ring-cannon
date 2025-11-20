@@ -209,7 +209,7 @@ class CosmicBackground {
             // Redistribute stars when canvas resizes
             this.initialize();
             this._gridBufferDirty = true;
-            if (window.debugManager?.enabled) {
+            if (window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.log(`[C] CosmicBackground resized (${currentWidth}x${currentHeight})`);
             }
         }
@@ -893,7 +893,7 @@ class CosmicBackground {
         this.grid.spacing = Math.max(this.grid.spacing, 100);
         this._gridFrameCounter = 0;
 
-        if (window.debugManager?.enabled) {
+        if (window.logger?.isDebugEnabled?.('systems')) {
             window.logger.log('[Pi] CosmicBackground: Pi5 optimization mode enabled');
         }
     }
@@ -912,7 +912,7 @@ class CosmicBackground {
         this.grid.showUpperGrid = true;
         this.grid.spacing = 80;
         this._gridFrameCounter = 0;
-        if (window.debugManager?.enabled) {
+        if (window.logger?.isDebugEnabled?.('systems')) {
             window.logger.log('[D] CosmicBackground: Desktop quality mode enabled');
         }
     }
@@ -1005,7 +1005,7 @@ class CosmicBackground {
             this._gridBufferDirty = true;
         }
 
-        if (window.debugManager?.enabled) {
+        if (window.logger?.isDebugEnabled?.('systems')) {
             window.logger.log(`[C] CosmicBackground quality set to ${enabled ? 'low' : 'high'} (stars=${targetStarCounts.join('/')}, nebulae=${this._nebulaActiveCount})`);
         }
     }

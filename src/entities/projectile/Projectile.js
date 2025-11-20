@@ -99,7 +99,7 @@ class Projectile {
             // [FIX] Always log error to ensure visibility of silent failures
             window.logger.error(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error);
 
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.warn(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error.message);
             }
             this.behaviorManager = this._createFallbackBehaviorManager();
@@ -111,18 +111,18 @@ class Projectile {
                 if (typeof PiercingBehavior === 'function') {
                     const piercingBehavior = new PiercingBehavior(this, { charges: this.piercing });
                     this.behaviorManager.addBehavior(piercingBehavior);
-                    if (window.debugProjectiles) {
+                    if (window.logger?.isDebugEnabled?.('projectiles')) {
                         window.logger.log(`[Projectile ${this.id}] Created with piercing=${this.piercing}, added PiercingBehavior`);
                     }
                 }
             } catch (error) {
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.warn(`[Projectile ${this.id}] Failed to add PiercingBehavior:`, error.message);
                 }
             }
         }
 
-        if (window.debugProjectiles) {
+        if (window.logger?.isDebugEnabled?.('projectiles')) {
             window.logger.log(`[Projectile ${this.id}] Created. BehaviorManager:`, this.behaviorManager);
         }
 
@@ -149,7 +149,7 @@ class Projectile {
             behaviors: [],
             addBehavior: function () {
                 // Stub - do nothing
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.warn('[Projectile] Fallback manager: addBehavior called (no-op)');
                 }
             },
@@ -264,7 +264,7 @@ class Projectile {
         if (hasFlag && hasData) {
             // Don't add if already has this behavior
             if (this.behaviorManager.hasBehavior(type)) {
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[Projectile ${this.id}] ${type} behavior already exists, skipping`);
                 }
                 return;
@@ -273,7 +273,7 @@ class Projectile {
             // Check if behavior class exists
             const BehaviorClass = behaviorMap[type];
             if (typeof BehaviorClass !== 'function') {
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.warn(`[Projectile ${this.id}] ${type} behavior class not found!`);
                 }
                 return;
@@ -284,15 +284,15 @@ class Projectile {
                 const behavior = new BehaviorClass(this, this[dataMap[type]]);
                 this.behaviorManager.addBehavior(behavior);
 
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[Projectile ${this.id}] Added ${type} behavior from old flags. Data:`, this[dataMap[type]]);
                 }
             } catch (error) {
-                if (window.debugProjectiles) {
+                if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.error(`[Projectile ${this.id}] Failed to add ${type} behavior:`, error);
                 }
             }
-        } else if (window.debugProjectiles) {
+        } else if (window.logger?.isDebugEnabled?.('projectiles')) {
             window.logger.log(`[Projectile ${this.id}] Not adding ${type} behavior. hasFlag: ${hasFlag}, hasData: ${hasData}`);
         }
     }
@@ -353,7 +353,7 @@ class Projectile {
     hit(enemy) {
         // Already hit this enemy? Skip
         if (this.hitEnemies.has(enemy.id)) {
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[Projectile ${this.id}] Already hit enemy ${enemy.id}, skipping`);
             }
             return false;
@@ -385,7 +385,7 @@ class Projectile {
                 }
 
                 // Debug logging for lifesteal tracking
-                if (window.debugManager?.debugMode) {
+                if (window.logger?.debug) {
                     window.logger.log(`[Projectile] Lifesteal: ${healAmount.toFixed(2)} HP (${(this.lifesteal * 100).toFixed(1)}% of ${this.damage})`);
                 }
             }
@@ -471,7 +471,7 @@ class Projectile {
             engine.addEntity(well);
             this._createGravityWellSpawnFx();
         } catch (error) {
-            if (window.debugProjectiles) {
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.error('Failed to create GravityWell:', error);
             }
         }

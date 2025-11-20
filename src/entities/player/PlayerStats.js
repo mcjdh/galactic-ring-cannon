@@ -158,7 +158,7 @@ class PlayerStats {
             try {
                 this.player.abilities.onHeal(healedAmount, overflow);
             } catch (error) {
-                if (window.debugManager?.enabled) {
+                if (window.logger?.isDebugEnabled?.('systems')) {
                     window.logger.error('onHeal handler failed:', error);
                 }
             }
