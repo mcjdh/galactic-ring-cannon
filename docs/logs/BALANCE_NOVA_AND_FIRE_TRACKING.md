@@ -139,7 +139,7 @@ Over 10 bursts:
 
 ✅ `/src/config/characters.config.js` - Buffed Nova Corsair lifesteal  
 ✅ `/src/entities/projectile/behaviors/ChainBehavior.js` - Apply burn to chains  
-✅ `/docs/BALANCE_NOVA_AND_FIRE_TRACKING.md` - This document
+✅ `/docs/logs/BALANCE_NOVA_AND_FIRE_TRACKING.md` - This document
 
 ---
 

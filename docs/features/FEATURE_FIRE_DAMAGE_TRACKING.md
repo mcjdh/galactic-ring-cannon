@@ -188,7 +188,7 @@ All character unlocks now have perfect thematic alignment! 🎯
 ✅ `/src/entities/enemy/components/StatusEffectManager.js` - Track burn ticks  
 ✅ `/src/systems/achievements.js` - New burn damage achievement handler  
 ✅ `/src/config/achievements.config.js` - Updated grim_harvest definition  
-✅ `/docs/BALANCE_ACHIEVEMENT_UNLOCK_REBALANCE.md` - Updated documentation
+✅ `/docs/logs/BALANCE_ACHIEVEMENT_UNLOCK_REBALANCE.md` - Updated documentation
 
 ---
 

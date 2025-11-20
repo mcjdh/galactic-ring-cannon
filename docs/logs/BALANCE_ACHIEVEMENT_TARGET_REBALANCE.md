@@ -179,7 +179,7 @@ Edge Walker: 45s target → Survived at 47s (unlocked!) ✅
 ## Files Modified
 
 ✅ `/src/config/achievements.config.js` - Adjusted all 3 targets  
-✅ `/docs/BALANCE_ACHIEVEMENT_TARGET_REBALANCE.md` - This document
+✅ `/docs/logs/BALANCE_ACHIEVEMENT_TARGET_REBALANCE.md` - This document
 
 ---
 

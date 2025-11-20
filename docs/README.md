@@ -51,7 +51,7 @@ Essential project documentation:
 
 | Document | Description |
 |----------|-------------|
-| [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
+| [logs/CHANGELOG.md](logs/CHANGELOG.md) | Version history and release notes |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines and development workflow |
 
 **When to use**: Understanding project history, learning how to contribute.
@@ -140,6 +140,44 @@ Detailed documentation for major updates and releases. Each update has its own f
 | [v1.0.9-balance-and-fixes/](updates/v1.0.9-balance-and-fixes/) | Boss balance overhaul, special types fixes, critical bug repairs (Jan 2025) |
 
 **When to use**: Understanding what changed in a specific version, troubleshooting issues after an update, reviewing balance decisions.
+
+---
+
+### 🪵 [logs/](logs/) - Change Logs & Updates
+
+Contains change logs, balance updates, and other development logs.
+
+| Document | Description |
+|----------|-------------|
+| [CHANGELOG.md](logs/CHANGELOG.md) | Main version history |
+| [BALANCE_*.md](logs/) | Balance update logs |
+
+**When to use**: Reviewing past changes and balance adjustments.
+
+---
+
+### ✨ [features/](features/) - Feature Documentation
+
+Specific documentation for individual features.
+
+| Document | Description |
+|----------|-------------|
+| [FEATURE_BERSERKER_RAGE_VISUALS.md](features/FEATURE_BERSERKER_RAGE_VISUALS.md) | Berserker Rage visuals |
+| [FEATURE_FIRE_DAMAGE_TRACKING.md](features/FEATURE_FIRE_DAMAGE_TRACKING.md) | Fire damage tracking |
+
+**When to use**: Understanding specific feature implementations.
+
+---
+
+### 📖 [guides/](guides/) - Guides & Tutorials
+
+Guides for debugging, testing, and other tasks.
+
+| Document | Description |
+|----------|-------------|
+| [PROJECTILE_DEBUG_GUIDE.md](guides/PROJECTILE_DEBUG_GUIDE.md) | Guide for debugging projectiles |
+
+**When to use**: Learning how to perform specific tasks.
 
 ---
 

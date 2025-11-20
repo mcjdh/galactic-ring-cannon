@@ -213,7 +213,7 @@ Contributions are welcome! Please see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.m
 
 ## 📜 Version History
 
-See [docs/CHANGELOG.md](docs/CHANGELOG.md) for complete version history and release notes.
+See [docs/logs/CHANGELOG.md](docs/logs/CHANGELOG.md) for complete version history and release notes.
 
 **Latest:** v1.1.1 (Nov 2025) - Added 4th character (Nexus Architect), documentation updates
 **Previous:** v1.1.0 (Nov 2025) - Character & weapon systems, performance optimizations
