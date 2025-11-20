@@ -424,7 +424,7 @@ class Projectile {
         if (this.isDead) {
             return;
         }
-        this.behaviorManager.onDestroy(engine);
+        this.behaviorManager.onDestroy(engine, context);
         this._maybeSpawnGravityWell(engine, context);
         this.isDead = true;
     }

@@ -56,7 +56,20 @@ class BurnBehavior extends ProjectileBehaviorBase {
             return;
         }
 
-        const particleCount = Math.floor(8 + Math.random() * 6); // 8-14 particles
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        
+        // Skip completely if critical load
+        if (poolPressure > 0.9) return;
+
+        const isHighLoad = poolPressure > 0.6;
+        
+        // Reduce particles under load
+        let particleCount = Math.floor(8 + Math.random() * 6); // 8-14 particles
+        if (isHighLoad) {
+            particleCount = Math.floor(particleCount * 0.4); // 3-5 particles
+        }
+
         const damageIntensity = Math.min(1.5, this.damage / 10); // Scale with damage
 
         for (let i = 0; i < particleCount; i++) {
@@ -71,7 +84,7 @@ class BurnBehavior extends ProjectileBehaviorBase {
             const colors = ['#ff6b35', '#e67e22', '#d35400', '#ff9f1c', '#c0392b'];
             const color = colors[Math.floor(Math.random() * colors.length)];
 
-            window.optimizedParticles.spawnParticle({
+            pool.spawnParticle({
                 x: target.x + (Math.random() * 20 - 10),
                 y: target.y + (Math.random() * 20 - 10),
                 vx,
@@ -83,17 +96,19 @@ class BurnBehavior extends ProjectileBehaviorBase {
             });
         }
 
-        // Add a central flash for impact
-        window.optimizedParticles.spawnParticle({
-            x: target.x,
-            y: target.y,
-            vx: 0,
-            vy: -20,
-            size: 12 * damageIntensity,
-            color: '#ff9f1c',
-            life: 0.2,
-            type: 'basic'
-        });
+        // Add a central flash for impact (skip on high load)
+        if (!isHighLoad) {
+            pool.spawnParticle({
+                x: target.x,
+                y: target.y,
+                vx: 0,
+                vy: -20,
+                size: 12 * damageIntensity,
+                color: '#ff9f1c',
+                life: 0.2,
+                type: 'basic'
+            });
+        }
     }
 }
 

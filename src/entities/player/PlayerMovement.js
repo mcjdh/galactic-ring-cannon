@@ -146,6 +146,28 @@ class PlayerMovement {
         this.player.x += moveX;
         this.player.y += moveY;
 
+        // Update rotation based on movement direction
+        if (this.isMoving) {
+            const targetRotation = Math.atan2(this.velocity.y, this.velocity.x);
+            
+            if (this.player.rotation === undefined || this.player.rotation === null) {
+                this.player.rotation = targetRotation;
+            } else {
+                // Smooth rotation interpolation
+                let diff = targetRotation - this.player.rotation;
+                // Normalize angle to -PI to PI
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                
+                // Rotation speed (radians per second)
+                // Increased from 15 to 30 for snappier, more responsive turning
+                const rotationSpeed = 30; 
+                this.player.rotation += diff * Math.min(1, rotationSpeed * deltaTime);
+            }
+        } else if (this.player.rotation === undefined) {
+             this.player.rotation = 0;
+        }
+
         // Create trail effect when moving
         if (this.isMoving || this.isDodging) {
             // Calculate distance moved (optimized: use squared distance comparison)

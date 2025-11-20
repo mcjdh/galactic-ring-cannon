@@ -214,25 +214,44 @@ class XPOrb {
     createCollectionEffect() {
         // Use optimizedParticles for sparkle effect
         if (window.optimizedParticles?.spawnParticle) {
-            const particleCount = 8;
+            const pool = window.optimizedParticles;
+            const poolPressure = pool.activeParticles.length / pool.maxParticles;
+            const isHighLoad = poolPressure > 0.8;
+
+            const particleCount = isHighLoad ? 4 : 8;
             const FastMath = window.Game?.FastMath;
+            
             for (let i = 0; i < particleCount; i++) {
                 const angle = (i / particleCount) * Math.PI * 2;
                 const speed = 50 + Math.random() * 50;
-                // Use FastMath.sincos for 5x speedup on ARM
                 const { sin, cos } = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
 
-                window.optimizedParticles.spawnParticle({
+                pool.spawnParticle({
                     x: this.x,
                     y: this.y,
                     vx: cos * speed,
                     vy: sin * speed,
                     size: 2 + Math.random() * 2,
                     color: this.color,
-                    life: 0.5,
+                    life: 0.4,
                     type: 'spark'
                 });
             }
+
+            // Add a ring effect for high value orbs
+            if (this.value > 20 && !isHighLoad) {
+                 pool.spawnParticle({
+                    x: this.x,
+                    y: this.y,
+                    vx: 0,
+                    vy: 0,
+                    size: this.radius * 1.5,
+                    color: this.color,
+                    life: 0.3,
+                    type: 'ring'
+                });
+            }
+
         } else if (window.Game?.ParticleHelpers?.createHitEffect) {
             window.Game.ParticleHelpers.createHitEffect(this.x, this.y, 25);
         }
@@ -282,10 +301,10 @@ class XPOrb {
      * @param {number} renderY - Y position with bob effect
      */
     renderGlow(ctx, renderY) {
-        ctx.beginPath();
-        ctx.arc(this.x, renderY, this.radius * 2, 0, Math.PI * 2);
-        ctx.fillStyle = XPOrb._colorWithAlpha(this.glowColor, 0.3);
-        ctx.fill();
+        // Polybius Style: Square Glow
+        const size = this.radius * 2.5;
+        ctx.fillStyle = XPOrb._colorWithAlpha(this.glowColor, 0.2);
+        ctx.fillRect(this.x - size/2, renderY - size/2, size, size);
     }
     
     /**
@@ -294,22 +313,29 @@ class XPOrb {
      * @param {number} renderY - Y position with bob effect
      */
     renderOrb(ctx, renderY) {
-        ctx.beginPath();
-        ctx.arc(this.x, renderY, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.fill();
+        // Polybius Style: Rotating Square/Diamond
+        ctx.save();
+        ctx.translate(this.x, renderY);
+        ctx.rotate(this.rotation); // Already rotating from updateAnimations
+
+        const size = this.radius * 1.2;
         
-        // Add highlight
-        ctx.beginPath();
-        ctx.arc(
-            this.x - this.radius * 0.3, 
-            renderY - this.radius * 0.3, 
-            this.radius * 0.3, 
-            0, 
-            Math.PI * 2
-        );
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.fill();
+        // Void center
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(-size, -size, size * 2, size * 2);
+        
+        // Neon Outline
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-size, -size, size * 2, size * 2);
+
+        // Inner Core
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = 0.6;
+        const coreSize = size * 0.4;
+        ctx.fillRect(-coreSize, -coreSize, coreSize * 2, coreSize * 2);
+
+        ctx.restore();
     }
     
     /**
@@ -318,24 +344,8 @@ class XPOrb {
      * @param {number} renderY - Y position with bob effect
      */
     renderSymbol(ctx, renderY) {
-        ctx.save();
-        ctx.translate(this.x, renderY);
-        ctx.rotate(this.rotation);
-        
-        const symbolSize = this.radius * 0.6;
-        
-        ctx.beginPath();
-        ctx.moveTo(-symbolSize, -symbolSize);
-        ctx.lineTo(symbolSize, symbolSize);
-        ctx.moveTo(-symbolSize, symbolSize);
-        ctx.lineTo(symbolSize, -symbolSize);
-        
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = Math.max(1, this.radius * 0.1);
-        ctx.lineCap = 'round';
-        ctx.stroke();
-        
-        ctx.restore();
+        // No symbol needed for the geometric style, the core is enough
+        return;
     }
     
     /**
@@ -344,12 +354,12 @@ class XPOrb {
      * @param {number} renderY - Y position with bob effect
      */
     renderMagnetEffect(ctx, renderY) {
-        ctx.beginPath();
-        ctx.arc(this.x, renderY, this.radius * 1.8, 0, Math.PI * 2);
+        // Polybius Style: Dashed Square
+        const size = this.radius * 3.0;
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 1;
-        ctx.setLineDash([2, 2]);
-        ctx.stroke();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(this.x - size/2, renderY - size/2, size, size);
         ctx.setLineDash([]);
     }
     

@@ -144,8 +144,38 @@ class MagmaLauncherWeapon {
 
         // Visual effects
         this._playFireSound();
+        this._createMuzzleFlash(targetAngle);
 
         return true;
+    }
+
+    _createMuzzleFlash(angle) {
+        if (!window.optimizedParticles) return;
+        
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
+
+        // Magma flash is heavier, more smoke
+        const count = isHighLoad ? 4 : 8;
+
+        for (let i = 0; i < count; i++) {
+            const spread = (Math.random() - 0.5) * 0.4;
+            const speed = 100 + Math.random() * 80;
+            const vx = Math.cos(angle + spread) * speed;
+            const vy = Math.sin(angle + spread) * speed;
+            
+            pool.spawnParticle({
+                x: this.player.x,
+                y: this.player.y,
+                vx,
+                vy,
+                size: 4 + Math.random() * 3,
+                color: i % 2 === 0 ? '#ff4500' : '#2d3436', // Orange and dark smoke
+                life: 0.4,
+                type: i % 2 === 0 ? 'spark' : 'smoke'
+            });
+        }
     }
 
     fireImmediate(game) {

@@ -164,101 +164,68 @@ class ChainBehavior extends ProjectileBehaviorBase {
     _createLightningVisual(from, to) {
         if (!window.optimizedParticles) return;
 
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
+
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const segments = Math.ceil(dist / 10); // Denser segments
+        
+        // Reduce segments under load
+        const segmentLength = isHighLoad ? 25 : 10;
+        const segments = Math.ceil(dist / segmentLength);
 
-        // BRIGHT WHITE CORE BOLT - intense center beam
+        // Determine colors based on combos
+        let coreColor = '#ffffff';
+        let glowColor = '#9b59b6'; // Purple default
+        
+        // Check for Burn behavior (Fire combo)
+        const hasBurn = this.projectile.behaviorManager?.hasBehavior('burn');
+        if (hasBurn) {
+            coreColor = '#ffd93d'; // Yellow core
+            glowColor = '#e74c3c'; // Red glow
+        }
+
+        // BRIGHT CORE BOLT
         for (let i = 0; i < segments; i++) {
             const t = i / segments;
             const x = from.x + dx * t;
             const y = from.y + dy * t;
 
-            window.optimizedParticles.spawnParticle({
+            pool.spawnParticle({
                 x, y,
                 vx: 0, vy: 0,
-                size: 9, // Bigger core
-                color: '#ffffff',
-                life: 0.5, // Longer life
-                type: 'spark'
+                size: isHighLoad ? 3 : 4.5, // Reduced size since 'basic' draws radius, not diameter
+                color: coreColor,
+                life: isHighLoad ? 0.3 : 0.5,
+                type: 'basic' // Use basic (circle) for static core segments since spark requires velocity
             });
         }
 
-        // ELECTRIC PURPLE BRANCHES - jagged lightning effect
-        for (let i = 0; i < segments * 3; i++) { // More branches
-            const t = i / (segments * 3);
-            const x = from.x + dx * t;
-            const y = from.y + dy * t;
+        // ELECTRIC BRANCHES - jagged lightning effect
+        // Skip branches if high load
+        if (!isHighLoad) {
+            for (let i = 0; i < segments * 3; i++) { 
+                const t = i / (segments * 3);
+                const x = from.x + dx * t;
+                const y = from.y + dy * t;
 
-            const perpX = -dy / dist;
-            const perpY = dx / dist;
-            const offset = (Math.random() - 0.5) * 35; // More jagged
+                const perpX = -dy / dist;
+                const perpY = dx / dist;
+                const offset = (Math.random() - 0.5) * 35; 
 
-            window.optimizedParticles.spawnParticle({
-                x: x + perpX * offset,
-                y: y + perpY * offset,
-                vx: (Math.random() - 0.5) * 20,
-                vy: (Math.random() - 0.5) * 20,
-                size: 6,
-                color: i % 2 === 0 ? '#a29bfe' : '#6c5ce7', // Alternating purple shades
-                life: 0.6,
-                type: 'lightning'
-            });
-        }
-
-        // BRIGHT CYAN EDGE SPARKS - electric energy
-        for (let i = 0; i < segments; i++) {
-            const t = i / segments;
-            const x = from.x + dx * t;
-            const y = from.y + dy * t;
-
-            window.optimizedParticles.spawnParticle({
-                x: x + (Math.random() - 0.5) * 15,
-                y: y + (Math.random() - 0.5) * 15,
-                vx: (Math.random() - 0.5) * 30,
-                vy: (Math.random() - 0.5) * 30,
-                size: 4,
-                color: '#00ffff', // Bright cyan
-                life: 0.4,
-                type: 'spark'
-            });
-        }
-
-        // TARGET IMPACT EXPLOSION - radial burst at hit point
-        const impactParticles = 20; // More impact particles
-        for (let i = 0; i < impactParticles; i++) {
-            const angle = (Math.PI * 2 * i) / impactParticles;
-            window.optimizedParticles.spawnParticle({
-                x: to.x,
-                y: to.y,
-                vx: Math.cos(angle) * 150, // Faster burst
-                vy: Math.sin(angle) * 150,
-                size: 7,
-                color: i % 3 === 0 ? '#ffffff' : (i % 3 === 1 ? '#6c5ce7' : '#a29bfe'),
-                life: 0.7,
-                type: 'spark'
-            });
-        }
-
-        // SOURCE BURST - energy leaving first enemy
-        for (let i = 0; i < 16; i++) {
-            const angle = (Math.PI * 2 * i) / 16;
-            window.optimizedParticles.spawnParticle({
-                x: from.x,
-                y: from.y,
-                vx: Math.cos(angle) * 110,
-                vy: Math.sin(angle) * 110,
-                size: 6,
-                color: '#dfe6e9', // Bright white-purple
-                life: 0.6,
-                type: 'spark'
-            });
-        }
-
-        // SCREEN SHAKE for dramatic impact
-        if (window.gameManager?.addScreenShake) {
-            window.gameManager.addScreenShake(2, 0.15); // Subtle shake per chain
+                pool.spawnParticle({
+                    x: x + perpX * offset,
+                    y: y + perpY * offset,
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 0.5) * 20,
+                    size: 3,
+                    color: glowColor,
+                    life: 0.3,
+                    type: 'spark'
+                });
+            }
         }
     }
 }

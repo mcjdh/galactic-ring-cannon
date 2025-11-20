@@ -1,12 +1,50 @@
+:root {
+    --neon-cyan: #00ff99; /* Shifted towards green */
+    --neon-magenta: #ff0055; /* Shifted towards red */
+    --neon-lime: #00ff33;
+    --neon-yellow: #ffcc00;
+    --neon-red: #ff0033;
+    --bg-dark: #000000;
+    --bg-panel: rgba(5, 10, 5, 0.95); /* Darker, slightly greenish tint */
+    --grid-color: rgba(0, 255, 50, 0.05);
+}
+
 body {
     margin: 0;
     overflow: hidden;
-    background-color: #0a0a1f;
-    /* Deep space purple-black */
-    color: #00ffff;
-    /* Neon cyan text */
-    font-family: 'Lucida Console', 'Courier New', monospace;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    background-color: var(--bg-dark);
+    /* Polybius Grid Background */
+    background-image: 
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+    color: var(--neon-cyan);
+    font-family: 'Courier New', Courier, monospace; /* Retro terminal font */
+    text-shadow: 0 0 5px var(--neon-cyan);
+}
+
+/* CRT Scanline Overlay & Vignette */
+body::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.25) 50%
+    ), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06));
+    background-size: 100% 4px, 6px 100%;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+    animation: scanline-drift 10s linear infinite;
+}
+
+@keyframes scanline-drift {
+    0% { background-position: 0 0, 0 0; }
+    100% { background-position: 0 100%, 0 0; }
 }
 
 #game-container {
@@ -28,24 +66,47 @@ body {
     bottom: 20px;
     left: 20px;
     z-index: 10;
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.75), rgba(20, 10, 40, 0.75));
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(0, 255, 255, 0.25);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 255, 255, 0.1);
+    background: var(--bg-panel);
+    padding: 15px;
+    /* Polybius Geometric Shape: Cut Corners */
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+    border: 2px solid var(--neon-cyan); /* Fallback for clip-path border issue */
+    /* Note: clip-path cuts off borders, so we use a pseudo-element or box-shadow trick usually, 
+       but for simplicity we'll rely on the background contrast and inner elements */
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+}
+
+/* Add a border visual using a pseudo-element since clip-path hides the real border */
+#ui-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid var(--neon-cyan);
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+    pointer-events: none;
 }
 
 #health-bar,
 #xp-bar {
     width: 300px;
     height: 20px;
-    background: linear-gradient(90deg, rgba(15, 15, 35, 0.9), rgba(25, 15, 45, 0.9));
+    background: rgba(0, 0, 0, 0.8);
     margin-bottom: 10px;
-    border-radius: 8px;
-    overflow: hidden;
+    /* Angular bars */
+    border: 1px solid var(--neon-cyan);
     position: relative;
-    border: 1px solid rgba(0, 255, 255, 0.15);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 5px var(--neon-cyan);
 }
 
 #health-bar::after,
@@ -56,48 +117,56 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    border-radius: 8px;
 }
 
 #health-bar::after {
-    background: linear-gradient(90deg, #ff00ff, #ff6b9d);
+    background: var(--neon-magenta);
+    /* Segmented Health Bar */
+    background-image: repeating-linear-gradient(
+        90deg,
+        var(--neon-magenta),
+        var(--neon-magenta) 18px,
+        transparent 18px,
+        transparent 20px
+    );
     width: var(--health-width, 100%);
-    transition: width 0.3s;
-    box-shadow: 0 0 12px rgba(255, 0, 255, 0.5);
-    will-change: width;
+    transition: width 0.1s steps(10); /* Digital stepping effect */
+    box-shadow: 0 0 10px var(--neon-magenta);
 }
 
 /* Critical health animation */
 #health-bar.critical::after {
-    animation: pulse-critical 0.6s infinite;
+    animation: pulse-critical 0.2s infinite; /* Faster, glitchy pulse */
 }
 
 @keyframes pulse-critical {
-
-    0%,
-    100% {
-        background-color: #e74c3c;
-    }
-
-    50% {
-        background-color: #ff6b6b;
-    }
+    0%, 100% { background-color: var(--neon-red); opacity: 1; }
+    50% { background-color: #fff; opacity: 0.8; }
 }
 
 #xp-bar::after {
-    background: linear-gradient(90deg, #00ffff, #00ff88);
+    background: var(--neon-lime);
+    /* Segmented XP Bar */
+    background-image: repeating-linear-gradient(
+        90deg,
+        var(--neon-lime),
+        var(--neon-lime) 18px,
+        transparent 18px,
+        transparent 20px
+    );
     width: var(--xp-width, 0%);
-    transition: width 0.3s;
-    box-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
-    will-change: width;
+    transition: width 0.3s ease-out;
+    box-shadow: 0 0 10px var(--neon-lime);
 }
 
 #level-display {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: bold;
-    color: #00ffff;
-    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+    color: var(--neon-yellow);
+    text-shadow: 0 0 8px var(--neon-yellow);
     margin-top: 5px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
 }
 
 /* Combo bar styling */
@@ -105,36 +174,34 @@ body {
     margin-top: 10px;
     width: 300px;
     height: 12px;
-    background: linear-gradient(90deg, rgba(15, 15, 35, 0.9), rgba(25, 15, 45, 0.9));
-    border: 1px solid rgba(241, 196, 15, 0.2);
-    border-radius: 6px;
-    overflow: hidden;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--neon-yellow);
     position: relative;
     transition: opacity 0.2s linear;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    will-change: opacity;
+    box-shadow: 0 0 5px var(--neon-yellow);
+    /* Skew for speed feel */
+    transform: skewX(-15deg);
+    margin-left: 10px;
 }
 
 #combo-text {
-    font-size: 14px;
-    color: #f1c40f;
+    font-size: 16px;
+    color: var(--neon-yellow);
     margin-top: 4px;
     min-height: 20px;
     transition: opacity 0.2s linear;
-    text-shadow: 0 0 6px rgba(241, 196, 15, 0.5);
-    will-change: opacity;
+    text-shadow: 0 0 6px var(--neon-yellow);
+    font-style: italic;
+    letter-spacing: 1px;
 }
 
 #combo-fill {
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, #f1c40f, #e67e22);
+    background: var(--neon-yellow);
     transform-origin: left center;
-    transition: transform 0.2s linear, opacity 0.2s linear;
-    box-shadow: 0 0 8px rgba(241, 196, 15, 0.4);
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
+    transition: transform 0.1s linear;
+    box-shadow: 0 0 8px var(--neon-yellow);
 }
 
 /* Timer container at top center */
@@ -145,20 +212,40 @@ body {
     transform: translateX(-50%);
     text-align: center;
     z-index: 1000;
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.85), rgba(20, 10, 40, 0.85));
-    padding: 8px 16px;
-    border-radius: 10px;
-    border: 1px solid rgba(0, 255, 255, 0.25);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 255, 255, 0.15);
+    background: var(--bg-panel);
+    padding: 10px 25px;
+    /* Hexagonal shape */
+    clip-path: polygon(
+        15px 0, calc(100% - 15px) 0, 
+        100% 50%, calc(100% - 15px) 100%, 
+        15px 100%, 0 50%
+    );
+    border: none; /* Handled by pseudo if needed, or just rely on glow */
+}
+
+/* Timer border trick */
+#timer-container::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 2px solid var(--neon-cyan);
+    clip-path: polygon(
+        15px 0, calc(100% - 15px) 0, 
+        100% 50%, calc(100% - 15px) 100%, 
+        15px 100%, 0 50%
+    );
+    pointer-events: none;
 }
 
 /* Timer and boss countdown */
 #timer-display {
-    font-size: 24px;
+    font-size: 28px;
     font-weight: bold;
-    color: #00ffff;
-    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6), 2px 2px 4px rgba(0, 0, 0, 0.8);
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan);
     margin-bottom: 5px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
 }
 
 #boss-countdown {
@@ -174,15 +261,12 @@ body {
 #boss-countdown-container {
     position: relative;
     width: 100%;
-    height: 24px;
-    background: linear-gradient(90deg, rgba(15, 15, 35, 0.95), rgba(25, 15, 45, 0.95));
-    border: 1px solid rgba(236, 240, 241, 0.3);
-    border-radius: 12px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--neon-red);
     overflow: hidden;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 0 12px rgba(236, 240, 241, 0.15);
-    will-change: transform, opacity;
-    transform: translateZ(0);
-    backface-visibility: hidden;
+    box-shadow: 0 0 10px var(--neon-red);
+    transform: skewX(-15deg);
 }
 
 #boss-countdown-bar {
@@ -191,55 +275,39 @@ body {
     top: 0;
     height: 100%;
     width: 100%;
-    background: linear-gradient(90deg, rgba(236, 240, 241, 0.6), rgba(236, 240, 241, 0.4));
+    background: var(--neon-red);
     transform-origin: left center;
-    transition: transform 0.3s ease, background 0.3s ease;
-    will-change: transform;
-    border-radius: 10px;
-    box-shadow: 0 0 8px rgba(236, 240, 241, 0.3);
-    transform: translateZ(0);
-    backface-visibility: hidden;
+    transition: transform 0.3s ease;
+    box-shadow: 0 0 15px var(--neon-red);
 }
 
 /* Urgent state - red with pulse */
 #boss-countdown-bar.urgent {
-    background: linear-gradient(90deg, rgba(231, 76, 60, 0.85), rgba(192, 57, 43, 0.7));
-    box-shadow: 0 0 12px rgba(231, 76, 60, 0.5);
+    background: var(--neon-red);
+    animation: pulse-critical 0.5s infinite;
 }
 
 /* Warning state - orange */
 #boss-countdown-bar.warning {
-    background: linear-gradient(90deg, rgba(243, 156, 18, 0.85), rgba(211, 84, 0, 0.7));
-    box-shadow: 0 0 10px rgba(243, 156, 18, 0.4);
+    background: #ff8800;
+    box-shadow: 0 0 10px #ff8800;
 }
 
 /* Normal state - blue-white */
 #boss-countdown-bar.normal {
-    background: linear-gradient(90deg, rgba(236, 240, 241, 0.6), rgba(189, 195, 199, 0.4));
-    box-shadow: 0 0 8px rgba(236, 240, 241, 0.3);
+    background: #ccc;
 }
 
 /* Active boss state - gold pulse */
 #boss-countdown-bar.active {
-    background: linear-gradient(90deg, rgba(241, 196, 15, 0.95), rgba(243, 156, 18, 0.8));
-    box-shadow: 0 0 15px rgba(241, 196, 15, 0.6);
+    background: var(--neon-yellow);
+    box-shadow: 0 0 15px var(--neon-yellow);
 }
 
 @keyframes pulse {
-    0% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.8;
-        transform: scale(1.05);
-    }
-
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 #level-up-container {
@@ -247,57 +315,99 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.95), rgba(30, 10, 50, 0.95));
-    padding: 20px;
-    border-radius: 10px;
-    border: 2px solid #00ffff;
+    background: var(--bg-panel);
+    padding: 30px;
     z-index: 100;
     text-align: center;
-    width: 80%;
-    max-width: 600px;
-    box-shadow: 0 0 30px rgba(0, 255, 255, 0.6), 0 0 60px rgba(255, 0, 255, 0.3);
+    width: 85%;
+    max-width: 700px;
+    
+    /* Polybius Octagon */
+    clip-path: polygon(
+        20px 0, calc(100% - 20px) 0, 
+        100% 20px, 100% calc(100% - 20px), 
+        calc(100% - 20px) 100%, 20px 100%, 
+        0 calc(100% - 20px), 0 20px
+    );
+}
+
+/* Level up border */
+#level-up-container::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 3px solid var(--neon-magenta);
+    clip-path: polygon(
+        20px 0, calc(100% - 20px) 0, 
+        100% 20px, 100% calc(100% - 20px), 
+        calc(100% - 20px) 100%, 20px 100%, 
+        0 calc(100% - 20px), 0 20px
+    );
+    pointer-events: none;
+    box-shadow: inset 0 0 20px var(--neon-magenta);
 }
 
 #level-up-container h2 {
-    background: linear-gradient(90deg, #00ffff, #ff00ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--neon-magenta);
     margin-top: 0;
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 900;
-    text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
-    letter-spacing: 2px;
+    text-shadow: 0 0 15px var(--neon-magenta);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--neon-magenta);
+    padding-bottom: 10px;
+    display: inline-block;
 }
 
 #upgrade-options {
     display: flex;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 15px;
+    margin-top: 25px;
     justify-content: center;
     flex-wrap: wrap;
 }
 
 .upgrade-option {
-    background: linear-gradient(135deg, rgba(20, 20, 40, 0.9), rgba(40, 20, 60, 0.9));
-    padding: 15px;
-    border-radius: 8px;
-    border: 1px solid #00ffff;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 20px;
     cursor: pointer;
-    transition: transform 0.2s, background-color 0.2s, box-shadow 0.3s;
+    transition: all 0.2s;
     flex: 1;
-    min-width: 150px;
-    max-width: 200px;
+    min-width: 160px;
+    max-width: 220px;
     display: flex;
     flex-direction: column;
     align-items: center;
     position: relative;
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
-    will-change: transform, box-shadow;
+    
+    /* Cut corners */
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+}
+
+/* Upgrade option border pseudo */
+.upgrade-option::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 2px solid currentColor; /* Inherits color from rarity */
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+    pointer-events: none;
 }
 
 .upgrade-option:hover {
-    background: linear-gradient(135deg, rgba(30, 30, 60, 0.95), rgba(60, 30, 90, 0.95));
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 0 30px currentColor;
+}
     transform: translateY(-5px) scale(1.05);
     box-shadow: 0 0 25px rgba(0, 255, 255, 0.6), 0 0 50px rgba(255, 0, 255, 0.3);
 }
@@ -833,80 +943,86 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: #111;
+    background-color: var(--bg-dark);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    /* Grid background */
+    background-image: 
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
 #loading-screen h1 {
-    font-size: 48px;
+    font-size: 64px;
     font-weight: 900;
-    background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 20px;
-    text-shadow: 0 0 24px rgba(0, 255, 255, 0.4), 0 0 36px rgba(255, 0, 255, 0.3);
-    animation: title-glow 3s infinite alternate;
+    color: var(--neon-cyan);
+    text-transform: uppercase;
+    letter-spacing: 8px;
+    margin-bottom: 30px;
+    text-shadow: 
+        0 0 10px var(--neon-cyan),
+        0 0 20px var(--neon-cyan),
+        0 0 40px var(--neon-cyan);
+    animation: title-glitch 3s infinite alternate;
+    font-family: 'Courier New', monospace;
 }
 
-@keyframes title-glow {
-    from {
-        text-shadow: 0 0 18px rgba(0, 255, 255, 0.35);
-    }
-
-    to {
-        text-shadow: 0 0 28px rgba(255, 0, 255, 0.4);
-    }
+@keyframes title-glitch {
+    0% { text-shadow: 2px 0 var(--neon-magenta), -2px 0 var(--neon-yellow); }
+    25% { text-shadow: -2px 0 var(--neon-magenta), 2px 0 var(--neon-yellow); }
+    50% { text-shadow: 2px 0 var(--neon-magenta), -2px 0 var(--neon-yellow); }
+    75% { text-shadow: -2px 0 var(--neon-magenta), 2px 0 var(--neon-yellow); }
+    100% { text-shadow: 2px 0 var(--neon-magenta), -2px 0 var(--neon-yellow); }
 }
 
 #loading-bar {
-    width: 300px;
-    height: 20px;
-    background-color: #333;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-top: 20px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    width: 400px;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--neon-cyan);
+    /* Cut corners */
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+    padding: 2px;
+    box-shadow: 0 0 15px var(--neon-cyan);
 }
 
 #loading-progress {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, #00ffff, #ff00ff);
+    background: var(--neon-cyan);
     transition: width 0.3s;
-    background-image: linear-gradient(45deg,
-            rgba(255, 255, 255, 0.15) 25%,
-            transparent 25%,
-            transparent 50%,
-            rgba(255, 255, 255, 0.15) 50%,
-            rgba(255, 255, 255, 0.15) 75%,
-            transparent 75%,
-            transparent);
-    background-size: 40px 40px;
-    animation: progress-bar-stripes 1s linear infinite;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
-}
-
-@keyframes progress-bar-stripes {
-    from {
-        background-position: 40px 0;
-    }
-
-    to {
-        background-position: 0 0;
-    }
+    box-shadow: 0 0 10px var(--neon-cyan);
+    /* Striped effect */
+    background-image: linear-gradient(
+        45deg,
+        rgba(0, 0, 0, 0.2) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(0, 0, 0, 0.2) 50%,
+        rgba(0, 0, 0, 0.2) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 20px 20px;
 }
 
 #loading-tip {
-    margin-top: 20px;
-    font-style: italic;
-    opacity: 0.8;
+    margin-top: 25px;
+    font-family: 'Courier New', monospace;
+    color: var(--neon-yellow);
+    text-shadow: 0 0 5px var(--neon-yellow);
     text-align: center;
     max-width: 80%;
+    font-size: 18px;
+    letter-spacing: 1px;
 }
 
 #loading-screen.hidden {
@@ -919,7 +1035,7 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: radial-gradient(circle at top, rgba(12, 12, 32, 0.95), rgba(5, 5, 15, 0.98));
+    background: rgba(5, 5, 10, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -936,10 +1052,15 @@ body {
     width: 100%;
     max-width: 540px;
     padding: clamp(20px, 3vh, 32px);
-    background: rgba(10, 10, 25, 0.9);
-    border: 2px solid rgba(255, 99, 99, 0.6);
-    border-radius: 12px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+    background: rgba(20, 0, 0, 0.9);
+    border: 2px solid var(--neon-red);
+    /* Cut corners */
+    clip-path: polygon(
+        20px 0, 100% 0, 
+        100% calc(100% - 20px), calc(100% - 20px) 100%, 
+        0 100%, 0 20px
+    );
+    box-shadow: 0 0 40px rgba(255, 0, 68, 0.4);
     text-align: center;
 }
 
@@ -947,31 +1068,41 @@ body {
     margin-top: 0;
     margin-bottom: clamp(10px, 1.5vh, 16px);
     font-size: clamp(22px, 4vw, 30px);
-    color: #ff7676;
+    color: var(--neon-red);
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 4px;
+    text-shadow: 0 0 10px var(--neon-red);
 }
 
 #fatal-error-message {
     margin: 0 0 clamp(16px, 3vh, 24px) 0;
-    color: #f5f5f5;
+    color: #fff;
     line-height: 1.5;
     font-size: clamp(14px, 2.5vw, 18px);
+    font-family: 'Courier New', monospace;
 }
 
 #fatal-error-restart {
     margin-top: clamp(10px, 2vh, 18px);
+    background: transparent;
+    border: 1px solid var(--neon-red);
+    color: var(--neon-red);
+    padding: 10px 20px;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#fatal-error-restart:hover {
+    background: var(--neon-red);
+    color: #000;
+    box-shadow: 0 0 15px var(--neon-red);
 }
 
 @keyframes fade-out {
-    from {
-        opacity: 1;
-    }
-
-    to {
-        opacity: 0;
-        visibility: hidden;
-    }
+    from { opacity: 1; }
+    to { opacity: 0; visibility: hidden; }
 }
 
 /* Pause screen styles */
@@ -980,61 +1111,74 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.7);
-    padding: 30px 50px;
-    border-radius: 10px;
+    background-color: var(--bg-panel);
+    padding: 40px 60px;
+    /* Hexagon */
+    clip-path: polygon(
+        20px 0, calc(100% - 20px) 0, 
+        100% 50%, calc(100% - 20px) 100%, 
+        20px 100%, 0 50%
+    );
     text-align: center;
-    font-size: 36px;
+    font-size: 48px;
     font-weight: bold;
-    color: white;
+    color: var(--neon-cyan);
     z-index: 150;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
-    border: 2px solid #3498db;
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+    /* Border trick */
+    border: none;
     animation: pulse-overlay 2s infinite;
 }
 
+/* Pseudo-element for border */
+.overlay-message::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 2px solid var(--neon-cyan);
+    clip-path: polygon(
+        20px 0, calc(100% - 20px) 0, 
+        100% 50%, calc(100% - 20px) 100%, 
+        20px 100%, 0 50%
+    );
+    pointer-events: none;
+}
+
 .pause-subtext {
-    font-size: 18px;
+    font-size: 20px;
     margin-top: 15px;
     opacity: 0.8;
     font-weight: normal;
+    color: var(--neon-yellow);
+    text-shadow: 0 0 5px var(--neon-yellow);
+    letter-spacing: 2px;
 }
 
 @keyframes pulse-overlay {
-    0% {
-        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
-    }
-
-    70% {
-        box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
-    }
+    0% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.02); }
+    100% { transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes fade-in {
-    from {
-        opacity: 0;
-        transform: translate(-50%, -60%);
-    }
-
-    to {
-        opacity: 1;
-        transform: translate(-50%, -50%);
-    }
+    from { opacity: 0; transform: translate(-50%, -60%); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 .control-button {
     position: absolute;
     top: 20px;
     right: 90px;
-    background-color: rgba(0, 0, 0, 0.5);
-    color: white;
-    border: 2px solid #3498db;
-    border-radius: 50%;
-    width: 40px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: var(--neon-cyan);
+    border: 1px solid var(--neon-cyan);
+    /* Hexagon button */
+    clip-path: polygon(
+        25% 0%, 75% 0%, 
+        100% 50%, 75% 100%, 
+        25% 100%, 0% 50%
+    );
+    width: 45px;
     height: 40px;
     font-size: 20px;
     cursor: pointer;
@@ -1043,49 +1187,68 @@ body {
     justify-content: center;
     transition: all 0.2s;
     z-index: 100;
+    box-shadow: 0 0 5px var(--neon-cyan);
 }
 
 .control-button:hover {
-    background-color: rgba(52, 152, 219, 0.3);
+    background-color: var(--neon-cyan);
+    color: #000;
     transform: scale(1.1);
+    box-shadow: 0 0 15px var(--neon-cyan);
 }
 
 #controls-info {
     position: absolute;
-    top: 65px;
+    top: 70px;
     right: 20px;
-    background: rgba(10, 10, 31, 0.85);
-    padding: 8px 10px;
-    border-radius: 8px;
-    font-size: 11px;
-    color: #ecf0f1;
+    background: var(--bg-panel);
+    padding: 15px;
+    /* Cut corner */
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+    font-size: 12px;
+    color: #fff;
     width: auto;
-    border: 2px solid rgba(52, 152, 219, 0.4);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(52, 152, 219, 0.2);
+    border: none; /* Handled by pseudo if needed */
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
     z-index: 90;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
+}
+
+#controls-info::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 1px solid var(--neon-cyan);
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+    pointer-events: none;
 }
 
 .control-row {
     white-space: nowrap;
-    line-height: 1.4;
+    line-height: 1.6;
+    font-family: 'Courier New', monospace;
 }
 
 .control-key {
     display: inline-block;
-    background: linear-gradient(135deg, rgba(52, 152, 219, 0.25), rgba(52, 152, 219, 0.15));
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-weight: bold;
-    color: #3498db;
-    font-size: 10px;
-    border: 1px solid rgba(52, 152, 219, 0.5);
-    margin: 0 1px;
-    text-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 6px;
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-size: 11px;
+    margin: 0 2px;
+    box-shadow: 0 0 3px var(--neon-cyan);
+    text-transform: uppercase;
 }
 
 #pause-menu {
@@ -1103,12 +1266,33 @@ body {
 }
 
 .pause-content {
-    background-color: rgba(20, 20, 20, 0.9);
-    padding: 30px 50px;
-    border-radius: 10px;
+    background-color: var(--bg-panel);
+    padding: 40px 60px;
+    /* Octagon */
+    clip-path: polygon(
+        20px 0, calc(100% - 20px) 0, 
+        100% 20px, 100% calc(100% - 20px), 
+        calc(100% - 20px) 100%, 20px 100%, 
+        0 calc(100% - 20px), 0 20px
+    );
     text-align: center;
-    border: 2px solid #3498db;
-    box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
+    /* Border trick */
+    position: relative;
+}
+
+.pause-content::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 2px solid var(--neon-cyan);
+    clip-path: polygon(
+        20px 0, calc(100% - 20px) 0, 
+        100% 20px, 100% calc(100% - 20px), 
+        calc(100% - 20px) 100%, 20px 100%, 
+        0 calc(100% - 20px), 0 20px
+    );
+    pointer-events: none;
+    box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.2);
 }
 
 .pause-content h2 {
@@ -1123,26 +1307,34 @@ body {
 }
 
 .menu-button {
-    background: linear-gradient(135deg, #00ffff, #0088ff);
-    border: 2px solid #00ffff;
-    color: #0a0a1f;
-    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    padding: 15px 30px;
     margin: 10px;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
-    border-radius: 5px;
     cursor: pointer;
-    transition: all 0.3s;
-    min-width: 150px;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    transition: all 0.2s;
+    min-width: 180px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
+    font-family: 'Courier New', monospace;
+    
+    /* Cut corners */
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
 }
 
 .menu-button:hover {
-    background: linear-gradient(135deg, #00ffff, #ff00ff);
+    background: var(--neon-cyan);
+    color: #000;
     transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 0 30px rgba(0, 255, 255, 0.8), 0 0 60px rgba(255, 0, 255, 0.4);
+    box-shadow: 0 0 20px var(--neon-cyan);
 }
 
 /* Minimap styles */
@@ -1150,32 +1342,38 @@ body {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.9), rgba(20, 10, 40, 0.9));
-    border-radius: 10px;
+    background: var(--bg-panel);
     padding: 10px;
-    border: 1px solid rgba(0, 255, 255, 0.25);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 255, 255, 0.15);
+    border-radius: 50%;
+    box-shadow: 0 0 15px rgba(0, 255, 100, 0.2);
     transition: all 0.3s ease;
 }
 
-#minimap-container.minimap-alert {
-    border-color: rgba(231, 76, 60, 0.5);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(231, 76, 60, 0.4);
-    animation: pulse 1s infinite;
+/* Minimap border pseudo */
+#minimap-container::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 2px solid var(--neon-cyan);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+#minimap-container.minimap-alert::before {
+    border-color: var(--neon-red);
+    box-shadow: 0 0 20px var(--neon-red);
+    animation: pulse-border 1s infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: var(--neon-red); box-shadow: 0 0 10px var(--neon-red); }
+    50% { border-color: #fff; box-shadow: 0 0 20px var(--neon-red); }
 }
 
 @keyframes pulse {
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.05);
-    }
-
-    100% {
-        transform: scale(1);
-    }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
 #boss-direction {
@@ -1186,10 +1384,11 @@ body {
     height: 20px;
     margin-left: -10px;
     margin-top: -10px;
-    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23f1c40f" d="M12 2L4 12h16z"/></svg>') no-repeat center;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23ffff00" d="M12 2L4 12h16z"/></svg>') no-repeat center;
     background-size: contain;
     transition: transform 0.1s ease;
     pointer-events: none;
+    filter: drop-shadow(0 0 5px var(--neon-yellow));
 }
 
 #boss-direction.hidden {
@@ -1198,16 +1397,16 @@ body {
 
 #boss-distance {
     position: absolute;
-    top: 10px;
+    top: 5px;
     left: 50%;
     transform: translateX(-50%);
-    color: #f1c40f;
-    font-size: 14px;
+    color: var(--neon-yellow);
+    font-size: 12px;
     font-weight: bold;
-    text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-    background: rgba(0, 0, 0, 0.7);
-    padding: 2px 8px;
-    border-radius: 4px;
+    text-shadow: 0 0 5px var(--neon-yellow);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2px 6px;
+    font-family: 'Courier New', monospace;
 }
 
 #boss-distance.hidden {
@@ -1215,43 +1414,45 @@ body {
 }
 
 #minimap {
-    border-radius: 5px;
-    border: 1px solid rgba(0, 255, 255, 0.25);
-    transition: border-color 0.3s ease;
-    box-shadow: 0 0 8px rgba(0, 255, 255, 0.1);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
 }
 
 #minimap-container.minimap-alert #minimap {
-    border-color: rgba(231, 76, 60, 0.5);
-    box-shadow: 0 0 12px rgba(231, 76, 60, 0.3);
+    /* Handled by pseudo */
 }
 
 /* Skill cooldown indicator */
 #skill-container {
     position: absolute;
     bottom: 20px;
-    right: 20px;
+    right: 180px; /* Moved left of minimap */
     display: flex;
-    gap: 10px;
+    gap: 15px;
     z-index: 50;
 }
 
 .skill {
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.85), rgba(20, 10, 40, 0.85));
-    border: 1px solid rgba(52, 152, 219, 0.4);
-    border-radius: 8px;
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--neon-cyan);
+    /* Cut corners */
+    clip-path: polygon(
+        10px 0, 100% 0, 
+        100% calc(100% - 10px), calc(100% - 10px) 100%, 
+        0 100%, 0 10px
+    );
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(52, 152, 219, 0.15);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
 }
 
 .skill-icon {
-    font-size: 24px;
-    filter: drop-shadow(0 0 4px rgba(52, 152, 219, 0.5));
+    font-size: 28px;
+    filter: drop-shadow(0 0 5px var(--neon-cyan));
 }
 
 .skill-cooldown {
@@ -1259,44 +1460,38 @@ body {
     bottom: 0;
     left: 0;
     width: 100%;
-    background: linear-gradient(180deg, rgba(52, 152, 219, 0.6), rgba(52, 152, 219, 0.4));
+    background: rgba(0, 255, 255, 0.3);
     height: 0%;
     transition: height 0.1s linear;
-    border-radius: 0 0 8px 8px;
 }
 
 .skill-key {
     position: absolute;
-    bottom: -22px;
-    font-size: 10px;
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.9), rgba(20, 10, 40, 0.9));
-    padding: 3px 6px;
-    border-radius: 4px;
-    border: 1px solid rgba(52, 152, 219, 0.3);
-    color: #3498db;
-    text-shadow: 0 0 4px rgba(52, 152, 219, 0.5);
+    bottom: -25px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 4px 8px;
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    text-shadow: 0 0 5px var(--neon-cyan);
+    font-family: 'Courier New', monospace;
 }
 
 /* Trail effect for player */
 .player-trail {
     position: absolute;
-    border-radius: 50%;
-    background-color: rgba(52, 152, 219, 0.3);
+    /* Square trail for geometric vibe */
+    width: 10px; height: 10px;
+    background-color: rgba(0, 255, 255, 0.4);
     pointer-events: none;
     z-index: 5;
     animation: fade-out-fast 0.5s forwards;
+    transform: rotate(45deg); /* Diamond shape */
 }
 
 @keyframes fade-out-fast {
-    from {
-        opacity: 0.7;
-        transform: scale(1);
-    }
-
-    to {
-        opacity: 0;
-        transform: scale(0.5);
-    }
+    from { opacity: 0.7; transform: scale(1) rotate(45deg); }
+    to { opacity: 0; transform: scale(0.5) rotate(45deg); }
 }
 
 /* Tutorial tip animation */
@@ -1304,6 +1499,9 @@ body {
     animation: fade-in 0.5s, fade-out-delayed 1s 4s forwards;
     font-size: 24px;
     max-width: 80%;
+    font-family: 'Courier New', monospace;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan);
 }
 
 .tutorial-subtip {
@@ -1312,17 +1510,12 @@ body {
     font-weight: normal;
     display: block;
     margin-top: 10px;
+    color: var(--neon-yellow);
 }
 
 @keyframes fade-out-delayed {
-    from {
-        opacity: 1;
-    }
-
-    to {
-        opacity: 0;
-        visibility: hidden;
-    }
+    from { opacity: 1; }
+    to { opacity: 0; visibility: hidden; }
 }
 
 /* Sound toggle button */
@@ -1334,51 +1527,40 @@ body {
 /* Game Over tip styles */
 .game-over-tip {
     font-style: italic;
-    color: #3498db;
+    color: var(--neon-cyan);
     font-size: 14px;
     margin-top: 15px;
-    background-color: rgba(52, 152, 219, 0.1);
-    padding: 8px;
-    border-radius: 5px;
+    background-color: rgba(0, 255, 255, 0.1);
+    padding: 10px;
+    border: 1px solid var(--neon-cyan);
+    /* Cut corners */
+    clip-path: polygon(
+        5px 0, 100% 0, 
+        100% calc(100% - 5px), calc(100% - 5px) 100%, 
+        0 100%, 0 5px
+    );
 }
 
 /* Add pulsing effect to skill when it's ready */
 .skill-ready {
     animation: pulse-skill 1.5s infinite;
+    border-color: var(--neon-yellow);
+    box-shadow: 0 0 15px var(--neon-yellow);
 }
 
 @keyframes pulse-skill {
-    0% {
-        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
-    }
-
-    70% {
-        box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
-    }
+    0% { box-shadow: 0 0 5px var(--neon-yellow); }
+    50% { box-shadow: 0 0 20px var(--neon-yellow); }
+    100% { box-shadow: 0 0 5px var(--neon-yellow); }
 }
 
 /* Minimap border highlight when enemies are close */
 .minimap-alert {
-    border-color: #e74c3c;
-    animation: pulse-minimap 1s infinite;
+    /* Handled by pseudo element above */
 }
 
 @keyframes pulse-minimap {
-    0% {
-        border-color: #e74c3c;
-    }
-
-    50% {
-        border-color: #f39c12;
-    }
-
-    100% {
-        border-color: #e74c3c;
-    }
+    /* Handled by pulse-border above */
 }
 
 /* Enemy display counts above minimap */
@@ -1386,11 +1568,13 @@ body {
     position: absolute;
     bottom: 175px;
     right: 20px;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.8);
     padding: 5px 10px;
-    border-radius: 5px;
+    border: 1px solid var(--neon-red);
     font-size: 14px;
-    color: #e74c3c;
+    color: var(--neon-red);
+    font-family: 'Courier New', monospace;
+    box-shadow: 0 0 5px var(--neon-red);
 }
 
 /* Keyboard shortcut indicators */
@@ -1398,45 +1582,53 @@ body {
     position: absolute;
     top: 10px;
     left: 10px;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
     width: 24px;
     height: 24px;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    border: 2px solid #fff;
+    border: 1px solid #fff;
     font-size: 14px;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    font-family: 'Courier New', monospace;
+    /* Square key */
 }
 
 /* Highlight the shortcut key when hovering over the upgrade option */
 .upgrade-option:hover .shortcut-key {
-    background-color: rgba(52, 152, 219, 0.8);
+    background-color: var(--neon-cyan);
+    color: #000;
+    border-color: var(--neon-cyan);
 }
 
 /* Different colors for different rarity levels */
 .upgrade-option[data-rarity="uncommon"] .shortcut-key {
-    border-color: #2ecc71;
+    border-color: var(--neon-lime);
+    color: var(--neon-lime);
 }
 
 .upgrade-option[data-rarity="rare"] .shortcut-key {
-    border-color: #f1c40f;
+    border-color: var(--neon-yellow);
+    color: var(--neon-yellow);
 }
 
 .upgrade-option[data-rarity="epic"] .shortcut-key {
-    border-color: #9b59b6;
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
 }
 
 /* Shortcut hint styles */
 .shortcut-hint {
     color: #aaa;
-    font-size: 14px;
+    font-size: 12px;
     font-style: italic;
     margin-top: -5px;
     margin-bottom: 15px;
+    font-family: 'Courier New', monospace;
+
 }
 
 .shortcut-hint.secondary-hint {
@@ -1884,7 +2076,7 @@ body {
 .title-galactic {
     font-size: clamp(28px, 5vw, 52px);
     /* Scales: 28px (mobile) → 52px (desktop) */
-    background: linear-gradient(90deg, #00ffff, #0088ff);
+    background: linear-gradient(90deg, #00ff99, #00ff33);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -1894,7 +2086,7 @@ body {
 .title-ring {
     font-size: clamp(28px, 5vw, 52px);
     /* Match galactic size for same line */
-    background: linear-gradient(90deg, #ff00ff, #ff6b9d);
+    background: linear-gradient(90deg, #ff0055, #ff3333);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -1905,7 +2097,7 @@ body {
 .title-cannon {
     font-size: clamp(36px, 6.5vw, 64px);
     /* Larger: 36px (mobile) → 64px (desktop) */
-    background: linear-gradient(90deg, #00ff88, #00ffff);
+    background: linear-gradient(90deg, #ffcc00, #00ff33);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -2139,16 +2331,16 @@ body {
 }
 
 .menu-button {
-    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.1));
-    border: 2px solid #00ffff;
-    color: #00ffff;
+    background: linear-gradient(135deg, rgba(0, 255, 153, 0.1), rgba(255, 0, 85, 0.1));
+    border: 2px solid var(--neon-cyan);
+    color: var(--neon-cyan);
     padding: 16px 24px;
     font-size: 18px;
     font-weight: bold;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 255, 153, 0.3);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -2167,7 +2359,7 @@ body {
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 153, 0.3), transparent);
     transition: left 0.5s ease;
 }
 
@@ -2176,11 +2368,11 @@ body {
 }
 
 .menu-button:hover {
-    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2));
+    background: linear-gradient(135deg, rgba(0, 255, 153, 0.2), rgba(255, 0, 85, 0.2));
     transform: translateX(8px) scale(1.02);
-    box-shadow: 0 0 35px rgba(0, 255, 255, 0.6), 0 0 60px rgba(255, 0, 255, 0.3);
-    border-color: #ff00ff;
-    color: #ff00ff;
+    box-shadow: 0 0 35px rgba(0, 255, 153, 0.6), 0 0 60px rgba(255, 0, 85, 0.3);
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
 }
 
 .menu-button:active {
@@ -2188,9 +2380,9 @@ body {
 }
 
 .menu-button-primary {
-    border-color: #ff00ff;
-    color: #ff00ff;
-    box-shadow: 0 0 25px rgba(255, 0, 255, 0.4);
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+    box-shadow: 0 0 25px rgba(255, 0, 85, 0.4);
     animation: primary-glow 2s ease-in-out infinite;
 }
 
@@ -2198,17 +2390,17 @@ body {
 
     0%,
     100% {
-        box-shadow: 0 0 25px rgba(255, 0, 255, 0.4);
+        box-shadow: 0 0 25px rgba(255, 0, 85, 0.4);
     }
 
     50% {
-        box-shadow: 0 0 35px rgba(255, 0, 255, 0.6), 0 0 60px rgba(0, 255, 255, 0.3);
+        box-shadow: 0 0 35px rgba(255, 0, 85, 0.6), 0 0 60px rgba(0, 255, 153, 0.3);
     }
 }
 
 .menu-button-primary:hover {
-    border-color: #00ffff;
-    color: #00ffff;
+    border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
 }
 
 .button-icon {
@@ -2414,16 +2606,16 @@ body {
     max-height: 90vh;
     box-sizing: border-box;
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.95), rgba(20, 10, 40, 0.95));
+    background: linear-gradient(135deg, rgba(5, 10, 5, 0.95), rgba(10, 5, 5, 0.95));
     border-radius: clamp(10px, 1.5vw, 16px);
-    border: 2px solid rgba(0, 255, 255, 0.3);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 255, 255, 0.2);
+    border: 2px solid var(--neon-cyan);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 255, 153, 0.2);
 }
 
 #settings-panel h2 {
     margin: 0 0 clamp(20px, 3vh, 30px) 0;
     font-size: clamp(24px, 4vw, 36px);
-    background: linear-gradient(90deg, #00ffff, #ff00ff);
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -2540,10 +2732,10 @@ body {
     box-sizing: border-box;
     overflow: hidden;
     /* NO SCROLLING - everything fits on screen */
-    background: linear-gradient(135deg, rgba(10, 10, 31, 0.95), rgba(20, 10, 40, 0.95));
+    background: linear-gradient(135deg, rgba(5, 10, 5, 0.95), rgba(10, 5, 5, 0.95));
     border-radius: clamp(10px, 1.5vw, 16px);
-    border: 2px solid rgba(241, 196, 15, 0.4);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 40px rgba(241, 196, 15, 0.25);
+    border: 2px solid var(--neon-yellow);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 204, 0, 0.25);
 }
 
 /* Remove custom scrollbar styles since we don't scroll */
@@ -2551,7 +2743,7 @@ body {
 #shop-panel h2 {
     margin: 0 0 clamp(8px, 1.5vh, 15px) 0;
     font-size: clamp(22px, 3.8vw, 34px);
-    background: linear-gradient(90deg, #f1c40f, #ff00ff);
+    background: linear-gradient(90deg, var(--neon-yellow), var(--neon-magenta));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -2872,9 +3064,9 @@ body {
     width: min(100%, 1100px);
     height: 90vh;
     padding: clamp(16px, 2.4vh, 28px);
-    background: rgba(6, 10, 24, 0.85);
+    background: rgba(5, 10, 5, 0.85);
     border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--neon-cyan);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     overflow: hidden;
     backdrop-filter: blur(12px);

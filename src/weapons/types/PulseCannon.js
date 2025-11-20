@@ -113,7 +113,34 @@ class PulseCannonWeapon {
 
         this.combat.fireProjectile(game, baseAngle, overrides);
 
+        this._createMuzzleFlash(baseAngle);
+
         return true;
+    }
+
+    _createMuzzleFlash(angle) {
+        if (!window.optimizedParticles) return;
+        
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
+
+        if (isHighLoad && Math.random() > 0.5) return;
+
+        const speed = 80 + Math.random() * 40;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        
+        pool.spawnParticle({
+            x: this.player.x,
+            y: this.player.y,
+            vx,
+            vy,
+            size: 2 + Math.random(),
+            color: '#ffffff',
+            life: 0.15,
+            type: 'spark'
+        });
     }
 
     fireImmediate(game) {

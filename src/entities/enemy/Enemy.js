@@ -252,6 +252,80 @@ class Enemy {
     createDeathEffect() {
         // Death effect is handled by abilities component
         this.abilities.onDeath(window.gameManager?.game);
+
+        // Add optimized particle burst
+        if (window.optimizedParticles) {
+            const pool = window.optimizedParticles;
+            const poolPressure = pool.activeParticles.length / pool.maxParticles;
+            const isHighLoad = poolPressure > 0.7;
+
+            // Scale effect based on enemy type
+            let count = isHighLoad ? 4 : 8;
+            let size = 3;
+            let color = this.color || '#e74c3c';
+
+            if (this.isBoss) {
+                count = isHighLoad ? 12 : 24;
+                size = 5;
+            } else if (this.isElite) {
+                count = isHighLoad ? 6 : 12;
+                size = 4;
+            }
+
+            // Burst
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count;
+                const speed = (50 + Math.random() * 50) * (this.isBoss ? 2 : 1);
+                
+                pool.spawnParticle({
+                    x: this.x,
+                    y: this.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: size + Math.random() * 2,
+                    color: color,
+                    life: 0.5 + Math.random() * 0.3,
+                    type: 'spark'
+                });
+            }
+
+            // Shockwave ring for elites/bosses
+            if (this.isBoss || this.isElite) {
+                pool.spawnParticle({
+                    x: this.x,
+                    y: this.y,
+                    vx: 0,
+                    vy: 0,
+                    size: this.radius, // Starts at enemy size
+                    color: color,
+                    life: 0.4,
+                    type: 'ring',
+                    // Custom property for ring expansion handled in update? 
+                    // OptimizedParticlePool doesn't support custom update logic per particle easily.
+                    // But we can give it velocity to expand? No, ring radius is size.
+                    // We can fake expansion by using a large size and fading out?
+                    // Or just let it be a static ring that fades.
+                    // Actually, let's use 'basic' with high transparency for a "flash"
+                });
+                
+                // Since 'ring' type is just a stroked circle, it won't expand unless we modify update logic.
+                // But for now, a static fading ring is better than nothing.
+                // To make it expand, we'd need to change size in update.
+                // OptimizedParticlePool.updateParticle doesn't change size.
+                // Let's stick to sparks for now, maybe a 'glow' (large basic particle)
+                 pool.spawnParticle({
+                    x: this.x,
+                    y: this.y,
+                    vx: 0,
+                    vy: 0,
+                    size: this.radius * 2,
+                    color: color,
+                    life: 0.2,
+                    alpha: 0.3,
+                    type: 'basic'
+                });
+            }
+        }
     }
 
     /**

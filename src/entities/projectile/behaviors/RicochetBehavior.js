@@ -42,6 +42,23 @@ class RicochetBehavior extends ProjectileBehaviorBase {
         this._bounceToTarget(newTarget);
         this.usedBounces++;
 
+        // SYNERGY: Reset Chain Lightning on bounce
+        // This allows the projectile to unleash a new set of chains from the new position
+        const chainBehavior = this.projectile.behaviorManager.getBehavior('chain');
+        if (chainBehavior) {
+            chainBehavior.chainsUsed = 0;
+            chainBehavior.chainedEnemies.clear();
+            // Add the new target to chained enemies so we don't immediately chain back to it
+            chainBehavior.chainedEnemies.add(newTarget.id);
+            
+            if (window.logger?.isDebugEnabled?.('projectiles')) {
+                window.logger.log(`[RicochetBehavior] Reset ChainBehavior for projectile ${this.projectile.id}`);
+            }
+        }
+
+        // Visual feedback for bounce
+        this._createBounceVisual();
+
         // Track ricochet for achievements (total bounces + 1 for initial hit)
         const totalHits = this.usedBounces + 1;
         const gm = window.gameManager || window.gameManagerBridge;
@@ -129,5 +146,40 @@ class RicochetBehavior extends ProjectileBehaviorBase {
                 }
             }
         }
+    }
+
+    /**
+     * Create visual effect for bounce
+     */
+    _createBounceVisual() {
+        if (!window.optimizedParticles) return;
+
+        const pool = window.optimizedParticles;
+        const x = this.projectile.x;
+        const y = this.projectile.y;
+
+        // Small ring
+        for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 * i) / 8;
+            pool.spawnParticle({
+                x, y,
+                vx: Math.cos(angle) * 50,
+                vy: Math.sin(angle) * 50,
+                size: 3,
+                color: '#3498db', // Blue ring
+                life: 0.3,
+                type: 'spark'
+            });
+        }
+
+        // Flash
+        pool.spawnParticle({
+            x, y,
+            vx: 0, vy: 0,
+            size: 8,
+            color: '#ffffff',
+            life: 0.15,
+            type: 'basic'
+        });
     }
 }

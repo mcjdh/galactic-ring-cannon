@@ -114,7 +114,34 @@ class SanguineLanceWeapon {
 
         this.combat.fireProjectile(game, baseAngle, overrides);
 
+        this._createMuzzleFlash(baseAngle);
+
         return true;
+    }
+
+    _createMuzzleFlash(angle) {
+        if (!window.optimizedParticles) return;
+        
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
+
+        if (isHighLoad && Math.random() > 0.5) return;
+
+        const speed = 100 + Math.random() * 50;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        
+        pool.spawnParticle({
+            x: this.player.x,
+            y: this.player.y,
+            vx,
+            vy,
+            size: 2 + Math.random() * 2,
+            color: '#e74c3c', // Crimson
+            life: 0.15,
+            type: 'spark'
+        });
     }
 
     fireImmediate(game) {

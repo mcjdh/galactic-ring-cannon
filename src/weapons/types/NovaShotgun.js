@@ -158,26 +158,37 @@ class NovaShotgunWeapon {
     }
 
     _createMuzzleFlash(angle) {
-        const helpers = window.Game?.ParticleHelpers;
-        const stats = helpers?.getParticleStats?.();
-        if (stats?.lowQuality) return;
+        if (!window.optimizedParticles) return;
+        
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
 
-        const count = helpers?.calculateSpawnCount?.(12) ?? 12;
+        // Reduce particles under load
+        const count = isHighLoad ? 6 : 12;
+        
+        // Determine color based on state
+        let color = '#f39c12'; // Default orange
+        if (this.forceExplosive) {
+            color = '#e74c3c'; // Red for explosive rounds
+        }
+
         for (let i = 0; i < count; i++) {
             const spread = (Math.random() - 0.5) * 0.6;
             const speed = 180 + Math.random() * 120;
             const vx = Math.cos(angle + spread) * speed;
             const vy = Math.sin(angle + spread) * speed;
-            this.player.spawnParticle(
-                this.player.x,
-                this.player.y,
+            
+            pool.spawnParticle({
+                x: this.player.x,
+                y: this.player.y,
                 vx,
                 vy,
-                3 + Math.random() * 2,
-                '#f39c12',
-                0.25,
-                'spark'
-            );
+                size: 3 + Math.random() * 2,
+                color: i % 2 === 0 ? color : '#ffffff',
+                life: 0.25,
+                type: 'spark'
+            });
         }
     }
 

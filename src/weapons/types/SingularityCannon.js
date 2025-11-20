@@ -124,7 +124,34 @@ class SingularityCannonWeapon {
 
         this.combat.fireProjectile(game, baseAngle, overrides);
 
+        this._createMuzzleFlash(baseAngle);
+
         return true;
+    }
+
+    _createMuzzleFlash(angle) {
+        if (!window.optimizedParticles) return;
+        
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
+
+        if (isHighLoad && Math.random() > 0.5) return;
+
+        const speed = 60 + Math.random() * 30;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        
+        pool.spawnParticle({
+            x: this.player.x,
+            y: this.player.y,
+            vx,
+            vy,
+            size: 3 + Math.random() * 2,
+            color: '#9b59b6', // Purple/Void
+            life: 0.25,
+            type: 'spark'
+        });
     }
 
     fireImmediate(game) {

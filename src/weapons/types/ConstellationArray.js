@@ -159,7 +159,64 @@ class ConstellationArrayWeapon {
         return angle;
     }
 
+    _createMuzzleFlash(x, y, angle, color = '#aef3ff') {
+        if (!window.optimizedParticles) return;
+
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
+
+        // Directional burst
+        const count = isHighLoad ? 2 : 4;
+        for (let i = 0; i < count; i++) {
+            const spread = (Math.random() - 0.5) * 0.5;
+            const speed = 80 + Math.random() * 40;
+            const vx = Math.cos(angle + spread) * speed;
+            const vy = Math.sin(angle + spread) * speed;
+            
+            pool.spawnParticle({
+                x,
+                y,
+                vx,
+                vy,
+                size: 2 + Math.random(),
+                color: color,
+                life: 0.2,
+                type: 'spark'
+            });
+        }
+
+        // Glow (single particle)
+        if (!isHighLoad) {
+            pool.spawnParticle({
+                x,
+                y,
+                vx: 0,
+                vy: 0,
+                size: 20,
+                color: color,
+                life: 0.1,
+                alpha: 0.4,
+                type: 'basic'
+            });
+        }
+    }
+
     _spawnOrbitalBurstEffect(volleyCount) {
+        if (window.optimizedParticles) {
+            const radius = 42;
+            const FastMath = window.Game?.FastMath;
+            for (let i = 0; i < volleyCount; i++) {
+                const angle = this.rotationOffset + (i / volleyCount) * Math.PI * 2;
+                const trig = FastMath ? FastMath.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
+                const x = this.player.x + trig.cos * radius;
+                const y = this.player.y + trig.sin * radius;
+                
+                this._createMuzzleFlash(x, y, angle, '#aef3ff');
+            }
+            return;
+        }
+
         if (!this.player?.spawnParticle) {
             return;
         }

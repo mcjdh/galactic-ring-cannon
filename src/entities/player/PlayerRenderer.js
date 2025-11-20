@@ -25,70 +25,164 @@ class PlayerRenderer {
     }
 
     renderPlayerBody(ctx) {
-        const sprites = this._ensureSprites();
         const x = this.player.x;
         const y = this.player.y;
         const radius = this.player.radius;
+        const rotation = this.player.rotation || 0;
+        const color = this.player.color || '#00ffff';
+        const glowColor = this.player.glowColor || '#00ffff';
 
-        if (!sprites) {
-            const haloColor = PlayerRenderer._colorWithAlpha('#00ffff', 0.4);
-            const coreColor = '#00aaff';
-            const highlightColor = 'rgba(255,255,255,0.6)';
+        // POLYBIUS VIBE: Vector-style ship
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation + Math.PI / 2); // Point upwards by default
 
-            if (this.player.stats.isInvulnerable) {
-                ctx.fillStyle = PlayerRenderer._colorWithAlpha('#00ffff', 0.3);
-                ctx.beginPath();
-                ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
-                ctx.fill();
+        // Engine Glow (Pulsing)
+        const pulse = 1 + Math.sin(Date.now() * 0.01) * 0.1;
+        ctx.fillStyle = PlayerRenderer._colorWithAlpha(glowColor, 0.3);
+        ctx.beginPath();
+        ctx.moveTo(-radius * 0.5, radius * 0.5);
+        ctx.lineTo(0, radius * 1.5 * pulse);
+        ctx.lineTo(radius * 0.5, radius * 0.5);
+        ctx.fill();
 
-                if (this.player.movement.isDodging) {
-                    ctx.strokeStyle = haloColor;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
-                    ctx.stroke();
+        // Main Ship Body
+        ctx.fillStyle = '#000000'; // Black void center
+        ctx.strokeStyle = color;   // Neon outline
+        ctx.lineWidth = 2;
+        
+        if (this.player.stats.isInvulnerable) {
+            ctx.strokeStyle = '#ffffff'; // White flash when invuln
+            ctx.setLineDash([2, 2]);
+        }
+
+        ctx.beginPath();
+        
+        // Unique Geometry per Class
+        switch (this.player.characterId) {
+            case 'nova_corsair': // Speed/Aggressive - Forward Swept Wing / Trident
+                ctx.moveTo(0, -radius * 1.6); // Long nose
+                ctx.lineTo(radius * 0.4, -radius * 0.4);
+                ctx.lineTo(radius * 1.2, 0); // Wing tip
+                ctx.lineTo(radius * 0.6, radius); // Engine
+                ctx.lineTo(0, radius * 0.6); // Rear
+                ctx.lineTo(-radius * 0.6, radius);
+                ctx.lineTo(-radius * 1.2, 0);
+                ctx.lineTo(-radius * 0.4, -radius * 0.4);
+                break;
+
+            case 'stormcaller': // Lightning - 4-Point Star / Bolt
+                ctx.moveTo(0, -radius * 1.5);
+                ctx.lineTo(radius * 0.4, -radius * 0.4);
+                ctx.lineTo(radius * 1.2, 0);
+                ctx.lineTo(radius * 0.4, radius * 0.4);
+                ctx.lineTo(0, radius * 1.5);
+                ctx.lineTo(-radius * 0.4, radius * 0.4);
+                ctx.lineTo(-radius * 1.2, 0);
+                ctx.lineTo(-radius * 0.4, -radius * 0.4);
+                break;
+
+            case 'nexus_architect': // Orbital/Structure - Hexagon
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                    const r = radius * 1.1;
+                    const px = Math.cos(angle) * r;
+                    const py = Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
                 }
-            }
+                break;
 
-            ctx.fillStyle = coreColor;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
+            case 'inferno_juggernaut': // Tank - Heavy Block / Fortress
+                // Octagon-ish block
+                const s = radius * 0.9;
+                const c = radius * 0.4;
+                ctx.moveTo(-c, -s);
+                ctx.lineTo(c, -s);
+                ctx.lineTo(s, -c);
+                ctx.lineTo(s, c);
+                ctx.lineTo(c, s);
+                ctx.lineTo(-c, s);
+                ctx.lineTo(-s, c);
+                ctx.lineTo(-s, -c);
+                break;
 
-            ctx.fillStyle = highlightColor;
-            ctx.beginPath();
-            ctx.arc(x - radius * 0.35, y - radius * 0.35, radius * 0.4, 0, Math.PI * 2);
-            ctx.fill();
+            case 'crimson_reaver': // Vampire - Spiked Crescent
+                ctx.moveTo(0, -radius * 1.2);
+                ctx.quadraticCurveTo(radius, -radius * 0.5, radius * 1.2, radius * 0.8);
+                ctx.lineTo(0, radius * 0.2);
+                ctx.lineTo(-radius * 1.2, radius * 0.8);
+                ctx.quadraticCurveTo(-radius, -radius * 0.5, 0, -radius * 1.2);
+                break;
 
-            ctx.strokeStyle = haloColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.stroke();
-            return;
+            case 'void_warden': // Gravity - Ring/Torus
+                ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                ctx.moveTo(radius * 0.5, 0);
+                ctx.arc(0, 0, radius * 0.5, 0, Math.PI * 2, true); // Hole
+                break;
+
+            case 'phantom_striker': // Ghost - Split/Phasing
+                // Left half
+                ctx.moveTo(-radius * 0.2, -radius * 1.2);
+                ctx.lineTo(-radius, radius);
+                ctx.lineTo(-radius * 0.2, radius * 0.5);
+                // Right half
+                ctx.moveTo(radius * 0.2, -radius * 1.2);
+                ctx.lineTo(radius, radius);
+                ctx.lineTo(radius * 0.2, radius * 0.5);
+                break;
+
+            case 'cybernetic_berserker': // Glitch - Asymmetrical
+                ctx.moveTo(0, -radius * 1.4);
+                ctx.lineTo(radius * 1.1, radius * 0.8);
+                ctx.lineTo(radius * 0.2, radius * 0.6);
+                ctx.lineTo(-radius * 0.8, radius * 1.1);
+                ctx.lineTo(-radius * 0.5, -radius * 0.2);
+                break;
+
+            case 'aegis_vanguard': // Shield - Heavy Chevron / Bulwark
+            default:
+                // Wide Shield Shape
+                ctx.moveTo(0, -radius * 1.1); // Top point
+                ctx.lineTo(radius * 1.1, -radius * 0.3); // Top right corner
+                ctx.lineTo(radius * 0.7, radius * 1.0); // Bottom right
+                ctx.lineTo(0, radius * 0.6); // Bottom center indent
+                ctx.lineTo(-radius * 0.7, radius * 1.0); // Bottom left
+                ctx.lineTo(-radius * 1.1, -radius * 0.3); // Top left corner
+                break;
         }
+        
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
 
-        if (this.player.stats.isInvulnerable && sprites.invuln) {
-            ctx.drawImage(
-                sprites.invuln.canvas,
-                x - sprites.invuln.halfSize,
-                y - sprites.invuln.halfSize
-            );
-
-            if (this.player.movement.isDodging && sprites.dodge) {
-                ctx.drawImage(
-                    sprites.dodge.canvas,
-                    x - sprites.dodge.halfSize,
-                    y - sprites.dodge.halfSize
-                );
-            }
+        // Cockpit / Core (Unique per class)
+        ctx.fillStyle = glowColor;
+        ctx.beginPath();
+        
+        if (this.player.characterId === 'void_warden') {
+             ctx.arc(0, 0, radius * 0.3, 0, Math.PI * 2);
+        } else if (this.player.characterId === 'nexus_architect') {
+             ctx.rect(-radius * 0.3, -radius * 0.3, radius * 0.6, radius * 0.6);
+        } else {
+             ctx.moveTo(0, -radius * 0.2);
+             ctx.lineTo(radius * 0.2, radius * 0.4);
+             ctx.lineTo(-radius * 0.2, radius * 0.4);
         }
+        ctx.fill();
 
-        ctx.drawImage(
-            sprites.base.canvas,
-            x - sprites.base.halfSize,
-            y - sprites.base.halfSize
-        );
+        ctx.restore();
+    }
+
+    static _colorWithAlpha(color, alpha) {
+        // Simple hex to rgba helper
+        if (color.startsWith('#')) {
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        return color;
     }
 
     renderShieldBarrier(ctx) {

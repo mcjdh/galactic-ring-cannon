@@ -405,16 +405,28 @@ class ProjectileRenderer {
         offCtx.shadowBlur = glowBlur;
         offCtx.shadowColor = color;
 
-        offCtx.fillStyle = color;
+        // Polybius Style: Vector Dart/Diamond
+        offCtx.fillStyle = '#000000'; // Void center
+        offCtx.strokeStyle = color;
+        offCtx.lineWidth = 2;
+
         offCtx.beginPath();
-        offCtx.arc(center, center, radius, 0, Math.PI * 2);
+        // Draw a diamond shape
+        offCtx.moveTo(center, center - radius);
+        offCtx.lineTo(center + radius, center);
+        offCtx.lineTo(center, center + radius);
+        offCtx.lineTo(center - radius, center);
+        offCtx.closePath();
+        
         offCtx.fill();
+        offCtx.stroke();
 
         offCtx.shadowBlur = 0;
-        offCtx.fillStyle = isCrit ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
-        offCtx.beginPath();
-        offCtx.arc(center, center, radius * 0.4, 0, Math.PI * 2);
-        offCtx.fill();
+        offCtx.fillStyle = isCrit ? '#ffffff' : 'rgba(255, 255, 255, 0.8)';
+        
+        // Inner core (small square)
+        const coreSize = radius * 0.4;
+        offCtx.fillRect(center - coreSize, center - coreSize, coreSize * 2, coreSize * 2);
 
         const sprite = { canvas, halfSize: size / 2 };
         this._storeSprite(cache, cacheKey, sprite, this._BODY_CACHE_LIMIT);

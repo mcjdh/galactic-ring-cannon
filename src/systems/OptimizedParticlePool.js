@@ -235,11 +235,55 @@ class OptimizedParticlePool {
             case 'smoke':
                 this.renderSmokeBatch(ctx, particles);
                 break;
+            case 'ring':
+                this.renderRingBatch(ctx, particles);
+                break;
             default:
                 this.renderBasicBatch(ctx, particles);
         }
 
         ctx.restore();
+    }
+
+    renderRingBatch(ctx, particles) {
+        if (!particles || particles.length === 0) return;
+
+        ctx.lineWidth = 2;
+
+        // > OPTIMIZATION: Reuse pre-allocated Map and arrays
+        const alphaGroups = this._alphaGroupsMap;
+
+        for (const [, group] of alphaGroups) {
+            group.length = 0;
+            this._alphaArrayPool.push(group);
+        }
+        alphaGroups.clear();
+
+        for (const particle of particles) {
+            const alphaKey = Math.floor(particle.alpha * 10) / 10;
+            let group = alphaGroups.get(alphaKey);
+            if (!group) {
+                group = this._alphaArrayPool.pop() || [];
+                alphaGroups.set(alphaKey, group);
+            }
+            group.push(particle);
+        }
+
+        for (const [alpha, group] of alphaGroups) {
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+
+            for (const particle of group) {
+                // Ring expands based on life (inverse) or just size
+                // Assuming size is the radius
+                ctx.moveTo(particle.x + particle.size, particle.y);
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            }
+
+            ctx.stroke();
+        }
+
+        ctx.globalAlpha = 1;
     }
 
     renderBasicBatch(ctx, particles) {
@@ -273,8 +317,9 @@ class OptimizedParticlePool {
             ctx.beginPath();
 
             for (const particle of group) {
-                ctx.moveTo(particle.x + particle.size, particle.y);
-                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                // Polybius Style: Square Particles
+                const size = particle.size;
+                ctx.rect(particle.x - size/2, particle.y - size/2, size, size);
             }
 
             ctx.fill();
@@ -355,8 +400,9 @@ class OptimizedParticlePool {
             ctx.beginPath();
 
             for (const particle of group) {
-                ctx.moveTo(particle.x + particle.size, particle.y);
-                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                // Polybius Style: Square Smoke
+                const size = particle.size;
+                ctx.rect(particle.x - size/2, particle.y - size/2, size, size);
             }
 
             ctx.fill();

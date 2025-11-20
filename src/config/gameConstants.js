@@ -38,13 +38,21 @@
                     core: '#dc143c',  // Crimson
                     glow: '#ff1744'   // Deep red/blood red
                 },
-                void_reaver: {
+                void_warden: {
                     core: '#4b0082',  // Deep indigo
                     glow: '#9370db'   // Medium purple
                 },
                 phantom_striker: {
                     core: '#9370db',  // Medium purple
                     glow: '#da70d6'   // Orchid/violet
+                },
+                inferno_juggernaut: {
+                    core: '#ff4500',  // OrangeRed
+                    glow: '#ffa500'   // Orange
+                },
+                cybernetic_berserker: {
+                    core: '#32cd32',  // Lime Green
+                    glow: '#ff00ff'   // Magenta (Glitch contrast)
                 }
             },
 

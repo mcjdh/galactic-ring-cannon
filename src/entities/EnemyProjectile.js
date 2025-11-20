@@ -29,7 +29,7 @@ const ProjectileSpriteCache = (() => {
             const center = size / 2;
 
             if (glowColor) {
-                const gradient = ctx.createRadialGradient(center, center, radius * 0.6, center, center, radius + padding);
+                const gradient = ctx.createRadialGradient(center, center, radius * 0.2, center, center, radius + padding);
                 gradient.addColorStop(0, `${glowColor}`);
                 gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
                 ctx.fillStyle = gradient;
@@ -38,14 +38,24 @@ const ProjectileSpriteCache = (() => {
                 ctx.fill();
             }
 
+            // Polybius Style: Diamond Projectile
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(center, center - radius);
+            ctx.lineTo(center + radius, center);
+            ctx.lineTo(center, center + radius);
+            ctx.lineTo(center - radius, center);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Bright Core
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(center, center, radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.beginPath();
-            ctx.arc(center - radius * 0.3, center - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+            ctx.rect(center - 2, center - 2, 4, 4);
             ctx.fill();
 
             const drawable = (typeof canvas.transferToImageBitmap === 'function')
