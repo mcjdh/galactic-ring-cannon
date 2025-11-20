@@ -270,7 +270,17 @@
 
     <script defer src="src/ui/resultScreen.js"></script>
     <script defer src="src/ui/hudEventHandlers.js"></script>
-    <script defer src="src/ui/mainMenu/MainMenuController.js"></script>
+    <!-- Main Menu - Modular Architecture -->
+    <!-- Load base classes first -->
+    <script defer src="src/ui/mainMenu/shared/PanelBase.js"></script>
+    <script defer src="src/ui/mainMenu/MenuBackgroundRenderer.js"></script>
+    <!-- Load specialized panels -->
+    <script defer src="src/ui/mainMenu/SettingsPanel.js"></script>
+    <script defer src="src/ui/mainMenu/ShopPanel.js"></script>
+    <script defer src="src/ui/mainMenu/AchievementsPanel.js"></script>
+    <script defer src="src/ui/mainMenu/CharacterSelector.js"></script>
+    <!-- Load orchestrator last -->
+    <script defer src="src/ui/mainMenu/MainMenuController.refactored.js"></script>
     <!-- Core entities - load synchronously to ensure proper initialization order -->
     <script defer src="src/entities/particle.js"></script>
     <script defer src="src/entities/ShockwaveParticle.js"></script>
