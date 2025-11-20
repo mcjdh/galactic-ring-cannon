@@ -31,16 +31,16 @@ class CosmicBackground {
         this.time = 0;
         this.lastTime = performance.now();
         this.lowQuality = false;
-        
+
         // Grid settings
         this.gridSize = 100;
         this.lastPlayerX = 0;
         this.lastPlayerY = 0;
-        
+
         // Floating Shapes
         this.shapes = [];
         this.shapeCount = 25; // Increased for denser field
-        
+
         // Vector Stars
         this.stars = [];
         this.starCount = 100; // Unified count
@@ -49,6 +49,28 @@ class CosmicBackground {
         this.worldPadding = 2000;
         this.worldW = this.canvas.width + this.worldPadding;
         this.worldH = this.canvas.height + this.worldPadding;
+
+        // [PERF OPT-1] Shape Sprite Cache - Pre-rendered shapes at various rotations
+        this.shapeSpriteCache = new Map(); // key: "type_size_rotIndex"
+        this.rotationSteps = 36; // 36 angles = 10° increments (good balance)
+        this.cachedRotationAngles = [];
+        for (let i = 0; i < this.rotationSteps; i++) {
+            this.cachedRotationAngles.push((i / this.rotationSteps) * Math.PI * 2);
+        }
+        this.enableShapeCache = true; // Feature flag
+
+        // [PERF OPT-2] Star Layer Pre-Rendering - Layered canvases by depth
+        this.starLayers = null; // Initialized in initializeStarLayers()
+        this.starLayerDepths = [
+            { min: 0.5, max: 1.0, layer: 0 },  // Foreground
+            { min: 1.0, max: 1.5, layer: 1 },  // Midground
+            { min: 1.5, max: 2.5, layer: 2 }   // Background
+        ];
+        this.enableStarLayers = true; // Feature flag
+
+        // [PERF OPT-3] Grid Pre-Computation - Pre-rendered grid
+        this.gridCanvas = null; // Initialized in initializeGridCanvas()
+        this.enableGridCache = true; // Feature flag
 
         this.initialize();
     }
@@ -60,13 +82,13 @@ class CosmicBackground {
 
         // Initialize Shapes
         this.shapes = [];
-        for(let i=0; i<this.shapeCount; i++) {
+        for (let i = 0; i < this.shapeCount; i++) {
             this.shapes.push(this.createShape());
         }
 
         // Initialize Stars
         this.stars = [];
-        for(let i=0; i<this.starCount; i++) {
+        for (let i = 0; i < this.starCount; i++) {
             this.stars.push({
                 x: Math.random() * this.canvas.width,
                 y: Math.random() * this.canvas.height,
@@ -78,13 +100,23 @@ class CosmicBackground {
                 type: Math.random() > 0.5 ? 'cross' : 'diamond'
             });
         }
+
+        // [PERF OPT-3] Initialize pre-rendered grid canvas
+        if (this.enableGridCache) {
+            this.initializeGridCanvas();
+        }
+
+        // [PERF OPT-2] Initialize pre-rendered star layers
+        if (this.enableStarLayers) {
+            this.initializeStarLayers();
+        }
     }
 
     createShape() {
         const types = ['cube', 'pyramid', 'octahedron'];
         const type = types[Math.floor(Math.random() * types.length)];
-        const size = 15 + Math.random() * 35; 
-        
+        const size = 15 + Math.random() * 35;
+
         // Z-Depth: 1.0 is standard plane. Higher is further away.
         // Range 0.8 (slightly foreground) to 4.0 (deep background)
         const z = 0.8 + Math.random() * 3.2;
@@ -118,11 +150,11 @@ class CosmicBackground {
             shape.rotX += shape.rotSpeedX * deltaTime;
             shape.rotY += shape.rotSpeedY * deltaTime;
             shape.rotZ += shape.rotSpeedZ * deltaTime;
-            
+
             // Drift (World Space)
             shape.x += shape.driftX * deltaTime;
             shape.y += shape.driftY * deltaTime;
-            
+
             // Note: We no longer wrap here. Wrapping is handled in render relative to camera.
         });
     }
@@ -158,52 +190,113 @@ class CosmicBackground {
         // Draw Shapes
         this.drawShapes();
     }
-    
+
     drawGrid() {
+        // [PERF OPT-3] Use pre-rendered grid canvas if available
+        if (this.enableGridCache && this.gridCanvas) {
+            // Calculate offset for parallax scrolling
+            const offsetX = (-this.lastPlayerX * 0.5) % this.gridSize;
+            const offsetY = (-this.lastPlayerY * 0.5) % this.gridSize;
+
+            // Pulsing grid for extra retro vibe
+            const pulse = 0.08 + 0.04 * Math.sin(this.time * 2);
+            this.ctx.globalAlpha = pulse;
+
+            // Draw the cached grid with offset
+            this.ctx.drawImage(
+                this.gridCanvas,
+                offsetX - this.gridSize * 7, // Center the oversized grid
+                offsetY - this.gridSize * 7,
+                this.gridSize * 15,
+                this.gridSize * 15
+            );
+
+            this.ctx.globalAlpha = 1.0;
+            return;
+        }
+
+        // Fallback: Original dynamic grid rendering
         this.ctx.lineWidth = 1;
         // Pulsing grid for extra retro vibe
         const pulse = 0.08 + 0.04 * Math.sin(this.time * 2);
         this.ctx.strokeStyle = `rgba(0, 255, 50, ${pulse})`;
-        
+
         // Safety check
         if (this.gridSize <= 0) this.gridSize = 100;
-        
+
         const offsetX = (-this.lastPlayerX * 0.5) % this.gridSize;
         const offsetY = (-this.lastPlayerY * 0.5) % this.gridSize;
-        
+
         this.ctx.beginPath();
-        
+
         // Normalize offset to 0..gridSize
-        const normOffsetX = (( -this.lastPlayerX * 0.5 ) % this.gridSize + this.gridSize) % this.gridSize;
-        const normOffsetY = (( -this.lastPlayerY * 0.5 ) % this.gridSize + this.gridSize) % this.gridSize;
-        
+        const normOffsetX = ((-this.lastPlayerX * 0.5) % this.gridSize + this.gridSize) % this.gridSize;
+        const normOffsetY = ((-this.lastPlayerY * 0.5) % this.gridSize + this.gridSize) % this.gridSize;
+
         // Vertical lines
         for (let x = normOffsetX - this.gridSize; x < this.canvas.width; x += this.gridSize) {
             this.ctx.moveTo(x, 0);
             this.ctx.lineTo(x, this.canvas.height);
         }
-        
+
         // Horizontal lines
         for (let y = normOffsetY - this.gridSize; y < this.canvas.height; y += this.gridSize) {
             this.ctx.moveTo(0, y);
             this.ctx.lineTo(this.canvas.width, y);
         }
-        
         this.ctx.stroke();
     }
 
     drawStars() {
+        // [PERF OPT-2] Use pre-rendered star layers if available
+        if (this.enableStarLayers && this.starLayers) {
+            this.ctx.save();
+
+            // Draw each layer with parallax offset and blink effect
+            for (let i = 0; i < this.starLayers.length; i++) {
+                const layer = this.starLayers[i];
+                const depthRange = this.starLayerDepths[i];
+                const avgZ = (depthRange.min + depthRange.max) / 2;
+                const parallaxFactor = 0.1 * avgZ;
+
+                // Calculate parallax offset with wrapping
+                const wrapW = this.canvas.width;
+                const wrapH = this.canvas.height;
+                let offsetX = (-this.lastPlayerX * parallaxFactor) % wrapW;
+                let offsetY = (-this.lastPlayerY * parallaxFactor) % wrapH;
+
+                if (offsetX < 0) offsetX += wrapW;
+                if (offsetY < 0) offsetY += wrapH;
+
+                // Apply gentle global blink (varies per layer for depth)
+                const blink = 0.7 + 0.3 * Math.sin(this.time * (1 + i * 0.3));
+                this.ctx.globalAlpha = blink;
+
+                // Draw layer with parallax offset
+                this.ctx.drawImage(layer.canvas, offsetX, offsetY);
+
+                // Tile to fill gaps (simple 4-tile approach)
+                this.ctx.drawImage(layer.canvas, offsetX - wrapW, offsetY);
+                this.ctx.drawImage(layer.canvas, offsetX, offsetY - wrapH);
+                this.ctx.drawImage(layer.canvas, offsetX - wrapW, offsetY - wrapH);
+            }
+
+            this.ctx.restore();
+            return;
+        }
+
+        // Fallback: Original dynamic star rendering
         this.ctx.save();
         for (const star of this.stars) {
             // Parallax with robust wrapping
             const parallaxFactor = 0.1 * star.z;
             const wrapW = this.canvas.width;
             const wrapH = this.canvas.height;
-            
+
             // Calculate relative position
             let relX = (star.x - this.lastPlayerX * parallaxFactor) % wrapW;
             let relY = (star.y - this.lastPlayerY * parallaxFactor) % wrapH;
-            
+
             // Normalize to positive range [0, wrapW]
             if (relX < 0) relX += wrapW;
             if (relY < 0) relY += wrapH;
@@ -214,8 +307,8 @@ class CosmicBackground {
             this.ctx.fillStyle = star.color;
 
             if (star.type === 'cross') {
-                this.ctx.fillRect(relX - star.size, relY - star.size/4, star.size*2, star.size/2);
-                this.ctx.fillRect(relX - star.size/4, relY - star.size, star.size/2, star.size*2);
+                this.ctx.fillRect(relX - star.size, relY - star.size / 4, star.size * 2, star.size / 2);
+                this.ctx.fillRect(relX - star.size / 4, relY - star.size, star.size / 2, star.size * 2);
             } else {
                 // Diamond
                 this.ctx.beginPath();
@@ -230,101 +323,145 @@ class CosmicBackground {
     }
 
     drawShapes() {
-        this.ctx.lineWidth = 2;
-        
-        // Use class properties for world dimensions
+        // Use original coordinate system for proper wrapping
         const worldW = this.worldW;
         const worldH = this.worldH;
         const offset = this.worldPadding / 2;
-        
-        // Menu Mode Detection: If lastPlayerX/Y are 0 (or very close), we assume menu or start.
-        // We can also check if the 'player' argument was null in render(), but we don't have access to it here directly.
-        // However, render() updates lastPlayerX/Y. In menu, they are usually 0.
         const isMenu = (Math.abs(this.lastPlayerX) < 1 && Math.abs(this.lastPlayerY) < 1);
 
-        for (const shape of this.shapes) {
-            // Parallax Factor: Inversely proportional to Z
-            // Close objects (z=1) move 1:1. Far objects (z=4) move 0.25:1.
-            // We cap it at 0.8 to keep everything slightly "behind" the player plane
-            const parallaxFactor = Math.min(0.8, 1.0 / shape.z);
-            
-            // Calculate position relative to player in the virtual world
-            // We use the shape's drift position (shape.x) minus the player's parallax offset
-            let relX = (shape.x - this.lastPlayerX * parallaxFactor) % worldW;
-            let relY = (shape.y - this.lastPlayerY * parallaxFactor) % worldH;
-            
-            // Normalize to positive range [0, worldW]
-            if (relX < 0) relX += worldW;
-            if (relY < 0) relY += worldH;
-            
-            // Center the virtual world on the screen
-            // This ensures shapes wrap smoothly around the edges
-            const screenX = relX - offset;
-            const screenY = relY - offset;
-            
-            // Cull shapes that are far off-screen
-            if (screenX < -200 || screenX > this.canvas.width + 200 ||
-                screenY < -200 || screenY > this.canvas.height + 200) {
-                continue;
-            }
+        // [PERF OPT-1] Use cached sprites if enabled
+        if (this.enableShapeCache) {
+            for (const shape of this.shapes) {
+                const sprite = this.getShapeSprite(shape);
 
-            // Menu Mode: Push shapes away from center to avoid overlapping buttons
-            if (isMenu) {
-                const centerX = this.canvas.width / 2;
-                const centerY = this.canvas.height / 2;
-                const dx = screenX - centerX;
-                const dy = screenY - centerY;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                
-                // If too close to center (radius 300), fade out or don't draw
-                if (dist < 300) {
-                    continue; 
+                if (sprite) {
+                    // Use ORIGINAL parallax calculation for consistency
+                    const parallaxFactor = Math.min(0.8, 1.0 / shape.z);
+                    let relX = (shape.x - this.lastPlayerX * parallaxFactor) % worldW;
+                    let relY = (shape.y - this.lastPlayerY * parallaxFactor) % worldH;
+
+                    // Normalize to positive range [0, worldW]
+                    if (relX < 0) relX += worldW;
+                    if (relY < 0) relY += worldH;
+
+                    // Center the virtual world on the screen
+                    const screenX = relX - offset;
+                    const screenY = relY - offset;
+
+                    // Cull shapes that are far off-screen
+                    if (screenX < -200 || screenX > this.canvas.width + 200 ||
+                        screenY < -200 || screenY > this.canvas.height + 200) {
+                        continue;
+                    }
+
+                    // Menu Mode: Push shapes away from center
+                    if (isMenu) {
+                        const centerX = this.canvas.width / 2;
+                        const centerY = this.canvas.height / 2;
+                        const dist = Math.hypot(screenX - centerX, screenY - centerY);
+                        if (dist < 300) continue;
+                    }
+
+                    // Depth effects
+                    const scale = 1.0 / shape.z;
+                    const opacity = Math.max(0.1, 1 - (shape.z - 1.0) * 0.25);
+
+                    this.ctx.globalAlpha = opacity;
+                    this.ctx.save();
+                    this.ctx.translate(screenX, screenY);
+                    this.ctx.scale(scale, scale);
+
+                    // Draw cached sprite (already has proper rotation baked in)
+                    this.ctx.drawImage(
+                        sprite.canvas,
+                        -sprite.halfSize,
+                        -sprite.halfSize
+                    );
+
+                    this.ctx.restore();
+                    this.ctx.globalAlpha = 1.0;
+                } else {
+                    // Fallback to dynamic rendering for this shape
+                    this.drawSingleShapeDynamic(shape, isMenu);
                 }
             }
-
-            // Depth Effects
-            // Scale based on Z (simulated depth)
-            const scale = 1.0 / shape.z; 
-            const opacity = Math.max(0.1, 1 - (shape.z - 1.0) * 0.25); // Fade distant shapes
-
-            this.ctx.strokeStyle = shape.color.replace('0.3)', `${opacity})`);
-            this.ctx.save();
-            this.ctx.translate(screenX, screenY);
-            this.ctx.scale(scale, scale); // Apply depth scaling
-            
-            // 3D Projection
-            const vertices = this.getVertices(shape.type, shape.size);
-            // Add subtle warp based on screen position for Polybius vibe
-            const warpFactor = 0.0005;
-            const warpX = (screenX - this.canvas.width/2) * warpFactor;
-            const warpY = (screenY - this.canvas.height/2) * warpFactor;
-            
-            const projected = vertices.map(v => this.project(v, shape.rotX + warpY, shape.rotY + warpX, shape.rotZ));
-            
-            this.ctx.beginPath();
-            this.drawWireframe(shape.type, projected);
-            this.ctx.stroke();
-            
-            this.ctx.restore();
+            return;
         }
+
+        // Fallback: Original dynamic rendering for all shapes
+        for (const shape of this.shapes) {
+            this.drawSingleShapeDynamic(shape, isMenu);
+        }
+    }
+
+    /**
+     * Helper: Draw a single shape dynamically (fallback)
+     */
+    drawSingleShapeDynamic(shape, isMenu) {
+        const worldW = this.worldW;
+        const worldH = this.worldH;
+        const offset = this.worldPadding / 2;
+
+        const parallaxFactor = Math.min(0.8, 1.0 / shape.z);
+        let relX = (shape.x - this.lastPlayerX * parallaxFactor) % worldW;
+        let relY = (shape.y - this.lastPlayerY * parallaxFactor) % worldH;
+
+        if (relX < 0) relX += worldW;
+        if (relY < 0) relY += worldH;
+
+        const screenX = relX - offset;
+        const screenY = relY - offset;
+
+        if (screenX < -200 || screenX > this.canvas.width + 200 ||
+            screenY < -200 || screenY > this.canvas.height + 200) {
+            return;
+        }
+
+        if (isMenu) {
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            const dist = Math.hypot(screenX - centerX, screenY - centerY);
+            if (dist < 300) return;
+        }
+
+        const scale = 1.0 / shape.z;
+        const opacity = Math.max(0.1, 1 - (shape.z - 1.0) * 0.25);
+
+        this.ctx.strokeStyle = shape.color.replace('0.3)', `${opacity})`);
+        this.ctx.save();
+        this.ctx.translate(screenX, screenY);
+        this.ctx.scale(scale, scale);
+
+        // 3D Projection with Polybius warp
+        const vertices = this.getVertices(shape.type, shape.size);
+        const warpFactor = 0.0005;
+        const warpX = (screenX - this.canvas.width / 2) * warpFactor;
+        const warpY = (screenY - this.canvas.height / 2) * warpFactor;
+        const projected = vertices.map(v => this.project(v, shape.rotX + warpY, shape.rotY + warpX, shape.rotZ));
+
+        this.ctx.beginPath();
+        this.drawWireframe(shape.type, projected);
+        this.ctx.stroke();
+
+        this.ctx.restore();
     }
 
     getVertices(type, size) {
         const s = size;
         if (type === 'cube') {
             return [
-                {x:-s, y:-s, z:-s}, {x:s, y:-s, z:-s}, {x:s, y:s, z:-s}, {x:-s, y:s, z:-s},
-                {x:-s, y:-s, z:s}, {x:s, y:-s, z:s}, {x:s, y:s, z:s}, {x:-s, y:s, z:s}
+                { x: -s, y: -s, z: -s }, { x: s, y: -s, z: -s }, { x: s, y: s, z: -s }, { x: -s, y: s, z: -s },
+                { x: -s, y: -s, z: s }, { x: s, y: -s, z: s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s }
             ];
         } else if (type === 'pyramid') {
             return [
-                {x:0, y:-s, z:0}, // Top
-                {x:-s, y:s, z:-s}, {x:s, y:s, z:-s}, {x:s, y:s, z:s}, {x:-s, y:s, z:s} // Base
+                { x: 0, y: -s, z: 0 }, // Top
+                { x: -s, y: s, z: -s }, { x: s, y: s, z: -s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s } // Base
             ];
         } else { // Octahedron
-             return [
-                {x:0, y:-s, z:0}, {x:0, y:s, z:0}, // Top/Bottom
-                {x:-s, y:0, z:0}, {x:s, y:0, z:0}, {x:0, y:0, z:-s}, {x:0, y:0, z:s} // Middle ring
+            return [
+                { x: 0, y: -s, z: 0 }, { x: 0, y: s, z: 0 }, // Top/Bottom
+                { x: -s, y: 0, z: 0 }, { x: s, y: 0, z: 0 }, { x: 0, y: 0, z: -s }, { x: 0, y: 0, z: s } // Middle ring
             ];
         }
     }
@@ -332,7 +469,7 @@ class CosmicBackground {
     project(v, rx, ry, rz) {
         // Simplified rotation
         let x = v.x, y = v.y, z = v.z;
-        
+
         // Rotate Y
         let x1 = x * Math.cos(ry) - z * Math.sin(ry);
         let z1 = x * Math.sin(ry) + z * Math.cos(ry);
@@ -342,7 +479,7 @@ class CosmicBackground {
         let y1 = y * Math.cos(rx) - z * Math.sin(rx);
         let z2 = y * Math.sin(rx) + z * Math.cos(rx);
         y = y1; z = z2;
-        
+
         // Rotate Z
         let x2 = x * Math.cos(rz) - y * Math.sin(rz);
         let y2 = x * Math.sin(rz) + y * Math.cos(rz);
@@ -355,49 +492,51 @@ class CosmicBackground {
         x = x * scale;
         y = y * scale;
 
-        return {x, y};
+        return { x, y };
     }
 
-    drawWireframe(type, v) {
+    drawWireframe(type, v, ctx = null) {
+        const c = ctx || this.ctx; // Use provided context or default to this.ctx
+
         if (type === 'cube') {
             // Front face
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[1].x, v[1].y);
-            this.ctx.lineTo(v[2].x, v[2].y); this.ctx.lineTo(v[3].x, v[3].y);
-            this.ctx.lineTo(v[0].x, v[0].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
+            c.lineTo(v[2].x, v[2].y); c.lineTo(v[3].x, v[3].y);
+            c.lineTo(v[0].x, v[0].y);
             // Back face
-            this.ctx.moveTo(v[4].x, v[4].y); this.ctx.lineTo(v[5].x, v[5].y);
-            this.ctx.lineTo(v[6].x, v[6].y); this.ctx.lineTo(v[7].x, v[7].y);
-            this.ctx.lineTo(v[4].x, v[4].y);
+            c.moveTo(v[4].x, v[4].y); c.lineTo(v[5].x, v[5].y);
+            c.lineTo(v[6].x, v[6].y); c.lineTo(v[7].x, v[7].y);
+            c.lineTo(v[4].x, v[4].y);
             // Connecting lines
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[4].x, v[4].y);
-            this.ctx.moveTo(v[1].x, v[1].y); this.ctx.lineTo(v[5].x, v[5].y);
-            this.ctx.moveTo(v[2].x, v[2].y); this.ctx.lineTo(v[6].x, v[6].y);
-            this.ctx.moveTo(v[3].x, v[3].y); this.ctx.lineTo(v[7].x, v[7].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+            c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
+            c.moveTo(v[2].x, v[2].y); c.lineTo(v[6].x, v[6].y);
+            c.moveTo(v[3].x, v[3].y); c.lineTo(v[7].x, v[7].y);
         } else if (type === 'pyramid') {
             // Base
-            this.ctx.moveTo(v[1].x, v[1].y); this.ctx.lineTo(v[2].x, v[2].y);
-            this.ctx.lineTo(v[3].x, v[3].y); this.ctx.lineTo(v[4].x, v[4].y);
-            this.ctx.lineTo(v[1].x, v[1].y);
+            c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
+            c.lineTo(v[3].x, v[3].y); c.lineTo(v[4].x, v[4].y);
+            c.lineTo(v[1].x, v[1].y);
             // Sides
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[1].x, v[1].y);
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[2].x, v[2].y);
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[3].x, v[3].y);
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[4].x, v[4].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
         } else { // Octahedron
             // Top pyramid
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[2].x, v[2].y);
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[3].x, v[3].y);
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[4].x, v[4].y);
-            this.ctx.moveTo(v[0].x, v[0].y); this.ctx.lineTo(v[5].x, v[5].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+            c.moveTo(v[0].x, v[0].y); c.lineTo(v[5].x, v[5].y);
             // Bottom pyramid
-            this.ctx.moveTo(v[1].x, v[1].y); this.ctx.lineTo(v[2].x, v[2].y);
-            this.ctx.moveTo(v[1].x, v[1].y); this.ctx.lineTo(v[3].x, v[3].y);
-            this.ctx.moveTo(v[1].x, v[1].y); this.ctx.lineTo(v[4].x, v[4].y);
-            this.ctx.moveTo(v[1].x, v[1].y); this.ctx.lineTo(v[5].x, v[5].y);
+            c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
+            c.moveTo(v[1].x, v[1].y); c.lineTo(v[3].x, v[3].y);
+            c.moveTo(v[1].x, v[1].y); c.lineTo(v[4].x, v[4].y);
+            c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
             // Middle ring
-            this.ctx.moveTo(v[2].x, v[2].y); this.ctx.lineTo(v[4].x, v[4].y);
-            this.ctx.lineTo(v[3].x, v[3].y); this.ctx.lineTo(v[5].x, v[5].y);
-            this.ctx.lineTo(v[2].x, v[2].y);
+            c.moveTo(v[2].x, v[2].y); c.lineTo(v[4].x, v[4].y);
+            c.lineTo(v[3].x, v[3].y); c.lineTo(v[5].x, v[5].y);
+            c.lineTo(v[2].x, v[2].y);
         }
     }
 
@@ -415,7 +554,166 @@ class CosmicBackground {
         // Unified background: Do not re-initialize or change counts.
         // Just toggle the flag which can be used for rendering optimizations if needed.
     }
-    
+
+    /**
+     * [PERF OPT-3] Initialize pre-rendered grid canvas
+     * Pre-renders a large grid pattern to avoid recalculating lines every frame
+     */
+    initializeGridCanvas() {
+        if (typeof document === 'undefined') return;
+
+        // Create oversized grid (covers scrolling area)
+        const gridWidth = this.gridSize * 15;
+        const gridHeight = this.gridSize * 15;
+
+        this.gridCanvas = document.createElement('canvas');
+        this.gridCanvas.width = gridWidth;
+        this.gridCanvas.height = gridHeight;
+
+        const ctx = this.gridCanvas.getContext('2d');
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = this.colors.grid;
+        ctx.beginPath();
+
+        // Draw vertical lines
+        for (let x = 0; x < gridWidth; x += this.gridSize) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, gridHeight);
+        }
+
+        // Draw horizontal lines
+        for (let y = 0; y < gridHeight; y += this.gridSize) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(gridWidth, y);
+        }
+
+        ctx.stroke();
+    }
+
+    /**
+     * [PERF OPT-2] Initialize pre-rendered star layers
+     * Separates stars by depth into 3 canvases for efficient parallax
+     */
+    initializeStarLayers() {
+        if (typeof document === 'undefined') return;
+
+        // Create 3 layer canvases (foreground, midground, background)
+        this.starLayers = this.starLayerDepths.map(() => {
+            const canvas = document.createElement('canvas');
+            canvas.width = this.canvas.width;
+            canvas.height = this.canvas.height;
+            return {
+                canvas: canvas,
+                ctx: canvas.getContext('2d'),
+                stars: []
+            };
+        });
+
+        // Distribute stars to layers by depth
+        for (const star of this.stars) {
+            for (const depthRange of this.starLayerDepths) {
+                if (star.z >= depthRange.min && star.z < depthRange.max) {
+                    this.starLayers[depthRange.layer].stars.push(star);
+                    break;
+                }
+            }
+        }
+
+        // Pre-render stars to each layer
+        this.renderStarsToLayers();
+    }
+
+    /**
+     * Helper: Render stars to their respective layer canvases
+     */
+    renderStarsToLayers() {
+        if (!this.starLayers) return;
+
+        for (const layer of this.starLayers) {
+            layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+            layer.ctx.save();
+
+            for (const star of layer.stars) {
+                layer.ctx.fillStyle = star.color;
+                layer.ctx.globalAlpha = 0.7; // Base alpha, blink handled at composite
+
+                if (star.type === 'cross') {
+                    layer.ctx.fillRect(star.x - star.size, star.y - star.size / 4, star.size * 2, star.size / 2);
+                    layer.ctx.fillRect(star.x - star.size / 4, star.y - star.size, star.size / 2, star.size * 2);
+                } else {
+                    // Diamond
+                    layer.ctx.beginPath();
+                    layer.ctx.moveTo(star.x, star.y - star.size);
+                    layer.ctx.lineTo(star.x + star.size, star.y);
+                    layer.ctx.lineTo(star.x, star.y + star.size);
+                    layer.ctx.lineTo(star.x - star.size, star.y);
+                    layer.ctx.fill();
+                }
+            }
+
+            layer.ctx.restore();
+        }
+    }
+
+    /**
+     * [PERF OPT-1] Get or create cached shape sprite
+     * Returns pre-rendered sprite for given shape at nearest rotation angle
+     */
+    getShapeSprite(shape) {
+        if (!this.enableShapeCache || typeof document === 'undefined') {
+            return null; // Fall back to dynamic rendering
+        }
+
+        // Find nearest rotation angle index
+        const rotIndex = Math.floor((Math.atan2(
+            Math.sin(shape.rotY),
+            Math.cos(shape.rotY)
+        ) + Math.PI) / (Math.PI * 2) * this.rotationSteps) % this.rotationSteps;
+
+        const sizeKey = Math.round(shape.size / 5) * 5; // Round to nearest 5px for cache efficiency
+        const key = `${shape.type}_${sizeKey}_${rotIndex}`;
+
+        // Check cache
+        if (this.shapeSpriteCache.has(key)) {
+            return this.shapeSpriteCache.get(key);
+        }
+
+        // Create sprite
+        const spriteSize = Math.ceil(sizeKey * 3); // Enough room for rotation
+        const canvas = document.createElement('canvas');
+        canvas.width = spriteSize;
+        canvas.height = spriteSize;
+        const ctx = canvas.getContext('2d');
+
+        const center = spriteSize / 2;
+        const angle = this.cachedRotationAngles[rotIndex];
+
+        // Render shape to sprite
+        ctx.strokeStyle = shape.color;
+        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.translate(center, center);
+
+        const vertices = this.getVertices(shape.type, sizeKey);
+        const projected = vertices.map(v => this.project(v, angle, angle * 0.7, angle * 0.5));
+
+        ctx.beginPath();
+        this.drawWireframe(shape.type, projected, ctx); // Pass sprite context
+        ctx.stroke();
+        ctx.restore();
+
+        const sprite = { canvas, halfSize: spriteSize / 2 };
+
+        // Add to cache with LRU limit
+        if (this.shapeSpriteCache.size > 500) {
+            const firstKey = this.shapeSpriteCache.keys().next().value;
+            this.shapeSpriteCache.delete(firstKey);
+        }
+        this.shapeSpriteCache.set(key, sprite);
+
+        return sprite;
+    }
+
     getDebugInfo() {
         return {
             shapes: this.shapes.length,
