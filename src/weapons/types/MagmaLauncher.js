@@ -134,9 +134,9 @@ class MagmaLauncherWeapon {
                 } else {
                     // Log error if BurnBehavior is missing - helps debug load failures
                     if (!projectile?.behaviorManager) {
-                        console.error('[MagmaLauncher] Projectile missing behaviorManager - burn effect disabled');
+                        window.logger.error('[MagmaLauncher] Projectile missing behaviorManager - burn effect disabled');
                     } else if (typeof BurnBehaviorClass !== 'function') {
-                        console.error('[MagmaLauncher] BurnBehavior class not loaded - burn effect disabled. Check if BurnBehavior.js loaded correctly.');
+                        window.logger.error('[MagmaLauncher] BurnBehavior class not loaded - burn effect disabled. Check if BurnBehavior.js loaded correctly.');
                     }
                 }
             }

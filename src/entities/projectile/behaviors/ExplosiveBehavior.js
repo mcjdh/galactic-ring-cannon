@@ -76,7 +76,7 @@ class ExplosiveBehavior extends ProjectileBehaviorBase {
         }
 
         if (window.debugProjectiles) {
-            console.log(`[ExplosiveBehavior] Projectile ${this.projectile.id} exploded, hit ${enemiesHit} enemies`);
+            window.logger.log(`[ExplosiveBehavior] Projectile ${this.projectile.id} exploded, hit ${enemiesHit} enemies`);
         }
     }
 

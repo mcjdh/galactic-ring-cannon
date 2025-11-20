@@ -185,7 +185,7 @@ class ProjectileFactory {
                 projectile.config.lifesteal = totalLifesteal;
             }
             if (window.debugManager?.debugMode) {
-                console.log(`[ProjectileFactory] Lifesteal applied: ${totalLifesteal.toFixed(3)} (Base: ${baseLifesteal}, Streak: ${streakBonuses.lifesteal || 0})`);
+                window.logger.log(`[ProjectileFactory] Lifesteal applied: ${totalLifesteal.toFixed(3)} (Base: ${baseLifesteal}, Streak: ${streakBonuses.lifesteal || 0})`);
             }
         } else {
             projectile.lifesteal = 0;

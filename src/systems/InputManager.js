@@ -128,7 +128,7 @@ class InputManager {
         
         // Log for debugging if needed
         if (window.debugMode) {
-            console.log('[InputManager] Cleared all key states (focus lost)');
+            window.logger.log('[InputManager] Cleared all key states (focus lost)');
         }
     }
 

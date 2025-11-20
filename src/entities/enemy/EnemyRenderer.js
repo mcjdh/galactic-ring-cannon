@@ -592,7 +592,7 @@ class EnemyRenderer {
         }
 
         // [FIX] Log warning for invalid colors to help debug typos and errors
-        console.warn(`[EnemyRenderer] Invalid color format: "${color}" - using white fallback. Expected hex (#fff or #ffffff) or rgb/rgba format.`);
+        window.logger.warn(`[EnemyRenderer] Invalid color format: "${color}" - using white fallback. Expected hex (#fff or #ffffff) or rgb/rgba format.`);
         return { r: 255, g: 255, b: 255 };
     }
 }

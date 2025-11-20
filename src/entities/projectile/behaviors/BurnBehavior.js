@@ -42,7 +42,7 @@ class BurnBehavior extends ProjectileBehaviorBase {
             // Particle effects - flame burst on ignition
             this._createBurnParticles(target);
         } else {
-            console.warn('[BurnBehavior] Target missing statusEffects!', target);
+            window.logger.warn('[BurnBehavior] Target missing statusEffects!', target);
         }
 
         return true; // Indicate hit was processed

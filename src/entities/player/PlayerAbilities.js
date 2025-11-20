@@ -1371,7 +1371,7 @@ class PlayerAbilities {
                 if (upgrade.value) {
                     const oldTime = this.shieldRechargeTime;
                     this.shieldRechargeTime *= (1 - upgrade.value);
-                    console.log(`[Shield] Recharge time: ${oldTime.toFixed(2)}s → ${this.shieldRechargeTime.toFixed(2)}s (${(upgrade.value * 100).toFixed(0)}% faster)`);
+                    window.logger.log(`[Shield] Recharge time: ${oldTime.toFixed(2)}s → ${this.shieldRechargeTime.toFixed(2)}s (${(upgrade.value * 100).toFixed(0)}% faster)`);
                 }
                 break;
 

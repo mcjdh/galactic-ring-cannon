@@ -19,14 +19,14 @@ class PiercingBehavior extends ProjectileBehaviorBase {
             this.charges--;
 
             if (window.debugProjectiles) {
-                console.log(`[PiercingBehavior] Projectile ${this.projectile.id} pierced enemy. Charges: ${this.charges + 1} -> ${this.charges}`);
+                window.logger.log(`[PiercingBehavior] Projectile ${this.projectile.id} pierced enemy. Charges: ${this.charges + 1} -> ${this.charges}`);
             }
 
             return true; // Prevent death
         }
 
         if (window.debugProjectiles) {
-            console.log(`[PiercingBehavior] Projectile ${this.projectile.id} piercing exhausted`);
+            window.logger.log(`[PiercingBehavior] Projectile ${this.projectile.id} piercing exhausted`);
         }
 
         return false; // No charges left, allow death
@@ -39,7 +39,7 @@ class PiercingBehavior extends ProjectileBehaviorBase {
         this.charges = Math.min(this.maxCharges, this.charges + amount);
 
         if (window.debugProjectiles) {
-            console.log(`[PiercingBehavior] Restored ${amount} piercing charges. Total: ${this.charges}`);
+            window.logger.log(`[PiercingBehavior] Restored ${amount} piercing charges. Total: ${this.charges}`);
         }
     }
 

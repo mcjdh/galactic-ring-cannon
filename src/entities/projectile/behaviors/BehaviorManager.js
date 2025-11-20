@@ -152,7 +152,7 @@ class ProjectileBehaviorManager {
                 deathPreventedBy = 'ricochet';
 
                 if (window.debugProjectiles) {
-                    console.log(`[BehaviorManager] Ricochet succeeded on initial hit - projectile continues!`);
+                    window.logger.log(`[BehaviorManager] Ricochet succeeded on initial hit - projectile continues!`);
                 }
 
                 // Ricochet succeeded! Don't check other behaviors
@@ -171,7 +171,7 @@ class ProjectileBehaviorManager {
                 deathPreventedBy = 'piercing';
 
                 if (window.debugProjectiles) {
-                    console.log(`[BehaviorManager] Piercing prevented death (ricochet unavailable)`);
+                    window.logger.log(`[BehaviorManager] Piercing prevented death (ricochet unavailable)`);
                 }
 
                 return shouldDie;

@@ -24,7 +24,7 @@ class RicochetBehavior extends ProjectileBehaviorBase {
         // Check if we have bounces left
         if (this.usedBounces >= this.bounces) {
             if (window.debugProjectiles) {
-                console.log(`[RicochetBehavior] Projectile ${this.projectile.id} no bounces left`);
+                window.logger.log(`[RicochetBehavior] Projectile ${this.projectile.id} no bounces left`);
             }
             return false; // Can't prevent death
         }
@@ -33,7 +33,7 @@ class RicochetBehavior extends ProjectileBehaviorBase {
         const newTarget = this._findBounceTarget(target, engine);
         if (!newTarget) {
             if (window.debugProjectiles) {
-                console.log(`[RicochetBehavior] Projectile ${this.projectile.id} no valid bounce target`);
+                window.logger.log(`[RicochetBehavior] Projectile ${this.projectile.id} no valid bounce target`);
             }
             return false; // No target found
         }
@@ -55,7 +55,7 @@ class RicochetBehavior extends ProjectileBehaviorBase {
         // Piercing charges are preserved when ricochet succeeds
 
         if (window.debugProjectiles) {
-            console.log(`[RicochetBehavior] Projectile ${this.projectile.id} ricocheted to enemy ${newTarget.id}. Bounces used: ${this.usedBounces}/${this.bounces}. Total hits: ${totalHits}`);
+            window.logger.log(`[RicochetBehavior] Projectile ${this.projectile.id} ricocheted to enemy ${newTarget.id}. Bounces used: ${this.usedBounces}/${this.bounces}. Total hits: ${totalHits}`);
         }
 
         return true; // Death prevented!

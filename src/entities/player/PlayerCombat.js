@@ -306,7 +306,7 @@ class PlayerCombat {
 
             // Debug logging for piercing value tracing
             if (window.debugProjectiles && piercingBase > 0) {
-                console.log(`[PlayerCombat] Spawning projectile with piercing. base = ${piercingBase}`);
+                window.logger.log(`[PlayerCombat] Spawning projectile with piercing. base = ${piercingBase}`);
             }
 
             // Spawn the projectile using modern config pattern
@@ -357,14 +357,14 @@ class PlayerCombat {
                     window.gameManager?.statsManager?.trackSpecialEvent?.('critical_hit');
                 }
                 if (window.debugProjectiles) {
-                    console.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
+                    window.logger.log(`[PlayerCombat] Projectile ${projectile.id} spawned with piercing = ${projectile.piercing}`);
                 }
                 // NOTE: Piercing handled by new BehaviorManager system via setters
                 // Old piercing normalization code kept for backwards compatibility
                 const basePiercing = Number.isFinite(piercingBase) ? Math.max(0, piercingBase) : 0;
                 if (projectile.piercing !== basePiercing) {
                     if (window.debugProjectiles) {
-                        console.log(`[PlayerCombat] Normalizing projectile ${projectile.id} piercing: ${projectile.piercing} -> ${basePiercing}`);
+                        window.logger.log(`[PlayerCombat] Normalizing projectile ${projectile.id} piercing: ${projectile.piercing} -> ${basePiercing}`);
                     }
                     projectile.piercing = basePiercing;
                 }
@@ -509,7 +509,7 @@ class PlayerCombat {
                 const oldPiercing = this.piercing;
                 this.piercing += upgrade.value || 1; // Add piercing count
                 if (window.debugProjectiles) {
-                    console.log(`[PlayerCombat] Piercing upgrade applied: ${oldPiercing} -> ${this.piercing} (added ${upgrade.value || 1})`);
+                    window.logger.log(`[PlayerCombat] Piercing upgrade applied: ${oldPiercing} -> ${this.piercing} (added ${upgrade.value || 1})`);
                 }
                 break;
 

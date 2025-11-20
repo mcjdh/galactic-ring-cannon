@@ -1536,7 +1536,7 @@ class GameEngine {
 
         if (enemy.isDead || (projectile.hitEnemies && projectile.hitEnemies.has(enemy.id))) {
             if (window.debugProjectiles) {
-                console.log(`[GameEngine] Collision skipped - enemy dead: ${enemy.isDead}, already hit: ${projectile.hitEnemies && projectile.hitEnemies.has(enemy.id)}`);
+                window.logger.log(`[GameEngine] Collision skipped - enemy dead: ${enemy.isDead}, already hit: ${projectile.hitEnemies && projectile.hitEnemies.has(enemy.id)}`);
             }
             return;
         }
@@ -1586,7 +1586,7 @@ class GameEngine {
         // Handle piercing - projectile continues if it still has piercing charges
         if (typeof projectile.piercing === 'number' && projectile.piercing > 0) {
             if (window.debugProjectiles) {
-                console.log(`[Collision] Projectile ${projectile.id} piercing hit. Piercing: ${projectile.piercing} -> ${projectile.piercing - 1}`);
+                window.logger.log(`[Collision] Projectile ${projectile.id} piercing hit. Piercing: ${projectile.piercing} -> ${projectile.piercing - 1}`);
             }
             projectile.piercing--;
             projectileShouldDie = false; // Projectile continues after piercing hit
@@ -1596,11 +1596,11 @@ class GameEngine {
                 piercingExhausted = true;
                 projectileShouldDie = true; // Now it should die unless ricochet saves it
                 if (window.debugProjectiles) {
-                    console.log(`[Collision] Projectile ${projectile.id} piercing exhausted, should die unless ricochet saves it`);
+                    window.logger.log(`[Collision] Projectile ${projectile.id} piercing exhausted, should die unless ricochet saves it`);
                 }
             } else {
                 if (window.debugProjectiles) {
-                    console.log(`[Collision] Projectile ${projectile.id} still has piercing charges: ${projectile.piercing}`);
+                    window.logger.log(`[Collision] Projectile ${projectile.id} still has piercing charges: ${projectile.piercing}`);
                 }
             }
         }
@@ -1609,7 +1609,7 @@ class GameEngine {
         // This allows ricochet to work after piercing is exhausted OR for non-piercing projectiles
         if (projectileShouldDie && projectile.behaviorManager && projectile.behaviorManager.hasBehavior('ricochet')) {
             if (window.debugProjectiles) {
-                console.log(`[Collision] Projectile ${projectile.id} attempting ricochet. hasRicochet: ${projectile.behaviorManager.hasBehavior('ricochet')}`);
+                window.logger.log(`[Collision] Projectile ${projectile.id} attempting ricochet. hasRicochet: ${projectile.behaviorManager.hasBehavior('ricochet')}`);
             }
             if (projectile.type === 'projectile') {
                 try {
@@ -1617,23 +1617,23 @@ class GameEngine {
                     if (ok) {
                         projectileShouldDie = false; // Ricochet successful, projectile continues
                         if (window.debugProjectiles) {
-                            console.log(`[Collision] Projectile ${projectile.id} ricochet successful!`);
+                            window.logger.log(`[Collision] Projectile ${projectile.id} ricochet successful!`);
                         }
                         // Reset piercing if projectile ricocheted (balanced gameplay choice)
                         if (piercingExhausted && projectile.originalPiercing > 0) {
                             projectile.piercing = Math.max(0, Math.floor(projectile.originalPiercing / 2));
                             if (window.debugProjectiles) {
-                                console.log(`[Collision] Projectile ${projectile.id} piercing restored: ${projectile.piercing}`);
+                                window.logger.log(`[Collision] Projectile ${projectile.id} piercing restored: ${projectile.piercing}`);
                             }
                         }
                     } else {
                         if (window.debugProjectiles) {
-                            console.log(`[Collision] Projectile ${projectile.id} ricochet failed`);
+                            window.logger.log(`[Collision] Projectile ${projectile.id} ricochet failed`);
                         }
                     }
                 } catch (e) {
                     if (window.debugProjectiles) {
-                        console.log(`[Collision] Projectile ${projectile.id} ricochet error:`, e);
+                        window.logger.log(`[Collision] Projectile ${projectile.id} ricochet error:`, e);
                     }
                 }
             }
@@ -2153,12 +2153,12 @@ class GameEngine {
                 } else {
                     proj = this._createFallbackProjectile(x, y, config);
                 }
-                console.warn('[GameEngine] ⚠️ ProjectileFactory not available - behaviors will NOT be attached!');
+                window.logger.warn('[GameEngine] ⚠️ ProjectileFactory not available - behaviors will NOT be attached!');
             }
 
             // Debug logging
             if (window.debugProjectiles && (config.piercing > 0 || proj.piercing > 0)) {
-                console.log(`[GameEngine] Projectile ${proj.id} spawned: piercing=${proj.piercing}`);
+                window.logger.log(`[GameEngine] Projectile ${proj.id} spawned: piercing=${proj.piercing}`);
             }
 
             this.addEntity(proj);
@@ -2183,7 +2183,7 @@ class GameEngine {
         // Check for NaN values
         if (isNaN(x) || isNaN(y) || isNaN(vx) || isNaN(vy) || isNaN(damage)) {
             if (window.debugManager?.debugMode) {
-                console.warn('NaN detected in enemy projectile parameters:', { x, y, vx, vy, damage });
+                window.logger.warn('NaN detected in enemy projectile parameters:', { x, y, vx, vy, damage });
             }
             return null;
         }

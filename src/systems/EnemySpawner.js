@@ -379,7 +379,7 @@ class EnemySpawner {
         if (Math.floor(this.bossTimer) !== this._lastLoggedBossTimer) {
             this._lastLoggedBossTimer = Math.floor(this.bossTimer);
             if (window.debugManager?.enabled) {
-                console.log(`[EnemySpawner] Boss timer: ${this.bossTimer.toFixed(1)}s / ${this.bossInterval}s (lag: ${this.performanceMonitor.isLagging})`);
+                window.logger.log(`[EnemySpawner] Boss timer: ${this.bossTimer.toFixed(1)}s / ${this.bossInterval}s (lag: ${this.performanceMonitor.isLagging})`);
             }
         }
 
@@ -754,7 +754,7 @@ class EnemySpawner {
         // Prevent multiple bosses from stacking
         if (window.gameManager?.bossActive || this.isBossAlive()) {
             if (window.debugManager?.enabled) {
-                console.log('[EnemySpawner] Boss spawn skipped - boss already active');
+                window.logger.log('[EnemySpawner] Boss spawn skipped - boss already active');
             }
             return;
         }
@@ -1040,28 +1040,28 @@ class EnemySpawner {
      */
     enablePi5Mode() {
         if (window.debugManager?.enabled) {
-            console.log('[Pi] EnemySpawner: Enabling Pi5 optimization mode...');
+            window.logger.log('[Pi] EnemySpawner: Enabling Pi5 optimization mode...');
         }
-        
+
         // Conservative enemy limits
         this.maxEnemies = 35; // Much lower than default 60
         this.baseMaxEnemies = 35;
         this.performanceMonitor.adaptiveMaxEnemies = 35;
-        
+
         // Slower spawn rate
         this.spawnRate = Math.min(this.spawnRate, 1.0);
         this.baseSpawnRate = 1.0;
         this.spawnCooldown = 1.0;
-        
+
         // More aggressive lag threshold (target 40fps minimum instead of 30fps)
         this.performanceMonitor.lagThreshold = 25; // 40fps
-        
+
         // Reduce elite chance slightly
         this.eliteChance = Math.min(this.eliteChance, 0.08);
         this.baseEliteChance = 0.03;
-        
+
         if (window.debugManager?.enabled) {
-            console.log('+ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
+            window.logger.log('+ Pi5 mode: maxEnemies=35, spawnRate=1.0, lagThreshold=25ms (40fps)');
         }
     }
 }

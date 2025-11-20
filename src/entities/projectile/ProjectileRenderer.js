@@ -652,7 +652,7 @@ ProjectileRenderer.clearSpriteCache = function () {
     this._bodySpriteCache.clear();
     this._glowSpriteCache.clear();
     this._critGlowCache.clear();
-    console.log(`🧹 Cleared ${totalSprites} sprite caches (freed GPU memory)`);
+    window.logger.log(`🧹 Cleared ${totalSprites} sprite caches (freed GPU memory)`);
 };
 
 /**
@@ -670,7 +670,7 @@ ProjectileRenderer.reduceCacheSizes = function (factor = 0.5) {
     reduceCache(this._glowSpriteCache, Math.floor(this._GLOW_CACHE_LIMIT * factor));
     reduceCache(this._critGlowCache, Math.floor(this._CRIT_CACHE_LIMIT * factor));
 
-    console.log(`[Pi] Reduced sprite caches by ${(1 - factor) * 100}% to free GPU memory`);
+    window.logger.log(`[Pi] Reduced sprite caches by ${(1 - factor) * 100}% to free GPU memory`);
 };
 
 /**

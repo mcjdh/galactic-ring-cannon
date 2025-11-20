@@ -96,8 +96,8 @@ class Projectile {
             }
         } catch (error) {
             // Fallback: Create a minimal stub manager if BehaviorManager fails
-            // [FIX] Always log error to console to ensure visibility of silent failures
-            console.error(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error);
+            // [FIX] Always log error to ensure visibility of silent failures
+            window.logger.error(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error);
 
             if (window.debugProjectiles) {
                 window.logger.warn(`[Projectile ${this.id}] Failed to create BehaviorManager:`, error.message);
@@ -112,7 +112,7 @@ class Projectile {
                     const piercingBehavior = new PiercingBehavior(this, { charges: this.piercing });
                     this.behaviorManager.addBehavior(piercingBehavior);
                     if (window.debugProjectiles) {
-                        console.log(`[Projectile ${this.id}] Created with piercing=${this.piercing}, added PiercingBehavior`);
+                        window.logger.log(`[Projectile ${this.id}] Created with piercing=${this.piercing}, added PiercingBehavior`);
                     }
                 }
             } catch (error) {
@@ -123,7 +123,7 @@ class Projectile {
         }
 
         if (window.debugProjectiles) {
-            console.log(`[Projectile ${this.id}] Created. BehaviorManager:`, this.behaviorManager);
+            window.logger.log(`[Projectile ${this.id}] Created. BehaviorManager:`, this.behaviorManager);
         }
 
         // Backwards compatibility: Track old flag properties for conversion to behaviors
@@ -265,7 +265,7 @@ class Projectile {
             // Don't add if already has this behavior
             if (this.behaviorManager.hasBehavior(type)) {
                 if (window.debugProjectiles) {
-                    console.log(`[Projectile ${this.id}] ${type} behavior already exists, skipping`);
+                    window.logger.log(`[Projectile ${this.id}] ${type} behavior already exists, skipping`);
                 }
                 return;
             }
@@ -285,7 +285,7 @@ class Projectile {
                 this.behaviorManager.addBehavior(behavior);
 
                 if (window.debugProjectiles) {
-                    console.log(`[Projectile ${this.id}] Added ${type} behavior from old flags. Data:`, this[dataMap[type]]);
+                    window.logger.log(`[Projectile ${this.id}] Added ${type} behavior from old flags. Data:`, this[dataMap[type]]);
                 }
             } catch (error) {
                 if (window.debugProjectiles) {
@@ -293,7 +293,7 @@ class Projectile {
                 }
             }
         } else if (window.debugProjectiles) {
-            console.log(`[Projectile ${this.id}] Not adding ${type} behavior. hasFlag: ${hasFlag}, hasData: ${hasData}`);
+            window.logger.log(`[Projectile ${this.id}] Not adding ${type} behavior. hasFlag: ${hasFlag}, hasData: ${hasData}`);
         }
     }
 
@@ -354,7 +354,7 @@ class Projectile {
         // Already hit this enemy? Skip
         if (this.hitEnemies.has(enemy.id)) {
             if (window.debugProjectiles) {
-                console.log(`[Projectile ${this.id}] Already hit enemy ${enemy.id}, skipping`);
+                window.logger.log(`[Projectile ${this.id}] Already hit enemy ${enemy.id}, skipping`);
             }
             return false;
         }
@@ -386,7 +386,7 @@ class Projectile {
 
                 // Debug logging for lifesteal tracking
                 if (window.debugManager?.debugMode) {
-                    console.log(`[Projectile] Lifesteal: ${healAmount.toFixed(2)} HP (${(this.lifesteal * 100).toFixed(1)}% of ${this.damage})`);
+                    window.logger.log(`[Projectile] Lifesteal: ${healAmount.toFixed(2)} HP (${(this.lifesteal * 100).toFixed(1)}% of ${this.damage})`);
                 }
             }
         }

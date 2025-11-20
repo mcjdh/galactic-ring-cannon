@@ -670,7 +670,7 @@ class EnemyAbilities {
             // Use shared color constants from window.Game namespace
             const colors = window.Game?.DAMAGE_ZONE_TYPE_COLORS;
             if (!colors) {
-                console.warn('DamageZone colors not available - damageZone.js may not be loaded');
+                window.logger.warn('DamageZone colors not available - damageZone.js may not be loaded');
                 return;
             }
 
