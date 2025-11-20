@@ -95,7 +95,7 @@ class GravityWell {
             if (window.debugProjectiles && playerLevel > 1) {
                 const baseDPS = baseDamagePerSecond.toFixed(1);
                 const scaledDPS = (baseDamagePerSecond * levelBonus).toFixed(1);
-                console.log(`[GravityWell] Void Warden L${playerLevel}: ${baseDPS} → ${scaledDPS} DPS (${levelBonus.toFixed(2)}x)`);
+                window.logger.log(`[GravityWell] Void Warden L${playerLevel}: ${baseDPS} → ${scaledDPS} DPS (${levelBonus.toFixed(2)}x)`);
             }
         }
 

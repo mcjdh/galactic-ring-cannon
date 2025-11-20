@@ -153,7 +153,7 @@ class PlayerAbilities {
             // If shield is recharging and player takes damage, restart recharge timer
             if (this.hasShield && this.shieldBroken && this.shieldRechargeTimer > 0) {
                 this.shieldRechargeTimer = this.shieldRechargeTime;
-                console.log(`[Shield] Recharge interrupted by damage! Timer reset to ${this.shieldRechargeTime}s`);
+                window.logger.log(`[Shield] Recharge interrupted by damage! Timer reset to ${this.shieldRechargeTime}s`);
             }
             return incomingDamage; // Shield can't help, return full damage
         }
@@ -164,7 +164,7 @@ class PlayerAbilities {
         this.shieldCurrent -= damageBlocked;
         this.shieldDamageBlocked += damageBlocked;
 
-        console.log(`[Shield] Absorbed ${damageBlocked.toFixed(1)} damage, ${this.shieldCurrent.toFixed(1)}/${this.shieldMaxCapacity} remaining`);
+        window.logger.log(`[Shield] Absorbed ${damageBlocked.toFixed(1)} damage, ${this.shieldCurrent.toFixed(1)}/${this.shieldMaxCapacity} remaining`);
 
         // Trigger visual hit flash
         if (damageBlocked > 0) {
@@ -187,7 +187,7 @@ class PlayerAbilities {
             if (newGrowth > currentGrowth) {
                 const added = newGrowth - currentGrowth;
                 this.shieldMaxCapacity += added;
-                console.log(`[Shield] Adaptive armor grew! +${added} max capacity (total growth: ${newGrowth}/${this.shieldAdaptiveMax})`);
+                window.logger.log(`[Shield] Adaptive armor grew! +${added} max capacity (total growth: ${newGrowth}/${this.shieldAdaptiveMax})`);
                 // Visual feedback for shield evolution
                 if (window.optimizedParticles) {
                     this.createShieldEvolveEffect();
@@ -204,7 +204,7 @@ class PlayerAbilities {
 
         // Check for energy reflection
         if (this.shieldReflectChance > 0 && Math.random() < this.shieldReflectChance) {
-            console.log(`[Shield] Energy reflection triggered!`);
+            window.logger.log(`[Shield] Energy reflection triggered!`);
             const reflectedDamage = this.reflectDamage(damageBlocked);
 
             if (reflectedDamage > 0) {
@@ -230,7 +230,7 @@ class PlayerAbilities {
             this.shieldBroken = true;
             this.shieldRechargeTimer = this.shieldRechargeTime;
 
-            console.log(`[Shield] Shield broke! Recharging in ${this.shieldRechargeTime}s. Explosion: ${this.shieldExplosionDamage > 0}`);
+            window.logger.log(`[Shield] Shield broke! Recharging in ${this.shieldRechargeTime}s. Explosion: ${this.shieldExplosionDamage > 0}`);
 
             // Reset time without break counter
             this.shieldTimeWithoutBreak = 0;
@@ -307,7 +307,7 @@ class PlayerAbilities {
         });
 
         if (enemies.length > 0) {
-            console.log(`[Shield] Aegis Protocol triggered! Damaging ${enemies.length} enemies for ${this.shieldExplosionDamage} each`);
+            window.logger.log(`[Shield] Aegis Protocol triggered! Damaging ${enemies.length} enemies for ${this.shieldExplosionDamage} each`);
         }
 
         enemies.forEach(enemy => {
@@ -1047,9 +1047,9 @@ class PlayerAbilities {
 
         const factor = gm ? (gm.particleReductionFactor || 1.0) : 1.0;
         const baseParticles = Math.floor(distance / 10);
-        const MathUtils = window.Game?.MathUtils;
-        const particleCount = MathUtils ?
-            Math.max(0, Math.floor(MathUtils.clamp(baseParticles, 0, 15) * factor)) :
+        const FastMath = window.FastMath || window.Game?.FastMath;
+        const particleCount = FastMath ?
+            Math.max(0, Math.floor(FastMath.clamp(baseParticles, 0, 15) * factor)) :
             Math.max(0, Math.floor(Math.min(Math.max(baseParticles, 0), 15) * factor));
 
         if (particleCount <= 0) return;
@@ -1130,7 +1130,7 @@ class PlayerAbilities {
                     this.shieldRechargeTime = upgrade.shieldRechargeTime || 6.0;
                     this.shieldBroken = false;
                     this.shieldRechargeTimer = 0;
-                    console.log(`[Shield] Initialized with base capacity: ${this.shieldBaseCapacity}`);
+                    window.logger.log(`[Shield] Initialized with base capacity: ${this.shieldBaseCapacity}`);
                 } else if (upgrade.specialType === 'aoe') {
                     // Validate combat module exists before modifying
                     if (this.player?.combat) {
@@ -1349,12 +1349,12 @@ class PlayerAbilities {
                     this.shieldMaxCapacity += upgrade.value;
                     this.shieldCurrent = Math.min(this.shieldCurrent + upgrade.value, this.shieldMaxCapacity);
                     // Do not update shieldBaseCapacity here; it should remain at the original value
-                    console.log(`[Shield] Capacity: ${oldCapacity} → ${this.shieldMaxCapacity} (+${upgrade.value})`);
+                    window.logger.log(`[Shield] Capacity: ${oldCapacity} → ${this.shieldMaxCapacity} (+${upgrade.value})`);
                 }
                 if (upgrade.rechargeBonus) {
                     const oldTime = this.shieldRechargeTime;
                     this.shieldRechargeTime *= (1 - upgrade.rechargeBonus);
-                    console.log(`[Shield] Recharge time: ${oldTime.toFixed(2)}s → ${this.shieldRechargeTime.toFixed(2)}s (${(upgrade.rechargeBonus * 100).toFixed(0)}% faster)`);
+                    window.logger.log(`[Shield] Recharge time: ${oldTime.toFixed(2)}s → ${this.shieldRechargeTime.toFixed(2)}s (${(upgrade.rechargeBonus * 100).toFixed(0)}% faster)`);
                 }
                 break;
 

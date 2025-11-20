@@ -67,7 +67,7 @@ const FastMath = {
         const dx = x2 - x1;
         const dy = y2 - y1;
         const distSq = dx * dx + dy * dy;
-        
+
         // Use cached sqrt if available
         if (window.perfCache) {
             return window.perfCache.sqrt(distSq);
@@ -87,6 +87,29 @@ const FastMath = {
 
     clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
+    },
+
+    /**
+     * Budget calculation for particle spawning
+     * Calculates safe spawn count without exceeding limits
+     * @param {number} baseAmount - Base amount to calculate
+     * @param {number} factor - Reduction factor (0-1)
+     * @param {number} maxAllowed - Maximum allowed amount
+     * @param {number} currentUsed - Currently used amount
+     * @returns {number} Safe budget amount
+     */
+    budget(baseAmount, factor = 1, maxAllowed = 100, currentUsed = 0) {
+        // Validate inputs
+        if (!Number.isFinite(baseAmount) || baseAmount < 0) baseAmount = 0;
+        if (!Number.isFinite(factor) || factor < 0) factor = 0;
+        if (!Number.isFinite(maxAllowed) || maxAllowed < 0) maxAllowed = 100;
+        if (!Number.isFinite(currentUsed) || currentUsed < 0) currentUsed = 0;
+
+        // Clamp factor between 0 and 1
+        factor = this.clamp(factor, 0, 1);
+
+        const available = Math.max(0, maxAllowed - currentUsed);
+        return Math.min(baseAmount * factor, available);
     },
 
     degToRad(degrees) {
@@ -123,10 +146,10 @@ const FastMath = {
             const cached = window.perfCache.getNormalizedVector(x, y);
             if (cached) return cached;
         }
-        
+
         const lenSq = x * x + y * y;
         if (lenSq === 0) return { x: 0, y: 0 };
-        
+
         // Fast inverse sqrt for normalization (avoids expensive division)
         const invLen = 1 / Math.sqrt(lenSq);
         return {
@@ -144,7 +167,7 @@ const FastMath = {
      */
     invSqrt(x) {
         if (x <= 0) return 0;
-        
+
         // On desktop, native is fast enough
         if (!window.isRaspberryPi) {
             return 1 / Math.sqrt(x);
@@ -156,7 +179,7 @@ const FastMath = {
         const j = new Int32Array(i.buffer);
         j[0] = 0x5f3759df - (j[0] >> 1); // Magic constant
         const y = i[0];
-        
+
         // Newton-Raphson iteration for accuracy
         return y * (1.5 - halfX * y * y);
     },
@@ -177,7 +200,7 @@ const FastMath = {
     normalizeDiagonal(x, y) {
         // Fast path: if not diagonal, return as-is
         if (x === 0 || y === 0) return { x, y };
-        
+
         // Diagonal movement: multiply by pre-computed 1/sqrt(2)
         return {
             x: x * this.SQRT2_INV,
@@ -198,12 +221,12 @@ const FastMath = {
     distanceFast(x1, y1, x2, y2) {
         const dx = Math.abs(x2 - x1);
         const dy = Math.abs(y2 - y1);
-        
+
         // Octagonal approximation: max + 0.414*min
         // Error < 4% vs true Euclidean distance
         const min = dx < dy ? dx : dy;
         const max = dx > dy ? dx : dy;
-        
+
         return max + 0.414 * min;
     },
 
@@ -221,12 +244,12 @@ const FastMath = {
         const dx = x2 - x1;
         const dy = y2 - y1;
         const distSq = dx * dx + dy * dy;
-        
+
         // Use cached threshold if available (common collision radii)
-        const thresholdSq = window.perfCache 
+        const thresholdSq = window.perfCache
             ? window.perfCache.getDistanceThreshold(threshold)
             : threshold * threshold;
-        
+
         return distSq < thresholdSq;
     },
 

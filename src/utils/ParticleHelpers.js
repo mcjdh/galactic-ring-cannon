@@ -65,9 +65,9 @@ class ParticleHelpers {
             return 0;
         }
 
-        const MathUtils = window.Game?.MathUtils;
-        if (MathUtils?.budget) {
-            return Math.floor(MathUtils.budget(
+        const FastMath = window.FastMath || window.Game?.FastMath;
+        if (FastMath?.budget) {
+            return Math.floor(FastMath.budget(
                 baseCount,
                 stats.reduction,
                 stats.maxParticles,
@@ -78,7 +78,7 @@ class ParticleHelpers {
         const reduction = Math.min(1, Math.max(0, stats.reduction));
         return Math.floor(baseCount * reduction);
     }
-    
+
     /**
      * Create hit effect particles
      */
@@ -88,11 +88,11 @@ class ParticleHelpers {
             window.optimizedParticles.spawnHitEffect(x, y, intensity);
             return;
         }
-        
+
         // Fallback for compatibility
         this.createBasicHitEffect(x, y, damage);
     }
-    
+
     /**
      * Create explosion effect
      */
@@ -102,7 +102,7 @@ class ParticleHelpers {
             for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
                 const speed = 50 + Math.random() * 100;
-                
+
                 window.optimizedParticles.spawnParticle({
                     x: x + (Math.random() - 0.5) * 10,
                     y: y + (Math.random() - 0.5) * 10,
@@ -116,11 +116,11 @@ class ParticleHelpers {
             }
             return;
         }
-        
+
         // Fallback
         this.createBasicExplosion(x, y, radius, color);
     }
-    
+
     /**
      * Create trail effect for moving objects
      */
@@ -129,11 +129,11 @@ class ParticleHelpers {
             window.optimizedParticles.spawnTrailEffect(x, y, vx, vy);
             return;
         }
-        
+
         // Fallback
         this.createBasicTrail(x, y, vx, vy, color);
     }
-    
+
     /**
      * Create level up effect
      */
@@ -143,7 +143,7 @@ class ParticleHelpers {
             for (let i = 0; i < 20; i++) {
                 const angle = (i / 20) * Math.PI * 2;
                 const speed = 60 + Math.random() * 80;
-                
+
                 window.optimizedParticles.spawnParticle({
                     x: x,
                     y: y,
@@ -157,11 +157,11 @@ class ParticleHelpers {
             }
             return;
         }
-        
+
         // Fallback
         this.createBasicLevelUp(x, y);
     }
-    
+
     /**
      * Create chain lightning effect
      */
@@ -171,13 +171,13 @@ class ParticleHelpers {
             const dy = toY - fromY;
             const distance = Math.sqrt(dx * dx + dy * dy);
             const segments = Math.max(3, Math.floor(distance / 20));
-            
+
             // Create lightning path
             for (let i = 0; i <= segments; i++) {
                 const ratio = i / segments;
                 const x = fromX + dx * ratio + (Math.random() - 0.5) * 20;
                 const y = fromY + dy * ratio + (Math.random() - 0.5) * 20;
-                
+
                 window.optimizedParticles.spawnParticle({
                     x: x,
                     y: y,
@@ -189,7 +189,7 @@ class ParticleHelpers {
                     type: 'spark'
                 });
             }
-            
+
             // Impact flash
             window.optimizedParticles.spawnParticle({
                 x: toX,
@@ -203,21 +203,21 @@ class ParticleHelpers {
             });
             return;
         }
-        
+
         // Fallback
         this.createBasicLightning(fromX, fromY, toX, toY);
     }
-    
+
     // Fallback methods for compatibility (basic particle creation)
     static createBasicHitEffect(x, y, damage) {
         const gm = window.gameManager || window.gameManagerBridge;
         if (!gm || !gm.addParticleViaEffectsManager) return;
-        
+
         const count = Math.min(8, Math.floor(damage / 5));
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 30 + Math.random() * 70;
-            
+
             // [A] RESONANT NOTE: Using pooled particles for better performance
             if (window.optimizedParticles) {
                 window.optimizedParticles.spawnParticle({
@@ -238,10 +238,10 @@ class ParticleHelpers {
             }
         }
     }
-    
+
     static createBasicExplosion(x, y, radius, color) {
         const count = Math.min(15, Math.floor(radius / 4));
-        
+
         // [A] RESONANT NOTE: Prefer pooled particles for explosions
         if (window.optimizedParticles) {
             for (let i = 0; i < count; i++) {
@@ -258,7 +258,7 @@ class ParticleHelpers {
             }
             return;
         }
-        
+
         // Fallback to old system
         if (!window.gameManager?.addParticleViaEffectsManager) return;
         for (let i = 0; i < count; i++) {
@@ -271,7 +271,7 @@ class ParticleHelpers {
             window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
-    
+
     static createBasicTrail(x, y, vx, vy, color) {
         // [A] RESONANT NOTE: Trail particles using pooled system
         if (window.optimizedParticles) {
@@ -284,24 +284,24 @@ class ParticleHelpers {
             });
             return;
         }
-        
+
         // Fallback
         if (!window.gameManager?.addParticleViaEffectsManager) return;
         const particle = new Particle(
             x + (Math.random() - 0.5) * 5, y + (Math.random() - 0.5) * 5,
             vx * 0.3, vy * 0.3, 1 + Math.random() * 2, color, 0.5
         );
-        
+
         window.gameManager.addParticleViaEffectsManager(particle);
     }
-    
+
     static createBasicLevelUp(x, y) {
         if (!window.gameManager || !window.gameManager.addParticleViaEffectsManager) return;
-        
+
         for (let i = 0; i < 15; i++) {
             const angle = (i / 15) * Math.PI * 2;
             const speed = 50 + Math.random() * 50;
-            
+
             const particle = new Particle(
                 x, y,
                 Math.cos(angle) * speed,
@@ -310,24 +310,24 @@ class ParticleHelpers {
                 '#f39c12',
                 1 + Math.random() * 0.5
             );
-            
+
             window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
-    
+
     static createBasicLightning(fromX, fromY, toX, toY) {
         if (!window.gameManager || !window.gameManager.addParticleViaEffectsManager) return;
-        
+
         const dx = toX - fromX;
         const dy = toY - fromY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const segments = Math.max(3, Math.floor(distance / 30));
-        
+
         for (let i = 0; i <= segments; i++) {
             const ratio = i / segments;
             const x = fromX + dx * ratio;
             const y = fromY + dy * ratio;
-            
+
             const particle = new Particle(
                 x, y,
                 (Math.random() - 0.5) * 50,
@@ -336,7 +336,7 @@ class ParticleHelpers {
                 '#74b9ff',
                 0.2
             );
-            
+
             window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
