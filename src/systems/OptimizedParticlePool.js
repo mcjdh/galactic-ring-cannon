@@ -549,9 +549,6 @@ if (typeof window !== 'undefined') {
     window.Game.OptimizedParticlePool = OptimizedParticlePool;
 }
 
-// Create global optimized particle system
-window.optimizedParticles = new OptimizedParticlePool();
-
 // Provide a ParticleManager-compatible adapter so legacy calls work
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};

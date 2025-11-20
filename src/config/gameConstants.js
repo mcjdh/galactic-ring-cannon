@@ -87,6 +87,19 @@
             }
         },
 
+        // Performance Configuration
+        PERFORMANCE: {
+            MAX_PARTICLES: 1000,
+            PROJECTILE_BATCH_SIZE: 64,
+            ENEMY_BATCH_SIZE: 64,
+            ENEMY_PROJECTILE_BATCH_SIZE: 64,
+            XP_ORB_BATCH_SIZE: 64,
+            FALLBACK_BATCH_SIZE: 32,
+            TARGET_FPS: 60,
+            CLEANUP_INTERVAL: 0.5,
+            MAX_FIXED_STEPS: 5
+        },
+
         // Enemy Configuration
         ENEMIES: {
             SPAWN_DISTANCE_MIN: 320,
