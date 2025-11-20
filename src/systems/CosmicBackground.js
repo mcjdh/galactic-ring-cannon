@@ -79,6 +79,11 @@ class CosmicBackground {
         // Animation time
         this.time = 0;
 
+        // Fade-in state for smooth initialization (prevents popin)
+        this._fadeProgress = 0;
+        this._fadeComplete = false;
+        this._fadeDuration = 0.5; // seconds
+
         // Performance settings
         this.lowQuality = false;
         this._starWrapBounds = null;
@@ -95,7 +100,7 @@ class CosmicBackground {
         // Cached RGBA strings (optimization - avoid repeated string concat)
         this._cachedRgbaStrings = new Map();
         this._nebulaSpriteCache = new Map();
-        
+
         // [Pi] GPU Memory Optimization: Reduce nebula sprite cache for Pi5
         // Increased to 12 to prevent cache thrashing with quantized sizes (2 colors * 4 sizes = 8 max)
         this._nebulaCacheLimit = window.isRaspberryPi ? 12 : 32;
@@ -109,13 +114,19 @@ class CosmicBackground {
         const canvasWidth = this.canvas.width || 800; // Fallback to reasonable default
         const canvasHeight = this.canvas.height || 600;
 
-        // Generate stars for each layer
+        // Generate stars for each layer with proper margin distribution to prevent edge popin
+        // Add 10% margin buffer on all sides so stars can scroll in smoothly
+        const marginX = canvasWidth * 0.1;
+        const marginY = canvasHeight * 0.1;
+        const totalWidth = canvasWidth + marginX * 2;
+        const totalHeight = canvasHeight + marginY * 2;
+
         for (const layer of this.starLayers) {
             layer.stars = [];
             for (let i = 0; i < layer.count; i++) {
                 layer.stars.push({
-                    x: Math.random() * canvasWidth,
-                    y: Math.random() * canvasHeight,
+                    x: Math.random() * totalWidth - marginX,
+                    y: Math.random() * totalHeight - marginY,
                     twinkleOffset: Math.random() * Math.PI * 2,
                     twinkleSpeed: 0.5 + Math.random() * 1.5,
                     cachedTwinkle: 0.5 + Math.random() * 0.5 // Pre-calculated twinkle value
@@ -140,15 +151,15 @@ class CosmicBackground {
 
         // Generate nebula clouds
         this.nebulaClouds.length = 0;
-        
+
         // [R] FIX: Use fixed colors in sequence to prevent pop-in when sprites regenerate
         // Alternate purple and pink for variety but consistency
         const nebulaColors = [this.colors.nebulaPurple, this.colors.nebulaPink];
-        
+
         // Quantized sizes to maximize sprite reuse and prevent cache thrashing
         // 4 sizes: 100, 150, 200, 250
         const quantizedSizes = [100, 150, 200, 250];
-        
+
         for (let i = 0; i < this.nebulaCount; i++) {
             // Pick a size from the quantized set
             const sizeIndex = Math.floor(Math.random() * quantizedSizes.length);
@@ -173,22 +184,29 @@ class CosmicBackground {
 
         // Clear sprite cache when reinitializing to ensure fresh rendering
         this._nebulaSpriteCache.clear();
-        
-        // [PERFORMANCE] Defer nebula sprite pre-warming to avoid early-game lag
-        // Pre-warm on first render instead of initialization
-        this._needsPreWarm = true;
+
+        // Pre-warm nebula sprite cache IMMEDIATELY to prevent popin flash
+        // This is synchronous but only happens during initialization, so acceptable
+        for (const cloud of this.nebulaClouds) {
+            this._getNebulaSprite(cloud.color, cloud.radius);
+        }
+        this._needsPreWarm = false;
+
+        // Reset fade-in for smooth appearance
+        this._fadeProgress = 0;
+        this._fadeComplete = false;
 
         this._starBufferDirty = true;
     }
 
     /**
      * [PERFORMANCE] Pre-warm nebula sprite cache to prevent pop-in
-     * Called on first render to avoid blocking game start
+     * Now called synchronously during initialization instead of deferred
      */
     _preWarmNebulaCache() {
         if (!this._needsPreWarm) return;
         this._needsPreWarm = false;
-        
+
         // Generate sprites for all nebula clouds
         for (const cloud of this.nebulaClouds) {
             this._getNebulaSprite(cloud.color, cloud.radius);
@@ -200,20 +218,52 @@ class CosmicBackground {
         // Prevents unnecessary nebula flashing on spurious resize events
         const currentWidth = this.canvas.width || 0;
         const currentHeight = this.canvas.height || 0;
-        
+
         // Store last known canvas dimensions
         if (!this._lastCanvasWidth) this._lastCanvasWidth = currentWidth;
         if (!this._lastCanvasHeight) this._lastCanvasHeight = currentHeight;
-        
-        // Only reinitialize if dimensions actually changed significantly (>RESIZE_THRESHOLD px difference)
-        const widthChanged = Math.abs(currentWidth - this._lastCanvasWidth) > this.RESIZE_THRESHOLD;
-        const heightChanged = Math.abs(currentHeight - this._lastCanvasHeight) > this.RESIZE_THRESHOLD;
-        
+
+        const widthDelta = currentWidth - this._lastCanvasWidth;
+        const heightDelta = currentHeight - this._lastCanvasHeight;
+
+        // For small resizes, just reposition elements proportionally (prevents popin)
+        const widthChanged = Math.abs(widthDelta) > this.RESIZE_THRESHOLD;
+        const heightChanged = Math.abs(heightDelta) > this.RESIZE_THRESHOLD;
+
         if (widthChanged || heightChanged) {
-            this._lastCanvasWidth = currentWidth;
-            this._lastCanvasHeight = currentHeight;
-            // Redistribute stars when canvas resizes
-            this.initialize();
+            // Only do full reinit for very large resizes (>100px)
+            const largeResize = Math.abs(widthDelta) > 100 || Math.abs(heightDelta) > 100;
+
+            if (largeResize) {
+                // Full reinitialize for major size changes
+                this._lastCanvasWidth = currentWidth;
+                this._lastCanvasHeight = currentHeight;
+                this.initialize();
+            } else {
+                // For minor resizes, just scale and reposition existing elements
+                const scaleX = currentWidth / this._lastCanvasWidth;
+                const scaleY = currentHeight / this._lastCanvasHeight;
+
+                // Reposition stars
+                for (const layer of this.starLayers) {
+                    if (!layer.stars) continue;
+                    for (const star of layer.stars) {
+                        star.x *= scaleX;
+                        star.y *= scaleY;
+                    }
+                }
+
+                // Reposition nebulae
+                for (const cloud of this.nebulaClouds) {
+                    cloud.x *= scaleX;
+                    cloud.y *= scaleY;
+                }
+
+                this._lastCanvasWidth = currentWidth;
+                this._lastCanvasHeight = currentHeight;
+                this._starBufferDirty = true;
+            }
+
             this._gridBufferDirty = true;
             if (window.logger?.isDebugEnabled?.('systems')) {
                 window.logger.log(`[C] CosmicBackground resized (${currentWidth}x${currentHeight})`);
@@ -223,6 +273,15 @@ class CosmicBackground {
 
     update(deltaTime, player) {
         this.time += deltaTime;
+
+        // Update fade-in progress for smooth initialization
+        if (!this._fadeComplete) {
+            this._fadeProgress += deltaTime / this._fadeDuration;
+            if (this._fadeProgress >= 1) {
+                this._fadeProgress = 1;
+                this._fadeComplete = true;
+            }
+        }
 
         // Update stars with proper camera-based parallax
         if (player) {
@@ -401,6 +460,11 @@ class CosmicBackground {
         const w = this.canvas.width;
         const h = this.canvas.height;
 
+        // Apply fade-in opacity for smooth initialization (prevents popin)
+        const fadeAlpha = this._fadeProgress;
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha;
+
         // 1. Fill deep space background
         ctx.fillStyle = this.colors.deepSpace;
         ctx.fillRect(0, 0, w, h);
@@ -420,6 +484,9 @@ class CosmicBackground {
                 this.renderGrid(player);
             }
         }
+
+        // Restore context after fade-in
+        ctx.restore();
     }
 
     renderNebulae() {
@@ -445,7 +512,7 @@ class CosmicBackground {
             const cloud = this.nebulaClouds[i];
             // Skip clouds that are completely off-screen (with generous buffer to prevent popping)
             const buffer = cloud.radius * 1.5; // 1.5x radius buffer for smooth transitions
-            if (cloud.x + buffer < 0 || cloud.x - buffer > w || 
+            if (cloud.x + buffer < 0 || cloud.x - buffer > w ||
                 cloud.y + buffer < 0 || cloud.y - buffer > h) {
                 continue;
             }
@@ -453,7 +520,7 @@ class CosmicBackground {
             // Smooth pulsing opacity using sine wave
             const pulse = Math.sin(this.time * cloud.pulseSpeed + cloud.pulseOffset) * 0.5 + 0.5;
             const baseOpacity = 0.16 + pulse * 0.2;
-            
+
             // Add distance fade to prevent hard edges when nebulae move off-screen
             const distFadeX = Math.min(1, Math.min(
                 (cloud.x + buffer) / buffer,
@@ -484,7 +551,7 @@ class CosmicBackground {
 
         ctx.restore();
     }
-    
+
     _getNebulaSprite(color, radius) {
         const roundedRadius = Math.max(10, Math.round(radius));
         const key = `${color}_${roundedRadius}`;
@@ -501,7 +568,7 @@ class CosmicBackground {
         const scale = window.isRaspberryPi ? 0.5 : 1.0;
         const spriteRadius = roundedRadius * scale;
         const size = Math.max(2, Math.ceil(spriteRadius * 2));
-        
+
         const offscreen = document.createElement('canvas');
         offscreen.width = size;
         offscreen.height = size;
@@ -944,13 +1011,13 @@ class CosmicBackground {
 
         this.lowQuality = enabled;
         this._starBufferDirty = true;
-        
+
         // [R] FIX: Track if counts actually changed to avoid unnecessary reinitialization
         // This prevents nebula flashing when _applyBackgroundQuality() is called repeatedly
         const baseCounts = this._originalStarCounts || this._baseStarCounts || this.starLayers.map(l => l.stars.length || l.count);
         const targetStarCounts = [...baseCounts];
         const isPi = typeof window !== 'undefined' && window.isRaspberryPi;
-        
+
         if (enabled) {
             // Reduce effects for better performance
             // Grid stays enabled but will render in simplified mode

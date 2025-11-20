@@ -17,6 +17,12 @@
             this.menuStars = null;
             this.menuGradient = null;
             this.isVisible = false;
+
+            // Fade-in state for smooth initialization
+            this._fadeProgress = 0;
+            this._fadeComplete = false;
+            this._fadeFrames = 20; // Fade over 20 frames (~333ms at 60fps)
+            this._currentFrame = 0;
         }
 
         /**
@@ -48,10 +54,17 @@
                 this.menuGradient.addColorStop(1, '#0a0a1f');
 
                 // Reposition stars if resized and stars exist
-                if (this.menuStars && oldWidth > 0 && oldHeight > 0) {
+                // Only reposition if size change is significant to prevent flicker
+                const widthDelta = Math.abs(canvas.width - oldWidth);
+                const heightDelta = Math.abs(canvas.height - oldHeight);
+                const significantResize = widthDelta > 50 || heightDelta > 50;
+
+                if (this.menuStars && oldWidth > 0 && oldHeight > 0 && significantResize) {
+                    const scaleX = canvas.width / oldWidth;
+                    const scaleY = canvas.height / oldHeight;
                     this.menuStars.forEach(star => {
-                        star.x = (star.x / oldWidth) * canvas.width;
-                        star.y = (star.y / oldHeight) * canvas.height;
+                        star.x *= scaleX;
+                        star.y *= scaleY;
                     });
                 }
             };
@@ -68,14 +81,20 @@
                 window.addEventListener('resize', this.menuResizeHandler);
             }
 
-            // Create or reuse stars array
+            // Create or reuse stars array with proper viewport distribution
             if (!this.menuStars) {
                 const starCount = 200;
                 this.menuStars = [];
+                // Add 5% margin buffer to prevent edge popin
+                const marginX = canvas.width * 0.05;
+                const marginY = canvas.height * 0.05;
+                const totalWidth = canvas.width + marginX * 2;
+                const totalHeight = canvas.height + marginY * 2;
+
                 for (let i = 0; i < starCount; i++) {
                     this.menuStars.push({
-                        x: Math.random() * canvas.width,
-                        y: Math.random() * canvas.height,
+                        x: Math.random() * totalWidth - marginX,
+                        y: Math.random() * totalHeight - marginY,
                         size: Math.random() * 2 + 0.5,
                         speed: Math.random() * 0.5 + 0.1,
                         brightness: Math.random() * 0.5 + 0.5,
@@ -87,11 +106,29 @@
                 }
             }
 
+            // Reset fade-in for smooth appearance
+            this._fadeProgress = 0;
+            this._fadeComplete = false;
+            this._currentFrame = 0;
+
             // Animation loop
             const animate = () => {
                 if (!this.isVisible) {
                     return;
                 }
+
+                // Update fade-in progress
+                if (!this._fadeComplete) {
+                    this._currentFrame++;
+                    this._fadeProgress = Math.min(1, this._currentFrame / this._fadeFrames);
+                    if (this._fadeProgress >= 1) {
+                        this._fadeComplete = true;
+                    }
+                }
+
+                // Apply fade-in opacity
+                ctx.save();
+                ctx.globalAlpha = this._fadeProgress;
 
                 // Clear with cached gradient
                 ctx.fillStyle = this.menuGradient;
@@ -161,6 +198,9 @@
                     }
                 }
                 ctx.shadowBlur = 0;  // Reset once at end
+
+                // Restore context after fade-in
+                ctx.restore();
 
                 this.menuAnimationFrame = requestAnimationFrame(animate);
             };
