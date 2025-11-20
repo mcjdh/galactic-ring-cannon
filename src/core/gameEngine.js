@@ -160,6 +160,11 @@ class GameEngine {
             this.performanceManager = null;
         }
 
+        // Local fallbacks when PerformanceManager isn't available
+        this._performanceModeFallback = false;
+        this._lowGpuModeFallback = false;
+        this._lowPerformanceModeFallback = false;
+
         // Legacy flags - now proxies to PerformanceManager
         // this.performanceMode = false; // Accessed via getter/setter
         // this.debugMode = false; // Kept in GameEngine
@@ -190,7 +195,6 @@ class GameEngine {
         // Object pools
         // Current pools: particlePool, enemyProjectilePool, projectilePool (global)
         this.enemyProjectilePool = [];
-        this.particlePool = [];
         this.particlePool = [];
         this.maxPoolSize = 100; // Pool size works well for most devices
 
@@ -289,11 +293,17 @@ class GameEngine {
     }
 
     // ===== PERFORMANCE MANAGER PROXIES =====
-    get performanceMode() { return this.performanceManager?.performanceMode ?? false; }
-    set performanceMode(v) { if (this.performanceManager) this.performanceManager.performanceMode = v; }
+    get performanceMode() { return this.performanceManager?.performanceMode ?? this._performanceModeFallback; }
+    set performanceMode(v) {
+        if (this.performanceManager) {
+            this.performanceManager.performanceMode = v;
+        } else {
+            this._performanceModeFallback = !!v;
+        }
+    }
 
-    get lowGpuMode() { return this.performanceManager?.lowGpuMode ?? false; }
-    get lowPerformanceMode() { return this.performanceManager?.lowPerformanceMode ?? false; }
+    get lowGpuMode() { return this.performanceManager?.lowGpuMode ?? this._lowGpuModeFallback; }
+    get lowPerformanceMode() { return this.performanceManager?.lowPerformanceMode ?? this._lowPerformanceModeFallback; }
 
     get _manualPerformanceOverride() { return this.performanceManager?._manualPerformanceOverride ?? null; }
     set _manualPerformanceOverride(v) { if (this.performanceManager) this.performanceManager._manualPerformanceOverride = v; }
@@ -715,6 +725,9 @@ class GameEngine {
         if (this.performanceManager) {
             this.performanceManager.reset();
         }
+        this._performanceModeFallback = false;
+        this._lowGpuModeFallback = false;
+        this._lowPerformanceModeFallback = false;
 
         this.isVisible = true;
         this.isMinimized = false;
@@ -880,12 +893,6 @@ class GameEngine {
         } else {
             window.logger.log('@ Game loop already active - refreshed run state');
         }
-    }
-
-    stop() {
-        this.isRunning = false;
-        this.isPaused = true;
-        this.shutdown();
     }
 
     gameLoop(timestamp) {
@@ -1208,6 +1215,12 @@ class GameEngine {
                     // For now, 'on' is sufficient
                 }
             }
+        } else {
+            if (normalized === 'normal') {
+                this.disablePerformanceMode();
+            } else {
+                this.enablePerformanceMode();
+            }
         }
     }
 
@@ -1215,6 +1228,10 @@ class GameEngine {
         if (this.performanceManager) {
             const current = this.performanceManager._manualPerformanceOverride;
             this.performanceManager.setPerformanceOverride(current === 'on' ? 'off' : 'on');
+        } else if (this.performanceMode) {
+            this.disablePerformanceMode();
+        } else {
+            this.enablePerformanceMode();
         }
     }
 
@@ -1227,6 +1244,11 @@ class GameEngine {
                 this.performanceManager.lowGpuMode = true;
             }
             this.performanceManager.updateQualitySettings();
+        }
+        if (!this.performanceManager) {
+            this._performanceModeFallback = true;
+            this._lowGpuModeFallback = true;
+            this._lowPerformanceModeFallback = true;
         }
 
         // Apply low-end CSS class when enabling performance mode
@@ -1258,6 +1280,13 @@ class GameEngine {
                 }
             }
             this.performanceManager.updateQualitySettings();
+        } else {
+            this._performanceModeFallback = false;
+            this._lowGpuModeFallback = false;
+            this._lowPerformanceModeFallback = false;
+            if (document?.documentElement?.classList?.remove) {
+                document.documentElement.classList.remove('low-end-device');
+            }
         }
 
         this._maxSpatialGridPoolSize = 256;
