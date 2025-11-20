@@ -346,10 +346,11 @@ class ParticleHelpers {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.ParticleHelpers = ParticleHelpers;
-    // Auto-initialize when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => ParticleHelpers.init());
+    // Wait for DOMContentLoaded so initOptimizedParticles can register the pool first
+    const initParticleHelpers = () => ParticleHelpers.init();
+    if (document.readyState === 'complete') {
+        initParticleHelpers();
     } else {
-        ParticleHelpers.init();
+        document.addEventListener('DOMContentLoaded', initParticleHelpers, { once: true });
     }
 }
