@@ -85,6 +85,41 @@ const runTests = () => {
             failed++;
         }
 
+        // Test 4: Visibility Coverage
+        // Verify that shapes are distributed across the full worldW/worldH
+        // and that at least some would be visible on screen.
+        let visibleCount = 0;
+        const worldW = bg.worldW;
+        const worldH = bg.worldH;
+        const offset = bg.worldPadding / 2;
+        
+        bg.shapes.forEach(shape => {
+            // Simulate the render logic
+            const parallaxFactor = Math.min(0.8, 1.0 / shape.z);
+            let relX = (shape.x - mockPlayer.x * parallaxFactor) % worldW;
+            let relY = (shape.y - mockPlayer.y * parallaxFactor) % worldH;
+            
+            if (relX < 0) relX += worldW;
+            if (relY < 0) relY += worldH;
+            
+            const screenX = relX - offset;
+            const screenY = relY - offset;
+            
+            // Check if within extended bounds (culling logic)
+            const isVisible = !(screenX < -200 || screenX > canvas.width + 200 ||
+                               screenY < -200 || screenY > canvas.height + 200);
+            
+            if (isVisible) visibleCount++;
+        });
+
+        if (visibleCount > 0) {
+            console.log(`✅ Visibility Check: ${visibleCount}/${bg.shapes.length} shapes visible`);
+            passed++;
+        } else {
+            console.error(`❌ Visibility Check Failed: 0/${bg.shapes.length} shapes visible. Initialization bounds likely incorrect.`);
+            failed++;
+        }
+
     } catch (error) {
         console.error('❌ Unexpected error in test suite:', error);
         failed++;

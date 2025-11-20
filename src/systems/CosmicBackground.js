@@ -29,6 +29,7 @@ class CosmicBackground {
         };
 
         this.time = 0;
+        this.lastTime = performance.now();
         this.lowQuality = false;
         
         // Grid settings
@@ -38,16 +39,25 @@ class CosmicBackground {
         
         // Floating Shapes
         this.shapes = [];
-        this.shapeCount = 15;
+        this.shapeCount = 25; // Increased for denser field
         
         // Vector Stars
         this.stars = [];
-        this.starCount = 150;
+        this.starCount = 100; // Unified count
+
+        // World Dimensions for Infinite Scrolling
+        this.worldPadding = 2000;
+        this.worldW = this.canvas.width + this.worldPadding;
+        this.worldH = this.canvas.height + this.worldPadding;
 
         this.initialize();
     }
 
     initialize() {
+        // Update world dimensions in case of resize
+        this.worldW = this.canvas.width + this.worldPadding;
+        this.worldH = this.canvas.height + this.worldPadding;
+
         // Initialize Shapes
         this.shapes = [];
         for(let i=0; i<this.shapeCount; i++) {
@@ -73,13 +83,18 @@ class CosmicBackground {
     createShape() {
         const types = ['cube', 'pyramid', 'octahedron'];
         const type = types[Math.floor(Math.random() * types.length)];
-        const size = 40 + Math.random() * 60;
+        const size = 15 + Math.random() * 35; 
         
+        // Z-Depth: 1.0 is standard plane. Higher is further away.
+        // Range 0.8 (slightly foreground) to 4.0 (deep background)
+        const z = 0.8 + Math.random() * 3.2;
+
         return {
             type: type,
-            x: Math.random() * this.canvas.width,
-            y: Math.random() * this.canvas.height,
-            z: Math.random() * 0.5 + 0.2, // Parallax depth
+            // Spawn across the full virtual world
+            x: Math.random() * this.worldW,
+            y: Math.random() * this.worldH,
+            z: z,
             size: size,
             color: this.colors.shapes[Math.floor(Math.random() * this.colors.shapes.length)],
             rotX: Math.random() * Math.PI * 2,
@@ -104,24 +119,24 @@ class CosmicBackground {
             shape.rotY += shape.rotSpeedY * deltaTime;
             shape.rotZ += shape.rotSpeedZ * deltaTime;
             
-            // Drift
+            // Drift (World Space)
             shape.x += shape.driftX * deltaTime;
             shape.y += shape.driftY * deltaTime;
-
-            // Wrap around screen
-            const margin = 200;
-            if (shape.x < -margin) shape.x = this.canvas.width + margin;
-            if (shape.x > this.canvas.width + margin) shape.x = -margin;
-            if (shape.y < -margin) shape.y = this.canvas.height + margin;
-            if (shape.y > this.canvas.height + margin) shape.y = -margin;
+            
+            // Note: We no longer wrap here. Wrapping is handled in render relative to camera.
         });
     }
 
     render(player) {
         // Calculate delta time
         const now = performance.now();
-        const deltaTime = (now - this.lastTime) / 1000;
+        let deltaTime = (now - this.lastTime) / 1000;
         this.lastTime = now;
+
+        // Safety check for NaN or huge time jumps (lag spikes)
+        if (isNaN(deltaTime) || deltaTime > 0.1) {
+            deltaTime = 0.016; // Fallback to ~60fps
+        }
 
         // Update state
         if (player) {
@@ -146,7 +161,12 @@ class CosmicBackground {
     
     drawGrid() {
         this.ctx.lineWidth = 1;
-        this.ctx.strokeStyle = this.colors.grid;
+        // Pulsing grid for extra retro vibe
+        const pulse = 0.08 + 0.04 * Math.sin(this.time * 2);
+        this.ctx.strokeStyle = `rgba(0, 255, 50, ${pulse})`;
+        
+        // Safety check
+        if (this.gridSize <= 0) this.gridSize = 100;
         
         const offsetX = (-this.lastPlayerX * 0.5) % this.gridSize;
         const offsetY = (-this.lastPlayerY * 0.5) % this.gridSize;
@@ -175,13 +195,18 @@ class CosmicBackground {
     drawStars() {
         this.ctx.save();
         for (const star of this.stars) {
-            // Parallax
-            let x = (star.x - this.lastPlayerX * (0.1 * star.z)) % this.canvas.width;
-            let y = (star.y - this.lastPlayerY * (0.1 * star.z)) % this.canvas.height;
+            // Parallax with robust wrapping
+            const parallaxFactor = 0.1 * star.z;
+            const wrapW = this.canvas.width;
+            const wrapH = this.canvas.height;
             
-            // Normalize to screen bounds
-            if (x < 0) x += this.canvas.width;
-            if (y < 0) y += this.canvas.height;
+            // Calculate relative position
+            let relX = (star.x - this.lastPlayerX * parallaxFactor) % wrapW;
+            let relY = (star.y - this.lastPlayerY * parallaxFactor) % wrapH;
+            
+            // Normalize to positive range [0, wrapW]
+            if (relX < 0) relX += wrapW;
+            if (relY < 0) relY += wrapH;
 
             // Blink
             const alpha = 0.5 + 0.5 * Math.sin(this.time * star.blinkSpeed + star.blinkOffset);
@@ -189,15 +214,15 @@ class CosmicBackground {
             this.ctx.fillStyle = star.color;
 
             if (star.type === 'cross') {
-                this.ctx.fillRect(x - star.size, y - star.size/4, star.size*2, star.size/2);
-                this.ctx.fillRect(x - star.size/4, y - star.size, star.size/2, star.size*2);
+                this.ctx.fillRect(relX - star.size, relY - star.size/4, star.size*2, star.size/2);
+                this.ctx.fillRect(relX - star.size/4, relY - star.size, star.size/2, star.size*2);
             } else {
                 // Diamond
                 this.ctx.beginPath();
-                this.ctx.moveTo(x, y - star.size);
-                this.ctx.lineTo(x + star.size, y);
-                this.ctx.lineTo(x, y + star.size);
-                this.ctx.lineTo(x - star.size, y);
+                this.ctx.moveTo(relX, relY - star.size);
+                this.ctx.lineTo(relX + star.size, relY);
+                this.ctx.lineTo(relX, relY + star.size);
+                this.ctx.lineTo(relX - star.size, relY);
                 this.ctx.fill();
             }
         }
@@ -207,26 +232,74 @@ class CosmicBackground {
     drawShapes() {
         this.ctx.lineWidth = 2;
         
-        for (const shape of this.shapes) {
-            // Parallax
-            let x = (shape.x - this.lastPlayerX * (0.2 * shape.z)) % (this.canvas.width + 400);
-            let y = (shape.y - this.lastPlayerY * (0.2 * shape.z)) % (this.canvas.height + 400);
-            
-            // Adjust for wrapping with larger bounds
-            if (x < -200) x += (this.canvas.width + 400);
-            if (y < -200) y += (this.canvas.height + 400);
-            
-            // Center on screen for drawing
-            x -= 200;
-            y -= 200;
+        // Use class properties for world dimensions
+        const worldW = this.worldW;
+        const worldH = this.worldH;
+        const offset = this.worldPadding / 2;
+        
+        // Menu Mode Detection: If lastPlayerX/Y are 0 (or very close), we assume menu or start.
+        // We can also check if the 'player' argument was null in render(), but we don't have access to it here directly.
+        // However, render() updates lastPlayerX/Y. In menu, they are usually 0.
+        const isMenu = (Math.abs(this.lastPlayerX) < 1 && Math.abs(this.lastPlayerY) < 1);
 
-            this.ctx.strokeStyle = shape.color;
+        for (const shape of this.shapes) {
+            // Parallax Factor: Inversely proportional to Z
+            // Close objects (z=1) move 1:1. Far objects (z=4) move 0.25:1.
+            // We cap it at 0.8 to keep everything slightly "behind" the player plane
+            const parallaxFactor = Math.min(0.8, 1.0 / shape.z);
+            
+            // Calculate position relative to player in the virtual world
+            // We use the shape's drift position (shape.x) minus the player's parallax offset
+            let relX = (shape.x - this.lastPlayerX * parallaxFactor) % worldW;
+            let relY = (shape.y - this.lastPlayerY * parallaxFactor) % worldH;
+            
+            // Normalize to positive range [0, worldW]
+            if (relX < 0) relX += worldW;
+            if (relY < 0) relY += worldH;
+            
+            // Center the virtual world on the screen
+            // This ensures shapes wrap smoothly around the edges
+            const screenX = relX - offset;
+            const screenY = relY - offset;
+            
+            // Cull shapes that are far off-screen
+            if (screenX < -200 || screenX > this.canvas.width + 200 ||
+                screenY < -200 || screenY > this.canvas.height + 200) {
+                continue;
+            }
+
+            // Menu Mode: Push shapes away from center to avoid overlapping buttons
+            if (isMenu) {
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                const dx = screenX - centerX;
+                const dy = screenY - centerY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                // If too close to center (radius 300), fade out or don't draw
+                if (dist < 300) {
+                    continue; 
+                }
+            }
+
+            // Depth Effects
+            // Scale based on Z (simulated depth)
+            const scale = 1.0 / shape.z; 
+            const opacity = Math.max(0.1, 1 - (shape.z - 1.0) * 0.25); // Fade distant shapes
+
+            this.ctx.strokeStyle = shape.color.replace('0.3)', `${opacity})`);
             this.ctx.save();
-            this.ctx.translate(x, y);
+            this.ctx.translate(screenX, screenY);
+            this.ctx.scale(scale, scale); // Apply depth scaling
             
             // 3D Projection
             const vertices = this.getVertices(shape.type, shape.size);
-            const projected = vertices.map(v => this.project(v, shape.rotX, shape.rotY, shape.rotZ));
+            // Add subtle warp based on screen position for Polybius vibe
+            const warpFactor = 0.0005;
+            const warpX = (screenX - this.canvas.width/2) * warpFactor;
+            const warpY = (screenY - this.canvas.height/2) * warpFactor;
+            
+            const projected = vertices.map(v => this.project(v, shape.rotX + warpY, shape.rotY + warpX, shape.rotZ));
             
             this.ctx.beginPath();
             this.drawWireframe(shape.type, projected);
@@ -274,6 +347,13 @@ class CosmicBackground {
         let x2 = x * Math.cos(rz) - y * Math.sin(rz);
         let y2 = x * Math.sin(rz) + y * Math.cos(rz);
         x = x2; y = y2;
+
+        // Polybius Perspective Warp
+        // Simulate a slight fish-eye or curved CRT effect
+        const fov = 300;
+        const scale = fov / (fov + z);
+        x = x * scale;
+        y = y * scale;
 
         return {x, y};
     }
@@ -324,19 +404,16 @@ class CosmicBackground {
     resize(width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
+        // Update world dimensions
+        this.worldW = this.canvas.width + this.worldPadding;
+        this.worldH = this.canvas.height + this.worldPadding;
         this.initialize();
     }
 
     setLowQuality(enabled) {
         this.lowQuality = enabled;
-        if (enabled) {
-            this.shapeCount = 5;
-            this.starCount = 50;
-        } else {
-            this.shapeCount = 15;
-            this.starCount = 150;
-        }
-        this.initialize();
+        // Unified background: Do not re-initialize or change counts.
+        // Just toggle the flag which can be used for rendering optimizations if needed.
     }
     
     getDebugInfo() {
