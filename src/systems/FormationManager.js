@@ -61,15 +61,18 @@ class FormationManager {
     trySpawnFormation() {
         if (!this.game.spawner || !this.game.player) return;
 
+        const utils = this.formationUtils || window.FormationUtils;
+        if (!utils) return;
+
         // Get current wave number from spawner
         const waveNumber = this.game.spawner.waveNumber || 1;
 
         // Select formation type
-        const config = window.FormationUtils?.selectRandomFormation(waveNumber);
+        const config = utils.selectRandomFormation(waveNumber);
         if (!config) return; // No formations available for this wave
 
         // Get spawn position (off-screen)
-        const spawnPos = window.FormationUtils.getFormationSpawnPosition(
+        const spawnPos = utils.getFormationSpawnPosition(
             this.game.player,
             this.game.canvas.width,
             this.game.canvas.height
@@ -179,7 +182,7 @@ class FormationManager {
         }
 
         // Update enemy positions
-        this.updateEnemyPositions(formation);
+        this.updateEnemyPositions(formation, deltaTime);
 
         // Check if formation is still valid (enemies alive)
         this.validateFormation(formation);
@@ -188,8 +191,9 @@ class FormationManager {
     /**
      * Update positions of enemies in formation
      * @param {Object} formation - Formation object
+     * @param {number} deltaTime - Time delta
      */
-    updateEnemyPositions(formation) {
+    updateEnemyPositions(formation, deltaTime) {
         const config = formation.config;
         const positions = config.getPositions(
             formation.center.x,
@@ -213,7 +217,7 @@ class FormationManager {
 
             if (dist > 5) { // Only move if not already at position
                 const moveSpeed = 200; // Smooth follow speed
-                const moveDist = Math.min(dist, moveSpeed * (1 / 60)); // Assume 60fps
+                const moveDist = Math.min(dist, moveSpeed * deltaTime);
                 enemy.x += (dx / dist) * moveDist;
                 enemy.y += (dy / dist) * moveDist;
             }
@@ -265,6 +269,12 @@ class FormationManager {
     render(ctx) {
         if (!this.enabled) return;
 
+        // Check performance mode to determine visual fidelity
+        // Use GameEngine's performance flags if available
+        const isLowPerf = this.game.performanceMode || 
+                          this.game.lowPerformanceMode || 
+                          (this.game.performanceManager && this.game.performanceManager.isLowPerformance());
+
         for (const formation of this.formations) {
             if (!formation.active) continue;
 
@@ -274,7 +284,8 @@ class FormationManager {
             }
 
             // Render connecting lines between formation enemies
-            if (this.showConnectingLines && formation.enemies.length > 1) {
+            // Show if explicitly enabled OR if we have performance headroom (geometric vibes)
+            if ((this.showConnectingLines || !isLowPerf) && formation.enemies.length > 1) {
                 this.renderConnectingLines(ctx, formation);
             }
         }

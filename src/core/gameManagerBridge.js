@@ -274,6 +274,7 @@ class GameManagerBridge {
                 this.formationManager = new FormationManager(this.game);
                 this.formationManager.formationConfigs = window.FORMATION_CONFIGS || {};
                 this.formationManager.formationUtils = window.FormationUtils || {};
+                this.game.formationManager = this.formationManager; // Attach to game for rendering
                 window.logger.log('+ FormationManager initialized');
             } else {
                 window.logger.warn('! FormationManager class not found');
@@ -283,6 +284,7 @@ class GameManagerBridge {
             const EmergentFormationDetector = window.EmergentFormationDetector;
             if (typeof EmergentFormationDetector === 'function') {
                 this.emergentDetector = new EmergentFormationDetector(this.game);
+                this.game.emergentDetector = this.emergentDetector; // Attach to game for rendering
                 window.logger.log('+ EmergentFormationDetector initialized');
             } else {
                 window.logger.warn('! EmergentFormationDetector class not found');
