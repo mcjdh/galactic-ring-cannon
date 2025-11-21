@@ -73,12 +73,12 @@
             KILL_STREAK_TIMEOUT: 5.0,
 
             // XP System (early-game friendlier)
-            INITIAL_XP_TO_LEVEL: 15, // Drastically reduced from 50 for instant first levels
+            INITIAL_XP_TO_LEVEL: 22, // Tuned for balanced levels 3-10 progression
             XP_SCALING_FACTOR: 1.12, // fallback; see LEVELING for piecewise
             LEVEL_UP_HEAL_PERCENT: 0.3,
             LEVELING: {
                 EARLY_LEVELS: 9, // Extended from 7 to cover the "tiny buff" range
-                EARLY_MULTIPLIER: 1.35, // Steep ramp to catch up from low base
+                EARLY_MULTIPLIER: 1.42, // Increased from 1.35 to slow down levels 3-10
                 MID_LEVELS: 22,
                 MID_MULTIPLIER: 1.20, // Increased from 1.15 to slow down mid-game (Lvl 10-22)
                 LATE_MULTIPLIER: 1.25, // Increased from 1.18 to slow down late-game (Lvl 22+)

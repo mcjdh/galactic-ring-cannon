@@ -27,18 +27,24 @@ class StatsManager {
         this.lastPlayerPosition = null;
 
         // Combo configuration
-        this.comboTimeout = (COMBO_CONFIG && COMBO_CONFIG.TIMEOUT != null) ? COMBO_CONFIG.TIMEOUT : 0.8;
-        this.comboTarget = (COMBO_CONFIG && COMBO_CONFIG.TARGET != null) ? COMBO_CONFIG.TARGET : 8;
-        this.maxComboMultiplier = (COMBO_CONFIG && COMBO_CONFIG.MAX_MULTIPLIER != null) ? COMBO_CONFIG.MAX_MULTIPLIER : 2.5;
+        this.comboTimeout = (this.state?.combo?.timeout != null)
+            ? this.state.combo.timeout
+            : (COMBO_CONFIG && COMBO_CONFIG.TIMEOUT != null ? COMBO_CONFIG.TIMEOUT : 0.8);
+        this.comboTarget = (this.state?.combo?.target != null)
+            ? this.state.combo.target
+            : (COMBO_CONFIG && COMBO_CONFIG.TARGET != null ? COMBO_CONFIG.TARGET : 8);
+        this.maxComboMultiplier = (this.state?.combo?.maxMultiplier != null)
+            ? this.state.combo.maxMultiplier
+            : (COMBO_CONFIG && COMBO_CONFIG.MAX_MULTIPLIER != null ? COMBO_CONFIG.MAX_MULTIPLIER : 2.5);
 
         // Throttle achievement updates to reduce processing overhead
         this.lastLifetimeAchievementUpdate = 0;
         this.lifetimeAchievementUpdateInterval = 5; // Update every 5 seconds
 
         // Update GameState combo config when available (after construction)
-        // Deferred to avoid initialization order issues
+        // Only fill missing values to keep GameState as the source of truth
         setTimeout(() => {
-            if (this.state && this.state.combo) {
+            if (this.state && this.state.combo && this.state.combo.timeout == null) {
                 this.state.combo.timeout = this.comboTimeout;
             }
         }, 0);
@@ -235,6 +241,11 @@ class StatsManager {
      * Update internal timers
      */
     updateTimers(deltaTime) {
+        // GameState owns combo timing; only fall back if state is unavailable
+        if (this.state?.combo) {
+            return;
+        }
+
         if (this.comboTimer > 0) {
             this.comboTimer -= deltaTime;
 
