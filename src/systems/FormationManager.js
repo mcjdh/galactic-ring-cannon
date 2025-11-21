@@ -271,9 +271,10 @@ class FormationManager {
 
         // Check performance mode to determine visual fidelity
         // Use GameEngine's performance flags if available
+        const pm = this.game.performanceManager;
         const isLowPerf = this.game.performanceMode || 
                           this.game.lowPerformanceMode || 
-                          (this.game.performanceManager && this.game.performanceManager.isLowPerformance());
+                          (pm && (pm.performanceMode || pm.lowPerformanceMode || pm.lowGpuMode));
 
         for (const formation of this.formations) {
             if (!formation.active) continue;
