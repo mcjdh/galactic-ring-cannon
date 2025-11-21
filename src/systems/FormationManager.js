@@ -184,8 +184,49 @@ class FormationManager {
         // Update enemy positions
         this.updateEnemyPositions(formation, deltaTime);
 
+        // Apply separation force to prevent stacking (Swarm Theory)
+        this.applySeparation(formation, deltaTime);
+
         // Check if formation is still valid (enemies alive)
         this.validateFormation(formation);
+    }
+
+    /**
+     * Apply separation force to prevent enemies from stacking
+     * @param {Object} formation - Formation object
+     * @param {number} deltaTime - Time delta
+     */
+    applySeparation(formation, deltaTime) {
+        const separationRadius = 25; // Minimum distance between enemies
+        const separationForce = 150; // Strength of push
+
+        for (let i = 0; i < formation.enemies.length; i++) {
+            const e1 = formation.enemies[i];
+            if (!e1 || e1.isDead) continue;
+
+            for (let j = i + 1; j < formation.enemies.length; j++) {
+                const e2 = formation.enemies[j];
+                if (!e2 || e2.isDead) continue;
+
+                const dx = e1.x - e2.x;
+                const dy = e1.y - e2.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < separationRadius * separationRadius && distSq > 0.1) {
+                    const dist = Math.sqrt(distSq);
+                    const overlap = separationRadius - dist;
+                    
+                    // Push apart
+                    const pushX = (dx / dist) * overlap * separationForce * deltaTime;
+                    const pushY = (dy / dist) * overlap * separationForce * deltaTime;
+
+                    e1.x += pushX;
+                    e1.y += pushY;
+                    e2.x -= pushX;
+                    e2.y -= pushY;
+                }
+            }
+        }
     }
 
     /**

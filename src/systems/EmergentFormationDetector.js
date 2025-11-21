@@ -341,6 +341,45 @@ class EmergentFormationDetector {
                     enemy.y += (dy / dist) * strength * deltaTime * 60;
                 }
             }
+
+            // Apply separation to prevent stacking
+            this.applySeparation(constellation, deltaTime);
+        }
+    }
+
+    /**
+     * Apply separation force to enemies in a constellation
+     */
+    applySeparation(constellation, deltaTime) {
+        const separationRadius = 30; // Slightly larger for organic clusters
+        const separationForce = 120; // Gentle push
+
+        for (let i = 0; i < constellation.enemies.length; i++) {
+            const e1 = constellation.enemies[i];
+            if (!e1 || e1.isDead) continue;
+
+            for (let j = i + 1; j < constellation.enemies.length; j++) {
+                const e2 = constellation.enemies[j];
+                if (!e2 || e2.isDead) continue;
+
+                const dx = e1.x - e2.x;
+                const dy = e1.y - e2.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < separationRadius * separationRadius && distSq > 0.1) {
+                    const dist = Math.sqrt(distSq);
+                    const overlap = separationRadius - dist;
+                    
+                    // Push apart
+                    const pushX = (dx / dist) * overlap * separationForce * deltaTime;
+                    const pushY = (dy / dist) * overlap * separationForce * deltaTime;
+
+                    e1.x += pushX;
+                    e1.y += pushY;
+                    e2.x -= pushX;
+                    e2.y -= pushY;
+                }
+            }
         }
     }
 

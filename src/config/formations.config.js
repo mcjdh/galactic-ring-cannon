@@ -20,8 +20,11 @@
             spawnWeight: 2.0, // TEST: Increased for testing
 
             // Position calculation: 8 corners of a cube projected to 2D
-            getPositions(centerX, centerY, rotation) {
-                const r = this.radius;
+            getPositions(centerX, centerY, rotation, time = 0) {
+                // Add breathing effect
+                const pulse = 1 + Math.sin(time * 2) * 0.1;
+                const r = this.radius * pulse;
+                
                 const positions = [];
                 // Cube corners in 3D, projected to 2D with rotation
                 const angles = [
@@ -65,8 +68,11 @@
             minWave: 1,
             spawnWeight: 3.0, // TEST: Very common for testing
 
-            getPositions(centerX, centerY, rotation) {
-                const r = this.radius;
+            getPositions(centerX, centerY, rotation, time = 0) {
+                // Add breathing effect
+                const pulse = 1 + Math.sin(time * 1.5) * 0.05;
+                const r = this.radius * pulse;
+                
                 const positions = [];
 
                 // Apex (leader) - slightly forward
@@ -138,7 +144,9 @@
             minWave: 1,
             spawnWeight: 4.0, // TEST: Very common for testing
 
-            getPositions(centerX, centerY, rotation) {
+            getPositions(centerX, centerY, rotation, time = 0) {
+                // Add slight oscillation to wings
+                const wingOscillation = Math.sin(time * 5) * 0.1;
                 const r = this.radius;
                 const positions = [];
 
@@ -151,7 +159,7 @@
                 });
 
                 // Two followers at 45-degree angles behind
-                const wingAngle = Math.PI / 4; // 45 degrees
+                const wingAngle = Math.PI / 4 + wingOscillation; // 45 degrees +/- oscillation
                 positions.push({
                     x: centerX - Math.cos(rotation + wingAngle) * r,
                     y: centerY - Math.sin(rotation + wingAngle) * r
