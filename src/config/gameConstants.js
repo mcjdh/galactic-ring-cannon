@@ -73,17 +73,17 @@
             KILL_STREAK_TIMEOUT: 5.0,
 
             // XP System (early-game friendlier)
-            INITIAL_XP_TO_LEVEL: 140,
+            INITIAL_XP_TO_LEVEL: 15, // Drastically reduced from 50 for instant first levels
             XP_SCALING_FACTOR: 1.12, // fallback; see LEVELING for piecewise
             LEVEL_UP_HEAL_PERCENT: 0.3,
             LEVELING: {
-                EARLY_LEVELS: 7,
-                EARLY_MULTIPLIER: 1.08,
-                MID_LEVELS: 15,
-                MID_MULTIPLIER: 1.11,
-                LATE_MULTIPLIER: 1.12,
-                EARLY_XP_BOOST_DURATION: 60, // seconds
-                EARLY_XP_BOOST_MULTIPLIER: 1.5
+                EARLY_LEVELS: 9, // Extended from 7 to cover the "tiny buff" range
+                EARLY_MULTIPLIER: 1.35, // Steep ramp to catch up from low base
+                MID_LEVELS: 22,
+                MID_MULTIPLIER: 1.20, // Increased from 1.15 to slow down mid-game (Lvl 10-22)
+                LATE_MULTIPLIER: 1.25, // Increased from 1.18 to slow down late-game (Lvl 22+)
+                EARLY_XP_BOOST_DURATION: 0, // Disabled (set to 0) as curve handles it now
+                EARLY_XP_BOOST_MULTIPLIER: 1.0
             }
         },
 
@@ -104,12 +104,16 @@
         ENEMIES: {
             SPAWN_DISTANCE_MIN: 320,
             SPAWN_DISTANCE_MAX: 640,
-            BASE_SPAWN_RATE: 3.5, // BUFFED: Was 2.1 - More enemies for formation visibility
-            BASE_MAX_ENEMIES: 140, // BUFFED: Was 86 - Allow denser swarms
-            EARLY_GAME_SPAWN_MULTIPLIER: 1.22,
-            EARLY_GAME_DURATION: 48,
-            EARLY_GAME_MAX_ENEMY_BONUS: 10,
-            SPAWN_RAMP_DAMPENER: 0.58,
+            BASE_SPAWN_RATE: 3.0, // Increased from 2.0 for higher density after 1 min
+            BASE_MAX_ENEMIES: 150, // Increased from 80 to allow high late-game density
+            EARLY_GAME_SPAWN_MULTIPLIER: 0.4, // Reduced from 0.6 to keep start calm (3.0 * 0.4 = 1.2)
+            EARLY_GAME_DURATION: 60, // Increased from 48 to cover full first minute
+            EARLY_GAME_MAX_ENEMY_BONUS: 0, // Removed bonus (was 5) to keep early count low
+            SPAWN_RAMP_DAMPENER: 0.7, // Increased from 0.58 to allow faster ramp-up AFTER early game
+            MID_GAME_SOFTENER_START: 45,
+            MID_GAME_SOFTENER_END: 110,
+            MID_GAME_SOFTENER_STRENGTH: 0.35,
+            BOSS_BASE_INTERVAL: 90,
             MID_GAME_SOFTENER_START: 45,
             MID_GAME_SOFTENER_END: 110,
             MID_GAME_SOFTENER_STRENGTH: 0.35,

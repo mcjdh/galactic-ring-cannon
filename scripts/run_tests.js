@@ -40,24 +40,38 @@ function findTestFiles(dir, fileList = []) {
 async function runTest(filePath) {
     return new Promise((resolve, reject) => {
         const relativePath = path.relative(PROJECT_ROOT, filePath);
-        console.log(`${colors.blue}Running ${relativePath}...${colors.reset}`);
+        // console.log(`${colors.blue}Running ${relativePath}...${colors.reset}`); // Quiet mode
 
         const child = spawn('node', [filePath], {
-            stdio: 'inherit',
+            stdio: ['ignore', 'pipe', 'pipe'], // Capture output instead of inheriting
             cwd: PROJECT_ROOT,
             env: { ...process.env, NODE_ENV: 'test' }
         });
 
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        child.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
         child.on('close', (code) => {
             if (code === 0) {
-                resolve({ file: relativePath, status: 'passed' });
+                process.stdout.write('.'); // Print dot for success
+                resolve({ file: relativePath, status: 'passed', stdout, stderr });
             } else {
-                resolve({ file: relativePath, status: 'failed', code });
+                process.stdout.write('F'); // Print F for failure
+                resolve({ file: relativePath, status: 'failed', code, stdout, stderr });
             }
         });
 
         child.on('error', (err) => {
-            resolve({ file: relativePath, status: 'error', error: err });
+            process.stdout.write('E'); // Print E for error
+            resolve({ file: relativePath, status: 'error', error: err, stdout, stderr });
         });
     });
 }
@@ -70,7 +84,7 @@ async function main() {
         ...findTestFiles(SRC_DIR)
     ];
 
-    console.log(`Found ${testFiles.length} test files.\n`);
+    console.log(`Found ${testFiles.length} test files. Running...\n`);
 
     const results = {
         passed: 0,
@@ -89,12 +103,26 @@ async function main() {
             results.passed++;
         } else if (result.status === 'failed') {
             results.failed++;
-            console.log(`${colors.red}✖ ${result.file} failed with exit code ${result.code}${colors.reset}\n`);
         } else {
             results.errors++;
-            console.log(`${colors.red}✖ ${result.file} error: ${result.error}${colors.reset}\n`);
         }
     }
+    
+    console.log('\n'); // Newline after dots
+
+    // Print failures
+    results.details.forEach(result => {
+        if (result.status !== 'passed') {
+            console.log(`${colors.red}========================================${colors.reset}`);
+            console.log(`${colors.red}FAILED: ${result.file}${colors.reset}`);
+            console.log(`${colors.red}Exit Code: ${result.code || 'Error'}${colors.reset}`);
+            console.log(`${colors.yellow}--- STDOUT ---${colors.reset}`);
+            console.log(result.stdout);
+            console.log(`${colors.yellow}--- STDERR ---${colors.reset}`);
+            console.log(result.stderr);
+            console.log(`${colors.red}========================================${colors.reset}\n`);
+        }
+    });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 

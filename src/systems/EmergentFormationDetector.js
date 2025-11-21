@@ -340,10 +340,19 @@ class EmergentFormationDetector {
                     
                     // Use velocity if available for smoother physics integration
                     if (enemy.movement && enemy.movement.velocity) {
-                        // Apply force to velocity
-                        const force = strength * 300; // Scale up for velocity
+                        // Apply spring force (Hooke's Law)
+                        // F = -k * x
+                        const springK = strength * 150;
+                        const force = springK; // Proportional to distance implicitly via direction vector
+                        
                         enemy.movement.velocity.x += (dx / dist) * force * deltaTime;
                         enemy.movement.velocity.y += (dy / dist) * force * deltaTime;
+                        
+                        // Apply damping to prevent oscillation
+                        // F_damp = -c * v
+                        const damping = 2.0;
+                        enemy.movement.velocity.x -= enemy.movement.velocity.x * damping * deltaTime;
+                        enemy.movement.velocity.y -= enemy.movement.velocity.y * damping * deltaTime;
                     } else {
                         // Fallback to direct position modification
                         enemy.x += (dx / dist) * strength * deltaTime * 60;
@@ -352,57 +361,17 @@ class EmergentFormationDetector {
                 }
             }
 
-            // Apply separation to prevent stacking
-            this.applySeparation(constellation, deltaTime);
+            // Note: Separation is now handled by the global atomic forces in EnemyMovement
+            // We don't need to apply it twice here
         }
     }
 
     /**
      * Apply separation force to enemies in a constellation
+     * @deprecated Handled by EnemyMovement.applyAtomicForces
      */
     applySeparation(constellation, deltaTime) {
-        const separationRadius = 30; // Slightly larger for organic clusters
-        const separationForce = 120; // Gentle push
-
-        for (let i = 0; i < constellation.enemies.length; i++) {
-            const e1 = constellation.enemies[i];
-            if (!e1 || e1.isDead) continue;
-
-            for (let j = i + 1; j < constellation.enemies.length; j++) {
-                const e2 = constellation.enemies[j];
-                if (!e2 || e2.isDead) continue;
-
-                const dx = e1.x - e2.x;
-                const dy = e1.y - e2.y;
-                const distSq = dx * dx + dy * dy;
-
-                if (distSq < separationRadius * separationRadius && distSq > 0.1) {
-                    const dist = Math.sqrt(distSq);
-                    const overlap = separationRadius - dist;
-                    
-                    // Push apart
-                    const pushX = (dx / dist) * overlap * separationForce * deltaTime;
-                    const pushY = (dy / dist) * overlap * separationForce * deltaTime;
-
-                    // Use velocity if available
-                    if (e1.movement && e1.movement.velocity) {
-                        e1.movement.velocity.x += pushX;
-                        e1.movement.velocity.y += pushY;
-                    } else {
-                        e1.x += pushX;
-                        e1.y += pushY;
-                    }
-                    
-                    if (e2.movement && e2.movement.velocity) {
-                        e2.movement.velocity.x -= pushX;
-                        e2.movement.velocity.y -= pushY;
-                    } else {
-                        e2.x -= pushX;
-                        e2.y -= pushY;
-                    }
-                }
-            }
-        }
+        // Deprecated - logic moved to EnemyMovement for global consistency
     }
 
     /**

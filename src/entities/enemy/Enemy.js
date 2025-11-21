@@ -100,6 +100,12 @@ class Enemy {
         // Apply type configuration
         TypeClass.configure(this);
 
+        // GLOBAL BALANCE ADJUSTMENT: Reduce XP value by 60% to combat fast leveling
+        // This scales all enemy types down uniformly without editing every type file
+        if (typeof this.xpValue === 'number') {
+            this.xpValue = Math.max(1, Math.floor(this.xpValue * 0.4));
+        }
+
         // Configure components
         TypeClass.configureAI(this);
         TypeClass.configureAbilities(this);

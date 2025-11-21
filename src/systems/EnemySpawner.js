@@ -58,16 +58,16 @@ class EnemySpawner {
         const EN = GC.ENEMIES || {};
         const MODES = GC.MODES || {};
         const DIFF = GC.DIFFICULTY || {};
-        this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 1.2;
+        this.spawnRate = typeof EN.BASE_SPAWN_RATE === 'number' ? EN.BASE_SPAWN_RATE : 0.5; // Reduced from 0.6
         this.spawnTimer = 0;
         this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
-        this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 60;
+        this.maxEnemies = typeof EN.BASE_MAX_ENEMIES === 'number' ? EN.BASE_MAX_ENEMIES : 35; // Reduced from 40
         this.spawnDistanceMin = typeof EN.SPAWN_DISTANCE_MIN === 'number' ? EN.SPAWN_DISTANCE_MIN : 350;
         this.spawnRadius = typeof EN.SPAWN_DISTANCE_MAX === 'number' ? EN.SPAWN_DISTANCE_MAX : 650;
         this.earlyGameConfig = {
             duration: typeof EN.EARLY_GAME_DURATION === 'number' ? EN.EARLY_GAME_DURATION : 48,
-            spawnMultiplier: typeof EN.EARLY_GAME_SPAWN_MULTIPLIER === 'number' ? EN.EARLY_GAME_SPAWN_MULTIPLIER : 1.22,
-            maxEnemyBonus: typeof EN.EARLY_GAME_MAX_ENEMY_BONUS === 'number' ? EN.EARLY_GAME_MAX_ENEMY_BONUS : 10
+            spawnMultiplier: typeof EN.EARLY_GAME_SPAWN_MULTIPLIER === 'number' ? EN.EARLY_GAME_SPAWN_MULTIPLIER : 0.8, // Reduced from 1.22
+            maxEnemyBonus: typeof EN.EARLY_GAME_MAX_ENEMY_BONUS === 'number' ? EN.EARLY_GAME_MAX_ENEMY_BONUS : 5 // Reduced from 10
         };
         this.spawnRampDampener = typeof EN.SPAWN_RAMP_DAMPENER === 'number' ? EN.SPAWN_RAMP_DAMPENER : 0.58;
         this.midGameSoftener = {
@@ -285,10 +285,10 @@ class EnemySpawner {
                     ? this.spawnRampDampener
                     : 1.0;
                 const adjustedMultiplier = 1 + (spawnRateMultiplier - 1) * dampener;
-                this.spawnRate = Math.min(4, this.baseSpawnRate * adjustedMultiplier);
+                this.spawnRate = Math.min(5, this.baseSpawnRate * adjustedMultiplier); // Cap at 5 spawns/sec (Increased from 3 for late game intensity)
                 this.spawnCooldown = this.spawnRate > 0 ? 1 / this.spawnRate : 1;
-                const dampenedMaxBonus = (spawnRateMultiplier - 1.0) * dampener * 40;
-                this.maxEnemies = Math.min(150, this.baseMaxEnemies + dampenedMaxBonus);
+                const dampenedMaxBonus = (spawnRateMultiplier - 1.0) * dampener * 50; // Increased bonus scaling for late game
+                this.maxEnemies = Math.min(300, this.baseMaxEnemies + dampenedMaxBonus); // Increased hard cap to 300 for late game swarms
             }
             
             // Unlock new enemy types
@@ -826,7 +826,7 @@ class EnemySpawner {
         window.gameManager?.statsManager?.trackSpecialEvent?.('wave_completed', { 'waveNumber': this.waveCount });
         // Wave size scales with wave index and player level for higher intensity
         const base = 9 + Math.floor(this.waveCount * 1.5);
-        const levelBonus = Math.floor(playerLevel * 1.4);
+        const levelBonus = Math.floor(playerLevel * 0.5); // Reduced from 1.4 to prevent XP snowball
         // Performance-aware wave sizing
         const maxWaveSize = this.performanceMonitor.isLagging ? 24 : 40;
         const waveSize = Math.min(maxWaveSize, base + levelBonus);

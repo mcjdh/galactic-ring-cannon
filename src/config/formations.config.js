@@ -97,34 +97,179 @@
             }
         },
 
-        // Octahedron Ring - 6 enemies in hexagonal pattern
+                // Octahedron Ring - 6 enemies in hexagonal pattern
         OCTAHEDRON_RING: {
             id: 'octahedron_ring',
             name: 'Octahedron Ring',
             enemyCount: 6,
-            radius: 55,
-            rotationSpeed: 0.4,
+            radius: 70,
+            rotationSpeed: 0.5,
             moveSpeed: 90,
-            breakDistance: 140,
-            minWave: 1, // TEST: Spawn from wave 1
-            spawnWeight: 1.5, // TEST: Increased for testing
-            pulseAmplitude: 10, // Breathing effect
-            pulseSpeed: 2.0, // Hz
+            breakDistance: 130,
+            minWave: 2,
+            spawnWeight: 1.5,
 
             getPositions(centerX, centerY, rotation, time = 0) {
-                const baseRadius = this.radius;
-                // Pulsing/breathing effect
-                const pulse = Math.sin(time * this.pulseSpeed) * this.pulseAmplitude;
-                const r = baseRadius + pulse;
-
                 const positions = [];
-                const angleStep = (Math.PI * 2) / 6; // Hexagon
-
                 for (let i = 0; i < 6; i++) {
-                    const angle = i * angleStep + rotation;
+                    const angle = (i / 6) * Math.PI * 2 + rotation;
+                    // Add wave motion to radius
+                    const r = this.radius + Math.sin(time * 3 + i) * 10;
+                    
                     positions.push({
                         x: centerX + Math.cos(angle) * r,
                         y: centerY + Math.sin(angle) * r
+                    });
+                }
+                return positions;
+            }
+        },
+
+        // [NEW] Hex Lattice - Dense atomic structure
+        // 1 Center, 6 Inner Ring, 12 Outer Ring = 19 Enemies
+        HEX_LATTICE: {
+            id: 'hex_lattice',
+            name: 'Hex Lattice',
+            enemyCount: 19,
+            radius: 40, // Spacing between nodes
+            rotationSpeed: 0.1,
+            moveSpeed: 60, // Slow, imposing wall
+            breakDistance: 180,
+            minWave: 4,
+            spawnWeight: 1.2,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                const spacing = this.radius;
+                
+                // Center
+                positions.push({ x: centerX, y: centerY, isLeader: true });
+
+                // Ring 1 (6 neighbors)
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + rotation;
+                    positions.push({
+                        x: centerX + Math.cos(angle) * spacing,
+                        y: centerY + Math.sin(angle) * spacing
+                    });
+                }
+
+                // Ring 2 (12 neighbors)
+                // Hexagonal coordinates: 2 steps in direction i, then walk along edge
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + rotation;
+                    // Corner of ring 2
+                    const cornerX = centerX + Math.cos(angle) * (spacing * 2);
+                    const cornerY = centerY + Math.sin(angle) * (spacing * 2);
+                    positions.push({ x: cornerX, y: cornerY });
+
+                    // Midpoint between corners
+                    const nextAngle = ((i + 1) / 6) * Math.PI * 2 + rotation;
+                    const nextCornerX = centerX + Math.cos(nextAngle) * (spacing * 2);
+                    const nextCornerY = centerY + Math.sin(nextAngle) * (spacing * 2);
+                    
+                    positions.push({
+                        x: (cornerX + nextCornerX) / 2,
+                        y: (cornerY + nextCornerY) / 2
+                    });
+                }
+
+                return positions;
+            }
+        },
+
+        // [NEW] Double Helix - DNA Strand
+        DOUBLE_HELIX: {
+            id: 'double_helix',
+            name: 'Double Helix',
+            enemyCount: 12,
+            radius: 100, // Width of helix
+            rotationSpeed: 0, // Direction of travel handled by rotation
+            moveSpeed: 110,
+            breakDistance: 100,
+            minWave: 3,
+            spawnWeight: 1.0,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                const length = 300; // Length of strand
+                const spacing = length / 6; // 6 pairs
+                
+                // Direction vector
+                const dirX = Math.cos(rotation);
+                const dirY = Math.sin(rotation);
+                // Perpendicular vector
+                const perpX = -dirY;
+                const perpY = dirX;
+
+                for (let i = 0; i < 6; i++) {
+                    // Position along the line (centered)
+                    const dist = (i - 2.5) * spacing;
+                    const baseX = centerX + dirX * dist;
+                    const baseY = centerY + dirY * dist;
+
+                    // Sine wave offset
+                    const phase = time * 2 + (i * 0.5);
+                    const offset = Math.sin(phase) * 40;
+
+                    // Strand 1
+                    positions.push({
+                        x: baseX + perpX * offset,
+                        y: baseY + perpY * offset
+                    });
+
+                    // Strand 2 (Opposite phase)
+                    positions.push({
+                        x: baseX - perpX * offset,
+                        y: baseY - perpY * offset
+                    });
+                }
+                return positions;
+            }
+        },
+
+        // [NEW] Electron Shell - Heavy Nucleus with orbiting electrons
+        ELECTRON_SHELL: {
+            id: 'electron_shell',
+            name: 'Electron Shell',
+            enemyCount: 9, // 1 Nucleus + 8 Electrons
+            radius: 80,
+            rotationSpeed: 0,
+            moveSpeed: 75,
+            breakDistance: 140,
+            minWave: 5,
+            spawnWeight: 0.8,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                
+                // Nucleus (Center) - Should be a tanky enemy ideally
+                positions.push({ 
+                    x: centerX, 
+                    y: centerY, 
+                    isLeader: true,
+                    type: 'tank' // Hint for spawner
+                });
+
+                // Shell 1 (2 electrons, fast orbit)
+                for (let i = 0; i < 2; i++) {
+                    const angle = time * 3 + (i * Math.PI);
+                    const r = 40;
+                    positions.push({
+                        x: centerX + Math.cos(angle) * r,
+                        y: centerY + Math.sin(angle) * r,
+                        type: 'fast'
+                    });
+                }
+
+                // Shell 2 (6 electrons, slower orbit, counter-rotate)
+                for (let i = 0; i < 6; i++) {
+                    const angle = -time * 1.5 + (i / 6) * Math.PI * 2;
+                    const r = 80;
+                    positions.push({
+                        x: centerX + Math.cos(angle) * r,
+                        y: centerY + Math.sin(angle) * r,
+                        type: 'fast'
                     });
                 }
 

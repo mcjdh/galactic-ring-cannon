@@ -195,8 +195,8 @@ class EnemyMovement {
             // Apply ambient forces such as gravity wells after determining movement direction
             this.applyEnvironmentalForces(deltaTime, game);
 
-            // Apply advanced flocking behavior (Separation, Alignment, Cohesion)
-            this.applyFlockingBehavior(deltaTime, game);
+            // Apply atomic lattice forces (Molecular Dynamics)
+            this.applyAtomicForces(deltaTime, game);
             
             // Apply movement physics
             this.updatePhysics(deltaTime);
@@ -251,6 +251,13 @@ class EnemyMovement {
      * Update movement pattern
      */
     updateMovementPattern(deltaTime, game) {
+        // If in a formation, disable standard AI steering
+        // The FormationManager handles movement
+        if (this.enemy.formationId) {
+            this.currentDirection = { x: 0, y: 0 };
+            return;
+        }
+
         // Get base direction from AI (from enemy's targetDirection set by AI component)
         let baseDirection = this.enemy.targetDirection || { x: 0, y: 0 };
         
@@ -539,6 +546,21 @@ class EnemyMovement {
      * Update physics simulation - enhanced smoothing
      */
     updatePhysics(deltaTime) {
+        // If in formation, skip standard steering acceleration
+        // The FormationManager applies its own forces
+        if (this.enemy.formationId) {
+            // Apply simple damping (friction)
+            const dampingFactor = Math.pow(this.friction, deltaTime);
+            this.velocity.x *= dampingFactor;
+            this.velocity.y *= dampingFactor;
+
+            // Apply velocity smoothing
+            this.velocitySmoothing.x = this.velocitySmoothing.x * this.smoothingFactor + this.velocity.x * (1 - this.smoothingFactor);
+            this.velocitySmoothing.y = this.velocitySmoothing.y * this.smoothingFactor + this.velocity.y * (1 - this.smoothingFactor);
+            
+            return;
+        }
+
         // Calculate desired velocity
         const currentDir = this.currentDirection || { x: 0, y: 0 };
 
@@ -982,13 +1004,9 @@ class EnemyMovement {
                 const cell = game.spatialGrid.get(key);
                 if (!cell) continue;
 
-                for (let i = 0; i < cell.length; i++) {
-                    const other = cell[i];
-                    
-                    // Skip self, dead, or non-enemies
-                    if (other === this.enemy || other.isDead || other.type !== 'enemy') continue;
-
-                    const dx = this.enemy.x - other.x;
+            for (let i = 0; i < cell.length; i++) {
+                const other = cell[i];
+                if (other === this.enemy || other.isDead) continue;                    const dx = this.enemy.x - other.x;
                     const dy = this.enemy.y - other.y;
                     const distSq = dx * dx + dy * dy;
 
@@ -1058,6 +1076,119 @@ class EnemyMovement {
         }
     }
 }
+
+/**
+ * Apply atomic lattice forces (Molecular Dynamics)
+ * Uses Lennard-Jones-like potential for stable, crystal-like spacing
+ * Prevents overlap (Pauli exclusion) and creates geometric bonds
+ */
+EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
+    // Only apply if spatial grid is available and enemy is active
+    if (!game.spatialGrid || !game.gridSize || !this.enemy || this.enemy.isDead) return;
+
+    // Skip if performance mode is critical (save CPU)
+    if (game.performanceMode && game.performanceManager?.performanceMode === 'critical') return;
+
+    const isInConstellation = !!this.enemy.constellation;
+    const isInFormation = !!this.enemy.formationId;
+
+    // Atomic parameters
+    const atomicRadius = this.enemy.radius * 2.2; // Equilibrium distance
+    const interactionRadiusSq = (atomicRadius * 2.0) ** 2; // Cutoff radius
+    
+    // Force constants
+    const repulsionStrength = 1500; // Increased from 400 for stronger separation
+    const bondStrength = 60;       // Medium-range attraction (Covalent)
+    const dampingFactor = 8.0;     // Increased damping to prevent high-speed oscillation
+
+    // Calculate grid position
+    const gridX = Math.floor(this.enemy.x / game.gridSize);
+    const gridY = Math.floor(this.enemy.y / game.gridSize);
+
+    // Check current and adjacent cells
+    for (let x = -1; x <= 1; x++) {
+        for (let y = -1; y <= 1; y++) {
+            const key = game._encodeGridKey ? game._encodeGridKey(gridX + x, gridY + y) : null;
+            if (key === null) continue;
+
+            const cell = game.spatialGrid.get(key);
+            if (!cell) continue;
+
+            for (let i = 0; i < cell.length; i++) {
+                const other = cell[i];
+                
+                // Skip self, dead, or non-enemies
+                if (other === this.enemy || other.isDead || other.type !== 'enemy') continue;
+
+                const dx = this.enemy.x - other.x;
+                const dy = this.enemy.y - other.y;
+                const distSq = dx * dx + dy * dy;
+
+                // Only interact within cutoff radius
+                if (distSq < interactionRadiusSq && distSq > 0.1) {
+                    const dist = Math.sqrt(distSq);
+                    const dirX = dx / dist;
+                    const dirY = dy / dist;
+                    
+                    // Lennard-Jones Potential Derivative (Force)
+                    let force = 0;
+                    
+                    if (dist < atomicRadius) {
+                        // Strong repulsion (1/r^2 falloff approximation)
+                        const overlap = atomicRadius - dist;
+                        // Exponential ramp up for very close encounters (Hard Shell)
+                        const hardness = 1 + (overlap / atomicRadius) * 2;
+                        force = repulsionStrength * (overlap / atomicRadius) * hardness;
+
+                        // Direct Position Correction (prevent stacking)
+                        // Move away immediately if too close
+                        if (dist < this.enemy.radius + (other.radius || 15)) {
+                            // Stronger pushout for deep overlaps
+                            const pushOut = (this.enemy.radius + other.radius - dist) * 0.5;
+                            this.enemy.x += dirX * pushOut;
+                            this.enemy.y += dirY * pushOut;
+                            
+                            // Kill velocity component towards the other enemy
+                            // This prevents them from fighting the pushout
+                            const velDot = this.velocity.x * dirX + this.velocity.y * dirY;
+                            if (velDot < 0) { // Moving towards other
+                                this.velocity.x -= dirX * velDot;
+                                this.velocity.y -= dirY * velDot;
+                            }
+                        }
+                    } else if (!isInConstellation && !isInFormation) {
+                        // Weak attraction for free atoms to form lattice
+                        const stretch = dist - atomicRadius;
+                        force = -bondStrength * (stretch / atomicRadius);
+                    }
+
+                    // Apply force
+                    const accelX = dirX * force * deltaTime;
+                    const accelY = dirY * force * deltaTime;
+
+                    this.velocity.x += accelX;
+                    this.velocity.y += accelY;
+
+                    // Apply damping based on relative velocity (friction)
+                    // This kills the oscillation ("clicking")
+                    if (other.movement && other.movement.velocity) {
+                        const relVelX = this.velocity.x - other.movement.velocity.x;
+                        const relVelY = this.velocity.y - other.movement.velocity.y;
+                        
+                        // Project relative velocity onto direction vector
+                        const relVelDot = relVelX * dirX + relVelY * dirY;
+                        
+                        const dampX = dirX * relVelDot * dampingFactor * deltaTime;
+                        const dampY = dirY * relVelDot * dampingFactor * deltaTime;
+                        
+                        this.velocity.x -= dampX;
+                        this.velocity.y -= dampY;
+                    }
+                }
+            }
+        }
+    }
+};
 
 // Make globally available
 if (typeof window !== 'undefined') {

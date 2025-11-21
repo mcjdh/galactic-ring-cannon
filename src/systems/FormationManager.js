@@ -9,10 +9,16 @@ class FormationManager {
     constructor(game) {
         this.game = game;
         this.formations = []; // Active formations
-        this.maxFormations = 5; // BUFFED: Was 3 - More simultaneous formations
+        this.maxFormations = 3; // Reduced from 5 to prevent overcrowding
         this.spawnTimer = 0;
-        this.spawnInterval = 5; // BUFFED: Was 8 - Spawn formations more frequently
+        this.spawnInterval = 5; // Base interval
         this.enabled = true;
+
+        // Entropy Wave System (Order vs Chaos)
+        this.entropyPhase = 'CHAOS'; // Start with chaos
+        this.entropyTimer = 0;
+        this.entropyCycleDuration = 60; // 60s full cycle
+        this.orderDuration = 20; // 20s of intense formations
 
         // Performance tracking
         this.formationUpdateTime = 0;
@@ -31,11 +37,34 @@ class FormationManager {
 
         const startTime = performance.now();
 
+        // Update Entropy Phase
+        this.entropyTimer += deltaTime;
+        if (this.entropyPhase === 'CHAOS') {
+            if (this.entropyTimer > (this.entropyCycleDuration - this.orderDuration)) {
+                this.entropyPhase = 'ORDER';
+                this.entropyTimer = 0;
+                // Trigger immediate formation on phase switch
+                this.trySpawnFormation();
+                if (window.logger?.log) window.logger.log('[FormationManager] Entering ORDER Phase');
+            }
+        } else { // ORDER Phase
+            if (this.entropyTimer > this.orderDuration) {
+                this.entropyPhase = 'CHAOS';
+                this.entropyTimer = 0;
+                if (window.logger?.log) window.logger.log('[FormationManager] Entering CHAOS Phase');
+            }
+        }
+
+        // Dynamic Spawn Interval based on Phase
+        // ORDER: Rapid fire (3s)
+        // CHAOS: Rare (15s)
+        const currentInterval = this.entropyPhase === 'ORDER' ? 3.0 : 15.0;
+
         // Update spawn timer
         this.spawnTimer += deltaTime;
 
         // Try to spawn new formation if timer expired and under limit
-        if (this.spawnTimer >= this.spawnInterval && this.formations.length < this.maxFormations) {
+        if (this.spawnTimer >= currentInterval && this.formations.length < this.maxFormations) {
             this.trySpawnFormation();
             this.spawnTimer = 0;
         }
@@ -60,6 +89,15 @@ class FormationManager {
      */
     trySpawnFormation() {
         if (!this.game.spawner || !this.game.player) return;
+
+        // Check global enemy cap before spawning a massive formation
+        const currentEnemies = this.game.enemies ? this.game.enemies.length : 0;
+        const maxEnemies = this.game.spawner.maxEnemies || 50;
+        
+        // Allow spawning if we are below 80% of the cap, or if it's the very first formation
+        if (this.formations.length > 0 && currentEnemies >= maxEnemies * 0.8) {
+            return;
+        }
 
         const utils = this.formationUtils || window.FormationUtils;
         if (!utils) return;
@@ -119,9 +157,13 @@ class FormationManager {
         for (let i = 0; i < positions.length; i++) {
             const pos = positions[i];
 
-            // Select enemy type based on formation
+            // Select enemy type based on formation config or position hint
             let enemyType;
-            if (preferFastEnemies) {
+            
+            if (pos.type) {
+                // Use specific type from position config (e.g. 'tank' for nucleus)
+                enemyType = pos.type;
+            } else if (preferFastEnemies) {
                 // Use fast enemy types for wedge formation
                 const fastTypes = ['dasher', 'fast'];
                 const availableFast = fastTypes.filter(type =>
@@ -184,53 +226,18 @@ class FormationManager {
         // Update enemy positions
         this.updateEnemyPositions(formation, deltaTime);
 
-        // Apply separation force to prevent stacking (Swarm Theory)
-        this.applySeparation(formation, deltaTime);
+        // Note: Separation is now handled by the global atomic forces in EnemyMovement
+        // We don't need to apply it twice here
 
         // Check if formation is still valid (enemies alive)
         this.validateFormation(formation);
     }
 
     /**
-     * Apply separation force to prevent enemies from stacking
-     * @param {Object} formation - Formation object
-     * @param {number} deltaTime - Time delta
-     */
-    applySeparation(formation, deltaTime) {
-        const separationRadius = 25; // Minimum distance between enemies
-        const separationForce = 150; // Strength of push
-
-        for (let i = 0; i < formation.enemies.length; i++) {
-            const e1 = formation.enemies[i];
-            if (!e1 || e1.isDead) continue;
-
-            for (let j = i + 1; j < formation.enemies.length; j++) {
-                const e2 = formation.enemies[j];
-                if (!e2 || e2.isDead) continue;
-
-                const dx = e1.x - e2.x;
-                const dy = e1.y - e2.y;
-                const distSq = dx * dx + dy * dy;
-
-                if (distSq < separationRadius * separationRadius && distSq > 0.1) {
-                    const dist = Math.sqrt(distSq);
-                    const overlap = separationRadius - dist;
-                    
-                    // Push apart
-                    const pushX = (dx / dist) * overlap * separationForce * deltaTime;
-                    const pushY = (dy / dist) * overlap * separationForce * deltaTime;
-
-                    e1.x += pushX;
-                    e1.y += pushY;
-                    e2.x -= pushX;
-                    e2.y -= pushY;
-                }
-            }
-        }
-    }
-
-    /**
      * Update positions of enemies in formation
+     * Uses steering behaviors to guide enemies to their formation slots
+     * while allowing atomic physics to handle local interactions.
+     * 
      * @param {Object} formation - Formation object
      * @param {number} deltaTime - Time delta
      */
@@ -250,17 +257,38 @@ class FormationManager {
             const targetPos = positions[i];
             if (!targetPos) continue;
 
-            // Smoothly move enemy toward formation position
-            // This creates the "swarm" effect
+            // Calculate vector to target slot
             const dx = targetPos.x - enemy.x;
             const dy = targetPos.y - enemy.y;
             const dist = Math.hypot(dx, dy);
 
-            if (dist > 5) { // Only move if not already at position
-                const moveSpeed = 200; // Smooth follow speed
-                const moveDist = Math.min(dist, moveSpeed * deltaTime);
-                enemy.x += (dx / dist) * moveDist;
-                enemy.y += (dy / dist) * moveDist;
+            // Apply "Spring Force" to pull enemy into position
+            // F = -k * x (Hooke's Law)
+            // We use a soft spring so atomic forces can still push them around
+            
+            if (dist > 5) {
+                const springStrength = 8.0; // Increased from 4.0 to overcome stronger atomic repulsion
+                
+                // If enemy has physics movement, apply force to velocity
+                if (enemy.movement && enemy.movement.velocity) {
+                    // Calculate desired velocity
+                    const desiredSpeed = enemy.movement.speed * 1.5; // Move faster to catch up
+                    const targetVelX = (dx / dist) * desiredSpeed;
+                    const targetVelY = (dy / dist) * desiredSpeed;
+
+                    // Steering force = Desired - Current
+                    const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
+                    const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
+
+                    enemy.movement.velocity.x += steerX;
+                    enemy.movement.velocity.y += steerY;
+                } else {
+                    // Fallback for non-physics entities (shouldn't happen for enemies)
+                    const moveSpeed = 200;
+                    const moveDist = Math.min(dist, moveSpeed * deltaTime);
+                    enemy.x += (dx / dist) * moveDist;
+                    enemy.y += (dy / dist) * moveDist;
+                }
             }
         }
     }
