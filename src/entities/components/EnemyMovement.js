@@ -195,8 +195,8 @@ class EnemyMovement {
             // Apply ambient forces such as gravity wells after determining movement direction
             this.applyEnvironmentalForces(deltaTime, game);
 
-            // Apply separation and lattice forces for geometric swarm behavior
-            this.applySwarmForces(deltaTime, game);
+            // Apply advanced flocking behavior (Separation, Alignment, Cohesion)
+            this.applyFlockingBehavior(deltaTime, game);
             
             // Apply movement physics
             this.updatePhysics(deltaTime);
@@ -941,32 +941,41 @@ class EnemyMovement {
     }
     
     /**
-     * Apply swarm forces (separation and lattice alignment)
-     * Creates organic, non-overlapping geometric patterns
+     * Apply advanced flocking behavior (Separation, Alignment, Cohesion)
+     * Creates organic, fluid swarm movement and prevents clipping
      */
-    applySwarmForces(deltaTime, game) {
+    applyFlockingBehavior(deltaTime, game) {
         // Only apply if spatial grid is available and enemy is active
         if (!game.spatialGrid || !game.gridSize || !this.enemy || this.enemy.isDead) return;
 
         // Skip if performance mode is critical (save CPU)
         if (game.performanceMode && game.performanceManager?.performanceMode === 'critical') return;
 
-        const separationRadius = this.enemy.radius * 2.5; // Keep some distance
-        const separationRadiusSq = separationRadius * separationRadius;
-        const latticeRadiusSq = (separationRadius * 1.5) ** 2; // Range for lattice alignment
+        const isInConstellation = !!this.enemy.constellation;
+        const isInFormation = !!this.enemy.formationId;
 
-        const separationForce = 150; // Strong push
-        const latticeForce = 30; // Weak pull to ideal distance
+        // Tuning constants
+        const separationRadius = this.enemy.radius * 2.5;
+        const separationRadiusSq = separationRadius * separationRadius;
+        const neighborRadiusSq = (separationRadius * 2.0) ** 2; // Look further for alignment/cohesion
+
+        // Forces
+        const separationForce = 200; // Stronger push to prevent clipping
+        const alignmentForce = 80;   // Match direction
+        const cohesionForce = 40;    // Stay together (only for free enemies)
+
+        // Accumulators
+        let alignX = 0, alignY = 0;
+        let cohesionX = 0, cohesionY = 0;
+        let neighborCount = 0;
 
         // Calculate grid position
-        // Use game's grid coordinate calculation if available, else fallback
         const gridX = Math.floor(this.enemy.x / game.gridSize);
         const gridY = Math.floor(this.enemy.y / game.gridSize);
 
         // Check current and adjacent cells
         for (let x = -1; x <= 1; x++) {
             for (let y = -1; y <= 1; y++) {
-                // Use game's key encoding
                 const key = game._encodeGridKey ? game._encodeGridKey(gridX + x, gridY + y) : null;
                 if (key === null) continue;
 
@@ -983,32 +992,67 @@ class EnemyMovement {
                     const dy = this.enemy.y - other.y;
                     const distSq = dx * dx + dy * dy;
 
+                    // 1. Separation (Avoid crowding)
                     if (distSq < separationRadiusSq && distSq > 0.1) {
                         const dist = Math.sqrt(distSq);
                         const overlap = separationRadius - dist;
                         
-                        // Separation: Push away
-                        const pushX = (dx / dist) * overlap * separationForce * deltaTime;
-                        const pushY = (dy / dist) * overlap * separationForce * deltaTime;
+                        // Exponential push for very close enemies to prevent clipping
+                        const pushFactor = overlap / separationRadius;
+                        const force = separationForce * (1 + pushFactor * 2);
+                        
+                        const pushX = (dx / dist) * overlap * force * deltaTime;
+                        const pushY = (dy / dist) * overlap * force * deltaTime;
 
                         this.velocity.x += pushX;
                         this.velocity.y += pushY;
-                    } else if (distSq < latticeRadiusSq) {
-                        // Lattice: Pull towards ideal distance (geometric vibes)
-                        // This creates a "crystal" effect where enemies maintain spacing
-                        const dist = Math.sqrt(distSq);
-                        const idealDist = separationRadius * 1.1;
-                        const diff = dist - idealDist;
-                        
-                        // Only pull if we're drifting away from ideal
-                        if (Math.abs(diff) > 5) {
-                            const pullX = (dx / dist) * -diff * latticeForce * deltaTime;
-                            const pullY = (dy / dist) * -diff * latticeForce * deltaTime;
-                            
-                            this.velocity.x += pullX;
-                            this.velocity.y += pullY;
-                        }
                     }
+
+                    // 2. Alignment & Cohesion (Group behavior)
+                    if (distSq < neighborRadiusSq) {
+                        // Accumulate alignment (velocity matching)
+                        if (other.movement && other.movement.velocity) {
+                            alignX += other.movement.velocity.x;
+                            alignY += other.movement.velocity.y;
+                        }
+                        
+                        // Accumulate cohesion (center of mass)
+                        cohesionX += other.x;
+                        cohesionY += other.y;
+                        
+                        neighborCount++;
+                    }
+                }
+            }
+        }
+
+        // Apply accumulated group forces
+        if (neighborCount > 0) {
+            // Alignment: Steer towards average heading
+            // This prevents "clipping past each other" by making paths parallel
+            alignX /= neighborCount;
+            alignY /= neighborCount;
+            
+            // Normalize and apply
+            const alignMag = Math.sqrt(alignX * alignX + alignY * alignY);
+            if (alignMag > 0.1) {
+                this.velocity.x += (alignX / alignMag) * alignmentForce * deltaTime;
+                this.velocity.y += (alignY / alignMag) * alignmentForce * deltaTime;
+            }
+
+            // Cohesion: Steer towards center of mass
+            // Only apply if NOT in a managed structure (constellation/formation handles position)
+            if (!isInConstellation && !isInFormation) {
+                cohesionX /= neighborCount;
+                cohesionY /= neighborCount;
+                
+                const dx = cohesionX - this.enemy.x;
+                const dy = cohesionY - this.enemy.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > 0.1) {
+                    this.velocity.x += (dx / dist) * cohesionForce * deltaTime;
+                    this.velocity.y += (dy / dist) * cohesionForce * deltaTime;
                 }
             }
         }

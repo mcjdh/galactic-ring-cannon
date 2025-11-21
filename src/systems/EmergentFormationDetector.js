@@ -337,8 +337,18 @@ class EmergentFormationDetector {
                 if (dist > 5) { // Only apply if not already at target
                     // Gentle nudge - doesn't override enemy AI, just suggests position
                     const strength = constellation.pattern.strength;
-                    enemy.x += (dx / dist) * strength * deltaTime * 60;
-                    enemy.y += (dy / dist) * strength * deltaTime * 60;
+                    
+                    // Use velocity if available for smoother physics integration
+                    if (enemy.movement && enemy.movement.velocity) {
+                        // Apply force to velocity
+                        const force = strength * 300; // Scale up for velocity
+                        enemy.movement.velocity.x += (dx / dist) * force * deltaTime;
+                        enemy.movement.velocity.y += (dy / dist) * force * deltaTime;
+                    } else {
+                        // Fallback to direct position modification
+                        enemy.x += (dx / dist) * strength * deltaTime * 60;
+                        enemy.y += (dy / dist) * strength * deltaTime * 60;
+                    }
                 }
             }
 
@@ -374,10 +384,22 @@ class EmergentFormationDetector {
                     const pushX = (dx / dist) * overlap * separationForce * deltaTime;
                     const pushY = (dy / dist) * overlap * separationForce * deltaTime;
 
-                    e1.x += pushX;
-                    e1.y += pushY;
-                    e2.x -= pushX;
-                    e2.y -= pushY;
+                    // Use velocity if available
+                    if (e1.movement && e1.movement.velocity) {
+                        e1.movement.velocity.x += pushX;
+                        e1.movement.velocity.y += pushY;
+                    } else {
+                        e1.x += pushX;
+                        e1.y += pushY;
+                    }
+                    
+                    if (e2.movement && e2.movement.velocity) {
+                        e2.movement.velocity.x -= pushX;
+                        e2.movement.velocity.y -= pushY;
+                    } else {
+                        e2.x -= pushX;
+                        e2.y -= pushY;
+                    }
                 }
             }
         }
