@@ -194,6 +194,9 @@ class EnemyMovement {
 
             // Apply ambient forces such as gravity wells after determining movement direction
             this.applyEnvironmentalForces(deltaTime, game);
+
+            // Apply separation and lattice forces for geometric swarm behavior
+            this.applySwarmForces(deltaTime, game);
             
             // Apply movement physics
             this.updatePhysics(deltaTime);
@@ -935,6 +938,80 @@ class EnemyMovement {
             collidedThisFrame: this.collidedThisFrame,
             stuckTimer: this.stuckTimer
         };
+    }
+    
+    /**
+     * Apply swarm forces (separation and lattice alignment)
+     * Creates organic, non-overlapping geometric patterns
+     */
+    applySwarmForces(deltaTime, game) {
+        // Only apply if spatial grid is available and enemy is active
+        if (!game.spatialGrid || !game.gridSize || !this.enemy || this.enemy.isDead) return;
+
+        // Skip if performance mode is critical (save CPU)
+        if (game.performanceMode && game.performanceManager?.performanceMode === 'critical') return;
+
+        const separationRadius = this.enemy.radius * 2.5; // Keep some distance
+        const separationRadiusSq = separationRadius * separationRadius;
+        const latticeRadiusSq = (separationRadius * 1.5) ** 2; // Range for lattice alignment
+
+        const separationForce = 150; // Strong push
+        const latticeForce = 30; // Weak pull to ideal distance
+
+        // Calculate grid position
+        // Use game's grid coordinate calculation if available, else fallback
+        const gridX = Math.floor(this.enemy.x / game.gridSize);
+        const gridY = Math.floor(this.enemy.y / game.gridSize);
+
+        // Check current and adjacent cells
+        for (let x = -1; x <= 1; x++) {
+            for (let y = -1; y <= 1; y++) {
+                // Use game's key encoding
+                const key = game._encodeGridKey ? game._encodeGridKey(gridX + x, gridY + y) : null;
+                if (key === null) continue;
+
+                const cell = game.spatialGrid.get(key);
+                if (!cell) continue;
+
+                for (let i = 0; i < cell.length; i++) {
+                    const other = cell[i];
+                    
+                    // Skip self, dead, or non-enemies
+                    if (other === this.enemy || other.isDead || other.type !== 'enemy') continue;
+
+                    const dx = this.enemy.x - other.x;
+                    const dy = this.enemy.y - other.y;
+                    const distSq = dx * dx + dy * dy;
+
+                    if (distSq < separationRadiusSq && distSq > 0.1) {
+                        const dist = Math.sqrt(distSq);
+                        const overlap = separationRadius - dist;
+                        
+                        // Separation: Push away
+                        const pushX = (dx / dist) * overlap * separationForce * deltaTime;
+                        const pushY = (dy / dist) * overlap * separationForce * deltaTime;
+
+                        this.velocity.x += pushX;
+                        this.velocity.y += pushY;
+                    } else if (distSq < latticeRadiusSq) {
+                        // Lattice: Pull towards ideal distance (geometric vibes)
+                        // This creates a "crystal" effect where enemies maintain spacing
+                        const dist = Math.sqrt(distSq);
+                        const idealDist = separationRadius * 1.1;
+                        const diff = dist - idealDist;
+                        
+                        // Only pull if we're drifting away from ideal
+                        if (Math.abs(diff) > 5) {
+                            const pullX = (dx / dist) * -diff * latticeForce * deltaTime;
+                            const pullY = (dy / dist) * -diff * latticeForce * deltaTime;
+                            
+                            this.velocity.x += pullX;
+                            this.velocity.y += pullY;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
