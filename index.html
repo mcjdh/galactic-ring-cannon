@@ -235,11 +235,19 @@
     </div>
 
     <!-- Configuration files - load FIRST before systems that depend on them -->
+    <!-- Config -->
+    <script defer src="src/config/gameConstants.js"></script>
+    <script defer src="src/config/formations.config.js"></script> <!-- NEW: Polybius formations -->
+    <script defer src="src/config/characters.config.js"></script>
     <script defer src="src/config/upgrades.config.js"></script>
     <script defer src="src/config/achievements.config.js"></script>
     <script defer src="src/config/metaUpgrades.config.js"></script>
-    <script defer src="src/config/characters.config.js"></script>
     <script defer src="src/config/weapons.config.js"></script>
+
+    <!-- Systems -->
+    <script defer src="src/systems/FormationManager.js"></script> <!-- NEW: Formation manager -->
+    <script defer src="src/systems/EmergentFormationDetector.js"></script> <!-- NEW: Emergent constellations -->
+    <script defer src="src/systems/EnemySpawner.js"></script>
 
     <!-- Configuration and utilities - load in proper order -->
     <script defer src="src/utils/Logger.js"></script>
@@ -258,7 +266,6 @@
     <script defer src="src/utils/ParticleHelpers.js"></script>
     <script defer src="src/systems/audio.js"></script>
     <script defer src="src/systems/performance.js"></script>
-    <script defer src="src/systems/EnemySpawner.js"></script>
     <!-- Cosmic Background System -->
     <script defer src="src/systems/CosmicBackground.js"></script>
     <script defer src="src/utils/debug.js"></script>

@@ -1725,6 +1725,16 @@ class GameEngine {
                 window.floatingTextSystem.render(this.ctx);
             }
 
+            // Render formation visual markers (Polybius feature - optional wireframe guides)
+            if (this.formationManager && typeof this.formationManager.render === 'function') {
+                this.formationManager.render(this.ctx);
+            }
+
+            // Render emergent constellation markers (Polybius: organic clustering debug)
+            if (this.emergentDetector && typeof this.emergentDetector.render === 'function') {
+                this.emergentDetector.render(this.ctx);
+            }
+
             // Render particles on top of entities (trail effects, explosions, etc.)
             if (window.optimizedParticles && typeof window.optimizedParticles.render === 'function') {
                 window.optimizedParticles.render(this.ctx);

@@ -239,7 +239,7 @@ class GameManagerBridge {
         }
         return false;
     }
-    
+
     /**
      * Initialize the game systems
      */
@@ -257,14 +257,35 @@ class GameManagerBridge {
             // 🌊 LINK GAME STATE - Single Source of Truth
             this.state = this.game.state;
             window.logger.log('+ GameState linked to GameManagerBridge');
-        
-            // Create enemy spawner
-            const EnemySpawnerClass = this.resolveNamespace('EnemySpawner');
-            if (typeof EnemySpawnerClass === 'function') {
+
+            // Initialize enemy spawner
+            const EnemySpawnerClass = window.EnemySpawner || (typeof EnemySpawner !== 'undefined' ? EnemySpawner : null);
+            if (EnemySpawnerClass) {
                 this.enemySpawner = new EnemySpawnerClass(this.game);
-                window.logger.log('+ Enemy spawner created');
+                this.game.spawner = this.enemySpawner; // Attach to game for easy access
+                window.logger.log('+ EnemySpawner initialized');
             } else {
-                window.logger.warn('! EnemySpawner not available');
+                window.logger.warn('! EnemySpawner class not available');
+            }
+
+            // [Polybius] Initialize formation manager (geometric enemy formations)
+            const FormationManager = window.FormationManager;
+            if (typeof FormationManager === 'function') {
+                this.formationManager = new FormationManager(this.game);
+                this.formationManager.formationConfigs = window.FORMATION_CONFIGS || {};
+                this.formationManager.formationUtils = window.FormationUtils || {};
+                window.logger.log('+ FormationManager initialized');
+            } else {
+                window.logger.warn('! FormationManager class not found');
+            }
+
+            // [Polybius] Initialize emergent formation detector (organic clustering)
+            const EmergentFormationDetector = window.EmergentFormationDetector;
+            if (typeof EmergentFormationDetector === 'function') {
+                this.emergentDetector = new EmergentFormationDetector(this.game);
+                window.logger.log('+ EmergentFormationDetector initialized');
+            } else {
+                window.logger.warn('! EmergentFormationDetector class not found');
             }
 
             // Initialize HUD event handlers now that the engine/state exist
@@ -274,7 +295,7 @@ class GameManagerBridge {
             // This prevents double-initialization where player is created here then recreated in prepareNewRun()
             // See: ARCHITECTURE_FIXES.md - Issue 3
             window.logger.log('+ Player will be created on game start');
-        
+
             // Initialize minimap after core systems
             this.setupMinimap();
 
@@ -324,13 +345,13 @@ class GameManagerBridge {
 
             window.logger.log('+ Game engine initialized successfully');
             return true;
-            
+
         } catch (error) {
             window.logger.error('! Failed to initialize game engine:', error);
             return false;
         }
     }
-    
+
     /**
      * Start the game
      */
@@ -356,10 +377,10 @@ class GameManagerBridge {
                 return;
             }
         }
-        
+
         // Reset game state
         this.resetGameState();
-        
+
         // Start the game engine
         if (this.game && typeof this.game.start === 'function') {
             window.logger.log('> Starting game engine...');
@@ -381,7 +402,7 @@ class GameManagerBridge {
             alert('Game engine is not ready. Please refresh the page.');
         }
     }
-    
+
     /**
      * Reset game state for new game
      */
@@ -413,6 +434,16 @@ class GameManagerBridge {
 
         if (this.enemySpawner && typeof this.enemySpawner.reset === 'function') {
             this.enemySpawner.reset();
+        }
+
+        // Reset formation manager (Polybius feature)
+        if (this.formationManager && typeof this.formationManager.reset === 'function') {
+            this.formationManager.reset();
+        }
+
+        // Reset emergent detector (Polybius: organic clustering)
+        if (this.emergentDetector && typeof this.emergentDetector.reset === 'function') {
+            this.emergentDetector.reset();
         }
 
         // Reset game over flags
@@ -488,7 +519,7 @@ class GameManagerBridge {
             }, 500);
         }
     }
-    
+
     /**
      * Increment kill count when enemy dies
      */
@@ -519,7 +550,7 @@ class GameManagerBridge {
 
         return 0;
     }
-    
+
     /**
      * Handle boss death
      */
@@ -542,7 +573,7 @@ class GameManagerBridge {
 
         // Update boss HUD tracking
         if (this.uiManager && typeof this.uiManager.removeBoss === 'function') {
-            try { this.uiManager.removeBoss(this._lastBossId || null); } catch (_) {}
+            try { this.uiManager.removeBoss(this._lastBossId || null); } catch (_) { }
         }
     }
 
@@ -565,7 +596,7 @@ class GameManagerBridge {
         }
         // Regular bosses: game continues (no victory screen)
     }
-    
+
     /**
      * Main update loop - called by GameEngine
      */
@@ -614,6 +645,15 @@ class GameManagerBridge {
         // Update enemy spawner
         if (this.enemySpawner) {
             this.enemySpawner.update(deltaTime);
+            // Update formation manager (Polybius feature)
+            if (this.formationManager) {
+                this.formationManager.update(deltaTime);
+            }
+
+            // Update emergent formation detector (Polybius: organic clustering)
+            if (this.emergentDetector) {
+                this.emergentDetector.update(deltaTime);
+            }
         }
 
         // Combo system is updated by GameState
@@ -643,7 +683,7 @@ class GameManagerBridge {
             comboContainer.style.visibility = 'visible';
         }
     }
-    
+
     /**
      * Check game win/lose conditions
      */
@@ -665,7 +705,7 @@ class GameManagerBridge {
             return;
         }
     }
-    
+
     /**
      * Handle game over
      */
@@ -714,7 +754,7 @@ class GameManagerBridge {
             });
         }, 500);
     }
-    
+
     /**
      * Handle game won
      */
@@ -896,7 +936,7 @@ class GameManagerBridge {
 
         this.updateStarDisplay();
     }
-    
+
     showFloatingText(text, x, y, color = '#ffffff', size = 16) {
         if (this.game?.unifiedUI?.addFloatingText) {
             this.game.unifiedUI.addFloatingText(text, x, y, { color, size });
@@ -928,7 +968,7 @@ class GameManagerBridge {
     addCombatText(text, x, y, color, size) {
         this.showFloatingText(text, x, y, color, size);
     }
-    
+
     /**
      * Particle System
      */
@@ -952,7 +992,7 @@ class GameManagerBridge {
         // Called automatically in StatsManager.update()
         // No action needed here
     }
-    
+
     /**
      * Event handlers
      */
@@ -974,7 +1014,7 @@ class GameManagerBridge {
         if (this.currentCombo > 1) {
             this.showCombatText(`${this.currentCombo}x COMBO!`, enemy.x, enemy.y - 40, 'combo', 18);
         }
-        
+
         // Milestone messages
         if (this.killCount % 25 === 0) {
             if (this.game && this.game.player) {
@@ -982,7 +1022,7 @@ class GameManagerBridge {
             }
         }
     }
-    
+
     onPlayerLevelUp(level) {
         window.logger.log('🆙 Player leveled up to', level);
 
@@ -993,11 +1033,11 @@ class GameManagerBridge {
             this.addScreenShake(3, 0.5);
         }
     }
-    
+
     onXpCollected(amount) {
         this.xpCollected += amount;
     }
-    
+
     /**
      * Effect creation methods
      */
@@ -1044,7 +1084,7 @@ class GameManagerBridge {
             }
         }
     }
-    
+
     createExplosion(x, y, radius, color) {
         if (this.lowQuality) return;
         const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
@@ -1090,7 +1130,7 @@ class GameManagerBridge {
         }
         this.addScreenShake(radius / 10, 0.5);
     }
-    
+
     createLevelUpEffect(x, y) {
         if (this.lowQuality) return;
         const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
@@ -1154,7 +1194,7 @@ class GameManagerBridge {
 
         return false;
     }
-    
+
     /**
      * Update the timer display
      */
@@ -1291,7 +1331,7 @@ class GameManagerBridge {
             vendorDisplay.textContent = '* ' + stars;
         }
     }
-    
+
     /**
      * Handle when a meta upgrade is maxed out
      */
@@ -1299,7 +1339,7 @@ class GameManagerBridge {
         window.logger.log('Meta upgrade maxed:', upgradeId);
         this.statsManager?.achievementSystem?.onUpgradeMaxed?.();
     }
-    
+
     /**
      * Check if any menus are active (for input handling)
      */
@@ -1343,13 +1383,13 @@ class GameManagerBridge {
             entry.nextLookup = 0;
         }
     }
-    
+
     onPlayerDamaged() {
         // Handle player taking damage (for achievements)
         window.logger.log('Player took damage');
         this.statsManager?.onPlayerDamaged?.();
     }
-    
+
     addXpCollected(amount) {
         if (this.statsManager?.collectXP) {
             const total = this.statsManager.collectXP(amount);
@@ -1383,11 +1423,11 @@ class GameManagerBridge {
             this.showFloatingText(`${bounceCount} BOUNCES!`, this.game.player.x, this.game.player.y - 40, '#f39c12', 16);
         }
     }
-    
+
     onOrbitalCountChanged(count) {
         this.statsManager?.achievementSystem?.onOrbitalCountChanged?.(count);
     }
-    
+
     createSpecialEffect(type, x, y, size, color) {
         const effectsManager = this.game?.effectsManager || this.effects || window.gameManager?.effectsManager;
         if (effectsManager && typeof effectsManager.createSpecialEffect === 'function') {

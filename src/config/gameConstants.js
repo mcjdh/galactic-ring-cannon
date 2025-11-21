@@ -1,4 +1,4 @@
-(function() {
+(function () {
     const GAME_CONSTANTS = {
         // Player Configuration
         PLAYER: {
@@ -104,8 +104,8 @@
         ENEMIES: {
             SPAWN_DISTANCE_MIN: 320,
             SPAWN_DISTANCE_MAX: 640,
-            BASE_SPAWN_RATE: 2.1,
-            BASE_MAX_ENEMIES: 86,
+            BASE_SPAWN_RATE: 3.5, // BUFFED: Was 2.1 - More enemies for formation visibility
+            BASE_MAX_ENEMIES: 140, // BUFFED: Was 86 - Allow denser swarms
             EARLY_GAME_SPAWN_MULTIPLIER: 1.22,
             EARLY_GAME_DURATION: 48,
             EARLY_GAME_MAX_ENEMY_BONUS: 10,
