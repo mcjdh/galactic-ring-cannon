@@ -694,14 +694,16 @@ class PlayerAbilities {
             // Apply damage to enemy
             closestEnemy.takeDamage(finalDamage);
 
-            // Display damage number
+            // Display damage number (compact format)
             const gm = window.gameManager || window.gameManagerBridge;
             if (gm && typeof gm.showFloatingText === 'function') {
+                const chainSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.CHAIN || '~';
+                const critSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.CRITICAL || '*';
                 if (isCrit) {
-                    gm.showFloatingText(`CHAIN CRIT! ${Math.round(finalDamage)}`,
-                        closestEnemy.x, closestEnemy.y - 20, '#3498db', 16);
+                    gm.showFloatingText(`${chainSymbol}${critSymbol}${Math.round(finalDamage)}`,
+                        closestEnemy.x, closestEnemy.y - 20, '#f1c40f', 16);
                 } else {
-                    gm.showFloatingText(`CHAIN ${Math.round(finalDamage)}`,
+                    gm.showFloatingText(`${chainSymbol}${Math.round(finalDamage)}`,
                         closestEnemy.x, closestEnemy.y - 20, '#3498db', 14);
                 }
             }
@@ -787,14 +789,16 @@ class PlayerAbilities {
             // Apply damage to enemy
             closestEnemy.takeDamage(ricochetDamage);
 
-            // Display damage number with ricochet indicator
+            // Display damage number with ricochet indicator (compact format)
             const gm = window.gameManager || window.gameManagerBridge;
             if (gm && typeof gm.showFloatingText === 'function') {
+                const bounceSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.BOUNCE || 'o';
+                const critSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.CRITICAL || '*';
                 if (isCrit) {
-                    gm.showFloatingText(`BOUNCE CRIT! ${Math.round(ricochetDamage)}`,
-                        closestEnemy.x, closestEnemy.y - 20, '#f39c12', 16);
+                    gm.showFloatingText(`${bounceSymbol}${critSymbol}${Math.round(ricochetDamage)}`,
+                        closestEnemy.x, closestEnemy.y - 20, '#f1c40f', 16);
                 } else {
-                    gm.showFloatingText(`BOUNCE ${Math.round(ricochetDamage)}`,
+                    gm.showFloatingText(`${bounceSymbol}${Math.round(ricochetDamage)}`,
                         closestEnemy.x, closestEnemy.y - 20, '#f39c12', 14);
                 }
             }

@@ -246,6 +246,21 @@
             SUMMONER: 'rgba(187, 107, 217, 0.85)',
             SUMMONER_GLOW: 'rgba(187, 107, 217, 0.5)',
             SUMMONER_TEXT: 'rgba(187, 107, 217, 0.9)'
+        },
+
+        // Visual symbols for compact feedback (reduces screen clutter)
+        // Using ASCII-safe chars for terminal/Pi compatibility
+        VISUAL_SYMBOLS: {
+            COMBO: 'x',         // Multiply sign for combo multiplier
+            CHAIN: '~',         // Tilde for chain lightning
+            RICOCHET: 'o',      // Circle for bouncing/ricochet
+            BOUNCE: 'o',        // Same as ricochet
+            LEVEL_UP: '^',      // Caret up for level up
+            CRITICAL: '*',      // Star for critical hits
+            DODGE: '>',         // Angle bracket for dodge
+            PERFECT_DODGE: '**', // Double star for perfect dodge
+            BLOCKED: '#',       // Hash for blocked/shield
+            KILL_MILESTONE: '+' // Plus for kill milestones
         }
     };
 

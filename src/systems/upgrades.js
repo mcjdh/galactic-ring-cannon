@@ -133,15 +133,15 @@ class UpgradeSystem {
         // Apply the core upgrade logic
         this._applyUpgradeCore(upgrade);
 
-        // Show notification with "(Auto)" label for auto-level
+        // Show compact notification for auto-level (just the icon)
         if (window.gameManager?.showFloatingText && window.gameManager?.game?.player) {
-            const message = `${upgrade.icon} ${upgrade.name} (Auto)`;
+            const message = upgrade.icon || '+';
             window.gameManager.showFloatingText(
                 message,
                 window.gameManager.game.player.x,
                 window.gameManager.game.player.y - 50,
                 '#3498db',
-                20
+                22
             );
         }
 
@@ -365,11 +365,11 @@ class UpgradeSystem {
         const player = window.gameManager?.game?.player;
         if (player && window.gameManager?.showFloatingText) {
             window.gameManager.showFloatingText(
-                `${fallbackUpgrade.icon || ''} ${fallbackUpgrade.name || 'Upgrade'} (Auto-granted)`,
+                fallbackUpgrade.icon || '+',
                 player.x,
                 player.y - 60,
                 '#ff6b6b',
-                20
+                22
             );
         }
 
@@ -582,25 +582,22 @@ class UpgradeSystem {
     }
 
     showUpgradeNotification(upgrade) {
-        let message = `${upgrade.name} acquired!`;
+        // Compact notification - just show the upgrade icon
+        let message = upgrade.icon || '+';
         let color = '#3498db';
-        
-        if (upgrade.specialEffect) {
-            message += ` (New effect: ${upgrade.specialEffect})`;
-        }
-        
+
+        // Use special color for combo upgrades
         if (this.comboEffects.size > 0) {
-            message += `\nActive combos: ${Array.from(this.comboEffects).join(', ')}`;
             color = '#9b59b6';
         }
-        
+
         if (window.gameManager?.showFloatingText && window.gameManager?.game?.player) {
             window.gameManager.showFloatingText(
                 message,
                 window.gameManager.game.player.x,
                 window.gameManager.game.player.y - 50,
                 color,
-                24
+                26
             );
         }
     }

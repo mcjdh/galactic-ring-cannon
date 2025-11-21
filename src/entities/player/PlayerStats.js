@@ -253,7 +253,8 @@ class PlayerStats {
 
         // Show level up message
         if (window.gameManager && typeof window.gameManager.showFloatingText === 'function') {
-            window.gameManager.showFloatingText(`LEVEL UP!`, this.player.x, this.player.y - 50, '#f39c12', 24);
+            const levelUpSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.LEVEL_UP || '^';
+            window.gameManager.showFloatingText(`${levelUpSymbol}${this.level}`, this.player.x, this.player.y - 50, '#f39c12', 26);
         }
 
         // Create level up effect
@@ -290,7 +291,8 @@ class PlayerStats {
         // Apply dodge chance
         if (this.dodgeChance && Math.random() < this.dodgeChance) {
             if (window.gameManager && window.gameManager.showFloatingText) {
-                window.gameManager.showFloatingText(`DODGE!`, this.player.x, this.player.y - 20, '#3498db', 18);
+                const dodgeSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.DODGE || '>';
+                window.gameManager.showFloatingText(dodgeSymbol, this.player.x, this.player.y - 20, '#3498db', 20);
             }
             return;
         }
@@ -302,7 +304,8 @@ class PlayerStats {
             if (penetratedDamage <= 0) {
                 // Shield absorbed all damage, show feedback
                 if (window.gameManager && window.gameManager.showFloatingText) {
-                    window.gameManager.showFloatingText(`BLOCKED`, this.player.x, this.player.y - 20, '#00ffff', 18);
+                    const blockSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.BLOCKED || '#';
+                    window.gameManager.showFloatingText(blockSymbol, this.player.x, this.player.y - 20, '#00ffff', 20);
                 }
 
                 return; // No health damage taken

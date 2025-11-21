@@ -468,9 +468,10 @@ class UnifiedUIManager {
      * Add combo notification
      */
     addComboText(combo, x, y) {
-        this.addFloatingText(`${combo}x COMBO!`, x, y, {
+        const comboSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.COMBO || 'x';
+        this.addFloatingText(`${comboSymbol}${combo}`, x, y, {
             color: '#3498db',
-            size: 22,
+            size: 24,
             vy: -70,
             lifetime: 3.0
         });

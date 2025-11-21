@@ -271,17 +271,17 @@ class PlayerMovement {
             window.gameManager.onDodge(wasPerfectDodge);
         }
 
-        // Visual effect for dodge
+        // Visual effect for dodge (perfect dodge handled by gameManager.onDodge)
         const gm = window.gameManager || window.gameManagerBridge;
-        if (gm && typeof gm.showFloatingText === 'function') {
-            const text = wasPerfectDodge ? "PERFECT DODGE!" : "Dodge!";
-            const color = wasPerfectDodge ? '#f1c40f' : (this.player.glowColor || '#3498db');
+        if (gm && typeof gm.showFloatingText === 'function' && !wasPerfectDodge) {
+            const dodgeSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.DODGE || '>';
+            const color = this.player.glowColor || '#3498db';
             gm.showFloatingText(
-                text,
+                dodgeSymbol,
                 this.player.x,
                 this.player.y + C.DODGE_TEXT_OFFSET_Y,
                 color,
-                wasPerfectDodge ? 22 : 18
+                20
             );
         }
 

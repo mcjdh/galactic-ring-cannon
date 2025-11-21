@@ -534,10 +534,11 @@ class GameManagerBridge {
 
             if (this.currentCombo >= 5) {
                 const textTargetY = this.game?.player?.y ? this.game.player.y - 50 : 0;
+                const symbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.COMBO || 'x';
                 if (this.game?.unifiedUI?.addComboText) {
                     this.game.unifiedUI.addComboText(this.currentCombo, this.game.player?.x ?? 0, textTargetY);
                 } else {
-                    this.showCombatText(`${this.currentCombo}x COMBO!`, this.game.player?.x ?? 0, textTargetY, 'combo', 18);
+                    this.showCombatText(`${symbol}${this.currentCombo}`, this.game.player?.x ?? 0, textTargetY, 'combo', 20);
                 }
             }
 
@@ -1014,13 +1015,15 @@ class GameManagerBridge {
 
         // Show kill combo
         if (this.currentCombo > 1) {
-            this.showCombatText(`${this.currentCombo}x COMBO!`, enemy.x, enemy.y - 40, 'combo', 18);
+            const comboSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.COMBO || 'x';
+            this.showCombatText(`${comboSymbol}${this.currentCombo}`, enemy.x, enemy.y - 40, 'combo', 20);
         }
 
         // Milestone messages
         if (this.killCount % 25 === 0) {
             if (this.game && this.game.player) {
-                this.showCombatText(`${this.killCount} KILLS!`, this.game.player.x, this.game.player.y - 50, 'critical', 24);
+                const killSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.KILL_MILESTONE || '+';
+                this.showCombatText(`${killSymbol}${this.killCount}`, this.game.player.x, this.game.player.y - 50, 'critical', 22);
             }
         }
     }
@@ -1408,21 +1411,24 @@ class GameManagerBridge {
 
         if (wasPerfect && this.game?.player) {
             this.statsManager?.trackSpecialEvent?.('perfect_dodge');
-            this.showFloatingText('PERFECT DODGE!', this.game.player.x, this.game.player.y - 30, '#3498db', 18);
+            const dodgeSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.PERFECT_DODGE || '**';
+            this.showFloatingText(dodgeSymbol, this.game.player.x, this.game.player.y - 30, '#3498db', 22);
         }
     }
 
     onChainLightningHit(chainCount) {
         this.statsManager?.recordChainLightningHit?.(chainCount);
         if (chainCount >= 3 && this.game?.player) {
-            this.showFloatingText(`${chainCount} CHAIN!`, this.game.player.x, this.game.player.y - 40, '#74b9ff', 16);
+            const chainSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.CHAIN || '~';
+            this.showFloatingText(`${chainSymbol}${chainCount}`, this.game.player.x, this.game.player.y - 40, '#74b9ff', 18);
         }
     }
 
     onRicochetHit(bounceCount) {
         this.statsManager?.recordRicochetHit?.(bounceCount);
         if (bounceCount >= 2 && this.game?.player) {
-            this.showFloatingText(`${bounceCount} BOUNCES!`, this.game.player.x, this.game.player.y - 40, '#f39c12', 16);
+            const bounceSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.BOUNCE || 'o';
+            this.showFloatingText(`${bounceSymbol}${bounceCount}`, this.game.player.x, this.game.player.y - 40, '#f39c12', 18);
         }
     }
 

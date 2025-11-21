@@ -171,7 +171,8 @@ class PlayerCombat {
                 window.gameManager?.statsManager?.trackSpecialEvent?.('critical_hit');
                 const gm = window.gameManager || window.gameManagerBridge;
                 if (gm?.showFloatingText) {
-                    gm.showFloatingText(`CRIT! ${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
+                    const critSymbol = window.GAME_CONSTANTS?.VISUAL_SYMBOLS?.CRITICAL || '*';
+                    gm.showFloatingText(`${critSymbol}${Math.round(damage)}`, enemy.x, enemy.y - 20, '#f1c40f', 16);
                 }
             }
         }
