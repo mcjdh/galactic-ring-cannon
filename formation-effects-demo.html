@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formation Effects Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        canvas {
+            border: 1px solid #0f0;
+            display: block;
+            margin: 20px auto;
+            background: #000;
+        }
+
+        #info {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #0ff;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        <h1>🌟 FORMATION EFFECTS DEMO 🌟</h1>
+        <p>Click buttons to trigger formation effects</p>
+        <div>
+            <button onclick="demo.triggerFormation('TRIANGLE')">▲ Triangle</button>
+            <button onclick="demo.triggerFormation('DIAMOND')">◆ Diamond</button>
+            <button onclick="demo.triggerFormation('HEXAGON')">⬡ Hexagon</button>
+            <button onclick="demo.triggerBreak()">💥 Break Formation</button>
+            <button onclick="demo.toggleQuality()">Quality: <span id="quality">High</span></button>
+        </div>
+        <p id="status">Effects: Ready</p>
+    </div>
+    <canvas id="demoCanvas"></canvas>
+
+    <!-- Load FormationEffects (standalone demo) -->
+    <script src="src/utils/Logger.js"></script>
+    <script src="src/effects/FormationEffects.js"></script>
+
+    <script>
+        // Demo controller
+        const demo = {
+            canvas: null,
+            ctx: null,
+            effects: null,
+            animationId: null,
+            lastTime: 0,
+            mockConstellation: null,
+
+            init() {
+                // Setup canvas
+                this.canvas = document.getElementById('demoCanvas');
+                this.canvas.width = 800;
+                this.canvas.height = 600;
+                this.ctx = this.canvas.getContext('2d');
+
+                // Create mock game object
+                const mockGame = {
+                    canvas: this.canvas,
+                    audioSystem: null // No audio for demo
+                };
+
+                // Initialize effects system
+                this.effects = new FormationEffects(mockGame);
+
+                // Start animation loop
+                this.animate(0);
+
+                document.getElementById('status').textContent = 'Effects: Initialized ✓';
+            },
+
+            animate(currentTime) {
+                const deltaTime = this.lastTime ? (currentTime - this.lastTime) / 1000 : 0;
+                this.lastTime = currentTime;
+
+                // Clear canvas
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Update and render effects
+                if (this.effects) {
+                    this.effects.update(deltaTime);
+                    this.effects.render(this.ctx);
+                }
+
+                // Render mock constellation if active
+                if (this.mockConstellation) {
+                    this.renderMockConstellation();
+                }
+
+                // Continue loop
+                this.animationId = requestAnimationFrame((t) => this.animate(t));
+            },
+
+            triggerFormation(patternName) {
+                // Create mock constellation
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+
+                const patternConfigs = {
+                    'TRIANGLE': { count: 3, radius: 80, name: 'TRIANGLE' },
+                    'DIAMOND': { count: 4, radius: 90, name: 'DIAMOND' },
+                    'HEXAGON': { count: 6, radius: 100, name: 'HEXAGON' }
+                };
+
+                const config = patternConfigs[patternName];
+                const mockEnemies = [];
+
+                // Create mock enemy positions
+                for (let i = 0; i < config.count; i++) {
+                    const angle = (i / config.count) * Math.PI * 2;
+                    mockEnemies.push({
+                        x: centerX + Math.cos(angle) * config.radius,
+                        y: centerY + Math.sin(angle) * config.radius,
+                        isDead: false
+                    });
+                }
+
+                const mockPattern = {
+                    name: config.name,
+                    minEnemies: config.count,
+                    maxEnemies: config.count
+                };
+
+                this.mockConstellation = {
+                    id: `demo_${Date.now()}`,
+                    enemies: mockEnemies,
+                    pattern: mockPattern,
+                    centerX: centerX,
+                    centerY: centerY,
+                    createdAt: Date.now(),
+                    age: 0
+                };
+
+                // Trigger effects
+                if (this.effects) {
+                    this.effects.onConstellationFormed(this.mockConstellation);
+                }
+
+                document.getElementById('status').textContent = `✨ ${config.name} Formation Created!`;
+            },
+
+            triggerBreak() {
+                if (this.mockConstellation) {
+                    const mockFormation = {
+                        center: {
+                            x: this.mockConstellation.centerX,
+                            y: this.mockConstellation.centerY
+                        },
+                        enemies: this.mockConstellation.enemies
+                    };
+
+                    if (this.effects) {
+                        this.effects.onFormationBroken(mockFormation);
+                    }
+
+                    this.mockConstellation = null;
+                    document.getElementById('status').textContent = '💥 Formation Shattered!';
+                } else {
+                    document.getElementById('status').textContent = 'No formation to break!';
+                }
+            },
+
+            toggleQuality() {
+                if (!this.effects) return;
+
+                const modes = ['high', 'medium', 'low'];
+                const current = this.effects.qualityMode;
+                const currentIndex = modes.indexOf(current);
+                const nextIndex = (currentIndex + 1) % modes.length;
+                const nextMode = modes[nextIndex];
+
+                this.effects.setQualityMode(nextMode);
+                document.getElementById('quality').textContent =
+                    nextMode.charAt(0).toUpperCase() + nextMode.slice(1);
+
+                document.getElementById('status').textContent =
+                    `Quality set to: ${nextMode}`;
+            },
+
+            renderMockConstellation() {
+                const c = this.mockConstellation;
+                if (!c) return;
+
+                this.ctx.save();
+
+                // Draw enemies as dots
+                this.ctx.fillStyle = '#f00';
+                for (const enemy of c.enemies) {
+                    this.ctx.beginPath();
+                    this.ctx.arc(enemy.x, enemy.y, 8, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                // Draw constellation outline
+                this.ctx.strokeStyle = '#0f0';
+                this.ctx.lineWidth = 2;
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.beginPath();
+                this.ctx.moveTo(c.enemies[0].x, c.enemies[0].y);
+                for (let i = 1; i < c.enemies.length; i++) {
+                    this.ctx.lineTo(c.enemies[i].x, c.enemies[i].y);
+                }
+                this.ctx.closePath();
+                this.ctx.stroke();
+
+                // Update age
+                c.age += 0.016;
+
+                this.ctx.restore();
+            }
+        };
+
+        // Initialize on load
+        window.addEventListener('load', () => demo.init());
+    </script>
+</body>
+
+</html>

@@ -15,7 +15,7 @@ class DebugManager {
             fps: 0,
             memory: 0
         };
-        
+
         this.cheats = {
             godMode: false,
             unlimitedXP: false,
@@ -23,27 +23,27 @@ class DebugManager {
             spawnBoss: false,
             maxLevel: false
         };
-        
+
         this.init();
     }
-    
+
     init() {
         // Check if debug mode should be enabled
         const urlParams = new URLSearchParams(window.location.search);
-        const debugMode = urlParams.get('debug') === 'true' || 
-                         window.StorageManager.getBoolean('debugMode', false);
-        
+        const debugMode = urlParams.get('debug') === 'true' ||
+            window.StorageManager.getBoolean('debugMode', false);
+
         if (debugMode) {
             this.enable();
         }
-        
+
         // Add hotkeys
         window.addEventListener('keydown', this.handleKeyDown.bind(this));
     }
-    
+
     handleKeyDown(e) {
         if (!this.enabled) return;
-        
+
         // Debug hotkeys (Ctrl + key)
         if (e.ctrlKey) {
             switch (e.key) {
@@ -78,7 +78,7 @@ class DebugManager {
             }
         }
     }
-    
+
     enable() {
         this.enabled = true;
         window.StorageManager.setItem('debugMode', 'true');
@@ -102,7 +102,7 @@ class DebugManager {
 
         this.removeOverlay();
     }
-    
+
     toggle() {
         if (this.enabled) {
             this.disable();
@@ -110,7 +110,7 @@ class DebugManager {
             this.enable();
         }
     }
-    
+
     // Add cleanup method to prevent memory leaks
     cleanup() {
         this.disable();
@@ -120,10 +120,10 @@ class DebugManager {
             this.overlayInterval = null;
         }
     }
-    
+
     createOverlay() {
         if (this.overlay) return;
-        
+
         this.overlay = document.createElement('div');
         this.overlay.id = 'debug-overlay';
         this.overlay.style.cssText = `
@@ -137,20 +137,21 @@ class DebugManager {
             padding: 15px;
             border: 1px solid #00ff00;
             border-radius: 5px;
-            z-index: 10001;
+            z-index: 99999; /* [FIX] Ensure it's always on top */
             max-width: 300px;
             white-space: pre-line;
+            pointer-events: none; /* [FIX] Click-through */
         `;
-        
+
         document.body.appendChild(this.overlay);
         this.updateOverlay();
-        
+
         // Update overlay every 100ms
         this.overlayInterval = setInterval(() => {
             this.updateOverlay();
         }, 100);
     }
-    
+
     removeOverlay() {
         if (this.overlay) {
             // Safety check to ensure element is still in DOM
@@ -159,31 +160,31 @@ class DebugManager {
             }
             this.overlay = null;
         }
-        
+
         if (this.overlayInterval) {
             clearInterval(this.overlayInterval);
             this.overlayInterval = null;
         }
     }
-    
+
     updateOverlay() {
         if (!this.overlay) return;
-        
+
         // Get current game stats
         const gameManager = window.gameManager;
         const game = gameManager?.game;
         const player = game?.player;
-        
-        this.stats.entities = (game?.enemies?.length || 0) + 
-                              (game?.projectiles?.length || 0) + 
-                              (game?.xpOrbs?.length || 0);
+
+        this.stats.entities = (game?.enemies?.length || 0) +
+            (game?.projectiles?.length || 0) +
+            (game?.xpOrbs?.length || 0);
         const particleStats = window.Game?.ParticleHelpers?.getParticleStats?.();
         this.stats.particles = particleStats
             ? particleStats.currentParticles
             : window.optimizedParticles?.activeParticles?.length || 0;
         this.stats.fps = window.performanceManager?.fps || 0;
         this.stats.memory = window.performanceManager?.memoryUsage || 0;
-        
+
         const content = `DEBUG MODE
 FPS: ${this.stats.fps}
 Memory: ${this.stats.memory.toFixed(1)} MB
@@ -214,10 +215,10 @@ Commands:
   Ctrl+B: Spawn boss
   Ctrl+L: Level up
   Ctrl+S: Give stars`;
-        
+
         this.overlay.textContent = content;
     }
-    
+
     // Cheat functions
     toggleGodMode() {
         this.cheats.godMode = !this.cheats.godMode;
@@ -225,14 +226,14 @@ Commands:
         if (player) {
             if (this.cheats.godMode) {
                 player.originalTakeDamage = player.takeDamage;
-                player.takeDamage = () => {}; // No damage
+                player.takeDamage = () => { }; // No damage
                 player.health = player.maxHealth;
             } else {
                 player.takeDamage = player.originalTakeDamage;
             }
         }
     }
-    
+
     giveXP(amount) {
         const player = window.gameManager?.game?.player;
         if (player && typeof player.addExperience === 'function') {
@@ -242,7 +243,7 @@ Commands:
             window.logger.warn('! Player not found or addExperience method not available');
         }
     }
-    
+
     giveStars(amount) {
         const gameManager = window.gameManager;
         if (gameManager && typeof gameManager.earnStarTokens === 'function') {
@@ -252,7 +253,7 @@ Commands:
             window.logger.warn('! GameManager not found or earnStarTokens method not available');
         }
     }
-    
+
     killAllEnemies() {
         const enemies = window.gameManager?.game?.enemies;
         if (enemies && Array.isArray(enemies)) {
@@ -268,14 +269,14 @@ Commands:
             window.logger.warn('! No enemies found or enemies array not available');
         }
     }
-    
+
     spawnBoss() {
         const gameManager = window.gameManager;
         if (gameManager && gameManager.activateBossMode) {
             gameManager.activateBossMode();
         }
     }
-    
+
     levelUp() {
         const player = window.gameManager?.game?.player;
         if (player) {
@@ -283,7 +284,7 @@ Commands:
             player.addExperience(xpNeeded);
         }
     }
-    
+
     // Static initialization
     static init() {
         if (!window.debugManager) {

@@ -23,6 +23,9 @@ class EmergentFormationDetector {
         // Active constellations (emergent patterns)
         this.constellations = [];
 
+        // Visual effects system
+        this.effects = null; // Will be initialized when FormationEffects is available
+
         // Constellation pattern templates (similar to formations but for emergent clustering)
         this.patterns = {
             PAIR: {
@@ -119,10 +122,10 @@ class EmergentFormationDetector {
         };
 
         this.enabled = true;
-        
+
         // DIAGNOSTIC: Expose to window for debugging
         window.emergentDetector = this;
-        
+
         if (!this.game) {
             window.logger?.error('CRITICAL: EmergentFormationDetector initialized without game instance!');
         } else {
@@ -138,8 +141,18 @@ class EmergentFormationDetector {
 
         // DIAGNOSTIC: Check if game reference was lost or empty
         if (!this.game) {
-             if (Math.random() < 0.01) window.logger?.error('EmergentFormationDetector lost game reference!');
-             return;
+            if (Math.random() < 0.01) window.logger?.error('EmergentFormationDetector lost game reference!');
+            return;
+        }
+
+        // Lazy-initialize effects system
+        if (!this.effects && window.FormationEffects) {
+            this.effects = new window.FormationEffects(this.game);
+        }
+
+        // Update effects
+        if (this.effects) {
+            this.effects.update(deltaTime);
         }
 
         this.detectionTimer += deltaTime;
@@ -207,31 +220,63 @@ class EmergentFormationDetector {
     /**
      * Find clusters of nearby enemies using spatial proximity
      */
+    /**
+     * Find clusters of nearby enemies using spatial hashing (O(N) complexity)
+     */
     findClusters(enemies) {
         const clusters = [];
-        const used = new Set();
+        const visited = new Set();
+        const cellSize = this.detectionRadius; // Cell size = detection radius
+        const grid = new Map();
+
+        // Step 1: Populate spatial grid
+        for (const enemy of enemies) {
+            const cellX = Math.floor(enemy.x / cellSize);
+            const cellY = Math.floor(enemy.y / cellSize);
+            const key = `${cellX},${cellY}`;
+
+            if (!grid.has(key)) {
+                grid.set(key, []);
+            }
+            grid.get(key).push(enemy);
+        }
+
+        // Step 2: Find clusters
         const radiusSq = this.detectionRadius * this.detectionRadius;
 
-        for (let i = 0; i < enemies.length; i++) {
-            if (used.has(enemies[i].id)) continue;
+        for (const enemy of enemies) {
+            if (visited.has(enemy.id)) continue;
 
-            const cluster = [enemies[i]];
-            used.add(enemies[i].id);
+            const cluster = [enemy];
+            visited.add(enemy.id);
 
-            // Find all enemies near this one
-            for (let j = i + 1; j < enemies.length; j++) {
-                if (used.has(enemies[j].id)) continue;
+            // Queue for BFS expansion of cluster
+            const queue = [enemy];
 
-                // Check distance to any enemy in current cluster
-                for (const clusterEnemy of cluster) {
-                    const dx = enemies[j].x - clusterEnemy.x;
-                    const dy = enemies[j].y - clusterEnemy.y;
-                    const distSq = dx * dx + dy * dy;
+            while (queue.length > 0) {
+                const current = queue.shift();
+                const cellX = Math.floor(current.x / cellSize);
+                const cellY = Math.floor(current.y / cellSize);
 
-                    if (distSq < radiusSq) {
-                        cluster.push(enemies[j]);
-                        used.add(enemies[j].id);
-                        break;
+                // Check current cell and neighbors
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        const key = `${cellX + dx},${cellY + dy}`;
+                        const cellEnemies = grid.get(key);
+
+                        if (!cellEnemies) continue;
+
+                        for (const neighbor of cellEnemies) {
+                            if (visited.has(neighbor.id)) continue;
+
+                            const distSq = (current.x - neighbor.x) ** 2 + (current.y - neighbor.y) ** 2;
+
+                            if (distSq < radiusSq) {
+                                visited.add(neighbor.id);
+                                cluster.push(neighbor);
+                                queue.push(neighbor); // Expand cluster from this neighbor
+                            }
+                        }
                     }
                 }
             }
@@ -293,6 +338,11 @@ class EmergentFormationDetector {
 
         // ALWAYS LOG constellation creation for visibility
         window.logger?.log(`✨ [Emergent] Created ${pattern.name} constellation with ${targetEnemies.length} enemies at (${Math.round(centerX)}, ${Math.round(centerY)})`);
+
+        // Trigger visual effects
+        if (this.effects) {
+            this.effects.onConstellationFormed(constellation);
+        }
     }
 
     /**
@@ -337,17 +387,17 @@ class EmergentFormationDetector {
                 if (dist > 5) { // Only apply if not already at target
                     // Gentle nudge - doesn't override enemy AI, just suggests position
                     const strength = constellation.pattern.strength;
-                    
+
                     // Use velocity if available for smoother physics integration
                     if (enemy.movement && enemy.movement.velocity) {
                         // Apply spring force (Hooke's Law)
                         // F = -k * x
                         const springK = strength * 150;
                         const force = springK; // Proportional to distance implicitly via direction vector
-                        
+
                         enemy.movement.velocity.x += (dx / dist) * force * deltaTime;
                         enemy.movement.velocity.y += (dy / dist) * force * deltaTime;
-                        
+
                         // Apply damping to prevent oscillation
                         // F_damp = -c * v
                         const damping = 2.0;
@@ -431,6 +481,21 @@ class EmergentFormationDetector {
     }
 
     /**
+     * Get color for constellation pattern type
+     */
+    getPatternColor(patternName) {
+        const colors = {
+            'PAIR': { r: 100, g: 200, b: 255 },
+            'TRIANGLE': { r: 0, g: 255, b: 153 },
+            'DIAMOND': { r: 153, g: 0, b: 255 },
+            'PENTAGON': { r: 255, g: 153, b: 0 },
+            'HEXAGON': { r: 255, g: 0, b: 153 },
+            'CIRCLE': { r: 0, g: 153, b: 255 }
+        };
+        return colors[patternName] || { r: 0, g: 255, b: 153 };
+    }
+
+    /**
      * Render constellation visualizations
      * Always shows subtle visual feedback so players can see constellations forming
      */
@@ -447,29 +512,34 @@ class EmergentFormationDetector {
                 constellation.enemies
             );
 
-            // In debug mode, show full wireframe
-            if (isDebugMode) {
-                // Draw constellation outline
-                ctx.strokeStyle = 'rgba(100, 200, 255, 0.3)';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5, 5]);
+            // Draw constellation outline - ALWAYS visible now (not just debug)
+            const patternColor = this.getPatternColor(constellation.pattern.name);
+            const outlineAlpha = isDebugMode ? 0.4 : 0.2;
 
-                // Draw polygon connecting target positions
-                if (targetPositions.length > 2) {
-                    ctx.beginPath();
-                    ctx.moveTo(targetPositions[0].x, targetPositions[0].y);
-                    for (let i = 1; i < targetPositions.length; i++) {
-                        ctx.lineTo(targetPositions[i].x, targetPositions[i].y);
-                    }
-                    ctx.closePath();
-                    ctx.stroke();
+            ctx.strokeStyle = `rgba(${patternColor.r}, ${patternColor.g}, ${patternColor.b}, ${outlineAlpha})`;
+            ctx.lineWidth = isDebugMode ? 2 : 1.5;
+            ctx.setLineDash(isDebugMode ? [5, 5] : [10, 5]);
+
+            // Draw polygon connecting target positions
+            if (targetPositions.length > 2) {
+                ctx.beginPath();
+                ctx.moveTo(targetPositions[0].x, targetPositions[0].y);
+                for (let i = 1; i < targetPositions.length; i++) {
+                    ctx.lineTo(targetPositions[i].x, targetPositions[i].y);
                 }
+                ctx.closePath();
+                ctx.stroke();
             }
 
             // ALWAYS show subtle constellation center marker (even without debug)
-            ctx.fillStyle = isDebugMode ? 'rgba(100, 200, 255, 0.5)' : 'rgba(0, 255, 153, 0.15)';
-            ctx.strokeStyle = isDebugMode ? 'rgba(100, 200, 255, 0.7)' : 'rgba(0, 255, 153, 0.25)';
-            ctx.lineWidth = 1;
+            // Make it more visible!
+            const pulseIntensity = 0.5 + Math.sin(constellation.age * 3) * 0.5; // 0-1 pulse
+            const baseAlpha = isDebugMode ? 0.5 : 0.3;
+            const pulsingAlpha = baseAlpha * pulseIntensity;
+
+            ctx.fillStyle = isDebugMode ? `rgba(100, 200, 255, ${pulsingAlpha})` : `rgba(0, 255, 153, ${pulsingAlpha})`;
+            ctx.strokeStyle = isDebugMode ? `rgba(100, 200, 255, ${pulsingAlpha + 0.2})` : `rgba(0, 255, 153, ${pulsingAlpha + 0.2})`;
+            ctx.lineWidth = 2;
             ctx.setLineDash([]);
 
             // Draw geometric icon based on pattern type
@@ -519,6 +589,11 @@ class EmergentFormationDetector {
         }
 
         ctx.restore();
+
+        // Render effects (particles, beams, etc.)
+        if (this.effects) {
+            this.effects.render(ctx);
+        }
     }
 
     /**

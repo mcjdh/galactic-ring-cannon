@@ -24,14 +24,151 @@ class FormationManager {
         this.formationUpdateTime = 0;
 
         // Visual settings (can be disabled for performance)
-        this.showFormationMarkers = true;
-        this.showConnectingLines = false; // Disabled by default for performance
+        this.showFormationMarkers = false; // Debug visual
+        this.showConnectingLines = true; // [VISUAL] Enabled by default for better feedback
+        this.markerColor = '#FF0000';
+
+        // Visual effects system
+        this.effects = null; // Will be initialized when FormationEffects is available
+        // [OPTIMIZATION] Marker Sprite Cache
+        this.markerCache = new Map();
+        this.initMarkerCache();
     }
 
     /**
-     * Update all active formations
-     * @param {number} deltaTime - Time since last update
+     * [OPTIMIZATION] Initialize sprite cache for formation markers
      */
+    initMarkerCache() {
+        if (typeof document === 'undefined') return;
+
+        const types = ['cubic_swarm', 'pyramid_squadron', 'octahedron_ring', 'default'];
+        const size = 15;
+        const dim = (size + 2) * 2; // Add padding for line width
+
+        types.forEach(type => {
+            const canvas = document.createElement('canvas');
+            canvas.width = dim;
+            canvas.height = dim;
+            const ctx = canvas.getContext('2d');
+            const center = dim / 2;
+
+            ctx.strokeStyle = 'rgba(0, 255, 153, 0.15)'; // Faint neon green
+            ctx.lineWidth = 1;
+
+            ctx.save();
+            ctx.translate(center, center);
+
+            if (type === 'cubic_swarm') {
+                // Draw square
+                ctx.strokeRect(-size, -size, size * 2, size * 2);
+            } else if (type === 'pyramid_squadron') {
+                // Draw triangle
+                ctx.beginPath();
+                ctx.moveTo(0, -size);
+                ctx.lineTo(-size, size);
+                ctx.lineTo(size, size);
+                ctx.closePath();
+                ctx.stroke();
+            } else if (type === 'octahedron_ring') {
+                // Draw hexagon
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    const px = Math.cos(angle) * size;
+                    const py = Math.sin(angle) * size;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            } else {
+                // Default: circle
+                ctx.beginPath();
+                ctx.arc(0, 0, size, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            this.markerCache.set(type, canvas);
+        });
+    }
+
+    /**
+     * Render formation center marker (faint wireframe icon)
+     * [OPTIMIZED] Uses cached sprites
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} formation - Formation object
+     */
+    renderFormationMarker(ctx, formation) {
+        const { x, y } = formation.center;
+        const config = formation.config;
+
+        // Determine type key
+        let type = 'default';
+        if (config.id === 'cubic_swarm') type = 'cubic_swarm';
+        else if (config.id === 'pyramid_squadron') type = 'pyramid_squadron';
+        else if (config.id === 'octahedron_ring') type = 'octahedron_ring';
+
+        const sprite = this.markerCache.get(type);
+
+        if (sprite) {
+            const halfSize = sprite.width / 2;
+
+            // If rotation is needed (hexagon/triangle), we might need to rotate context
+            // Square and Circle are rotation invariant (mostly)
+            // But let's support rotation for all for correctness
+
+            ctx.save();
+            ctx.translate(x, y);
+            // Apply formation rotation if desired, though markers usually stay upright or rotate with formation
+            // Let's rotate with formation for visual coherence
+            if (type !== 'default') {
+                ctx.rotate(formation.rotation);
+            }
+
+            ctx.drawImage(sprite, -halfSize, -halfSize);
+            ctx.restore();
+        } else {
+            // Fallback to dynamic rendering
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0, 255, 153, 0.15)'; // Faint neon green
+            ctx.lineWidth = 1;
+
+            const size = 15;
+
+            if (config.id === 'cubic_swarm') {
+                // Draw square (cube projection)
+                ctx.strokeRect(x - size, y - size, size * 2, size * 2);
+            } else if (config.id === 'pyramid_squadron') {
+                // Draw triangle
+                ctx.beginPath();
+                ctx.moveTo(x, y - size);
+                ctx.lineTo(x - size, y + size);
+                ctx.lineTo(x + size, y + size);
+                ctx.closePath();
+                ctx.stroke();
+            } else if (config.id === 'octahedron_ring') {
+                // Draw hexagon
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + formation.rotation;
+                    const px = x + Math.cos(angle) * size;
+                    const py = y + Math.sin(angle) * size;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            } else {
+                // Default: circle
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+    }
     update(deltaTime) {
         if (!this.enabled || !this.game.player) return;
 
@@ -53,6 +190,16 @@ class FormationManager {
                 this.entropyTimer = 0;
                 if (window.logger?.log) window.logger.log('[FormationManager] Entering CHAOS Phase');
             }
+        }
+
+        // Lazy-initialize effects system
+        if (!this.effects && window.FormationEffects) {
+            this.effects = new window.FormationEffects(this.game);
+        }
+
+        // Update effects
+        if (this.effects) {
+            this.effects.update(deltaTime);
         }
 
         // Dynamic Spawn Interval based on Phase
@@ -93,7 +240,7 @@ class FormationManager {
         // Check global enemy cap before spawning a massive formation
         const currentEnemies = this.game.enemies ? this.game.enemies.length : 0;
         const maxEnemies = this.game.spawner.maxEnemies || 50;
-        
+
         // Allow spawning if we are below 80% of the cap, or if it's the very first formation
         if (this.formations.length > 0 && currentEnemies >= maxEnemies * 0.8) {
             return;
@@ -159,7 +306,7 @@ class FormationManager {
 
             // Select enemy type based on formation config or position hint
             let enemyType;
-            
+
             if (pos.type) {
                 // Use specific type from position config (e.g. 'tank' for nucleus)
                 enemyType = pos.type;
@@ -265,10 +412,10 @@ class FormationManager {
             // Apply "Spring Force" to pull enemy into position
             // F = -k * x (Hooke's Law)
             // We use a soft spring so atomic forces can still push them around
-            
+
             if (dist > 5) {
                 const springStrength = 8.0; // Increased from 4.0 to overcome stronger atomic repulsion
-                
+
                 // If enemy has physics movement, apply force to velocity
                 if (enemy.movement && enemy.movement.velocity) {
                     // Calculate desired velocity
@@ -317,6 +464,11 @@ class FormationManager {
     breakFormation(formation) {
         formation.active = false;
 
+        // Trigger shatter effects
+        if (this.effects) {
+            this.effects.onFormationBroken(formation);
+        }
+
         // Remove formation markers from enemies
         for (const enemy of formation.enemies) {
             if (enemy && !enemy.isDead) {
@@ -341,9 +493,9 @@ class FormationManager {
         // Check performance mode to determine visual fidelity
         // Use GameEngine's performance flags if available
         const pm = this.game.performanceManager;
-        const isLowPerf = this.game.performanceMode || 
-                          this.game.lowPerformanceMode || 
-                          (pm && (pm.performanceMode || pm.lowPerformanceMode || pm.lowGpuMode));
+        const isLowPerf = this.game.performanceMode ||
+            this.game.lowPerformanceMode ||
+            (pm && (pm.performanceMode || pm.lowPerformanceMode || pm.lowGpuMode));
 
         for (const formation of this.formations) {
             if (!formation.active) continue;
@@ -354,10 +506,15 @@ class FormationManager {
             }
 
             // Render connecting lines between formation enemies
-            // Show if explicitly enabled OR if we have performance headroom (geometric vibes)
-            if ((this.showConnectingLines || !isLowPerf) && formation.enemies.length > 1) {
+            // ALWAYS show now (not just when enabled) for better visual feedback
+            if (formation.enemies.length > 1) {
                 this.renderConnectingLines(ctx, formation);
             }
+        }
+
+        // Render effects (particles, beams, explosions)
+        if (this.effects) {
+            this.effects.render(ctx);
         }
     }
 
@@ -417,8 +574,13 @@ class FormationManager {
      */
     renderConnectingLines(ctx, formation) {
         ctx.save();
-        ctx.strokeStyle = 'rgba(0, 255, 153, 0.1)'; // Very faint neon
-        ctx.lineWidth = 0.5;
+
+        // Pulsing effect based on formation time
+        const pulse = 0.6 + Math.sin(formation.time * 2) * 0.4;
+        const alpha = 0.15 * pulse;
+
+        ctx.strokeStyle = `rgba(0, 255, 153, ${alpha})`;
+        ctx.lineWidth = 1.5;
 
         const enemies = formation.enemies.filter(e => e && !e.isDead);
 

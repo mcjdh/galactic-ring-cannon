@@ -1048,7 +1048,10 @@ class GameEngine {
         // [C] Update cosmic background
         if (this.cosmicBackground && typeof this.cosmicBackground.update === 'function') {
             if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBackground');
-            this.cosmicBackground.update(deltaTime, this.player);
+            // [FIX] Pass coordinates explicitly to ensure proper parallax tracking
+            const pX = this.player ? this.player.x : 0;
+            const pY = this.player ? this.player.y : 0;
+            this.cosmicBackground.update(deltaTime, pX, pY);
             if (window.performanceProfiler?.enabled) window.performanceProfiler.end('cosmicBackground', 'cosmicBackground');
         }
 
