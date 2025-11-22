@@ -253,7 +253,8 @@ class EnemyMovement {
     updateMovementPattern(deltaTime, game) {
         // If in a formation, disable standard AI steering
         // The FormationManager handles movement
-        if (this.enemy.formationId) {
+        const isInConstellation = !!this.enemy.constellation;
+        if (this.enemy.formationId || isInConstellation) {
             this.currentDirection = { x: 0, y: 0 };
             return;
         }
@@ -548,8 +549,8 @@ class EnemyMovement {
     updatePhysics(deltaTime) {
         // If in formation, skip standard steering acceleration
         // The FormationManager applies its own forces
-        if (this.enemy.formationId) {
-            // Apply simple damping (friction)
+        if (this.enemy.formationId || this.enemy.constellation) {
+            // Apply simple damping (friction) but keep external forces (constellation pulls) intact
             const dampingFactor = Math.pow(this.friction, deltaTime);
             this.velocity.x *= dampingFactor;
             this.velocity.y *= dampingFactor;
@@ -976,6 +977,9 @@ class EnemyMovement {
         const isInConstellation = !!this.enemy.constellation;
         const isInFormation = !!this.enemy.formationId;
 
+        // Let formation/constellation forces drive placement to avoid interference
+        if (isInConstellation) return;
+
         // Tuning constants
         const separationRadius = this.enemy.radius * 2.5;
         const separationRadiusSq = separationRadius * separationRadius;
@@ -1094,12 +1098,12 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
 
     // Atomic parameters
     const atomicRadius = this.enemy.radius * 2.2; // Equilibrium distance
-    const interactionRadiusSq = (atomicRadius * 2.0) ** 2; // Cutoff radius
+                    const interactionRadiusSq = (atomicRadius * 2.6) ** 2; // Cutoff radius expanded to reduce deep overlaps in dense packs
     
     // Force constants
     const repulsionStrength = 1500; // Increased from 400 for stronger separation
-    const bondStrength = 60;       // Medium-range attraction (Covalent)
-    const dampingFactor = 8.0;     // Increased damping to prevent high-speed oscillation
+                    const bondStrength = 60;       // Medium-range attraction (Covalent)
+                    const dampingFactor = 8.0;     // Increased damping to prevent high-speed oscillation
 
     // Calculate grid position
     const gridX = Math.floor(this.enemy.x / game.gridSize);
@@ -1120,34 +1124,38 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
                 // Skip self, dead, or non-enemies
                 if (other === this.enemy || other.isDead || other.type !== 'enemy') continue;
 
+                const sameConstellation = this.enemy.constellation && this.enemy.constellation === other.constellation;
+                const inAnyConstellation = !!this.enemy.constellation;
+
                 const dx = this.enemy.x - other.x;
                 const dy = this.enemy.y - other.y;
                 const distSq = dx * dx + dy * dy;
 
-                // Only interact within cutoff radius
-                if (distSq < interactionRadiusSq && distSq > 0.1) {
-                    const dist = Math.sqrt(distSq);
-                    const dirX = dx / dist;
-                    const dirY = dy / dist;
-                    
-                    // Lennard-Jones Potential Derivative (Force)
-                    let force = 0;
-                    
-                    if (dist < atomicRadius) {
-                        // Strong repulsion (1/r^2 falloff approximation)
-                        const overlap = atomicRadius - dist;
-                        // Exponential ramp up for very close encounters (Hard Shell)
-                        const hardness = 1 + (overlap / atomicRadius) * 2;
-                        force = repulsionStrength * (overlap / atomicRadius) * hardness;
+                    // Only interact within cutoff radius
+                    if (distSq < interactionRadiusSq && distSq > 0.1) {
+                        const dist = Math.sqrt(distSq);
+                        const dirX = dx / dist;
+                        const dirY = dy / dist;
+
+                        // Lennard-Jones Potential Derivative (Force)
+                        let force = 0;
+
+                        const repulsionScale = inAnyConstellation ? (sameConstellation ? 0.08 : 0.6) : 1.0;
+                        if (dist < atomicRadius) {
+                            // Strong repulsion (1/r^2 falloff approximation)
+                            const overlap = atomicRadius - dist;
+                            // Exponential ramp up for very close encounters (Hard Shell)
+                            const hardness = 1 + (overlap / atomicRadius) * 2;
+                            force = repulsionStrength * repulsionScale * (overlap / atomicRadius) * hardness;
 
                         // Direct Position Correction (prevent stacking)
                         // Move away immediately if too close
-                        if (dist < this.enemy.radius + (other.radius || 15)) {
+                        if (!sameConstellation && dist < this.enemy.radius + (other.radius || 15)) {
                             // Stronger pushout for deep overlaps
                             const pushOut = (this.enemy.radius + other.radius - dist) * 0.5;
                             this.enemy.x += dirX * pushOut;
                             this.enemy.y += dirY * pushOut;
-                            
+
                             // Kill velocity component towards the other enemy
                             // This prevents them from fighting the pushout
                             const velDot = this.velocity.x * dirX + this.velocity.y * dirY;

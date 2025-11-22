@@ -26,6 +26,8 @@ class FormationEffects {
         this.beamWidth = 2.0; // Buffed from 1.5
         this.beamColor = { r: 0, g: 255, b: 153 }; // Neon cyan
         this.glowIntensity = 0.8; // Buffed from 0.6
+        this.maxBeamLengthSq = 200 * 200; // Prevent stretched links from lingering
+        this.beamWarningLengthSq = this.maxBeamLengthSq * 0.75; // Start fading before hard break
 
         // Particle pool for performance
         this.maxParticles = 300; // Buffed from 200
@@ -386,12 +388,34 @@ class FormationEffects {
                 beam.alpha = Math.min(beam.targetAlpha, beam.alpha + deltaTime * 2);
             }
 
-            // Remove if constellation is dead
-            const aliveEnemies = beam.enemies.filter(e => e && !e.isDead);
-            if (aliveEnemies.length < 2) {
+            // Remove if constellation is dead or enemies wandered away
+            const activeEnemies = beam.enemies.filter(e =>
+                e && !e.isDead && e.constellation === beam.constellation
+            );
+
+            if (activeEnemies.length < 2) {
+                this.constellationBeams.splice(i, 1);
+                continue;
+            }
+
+            // Drop beams that stretch too far to avoid screen-length strings
+            let exceedsLength = false;
+            for (let j = 0; j < activeEnemies.length; j++) {
+                const next = (j + 1) % activeEnemies.length;
+                const e1 = activeEnemies[j];
+                const e2 = activeEnemies[next];
+                const dx = e1.x - e2.x;
+                const dy = e1.y - e2.y;
+                if ((dx * dx + dy * dy) > this.maxBeamLengthSq) {
+                    exceedsLength = true;
+                    break;
+                }
+            }
+
+            if (exceedsLength) {
                 this.constellationBeams.splice(i, 1);
             } else {
-                beam.enemies = aliveEnemies;
+                beam.enemies = activeEnemies;
             }
         }
     }
@@ -436,9 +460,28 @@ class FormationEffects {
         for (const beam of this.constellationBeams) {
             if (beam.enemies.length < 2) continue;
 
+            // Precompute longest edge to scale alpha near break threshold
+            let longestEdgeSq = 0;
+            for (let i = 0; i < beam.enemies.length; i++) {
+                const next = (i + 1) % beam.enemies.length;
+                const e1 = beam.enemies[i];
+                const e2 = beam.enemies[next];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    const dx = e1.x - e2.x;
+                    const dy = e1.y - e2.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq > longestEdgeSq) longestEdgeSq = distSq;
+                }
+            }
+
             // Pulsing alpha
-            const pulse = 0.7 + Math.sin(beam.pulsePhase) * 0.3;
-            const alpha = beam.alpha * pulse;
+            const pulse = 0.9 + Math.sin(beam.pulsePhase) * 0.1;
+            const warnRatio = Math.max(0, Math.min(1,
+                (longestEdgeSq - this.beamWarningLengthSq) /
+                (this.maxBeamLengthSq - this.beamWarningLengthSq || 1)
+            ));
+            const alphaScale = Math.max(0.6, 1 - warnRatio * 0.25);
+            const alpha = beam.alpha * pulse * alphaScale;
 
             if (alpha < 0.01) continue;
 
@@ -604,6 +647,16 @@ class FormationEffects {
         this.constellationBeams = [];
         this.snapEffects = [];
         this.shatterEffects = [];
+    }
+
+    /**
+     * Remove constellation beams tied to a specific constellation id
+     */
+    removeConstellationBeams(constellationId) {
+        if (!constellationId) return;
+        this.constellationBeams = this.constellationBeams.filter(
+            beam => beam.constellation !== constellationId
+        );
     }
 
     /**
