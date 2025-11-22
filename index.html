@@ -313,6 +313,9 @@
     <!-- Enemy components - shared behavior systems -->
     <script defer src="src/entities/components/EnemyAI.js"></script>
     <script defer src="src/entities/components/EnemyAbilities.js"></script>
+    <!-- [NEW] Unified Force System - load before EnemyMovement -->
+    <script defer src="src/entities/components/ForceAccumulator.js"></script>
+    <script defer src="src/entities/components/LocalForceProducer.js"></script>
     <script defer src="src/entities/components/EnemyMovement.js"></script>
     <script defer src="src/entities/enemy/components/StatusEffectManager.js"></script>
     <!-- Enemy system - modular type-based architecture -->

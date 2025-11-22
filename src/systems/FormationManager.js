@@ -332,6 +332,11 @@ class FormationManager {
             enemy.formationIndex = i;
             enemy.formationIsLeader = pos.isLeader || false;
 
+            // [MUTUAL EXCLUSIVITY] Ensure enemy can't be in constellation while in formation
+            enemy.constellation = null;
+            delete enemy.constellationAnchor;
+            delete enemy.constellationJoinedAt;
+
             // Add to game
             this.game.addEntity(enemy);
             formation.enemies.push(enemy);
@@ -416,7 +421,7 @@ class FormationManager {
             if (dist > 5) {
                 const springStrength = 8.0; // Increased from 4.0 to overcome stronger atomic repulsion
 
-                // If enemy has physics movement, apply force to velocity
+                // If enemy has physics movement, apply force via accumulator
                 if (enemy.movement && enemy.movement.velocity) {
                     // Calculate desired velocity
                     const desiredSpeed = enemy.movement.speed * 1.5; // Move faster to catch up
@@ -427,8 +432,14 @@ class FormationManager {
                     const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
                     const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
 
-                    enemy.movement.velocity.x += steerX;
-                    enemy.movement.velocity.y += steerY;
+                    // [NEW] Use force accumulator if available
+                    if (enemy.movement.forceAccumulator) {
+                        enemy.movement.forceAccumulator.addForce('formation', steerX, steerY);
+                    } else {
+                        // [FALLBACK] Direct velocity modification (legacy)
+                        enemy.movement.velocity.x += steerX;
+                        enemy.movement.velocity.y += steerY;
+                    }
                 } else {
                     // Fallback for non-physics entities (shouldn't happen for enemies)
                     const moveSpeed = 200;

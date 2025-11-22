@@ -118,31 +118,36 @@ class EnemyMovement {
         this.movementPattern = 'direct'; // direct, circular, zigzag, random
         this.patternTimer = this._randomRange(0, 2.0); // Randomize initial timer to desync movement patterns
         this.patternData = {}; // Pattern-specific data
-        
+
         // Collision detection
         this.collisionRadius = 15;
         this.collidedThisFrame = false;
         this.collisionCooldown = 0;
         this.lastCollisionTime = 0;
-        
+
         // Canvas boundaries
         this.canvasMargin = 50; // Stay this far from canvas edges (unused in infinite arena)
-        
+
         // Movement state
         this.isMoving = false;
         this.lastPosition = { x: 0, y: 0 };
         this.stuckTimer = 0;
         this.stuckThreshold = 2.0; // Seconds before considering enemy stuck
-        
+
         // Temporary pattern change state
         this.tempPatternTimer = 0;
         this.originalPattern = null;
-        
+
         // Special movement states
         this.isKnockback = false;
         this.knockbackVelocity = { x: 0, y: 0 };
         this.knockbackTimer = 0;
         this.knockbackDuration = 0.3;
+
+        // [NEW] Unified Force System (lazy initialized)
+        this.forceAccumulator = null;
+        this.localForceProducer = null;
+        this.useUnifiedForces = true; // Feature flag for rollback
     }
 
     /**
@@ -176,77 +181,102 @@ class EnemyMovement {
     }
 
     /**
+     * Initialize force system (lazy initialization)
+     * @private
+     */
+    _ensureForceSystem(game) {
+        if (!this.forceAccumulator && window.Game?.ForceAccumulator) {
+            this.forceAccumulator = new window.Game.ForceAccumulator(this.enemy);
+        }
+        if (!this.localForceProducer && game && window.Game?.LocalForceProducer) {
+            this.localForceProducer = new window.Game.LocalForceProducer(this.enemy, game);
+        }
+    }
+
+    /**
      * Update movement system
+     * [NEW] Uses unified force architecture with fallback to legacy systems
      */
     update(deltaTime, game) {
-        // Store last position for stuck detection (at END of update)
-        // Note: lastPosition will be updated at end of this method
-        
+        // Initialize force system if needed
+        if (this.useUnifiedForces) {
+            this._ensureForceSystem(game);
+        }
+
+        // NOTE: Force accumulator reset moved to updatePosition() to avoid race condition
+        // with FormationManager/EmergentFormationDetector applying forces later
+
         // Update movement timers
         this.updateTimers(deltaTime);
-        
+
         // Handle special movement states
         if (this.isKnockback) {
             this.updateKnockback(deltaTime);
         } else {
-            // Handle different movement patterns
+            // Handle different movement patterns (AI/steering only, no forces)
             this.updateMovementPattern(deltaTime, game);
 
-            // Apply ambient forces such as gravity wells after determining movement direction
+            // Apply ambient forces such as gravity wells
             this.applyEnvironmentalForces(deltaTime, game);
 
-            // Apply atomic lattice forces (Molecular Dynamics)
-            this.applyAtomicForces(deltaTime, game);
-            
-            // Apply movement physics
-            this.updatePhysics(deltaTime);
+            if (this.useUnifiedForces && this.forceAccumulator && this.localForceProducer) {
+                // [NEW] Unified force calculation (single neighbor pass)
+                this.localForceProducer.calculateForces(this.forceAccumulator, deltaTime);
+
+                // Integrate physics with accumulated forces
+                this.integratePhysics(deltaTime);
+            } else {
+                // [FALLBACK] Legacy force application
+                this.applyAtomicForces(deltaTime, game);
+                this.updatePhysics(deltaTime);
+            }
         }
-        
+
         // Apply final position updates
         this.updatePosition(deltaTime);
-        
+
         // Handle collision detection
         this.handleCollisions(deltaTime, game);
-        
+
         // Skip constraining to canvas to avoid jitter at edges; world is effectively infinite
         // this.constrainToCanvas(game);
-        
+
         // Check if enemy is stuck
         this.checkStuckState(deltaTime);
-        
+
         // Update last position for next frame's stuck detection
         this.lastPosition = { x: this.enemy.x, y: this.enemy.y };
     }
-    
+
     /**
      * Update movement timers
      */
     updateTimers(deltaTime) {
         this.patternTimer += deltaTime;
-        
+
         if (this.collisionCooldown > 0) {
             this.collisionCooldown -= deltaTime;
         }
-        
+
         if (this.knockbackTimer > 0) {
             this.knockbackTimer -= deltaTime;
-            
+
             if (this.knockbackTimer <= 0) {
                 this.isKnockback = false;
             }
         }
-        
+
         // Handle temporary pattern change timer
         if (this.tempPatternTimer > 0) {
             this.tempPatternTimer -= deltaTime;
-            
+
             if (this.tempPatternTimer <= 0 && this.originalPattern) {
                 this.movementPattern = this.originalPattern;
                 this.originalPattern = null;
             }
         }
     }
-    
+
     /**
      * Update movement pattern
      */
@@ -261,7 +291,7 @@ class EnemyMovement {
 
         // Get base direction from AI (from enemy's targetDirection set by AI component)
         let baseDirection = this.enemy.targetDirection || { x: 0, y: 0 };
-        
+
         // Apply movement pattern modifier
         switch (this.movementPattern) {
             case 'direct':
@@ -280,7 +310,7 @@ class EnemyMovement {
                 baseDirection = this.applyOrbitalPattern(baseDirection, deltaTime, game);
                 break;
         }
-        
+
         // Apply special movement modifiers
         if (this.enemy.abilities && this.enemy.abilities.isDashing) {
             // Use dash direction and speed (with fallback)
@@ -405,7 +435,7 @@ class EnemyMovement {
             this.velocitySmoothing.y *= slowMultiplier;
         }
     }
-    
+
     /**
      * Apply circular movement pattern - enhanced smoothing
      */
@@ -440,7 +470,7 @@ class EnemyMovement {
             y: baseDirection.y + this.patternData.lastCircularY * deltaTime * 2
         };
     }
-    
+
     /**
      * Apply zigzag movement pattern - enhanced smoothing
      */
@@ -481,7 +511,7 @@ class EnemyMovement {
             y: baseDirection.y + perpY * finalOffset
         };
     }
-    
+
     /**
      * Apply random movement pattern
      */
@@ -489,10 +519,10 @@ class EnemyMovement {
         // Change direction randomly
         if (this.patternTimer > this._randomRange(1.0, 3.0)) {
             this.patternTimer = 0;
-            
+
             this.patternData.randomDirection = MovementPatternCache.sampleUnitVector();
         }
-        
+
         // Blend random direction with base direction
         if (this.patternData.randomDirection) {
             const blendFactor = 0.3;
@@ -501,16 +531,16 @@ class EnemyMovement {
                 y: baseDirection.y * (1 - blendFactor) + this.patternData.randomDirection.y * blendFactor
             };
         }
-        
+
         return baseDirection;
     }
-    
+
     /**
      * Apply orbital movement pattern (for enemies that orbit around player)
      */
     applyOrbitalPattern(baseDirection, deltaTime, game) {
         if (!game.player) return baseDirection;
-        
+
         // Initialize orbital data
         if (!this.patternData.orbitalAngle) {
             this.patternData.orbitalAngle = this._randomAngle();
@@ -527,22 +557,22 @@ class EnemyMovement {
         const orbitalTrig = MovementPatternCache.sincos(this.patternData.orbitalAngle);
         const targetX = game.player.x + orbitalTrig.cos * this.patternData.orbitalRadius;
         const targetY = game.player.y + orbitalTrig.sin * this.patternData.orbitalRadius;
-        
+
         // Calculate direction to orbital position
         const dx = targetX - this.enemy.x;
         const dy = targetY - this.enemy.y;
         const distance = MovementPatternCache.fastMagnitude(dx, dy);
-        
+
         if (distance > 0.001) {  // Add small epsilon to prevent division by very small numbers
             return {
                 x: dx / distance,
                 y: dy / distance
             };
         }
-        
+
         return baseDirection;
     }
-    
+
     /**
      * Update physics simulation - enhanced smoothing
      */
@@ -558,7 +588,7 @@ class EnemyMovement {
             // Apply velocity smoothing
             this.velocitySmoothing.x = this.velocitySmoothing.x * this.smoothingFactor + this.velocity.x * (1 - this.smoothingFactor);
             this.velocitySmoothing.y = this.velocitySmoothing.y * this.smoothingFactor + this.velocity.y * (1 - this.smoothingFactor);
-            
+
             return;
         }
 
@@ -646,7 +676,63 @@ class EnemyMovement {
             this.velocitySmoothing.y = 0;
         }
     }
-    
+
+    /**
+     * [NEW] Integrate physics with unified force accumulator
+     * Replaces fragmented velocity modifications with single integration step
+     */
+    integratePhysics(deltaTime) {
+        // Get net force from accumulator (handles priority rules)
+        const netForce = this.forceAccumulator.computeNetForce();
+
+        // Apply force to velocity
+        this.velocity.x += netForce.x;
+        this.velocity.y += netForce.y;
+
+        // Determine damping based on entity state
+        const isManaged = this.enemy.formationId || this.enemy.constellation;
+        const dampingFactor = isManaged ? 0.95 : 0.92;  // Lighter damping for managed entities
+
+        // Apply damping
+        this.velocity.x *= Math.pow(dampingFactor, deltaTime);
+        this.velocity.y *= Math.pow(dampingFactor, deltaTime);
+
+        // Apply velocity smoothing (always, even for managed entities)
+        const smoothingFactor = this.smoothingFactor || 0.85;
+        this.velocitySmoothing.x = this.velocitySmoothing.x * smoothingFactor +
+            this.velocity.x * (1 - smoothingFactor);
+        this.velocitySmoothing.y = this.velocitySmoothing.y * smoothingFactor +
+            this.velocity.y * (1 - smoothingFactor);
+
+        // Use smoothed velocity
+        this.velocity.x = this.velocitySmoothing.x;
+        this.velocity.y = this.velocitySmoothing.y;
+
+        // Velocity clamping
+        const maxVelocity = this.speed * 1.3;
+        const speedSq = this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y;
+        const maxVelocitySq = maxVelocity * maxVelocity;
+
+        if (speedSq > maxVelocitySq) {
+            const scale = maxVelocity / Math.sqrt(speedSq);
+            this.velocity.x *= scale;
+            this.velocity.y *= scale;
+            this.velocitySmoothing.x = this.velocity.x;
+            this.velocitySmoothing.y = this.velocity.y;
+        }
+
+        // Deadzone to prevent micro-jitter
+        const deadzone = 0.8;
+        if (Math.abs(this.velocity.x) < deadzone) {
+            this.velocity.x = 0;
+            this.velocitySmoothing.x = 0;
+        }
+        if (Math.abs(this.velocity.y) < deadzone) {
+            this.velocity.y = 0;
+            this.velocitySmoothing.y = 0;
+        }
+    }
+
     /**
      * Update position based on velocity - improved integration
      */
@@ -655,13 +741,9 @@ class EnemyMovement {
         const prevX = this.enemy.x;
         const prevY = this.enemy.y;
 
-        // Apply velocity to position with clamping to prevent extreme movements
-        const maxMovement = 500 * deltaTime; // Limit to reasonable movement per frame
-        const deltaX = Math.max(-maxMovement, Math.min(maxMovement, this.velocity.x * deltaTime));
-        const deltaY = Math.max(-maxMovement, Math.min(maxMovement, this.velocity.y * deltaTime));
-
-        this.enemy.x += deltaX;
-        this.enemy.y += deltaY;
+        // Apply velocity to position
+        this.enemy.x += this.velocity.x * deltaTime;
+        this.enemy.y += this.velocity.y * deltaTime;
 
         // Apply knockback if active (separate from normal movement)
         if (this.isKnockback) {
@@ -690,8 +772,15 @@ class EnemyMovement {
         const distanceMovedSquared = dx * dx + dy * dy;
 
         this.isMoving = distanceMovedSquared > 1; // Moving if moved more than 1 pixel
+
+        // [FIX] Reset force accumulator at END of update cycle
+        // This ensures FormationManager and EmergentFormationDetector forces are captured
+        if (this.forceAccumulator && this.useUnifiedForces) {
+            this.forceAccumulator.reset();
+            this.forceAccumulator.updateWeights();
+        }
     }
-    
+
     /**
      * Handle collision detection with other entities - improved stability
      */
@@ -718,7 +807,7 @@ class EnemyMovement {
             this.handleObstacleCollisions(game.obstacles);
         }
     }
-    
+
     /**
      * Handle collisions with other enemies - improved anti-jitter system
      */
@@ -741,10 +830,10 @@ class EnemyMovement {
                 const distance = MovementPatternCache.fastSqrt(distanceSquared);
                 const overlap = minDistance - distance;
 
-                // Use gentler position-based correction instead of velocity-based
-                const correctionStrength = Math.min(overlap / minDistance, 1.0) * 0.5;
-                const separationX = -(dx / distance) * correctionStrength;
-                const separationY = -(dy / distance) * correctionStrength;
+                // Emergency separation force (stronger than local separation)
+                const emergencyForce = overlap * 25; // Strong push for deep overlaps
+                const separationX = -(dx / distance) * emergencyForce;
+                const separationY = -(dy / distance) * emergencyForce;
 
                 totalSeparationX += separationX;
                 totalSeparationY += separationY;
@@ -753,25 +842,37 @@ class EnemyMovement {
         }
 
         if (collisionCount > 0) {
-            // Apply averaged separation with damping to prevent oscillation
-            const avgSeparationX = (totalSeparationX / collisionCount) * 20;
-            const avgSeparationY = (totalSeparationY / collisionCount) * 20;
+            // Calculate average separation force
+            const avgSeparationX = totalSeparationX / collisionCount;
+            const avgSeparationY = totalSeparationY / collisionCount;
 
-            // Apply separation to position using a small, clamped adjustment to avoid oscillation
-            const positionAdjustmentScale = 0.18;
-            this.enemy.x += avgSeparationX * positionAdjustmentScale;
-            this.enemy.y += avgSeparationY * positionAdjustmentScale;
+            // [NEW] Use force accumulator if available
+            if (this.forceAccumulator && this.useUnifiedForces) {
+                // Add emergency collision force
+                this.forceAccumulator.addForce('collision', avgSeparationX * 0.1, avgSeparationY * 0.1);
 
-            // Apply gentle velocity impulse to steer enemies apart without sudden snaps
-            const velocityImpulseScale = 0.1;
-            this.velocity.x += avgSeparationX * velocityImpulseScale;
-            this.velocity.y += avgSeparationY * velocityImpulseScale;
-            this.velocitySmoothing.x += avgSeparationX * (velocityImpulseScale * 0.5);
-            this.velocitySmoothing.y += avgSeparationY * (velocityImpulseScale * 0.5);
+                // For extreme overlaps, also apply direct position correction
+                const magnitude = Math.sqrt(avgSeparationX * avgSeparationX + avgSeparationY * avgSeparationY);
+                if (magnitude > 100) {
+                    const positionCorrectionScale = 0.15;
+                    this.enemy.x += (avgSeparationX / magnitude) * magnitude * positionCorrectionScale * 0.01;
+                    this.enemy.y += (avgSeparationY / magnitude) * magnitude * positionCorrectionScale * 0.01;
+                }
+            } else {
+                // [FALLBACK] Legacy collision handling
+                const positionAdjustmentScale = 0.18;
+                this.enemy.x += avgSeparationX * positionAdjustmentScale * 0.01;
+                this.enemy.y += avgSeparationY * positionAdjustmentScale * 0.01;
 
-            // Apply mild damping when colliding to settle movement gracefully
-            this.velocity.x *= 0.9;
-            this.velocity.y *= 0.9;
+                const velocityImpulseScale = 0.1;
+                this.velocity.x += avgSeparationX * velocityImpulseScale;
+                this.velocity.y += avgSeparationY * velocityImpulseScale;
+                this.velocitySmoothing.x += avgSeparationX * (velocityImpulseScale * 0.5);
+                this.velocitySmoothing.y += avgSeparationY * (velocityImpulseScale * 0.5);
+
+                this.velocity.x *= 0.9;
+                this.velocity.y *= 0.9;
+            }
 
             // Mark collision with longer cooldown
             this.collidedThisFrame = true;
@@ -779,7 +880,7 @@ class EnemyMovement {
             this.lastCollisionTime = performance.now();
         }
     }
-    
+
     /**
      * Handle collisions with obstacles
      */
@@ -793,7 +894,7 @@ class EnemyMovement {
             }
         }
     }
-    
+
     /**
      * Apply knockback effect
      */
@@ -804,7 +905,7 @@ class EnemyMovement {
         this.knockbackTimer = duration;
         this.knockbackDuration = duration;
     }
-    
+
     /**
      * Update knockback physics
      */
@@ -812,41 +913,41 @@ class EnemyMovement {
         // Knockback is handled in updatePosition
         // This method can be used for additional knockback logic
     }
-    
+
     /**
      * Keep enemy within canvas boundaries
      */
     constrainToCanvas(game) {
         if (!game.canvas) return;
-        
+
         const margin = this.canvasMargin;
         const radius = this.enemy.radius || 15;
-        
+
         // Left boundary
         if (this.enemy.x - radius < margin) {
             this.enemy.x = margin + radius;
             this.velocity.x = Math.max(0, this.velocity.x); // Stop leftward movement
         }
-        
+
         // Right boundary
         if (this.enemy.x + radius > game.canvas.width - margin) {
             this.enemy.x = game.canvas.width - margin - radius;
             this.velocity.x = Math.min(0, this.velocity.x); // Stop rightward movement
         }
-        
+
         // Top boundary
         if (this.enemy.y - radius < margin) {
             this.enemy.y = margin + radius;
             this.velocity.y = Math.max(0, this.velocity.y); // Stop upward movement
         }
-        
+
         // Bottom boundary
         if (this.enemy.y + radius > game.canvas.height - margin) {
             this.enemy.y = game.canvas.height - margin - radius;
             this.velocity.y = Math.min(0, this.velocity.y); // Stop downward movement
         }
     }
-    
+
     /**
      * Check if enemy is stuck and apply unstuck logic - optimized
      */
@@ -869,7 +970,7 @@ class EnemyMovement {
             this.stuckTimer = 0;
         }
     }
-    
+
     /**
      * Handle when enemy gets stuck
      */
@@ -878,16 +979,16 @@ class EnemyMovement {
         const angle = this._randomAngle();
         const force = this._randomRange(50, 75); // Much gentler force
         const trig = MovementPatternCache.sincos(angle);
-        
+
         this.velocity.x += trig.cos * force;
         this.velocity.y += trig.sin * force;
-        
+
         // Temporarily change movement pattern using a timer instead of setTimeout
         this.tempPatternTimer = 2.0; // 2 seconds
         this.originalPattern = this.movementPattern;
         this.movementPattern = 'random';
     }
-    
+
     /**
      * Set movement pattern
      */
@@ -898,7 +999,7 @@ class EnemyMovement {
             this.patternData = {}; // Reset pattern data
         }
     }
-    
+
     /**
      * Configure movement for specific enemy type
      */
@@ -943,11 +1044,11 @@ class EnemyMovement {
                 this.collisionRadius = 30;
                 break;
         }
-        
+
         // Store base speed for reference
         this.enemy.baseSpeed = this.speed;
     }
-    
+
     /**
      * Get current movement state for debugging/UI
      */
@@ -962,7 +1063,7 @@ class EnemyMovement {
             stuckTimer: this.stuckTimer
         };
     }
-    
+
     /**
      * Apply advanced flocking behavior (Separation, Alignment, Cohesion)
      * Creates organic, fluid swarm movement and prevents clipping
@@ -1008,9 +1109,11 @@ class EnemyMovement {
                 const cell = game.spatialGrid.get(key);
                 if (!cell) continue;
 
-            for (let i = 0; i < cell.length; i++) {
-                const other = cell[i];
-                if (other === this.enemy || other.isDead) continue;                    const dx = this.enemy.x - other.x;
+                for (let i = 0; i < cell.length; i++) {
+                    const other = cell[i];
+                    if (other === this.enemy || other.isDead) continue;
+
+                    const dx = this.enemy.x - other.x;
                     const dy = this.enemy.y - other.y;
                     const distSq = dx * dx + dy * dy;
 
@@ -1018,11 +1121,11 @@ class EnemyMovement {
                     if (distSq < separationRadiusSq && distSq > 0.1) {
                         const dist = Math.sqrt(distSq);
                         const overlap = separationRadius - dist;
-                        
+
                         // Exponential push for very close enemies to prevent clipping
                         const pushFactor = overlap / separationRadius;
                         const force = separationForce * (1 + pushFactor * 2);
-                        
+
                         const pushX = (dx / dist) * overlap * force * deltaTime;
                         const pushY = (dy / dist) * overlap * force * deltaTime;
 
@@ -1037,11 +1140,11 @@ class EnemyMovement {
                             alignX += other.movement.velocity.x;
                             alignY += other.movement.velocity.y;
                         }
-                        
+
                         // Accumulate cohesion (center of mass)
                         cohesionX += other.x;
                         cohesionY += other.y;
-                        
+
                         neighborCount++;
                     }
                 }
@@ -1054,7 +1157,7 @@ class EnemyMovement {
             // This prevents "clipping past each other" by making paths parallel
             alignX /= neighborCount;
             alignY /= neighborCount;
-            
+
             // Normalize and apply
             const alignMag = Math.sqrt(alignX * alignX + alignY * alignY);
             if (alignMag > 0.1) {
@@ -1067,11 +1170,11 @@ class EnemyMovement {
             if (!isInConstellation && !isInFormation) {
                 cohesionX /= neighborCount;
                 cohesionY /= neighborCount;
-                
+
                 const dx = cohesionX - this.enemy.x;
                 const dy = cohesionY - this.enemy.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                
+
                 if (dist > 0.1) {
                     this.velocity.x += (dx / dist) * cohesionForce * deltaTime;
                     this.velocity.y += (dy / dist) * cohesionForce * deltaTime;
@@ -1086,7 +1189,7 @@ class EnemyMovement {
  * Uses Lennard-Jones-like potential for stable, crystal-like spacing
  * Prevents overlap (Pauli exclusion) and creates geometric bonds
  */
-EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
+EnemyMovement.prototype.applyAtomicForces = function (deltaTime, game) {
     // Only apply if spatial grid is available and enemy is active
     if (!game.spatialGrid || !game.gridSize || !this.enemy || this.enemy.isDead) return;
 
@@ -1098,12 +1201,12 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
 
     // Atomic parameters
     const atomicRadius = this.enemy.radius * 2.2; // Equilibrium distance
-                    const interactionRadiusSq = (atomicRadius * 2.6) ** 2; // Cutoff radius expanded to reduce deep overlaps in dense packs
-    
+    const interactionRadiusSq = (atomicRadius * 2.6) ** 2; // Expanded cutoff to reduce deep overlaps
+
     // Force constants
     const repulsionStrength = 1500; // Increased from 400 for stronger separation
-                    const bondStrength = 60;       // Medium-range attraction (Covalent)
-                    const dampingFactor = 8.0;     // Increased damping to prevent high-speed oscillation
+    const bondStrength = 60; // Medium-range attraction (Covalent)
+    const dampingFactor = 8.0; // Increased damping to prevent high-speed oscillation
 
     // Calculate grid position
     const gridX = Math.floor(this.enemy.x / game.gridSize);
@@ -1120,7 +1223,7 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
 
             for (let i = 0; i < cell.length; i++) {
                 const other = cell[i];
-                
+
                 // Skip self, dead, or non-enemies
                 if (other === this.enemy || other.isDead || other.type !== 'enemy') continue;
 
@@ -1131,25 +1234,27 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
                 const dy = this.enemy.y - other.y;
                 const distSq = dx * dx + dy * dy;
 
-                    // Only interact within cutoff radius
-                    if (distSq < interactionRadiusSq && distSq > 0.1) {
-                        const dist = Math.sqrt(distSq);
-                        const dirX = dx / dist;
-                        const dirY = dy / dist;
+                // Only interact within cutoff radius
+                if (distSq < interactionRadiusSq && distSq > 0.1) {
+                    const dist = Math.sqrt(distSq);
+                    const dirX = dx / dist;
+                    const dirY = dy / dist;
 
-                        // Lennard-Jones Potential Derivative (Force)
-                        let force = 0;
+                    // Lennard-Jones Potential Derivative (Force)
+                    let force = 0;
 
-                        const repulsionScale = inAnyConstellation ? (sameConstellation ? 0.08 : 0.6) : 1.0;
-                        if (dist < atomicRadius) {
-                            // Strong repulsion (1/r^2 falloff approximation)
-                            const overlap = atomicRadius - dist;
-                            // Exponential ramp up for very close encounters (Hard Shell)
-                            const hardness = 1 + (overlap / atomicRadius) * 2;
-                            force = repulsionStrength * repulsionScale * (overlap / atomicRadius) * hardness;
+                    // Scale repulsion based on constellation membership
+                    const repulsionScale = inAnyConstellation ? (sameConstellation ? 0.08 : 0.6) : 1.0;
+
+                    if (dist < atomicRadius) {
+                        // Strong repulsion (1/r^2 falloff approximation)
+                        const overlap = atomicRadius - dist;
+                        // Exponential ramp up for very close encounters (Hard Shell)
+                        const hardness = 1 + (overlap / atomicRadius) * 2;
+                        force = repulsionStrength * repulsionScale * (overlap / atomicRadius) * hardness;
 
                         // Direct Position Correction (prevent stacking)
-                        // Move away immediately if too close
+                        // Only push apart enemies not in the same constellation
                         if (!sameConstellation && dist < this.enemy.radius + (other.radius || 15)) {
                             // Stronger pushout for deep overlaps
                             const pushOut = (this.enemy.radius + other.radius - dist) * 0.5;
@@ -1182,13 +1287,13 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
                     if (other.movement && other.movement.velocity) {
                         const relVelX = this.velocity.x - other.movement.velocity.x;
                         const relVelY = this.velocity.y - other.movement.velocity.y;
-                        
+
                         // Project relative velocity onto direction vector
                         const relVelDot = relVelX * dirX + relVelY * dirY;
-                        
+
                         const dampX = dirX * relVelDot * dampingFactor * deltaTime;
                         const dampY = dirY * relVelDot * dampingFactor * deltaTime;
-                        
+
                         this.velocity.x -= dampX;
                         this.velocity.y -= dampY;
                     }
