@@ -537,43 +537,75 @@ class EmergentFormationDetector {
     /**
      * Remove constellations that have broken apart
      */
+    /**
+     * Remove constellations that have broken apart
+     */
     cleanupConstellations() {
         this.constellations = this.constellations.filter(constellation => {
+            // Helper to dismantle
+            const dismantle = () => {
+                for (const enemy of constellation.enemies) {
+                    if (enemy) delete enemy.constellation;
+                }
+                // Trigger break effects if available
+                if (this.effects) {
+                    this.effects.onFormationBroken({
+                        center: { x: constellation.centerX, y: constellation.centerY },
+                        enemies: constellation.enemies,
+                        config: { name: constellation.pattern.name }
+                    });
+                }
+            };
+
             // Remove if too many enemies died
             const aliveCount = constellation.enemies.filter(e => !e.isDead).length;
             if (aliveCount < constellation.pattern.minEnemies) {
-                // Unmark enemies
-                for (const enemy of constellation.enemies) {
-                    if (enemy) delete enemy.constellation;
-                }
+                dismantle();
                 return false;
             }
 
-            // Remove if too old (30 seconds max to avoid stale constellations)
+            // Remove if too old (30 seconds max)
             if (constellation.age > 30) {
-                for (const enemy of constellation.enemies) {
-                    if (enemy) delete enemy.constellation;
-                }
+                dismantle();
                 return false;
             }
 
-            // Remove if enemies have spread too far apart
-            const maxSpreadSq = (this.detectionRadius * 1.5) ** 2;
+            // 1. Edge Length Check (Visual Connection Lines)
+            // If any two connected enemies are too far apart, the visual looks bad.
+            const maxEdgeLengthSq = 200 * 200; // 200px max connection line
             for (let i = 0; i < constellation.enemies.length; i++) {
-                for (let j = i + 1; j < constellation.enemies.length; j++) {
-                    const e1 = constellation.enemies[i];
-                    const e2 = constellation.enemies[j];
-                    if (!e1 || !e2) continue;
+                const e1 = constellation.enemies[i];
+                const e2 = constellation.enemies[(i + 1) % constellation.enemies.length];
 
-                    const dx = e1.x - e2.x;
-                    const dy = e1.y - e2.y;
-                    const distSq = dx * dx + dy * dy;
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    const distSq = (e1.x - e2.x) ** 2 + (e1.y - e2.y) ** 2;
+                    if (distSq > maxEdgeLengthSq) {
+                        // window.logger?.log('[Emergent] Breaking constellation: Edge too long');
+                        dismantle();
+                        return false;
+                    }
+                }
+            }
 
-                    if (distSq > maxSpreadSq) {
-                        // Constellation broken
-                        for (const enemy of constellation.enemies) {
-                            if (enemy) delete enemy.constellation;
-                        }
+            // 2. Target Deviation Check (Distortion)
+            // If enemies are too far from where they should be in the pattern
+            const targetPositions = constellation.pattern.getTargetPositions(
+                constellation.centerX,
+                constellation.centerY,
+                constellation.enemies,
+                constellation.rotation
+            );
+
+            const maxDeviationSq = 150 * 150; // 150px max deviation from target
+            for (let i = 0; i < constellation.enemies.length; i++) {
+                const enemy = constellation.enemies[i];
+                const target = targetPositions[i];
+
+                if (enemy && !enemy.isDead && target) {
+                    const distSq = (enemy.x - target.x) ** 2 + (enemy.y - target.y) ** 2;
+                    if (distSq > maxDeviationSq) {
+                        // window.logger?.log('[Emergent] Breaking constellation: Distortion too high');
+                        dismantle();
                         return false;
                     }
                 }
