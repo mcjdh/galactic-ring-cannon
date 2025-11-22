@@ -31,51 +31,117 @@ class EmergentFormationDetector {
             PAIR: {
                 minEnemies: 2,
                 maxEnemies: 2,
-                strength: 0.18, // Strong pull for pairs
-                getTargetPositions: (centerX, centerY, enemies) => {
-                    const separation = 40; // Distance between pair
+                strength: 0.18,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const separation = 40;
+                    const dx = Math.cos(rotation) * separation / 2;
+                    const dy = Math.sin(rotation) * separation / 2;
                     return [
-                        { x: centerX - separation / 2, y: centerY },
-                        { x: centerX + separation / 2, y: centerY }
+                        { x: centerX - dx, y: centerY - dy },
+                        { x: centerX + dx, y: centerY + dy }
+                    ];
+                }
+            },
+            ARROW: {
+                minEnemies: 3,
+                maxEnemies: 3,
+                strength: 0.2,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const size = 35;
+                    // Tip at rotation angle
+                    const tipX = centerX + Math.cos(rotation) * size;
+                    const tipY = centerY + Math.sin(rotation) * size;
+
+                    const backAngle1 = rotation + Math.PI * 0.8;
+                    const backAngle2 = rotation - Math.PI * 0.8;
+
+                    return [
+                        { x: tipX, y: tipY },
+                        { x: centerX + Math.cos(backAngle1) * size, y: centerY + Math.sin(backAngle1) * size },
+                        { x: centerX + Math.cos(backAngle2) * size, y: centerY + Math.sin(backAngle2) * size }
                     ];
                 }
             },
             TRIANGLE: {
                 minEnemies: 3,
                 maxEnemies: 3,
-                strength: 0.15, // How strongly to pull enemies into pattern
-                getTargetPositions: (centerX, centerY, enemies) => {
+                strength: 0.15,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
                     const radius = 50;
-                    return [
-                        { x: centerX, y: centerY - radius },
-                        { x: centerX - radius * 0.866, y: centerY + radius * 0.5 },
-                        { x: centerX + radius * 0.866, y: centerY + radius * 0.5 }
-                    ];
+                    const positions = [];
+                    for (let i = 0; i < 3; i++) {
+                        const angle = rotation + (i * Math.PI * 2 / 3) - Math.PI / 2;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    return positions;
                 }
             },
             DIAMOND: {
                 minEnemies: 4,
                 maxEnemies: 4,
                 strength: 0.12,
-                getTargetPositions: (centerX, centerY, enemies) => {
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
                     const radius = 55;
-                    return [
-                        { x: centerX, y: centerY - radius },
-                        { x: centerX + radius, y: centerY },
-                        { x: centerX, y: centerY + radius },
-                        { x: centerX - radius, y: centerY }
-                    ];
+                    const positions = [];
+                    for (let i = 0; i < 4; i++) {
+                        const angle = rotation + (i * Math.PI * 2 / 4) - Math.PI / 2;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    return positions;
+                }
+            },
+            CROSS: {
+                minEnemies: 5,
+                maxEnemies: 5,
+                strength: 0.15,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const size = 35;
+                    const positions = [{ x: centerX, y: centerY }]; // Center
+
+                    for (let i = 0; i < 4; i++) {
+                        const angle = rotation + i * Math.PI / 2;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * size,
+                            y: centerY + Math.sin(angle) * size
+                        });
+                    }
+                    return positions;
+                }
+            },
+            STAR: {
+                minEnemies: 5,
+                maxEnemies: 5,
+                strength: 0.15,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const radius = 50;
+                    const positions = [];
+                    // Star order: 0, 2, 4, 1, 3 to draw the star shape with lines
+                    const indices = [0, 2, 4, 1, 3];
+                    for (let i = 0; i < 5; i++) {
+                        const angle = rotation + (indices[i] * Math.PI * 2 / 5) - Math.PI / 2;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    return positions;
                 }
             },
             PENTAGON: {
                 minEnemies: 5,
                 maxEnemies: 5,
                 strength: 0.1,
-                getTargetPositions: (centerX, centerY, enemies) => {
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
                     const radius = 60;
                     const positions = [];
                     for (let i = 0; i < 5; i++) {
-                        const angle = (i * Math.PI * 2 / 5) - Math.PI / 2;
+                        const angle = rotation + (i * Math.PI * 2 / 5) - Math.PI / 2;
                         positions.push({
                             x: centerX + Math.cos(angle) * radius,
                             y: centerY + Math.sin(angle) * radius
@@ -88,11 +154,11 @@ class EmergentFormationDetector {
                 minEnemies: 6,
                 maxEnemies: 6,
                 strength: 0.08,
-                getTargetPositions: (centerX, centerY, enemies) => {
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
                     const radius = 65;
                     const positions = [];
                     for (let i = 0; i < 6; i++) {
-                        const angle = i * Math.PI / 3;
+                        const angle = rotation + i * Math.PI / 3;
                         positions.push({
                             x: centerX + Math.cos(angle) * radius,
                             y: centerY + Math.sin(angle) * radius
@@ -105,12 +171,12 @@ class EmergentFormationDetector {
                 minEnemies: 7,
                 maxEnemies: 12,
                 strength: 0.06,
-                getTargetPositions: (centerX, centerY, enemies) => {
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
                     const count = enemies.length;
-                    const radius = 40 + count * 5; // Dynamic radius based on count
+                    const radius = 40 + count * 5;
                     const positions = [];
                     for (let i = 0; i < count; i++) {
-                        const angle = (i * Math.PI * 2 / count);
+                        const angle = rotation + (i * Math.PI * 2 / count);
                         positions.push({
                             x: centerX + Math.cos(angle) * radius,
                             y: centerY + Math.sin(angle) * radius
@@ -307,7 +373,7 @@ class EmergentFormationDetector {
      * Create a constellation from a cluster
      */
     createConstellation(enemies, pattern) {
-        // Calculate cluster center
+        // 1. Calculate initial centroid of the potential cluster
         let centerX = 0, centerY = 0;
         for (const enemy of enemies) {
             centerX += enemy.x;
@@ -316,8 +382,35 @@ class EmergentFormationDetector {
         centerX /= enemies.length;
         centerY /= enemies.length;
 
-        // Trim to exact pattern size if needed
+        // 2. Sort enemies by distance to centroid to find the most compact group
+        // This prevents "stringy" clusters from forming constellations across vast distances
+        enemies.sort((a, b) => {
+            const distA = (a.x - centerX) ** 2 + (a.y - centerY) ** 2;
+            const distB = (b.x - centerX) ** 2 + (b.y - centerY) ** 2;
+            return distA - distB;
+        });
+
+        // 3. Select the closest N enemies for the pattern
         const targetEnemies = enemies.slice(0, pattern.maxEnemies);
+
+        // 4. Recalculate centroid for the actual selected group
+        centerX = 0;
+        centerY = 0;
+        for (const enemy of targetEnemies) {
+            centerX += enemy.x;
+            centerY += enemy.y;
+        }
+        centerX /= targetEnemies.length;
+        centerY /= targetEnemies.length;
+
+        // 5. Sort selected enemies by angle around the new center
+        // This ensures that the visual "loop" (i -> i+1) connects adjacent enemies
+        // preventing crossing lines and visual distortions
+        targetEnemies.sort((a, b) => {
+            const angleA = Math.atan2(a.y - centerY, a.x - centerX);
+            const angleB = Math.atan2(b.y - centerY, b.x - centerX);
+            return angleA - angleB;
+        });
 
         const constellation = {
             id: `constellation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -326,7 +419,9 @@ class EmergentFormationDetector {
             centerX,
             centerY,
             createdAt: Date.now(),
-            age: 0
+            age: 0,
+            rotation: Math.random() * Math.PI * 2, // Random initial rotation
+            rotationSpeed: (Math.random() - 0.5) * 1.0 // Slow rotation (-0.5 to 0.5 rad/s)
         };
 
         // Mark enemies as part of this constellation
@@ -354,25 +449,36 @@ class EmergentFormationDetector {
 
             // Update center position (slowly follow enemies)
             let centerX = 0, centerY = 0;
+            let validEnemies = 0;
             for (const enemy of constellation.enemies) {
-                centerX += enemy.x;
-                centerY += enemy.y;
+                if (enemy && !enemy.isDead) {
+                    centerX += enemy.x;
+                    centerY += enemy.y;
+                    validEnemies++;
+                }
             }
-            centerX /= constellation.enemies.length;
-            centerY /= constellation.enemies.length;
+
+            if (validEnemies === 0) continue;
+
+            centerX /= validEnemies;
+            centerY /= validEnemies;
 
             // Smooth center movement
             constellation.centerX += (centerX - constellation.centerX) * 0.1;
             constellation.centerY += (centerY - constellation.centerY) * 0.1;
 
+            // Update rotation
+            constellation.rotation += constellation.rotationSpeed * deltaTime;
+
             // Get target positions for this constellation
             const targetPositions = constellation.pattern.getTargetPositions(
                 constellation.centerX,
                 constellation.centerY,
-                constellation.enemies
+                constellation.enemies,
+                constellation.rotation
             );
 
-            // Apply subtle forces to each enemy
+            // Apply forces to each enemy
             for (let i = 0; i < constellation.enemies.length; i++) {
                 const enemy = constellation.enemies[i];
                 const target = targetPositions[i];
@@ -384,23 +490,27 @@ class EmergentFormationDetector {
                 const dy = target.y - enemy.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                if (dist > 5) { // Only apply if not already at target
+                if (dist > 2) { // Only apply if not already at target
                     // Gentle nudge - doesn't override enemy AI, just suggests position
                     const strength = constellation.pattern.strength;
 
                     // Use velocity if available for smoother physics integration
                     if (enemy.movement && enemy.movement.velocity) {
-                        // Apply spring force (Hooke's Law)
-                        // F = -k * x
-                        const springK = strength * 150;
-                        const force = springK; // Proportional to distance implicitly via direction vector
+                        // Apply spring force (Hooke's Law: F = -k * x)
+                        // Force increases with distance to pull stragglers in
+                        const springK = strength * 5.0; // Tuned spring constant
+                        const force = springK * dist;
 
-                        enemy.movement.velocity.x += (dx / dist) * force * deltaTime;
-                        enemy.movement.velocity.y += (dy / dist) * force * deltaTime;
+                        // Clamp maximum force to prevent crazy flinging
+                        const maxForce = 800;
+                        const clampedForce = Math.min(force, maxForce);
+
+                        enemy.movement.velocity.x += (dx / dist) * clampedForce * deltaTime;
+                        enemy.movement.velocity.y += (dy / dist) * clampedForce * deltaTime;
 
                         // Apply damping to prevent oscillation
                         // F_damp = -c * v
-                        const damping = 2.0;
+                        const damping = 3.0;
                         enemy.movement.velocity.x -= enemy.movement.velocity.x * damping * deltaTime;
                         enemy.movement.velocity.y -= enemy.movement.velocity.y * damping * deltaTime;
                     } else {
@@ -486,8 +596,11 @@ class EmergentFormationDetector {
     getPatternColor(patternName) {
         const colors = {
             'PAIR': { r: 100, g: 200, b: 255 },
+            'ARROW': { r: 255, g: 50, b: 50 },
             'TRIANGLE': { r: 0, g: 255, b: 153 },
+            'CROSS': { r: 255, g: 200, b: 50 },
             'DIAMOND': { r: 153, g: 0, b: 255 },
+            'STAR': { r: 255, g: 255, b: 0 },
             'PENTAGON': { r: 255, g: 153, b: 0 },
             'HEXAGON': { r: 255, g: 0, b: 153 },
             'CIRCLE': { r: 0, g: 153, b: 255 }
@@ -509,7 +622,8 @@ class EmergentFormationDetector {
             const targetPositions = constellation.pattern.getTargetPositions(
                 constellation.centerX,
                 constellation.centerY,
-                constellation.enemies
+                constellation.enemies,
+                constellation.rotation
             );
 
             // Draw constellation outline - ALWAYS visible now (not just debug)
@@ -548,20 +662,36 @@ class EmergentFormationDetector {
 
             if (constellation.pattern.name === 'PAIR') {
                 // Two small dots
-                ctx.arc(constellation.centerX - 8, constellation.centerY, 2, 0, Math.PI * 2);
-                ctx.arc(constellation.centerX + 8, constellation.centerY, 2, 0, Math.PI * 2);
-            } else if (constellation.pattern.name === 'TRIANGLE') {
-                // Triangle
-                ctx.moveTo(constellation.centerX, constellation.centerY - size);
-                ctx.lineTo(constellation.centerX - size * 0.866, constellation.centerY + size * 0.5);
-                ctx.lineTo(constellation.centerX + size * 0.866, constellation.centerY + size * 0.5);
+                const rot = constellation.rotation || 0;
+                const dx = Math.cos(rot) * 8;
+                const dy = Math.sin(rot) * 8;
+                ctx.arc(constellation.centerX - dx, constellation.centerY - dy, 2, 0, Math.PI * 2);
+                ctx.arc(constellation.centerX + dx, constellation.centerY + dy, 2, 0, Math.PI * 2);
+            } else if (constellation.pattern.name === 'TRIANGLE' || constellation.pattern.name === 'ARROW') {
+                // Triangle/Arrow
+                const rot = constellation.rotation || 0;
+                ctx.moveTo(constellation.centerX + Math.cos(rot) * size, constellation.centerY + Math.sin(rot) * size);
+                ctx.lineTo(constellation.centerX + Math.cos(rot + 2.6) * size, constellation.centerY + Math.sin(rot + 2.6) * size);
+                ctx.lineTo(constellation.centerX + Math.cos(rot - 2.6) * size, constellation.centerY + Math.sin(rot - 2.6) * size);
                 ctx.closePath();
-            } else if (constellation.pattern.name === 'DIAMOND') {
-                // Diamond
-                ctx.moveTo(constellation.centerX, constellation.centerY - size);
-                ctx.lineTo(constellation.centerX + size, constellation.centerY);
-                ctx.lineTo(constellation.centerX, constellation.centerY + size);
-                ctx.lineTo(constellation.centerX - size, constellation.centerY);
+            } else if (constellation.pattern.name === 'DIAMOND' || constellation.pattern.name === 'CROSS') {
+                // Diamond/Cross
+                const rot = constellation.rotation || 0;
+                ctx.moveTo(constellation.centerX + Math.cos(rot) * size, constellation.centerY + Math.sin(rot) * size);
+                ctx.lineTo(constellation.centerX + Math.cos(rot + 1.57) * size, constellation.centerY + Math.sin(rot + 1.57) * size);
+                ctx.lineTo(constellation.centerX + Math.cos(rot + 3.14) * size, constellation.centerY + Math.sin(rot + 3.14) * size);
+                ctx.lineTo(constellation.centerX + Math.cos(rot + 4.71) * size, constellation.centerY + Math.sin(rot + 4.71) * size);
+                ctx.closePath();
+            } else if (constellation.pattern.name === 'STAR') {
+                // Star
+                const rot = constellation.rotation || 0;
+                for (let i = 0; i < 5; i++) {
+                    const angle = rot + i * Math.PI * 2 / 5 - Math.PI / 2;
+                    const x = constellation.centerX + Math.cos(angle) * size;
+                    const y = constellation.centerY + Math.sin(angle) * size;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
                 ctx.closePath();
             } else {
                 // Circle for pentagon, hexagon, circle patterns

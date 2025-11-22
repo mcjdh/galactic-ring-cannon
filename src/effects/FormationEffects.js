@@ -304,8 +304,11 @@ class FormationEffects {
     getPatternColor(patternName) {
         const colors = {
             'PAIR': { r: 100, g: 200, b: 255 },
+            'ARROW': { r: 255, g: 50, b: 50 },
             'TRIANGLE': { r: 0, g: 255, b: 153 },
+            'CROSS': { r: 255, g: 200, b: 50 },
             'DIAMOND': { r: 153, g: 0, b: 255 },
+            'STAR': { r: 255, g: 255, b: 0 },
             'PENTAGON': { r: 255, g: 153, b: 0 },
             'HEXAGON': { r: 255, g: 0, b: 153 },
             'CIRCLE': { r: 0, g: 153, b: 255 }
