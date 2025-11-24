@@ -217,7 +217,6 @@ class EmergentFormationDetector {
 
         // DIAGNOSTIC: Check if game reference was lost or empty
         if (!this.game) {
-            if (Math.random() < 0.01) window.logger?.error('EmergentFormationDetector lost game reference!');
             return;
         }
 
@@ -281,9 +280,6 @@ class EmergentFormationDetector {
         }
     }
 
-    /**
-     * Find clusters of nearby enemies using spatial proximity
-     */
     /**
      * Find clusters of nearby enemies using spatial hashing (O(N) complexity)
      */
@@ -696,11 +692,12 @@ class EmergentFormationDetector {
             centerX /= validEnemies;
             centerY /= validEnemies;
 
-            // [FIX] Use instant center tracking (no lag)
-            // Smoothing creates 90% lag where center trails behind enemies
-            // causing them to chase a point that's always behind them
-            constellation.centerX = centerX;
-            constellation.centerY = centerY;
+            // [FIX] Use soft coupling instead of hard reset
+            // This allows the center to lead the enemies (pulling them) and allows
+            // the constellation to break if enemies get stuck while the center moves away.
+            const coupling = 5.0 * deltaTime;
+            constellation.centerX += (centerX - constellation.centerX) * coupling;
+            constellation.centerY += (centerY - constellation.centerY) * coupling;
 
             // Group-level steering toward player with standoff and mild orbit
             const player = this.game?.player;
@@ -1237,4 +1234,8 @@ class EmergentFormationDetector {
 if (typeof window !== 'undefined') {
     window.EmergentFormationDetector = EmergentFormationDetector;
     window.logger?.log('EmergentFormationDetector class loaded');
+}
+
+if (typeof module !== 'undefined') {
+    module.exports = EmergentFormationDetector;
 }

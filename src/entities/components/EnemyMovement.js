@@ -239,7 +239,6 @@ class EnemyMovement {
         this.handleCollisions(deltaTime, game);
 
         // Skip constraining to canvas to avoid jitter at edges; world is effectively infinite
-        // this.constrainToCanvas(game);
 
         // Check if enemy is stuck
         this.checkStuckState(deltaTime);

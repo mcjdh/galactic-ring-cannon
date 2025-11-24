@@ -165,13 +165,7 @@ class GameEngine {
         this._lowGpuModeFallback = false;
         this._lowPerformanceModeFallback = false;
 
-        // Legacy flags - now proxies to PerformanceManager
-        // this.performanceMode = false; // Accessed via getter/setter
-        // this.debugMode = false; // Kept in GameEngine
         this.debugMode = false;
-        // this.lowGpuMode = false; // Accessed via getter
-        // this.lowPerformanceMode = false; // Accessed via getter
-        // this._autoLowQualityCosmic = false; // Managed by PerformanceManager
 
         this._visibleEntitiesScratch = [];
         this._visibleEntitiesGeneration = 1;
@@ -191,7 +185,6 @@ class GameEngine {
         this.manualPause = false;
         this.autoPaused = false;
 
-        // Object pools - partially implemented for projectiles and particles
         // Object pools
         // Current pools: particlePool, enemyProjectilePool, projectilePool (global)
         this.enemyProjectilePool = [];

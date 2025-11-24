@@ -1,4 +1,4 @@
-const GameEngine = require('../src/core/GameEngine');
+const GameEngine = require('../src/core/gameEngine');
 const EmergentFormationDetector = require('../src/systems/EmergentFormationDetector');
 
 // Mock classes
@@ -40,11 +40,6 @@ const runTests = () => {
 
     // Setup shared context
     const setup = () => {
-        const game = new GameEngine();
-        game.player = new MockPlayer(0, 0);
-        game.enemies = [];
-        game.obstacles = [];
-
         // Mock logger
         if (typeof window === 'undefined') global.window = {};
         window.logger = {
@@ -52,6 +47,51 @@ const runTests = () => {
             error: console.error,
             warn: console.warn
         };
+        if (!window.addEventListener) {
+            window.addEventListener = () => { };
+        }
+        if (!window.removeEventListener) {
+            window.removeEventListener = () => { };
+        }
+
+        // Mock document and canvas
+        if (typeof document === 'undefined') {
+            global.document = {
+                getElementById: (id) => {
+                    if (id === 'game-canvas') {
+                        return {
+                            style: {},
+                            getContext: () => ({})
+                        };
+                    }
+                    return null;
+                },
+                addEventListener: () => { }
+            };
+        }
+
+        const game = new GameEngine();
+        game.player = new MockPlayer(0, 0);
+        game.enemies = [];
+        game.obstacles = [];
+
+
+
+        // Mock document and canvas
+        if (typeof document === 'undefined') {
+            global.document = {
+                getElementById: (id) => {
+                    if (id === 'game-canvas') {
+                        return {
+                            style: {},
+                            getContext: () => ({})
+                        };
+                    }
+                    return null;
+                },
+                addEventListener: () => { }
+            };
+        }
 
         const detector = new EmergentFormationDetector(game);
         detector.enabled = true;
