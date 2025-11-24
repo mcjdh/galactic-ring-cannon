@@ -43,9 +43,8 @@ global.document = {
     body: { appendChild: () => { }, removeChild: () => { } }
 };
 
-// Load GameEngine
-require('../src/core/gameEngine.js');
-const GameEngine = window.Game.GameEngine;
+// Load GameEngine (CommonJS export from gameEngine.js)
+const GameEngine = require('../src/core/gameEngine.js');
 
 async function runTests() {
     console.log('Running GameEngine Tests...');
