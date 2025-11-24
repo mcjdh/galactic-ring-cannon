@@ -1021,6 +1021,29 @@ class GameEngine {
             );
         }
 
+        // [CRITICAL] Update GameManager systems BEFORE entities
+        // This ensures formations and constellations are updated and targets set
+        // before enemies calculate their movement forces for this frame.
+        if (window.gameManager && typeof window.gameManager.update === 'function') {
+            try {
+                window.gameManager.update(deltaTime);
+
+                if (typeof window.gameManager.renderMinimap === 'function') {
+                    this._minimapUpdateAccumulator += deltaTime;
+                    const interval = this._getMinimapUpdateInterval();
+                    if (!this._minimapHasDrawn || this._minimapUpdateAccumulator >= interval) {
+                        this._minimapUpdateAccumulator = 0;
+                        this._minimapHasDrawn = true;
+                        window.gameManager.renderMinimap();
+                    }
+                }
+            } catch (error) {
+                if (window.logger?.isDebugEnabled?.('systems')) {
+                    window.logger.error('GameManager update error:', error);
+                }
+            }
+        }
+
         // Update gamepad state if available
         if (window.inputManager && typeof window.inputManager.updateGamepad === 'function') {
             window.inputManager.updateGamepad();
@@ -1086,26 +1109,7 @@ class GameEngine {
             window.gameManager.updateCombatTexts(deltaTime);
         }
 
-        // Update GameManager systems (bridge compatibility)
-        if (window.gameManager && typeof window.gameManager.update === 'function') {
-            try {
-                window.gameManager.update(deltaTime);
 
-                if (typeof window.gameManager.renderMinimap === 'function') {
-                    this._minimapUpdateAccumulator += deltaTime;
-                    const interval = this._getMinimapUpdateInterval();
-                    if (!this._minimapHasDrawn || this._minimapUpdateAccumulator >= interval) {
-                        this._minimapUpdateAccumulator = 0;
-                        this._minimapHasDrawn = true;
-                        window.gameManager.renderMinimap();
-                    }
-                }
-            } catch (error) {
-                if (window.logger?.isDebugEnabled?.('systems')) {
-                    window.logger.error('GameManager update error:', error);
-                }
-            }
-        }
 
         // Check collisions with error handling (uses up-to-date spatial grid)
         try {

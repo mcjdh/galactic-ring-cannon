@@ -432,14 +432,8 @@ class FormationManager {
                     const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
                     const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
 
-                    // [NEW] Use force accumulator if available
-                    if (enemy.movement.forceAccumulator) {
-                        enemy.movement.forceAccumulator.addForce('formation', steerX, steerY);
-                    } else {
-                        // [FALLBACK] Direct velocity modification (legacy)
-                        enemy.movement.velocity.x += steerX;
-                        enemy.movement.velocity.y += steerY;
-                    }
+                    // [UNIFIED] Always use force accumulator
+                    enemy.movement.forceAccumulator.addForce('formation', steerX, steerY);
                 } else {
                     // Fallback for non-physics entities (shouldn't happen for enemies)
                     const moveSpeed = 200;

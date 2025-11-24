@@ -692,12 +692,10 @@ class EmergentFormationDetector {
             centerX /= validEnemies;
             centerY /= validEnemies;
 
-            // [FIX] Use soft coupling instead of hard reset
-            // This allows the center to lead the enemies (pulling them) and allows
-            // the constellation to break if enemies get stuck while the center moves away.
-            const coupling = 5.0 * deltaTime;
-            constellation.centerX += (centerX - constellation.centerX) * coupling;
-            constellation.centerY += (centerY - constellation.centerY) * coupling;
+            // [FIX] Instant center tracking to prevent "trailing" effect
+            // The center should be the actual center of mass, not a lagged version
+            constellation.centerX = centerX;
+            constellation.centerY = centerY;
 
             // Group-level steering toward player with standoff and mild orbit
             const player = this.game?.player;
@@ -713,7 +711,8 @@ class EmergentFormationDetector {
                 const clampedError = Math.max(-standoff * 1.5, Math.min(standoff * 1.5, distError));
                 let chaseStep = clampedError * this.constellationChaseGain * deltaTime;
 
-                // Calculate desired movement vector
+                // Calculate desired movement vector for the GROUP
+                // We apply this as a force to individual enemies relative to their slots
                 let moveX = (dxp / dist) * chaseStep;
                 let moveY = (dyp / dist) * chaseStep;
 
@@ -755,6 +754,10 @@ class EmergentFormationDetector {
                     }
                 }
 
+                // Apply group movement to the center (virtual movement)
+                // In reality, we just want the enemies to chase this virtual center
+                // But since we set centerX = mass center, we need to add this offset to the target positions
+                // effectively "pulling" the shape along
                 constellation.centerX += moveX;
                 constellation.centerY += moveY;
 
@@ -831,30 +834,15 @@ class EmergentFormationDetector {
                         const forceX = (dx / dist) * clampedForce * deltaTime;
                         const forceY = (dy / dist) * clampedForce * deltaTime;
 
-                        // [NEW] Use force accumulator if available
-                        if (enemy.movement.forceAccumulator) {
-                            enemy.movement.forceAccumulator.addForce('constellation', forceX, forceY);
-                        } else {
-                            // [FALLBACK] Direct velocity modification (legacy)
-                            enemy.movement.velocity.x += forceX;
-                            enemy.movement.velocity.y += forceY;
-                        }
+                        // [UNIFIED] Always use force accumulator
+                        enemy.movement.forceAccumulator.addForce('constellation', forceX, forceY);
 
-                        // Apply damping to prevent oscillation
-                        // F_damp = -c * v
-                        // [BALANCED] Moderate damping
-                        const damping = isFreshJoin ? 4.5 : 3.0; // Balanced
+                        // Apply damping to prevent oscillation (F_damp = -c * v)
+                        const damping = isFreshJoin ? 4.5 : 3.0;
                         const dampingX = -enemy.movement.velocity.x * damping * deltaTime;
                         const dampingY = -enemy.movement.velocity.y * damping * deltaTime;
 
-                        // [NEW] Apply damping as negative force
-                        if (enemy.movement.forceAccumulator) {
-                            enemy.movement.forceAccumulator.addForce('constellation', dampingX, dampingY);
-                        } else {
-                            // [FALLBACK] Direct velocity modification
-                            enemy.movement.velocity.x += dampingX;
-                            enemy.movement.velocity.y += dampingY;
-                        }
+                        enemy.movement.forceAccumulator.addForce('constellation', dampingX, dampingY);
 
                         // [TUNING] Stuck Detection
                         // If enemy is far from target but moving slowly (likely blocked), count as stuck
@@ -886,14 +874,8 @@ class EmergentFormationDetector {
                             const catchUpX = (toCenterX / distToCenter) * catchUpForce * deltaTime;
                             const catchUpY = (toCenterY / distToCenter) * catchUpForce * deltaTime;
 
-                            // [NEW] Use force accumulator if available
-                            if (enemy.movement.forceAccumulator) {
-                                enemy.movement.forceAccumulator.addForce('constellation', catchUpX, catchUpY);
-                            } else {
-                                // [FALLBACK] Direct velocity modification
-                                enemy.movement.velocity.x += catchUpX;
-                                enemy.movement.velocity.y += catchUpY;
-                            }
+                            // [UNIFIED] Always use force accumulator
+                            enemy.movement.forceAccumulator.addForce('constellation', catchUpX, catchUpY);
                         }
                     } else {
                         // Fallback to direct position modification

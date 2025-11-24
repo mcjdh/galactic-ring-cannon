@@ -144,10 +144,13 @@ class EnemyMovement {
         this.knockbackTimer = 0;
         this.knockbackDuration = 0.3;
 
-        // [NEW] Unified Force System (lazy initialized)
-        this.forceAccumulator = null;
-        this.localForceProducer = null;
-        this.useUnifiedForces = true; // Feature flag for rollback
+        // [UNIFIED PHYSICS] Force system components
+        // ForceAccumulator initialized immediately, LocalForceProducer needs game reference (lazy)
+        this.forceAccumulator = window.Game?.ForceAccumulator
+            ? new window.Game.ForceAccumulator(enemy)
+            : null;
+        this.localForceProducer = null; // Lazy - requires game reference
+
     }
 
     /**
@@ -195,16 +198,11 @@ class EnemyMovement {
 
     /**
      * Update movement system
-     * [NEW] Uses unified force architecture with fallback to legacy systems
+     * Uses unified force architecture (ForceAccumulator + LocalForceProducer)
      */
     update(deltaTime, game) {
         // Initialize force system if needed
-        if (this.useUnifiedForces) {
-            this._ensureForceSystem(game);
-        }
-
-        // NOTE: Force accumulator reset moved to updatePosition() to avoid race condition
-        // with FormationManager/EmergentFormationDetector applying forces later
+        this._ensureForceSystem(game);
 
         // Update movement timers
         this.updateTimers(deltaTime);
@@ -219,17 +217,12 @@ class EnemyMovement {
             // Apply ambient forces such as gravity wells
             this.applyEnvironmentalForces(deltaTime, game);
 
-            if (this.useUnifiedForces && this.forceAccumulator && this.localForceProducer) {
-                // [NEW] Unified force calculation (single neighbor pass)
-                this.localForceProducer.calculateForces(this.forceAccumulator, deltaTime);
+            // [UNIFIED] Local force calculation (single neighbor pass)
+            // LocalForceProducer internally skips if entity is in formation/constellation
+            this.localForceProducer.calculateForces(this.forceAccumulator, deltaTime);
 
-                // Integrate physics with accumulated forces
-                this.integratePhysics(deltaTime);
-            } else {
-                // [FALLBACK] Legacy force application
-                this.applyAtomicForces(deltaTime, game);
-                this.updatePhysics(deltaTime);
-            }
+            // Integrate physics with accumulated forces
+            this.integratePhysics(deltaTime);
         }
 
         // Apply final position updates
@@ -574,8 +567,15 @@ class EnemyMovement {
 
     /**
      * Update physics simulation - enhanced smoothing
+     * @deprecated - Replaced by integratePhysics() using unified force system
+     * This method remains for emergency fallback only. Do not call directly.
      */
     updatePhysics(deltaTime) {
+        // Log warning if this deprecated method is called
+        if (window.logger?.isDebugEnabled?.('systems')) {
+            window.logger.warn('[DEPRECATED] updatePhysics() called - should use integratePhysics() with unified force system');
+        }
+
         // If in formation, skip standard steering acceleration
         // The FormationManager applies its own forces
         if (this.enemy.formationId || this.enemy.constellation) {
@@ -774,7 +774,7 @@ class EnemyMovement {
 
         // [FIX] Reset force accumulator at END of update cycle
         // This ensures FormationManager and EmergentFormationDetector forces are captured
-        if (this.forceAccumulator && this.useUnifiedForces) {
+        if (this.forceAccumulator) {
             this.forceAccumulator.reset();
             this.forceAccumulator.updateWeights();
         }
@@ -1063,244 +1063,10 @@ class EnemyMovement {
         };
     }
 
-    /**
-     * Apply advanced flocking behavior (Separation, Alignment, Cohesion)
-     * Creates organic, fluid swarm movement and prevents clipping
-     */
-    applyFlockingBehavior(deltaTime, game) {
-        // Only apply if spatial grid is available and enemy is active
-        if (!game.spatialGrid || !game.gridSize || !this.enemy || this.enemy.isDead) return;
 
-        // Skip if performance mode is critical (save CPU)
-        if (game.performanceMode && game.performanceManager?.performanceMode === 'critical') return;
-
-        const isInConstellation = !!this.enemy.constellation;
-        const isInFormation = !!this.enemy.formationId;
-
-        // Let formation/constellation forces drive placement to avoid interference
-        if (isInConstellation) return;
-
-        // Tuning constants
-        const separationRadius = this.enemy.radius * 2.5;
-        const separationRadiusSq = separationRadius * separationRadius;
-        const neighborRadiusSq = (separationRadius * 2.0) ** 2; // Look further for alignment/cohesion
-
-        // Forces
-        const separationForce = 200; // Stronger push to prevent clipping
-        const alignmentForce = 80;   // Match direction
-        const cohesionForce = 40;    // Stay together (only for free enemies)
-
-        // Accumulators
-        let alignX = 0, alignY = 0;
-        let cohesionX = 0, cohesionY = 0;
-        let neighborCount = 0;
-
-        // Calculate grid position
-        const gridX = Math.floor(this.enemy.x / game.gridSize);
-        const gridY = Math.floor(this.enemy.y / game.gridSize);
-
-        // Check current and adjacent cells
-        for (let x = -1; x <= 1; x++) {
-            for (let y = -1; y <= 1; y++) {
-                const key = game._encodeGridKey ? game._encodeGridKey(gridX + x, gridY + y) : null;
-                if (key === null) continue;
-
-                const cell = game.spatialGrid.get(key);
-                if (!cell) continue;
-
-                for (let i = 0; i < cell.length; i++) {
-                    const other = cell[i];
-                    if (other === this.enemy || other.isDead) continue;
-
-                    const dx = this.enemy.x - other.x;
-                    const dy = this.enemy.y - other.y;
-                    const distSq = dx * dx + dy * dy;
-
-                    // 1. Separation (Avoid crowding)
-                    if (distSq < separationRadiusSq && distSq > 0.1) {
-                        const dist = Math.sqrt(distSq);
-                        const overlap = separationRadius - dist;
-
-                        // Exponential push for very close enemies to prevent clipping
-                        const pushFactor = overlap / separationRadius;
-                        const force = separationForce * (1 + pushFactor * 2);
-
-                        const pushX = (dx / dist) * overlap * force * deltaTime;
-                        const pushY = (dy / dist) * overlap * force * deltaTime;
-
-                        this.velocity.x += pushX;
-                        this.velocity.y += pushY;
-                    }
-
-                    // 2. Alignment & Cohesion (Group behavior)
-                    if (distSq < neighborRadiusSq) {
-                        // Accumulate alignment (velocity matching)
-                        if (other.movement && other.movement.velocity) {
-                            alignX += other.movement.velocity.x;
-                            alignY += other.movement.velocity.y;
-                        }
-
-                        // Accumulate cohesion (center of mass)
-                        cohesionX += other.x;
-                        cohesionY += other.y;
-
-                        neighborCount++;
-                    }
-                }
-            }
-        }
-
-        // Apply accumulated group forces
-        if (neighborCount > 0) {
-            // Alignment: Steer towards average heading
-            // This prevents "clipping past each other" by making paths parallel
-            alignX /= neighborCount;
-            alignY /= neighborCount;
-
-            // Normalize and apply
-            const alignMag = Math.sqrt(alignX * alignX + alignY * alignY);
-            if (alignMag > 0.1) {
-                this.velocity.x += (alignX / alignMag) * alignmentForce * deltaTime;
-                this.velocity.y += (alignY / alignMag) * alignmentForce * deltaTime;
-            }
-
-            // Cohesion: Steer towards center of mass
-            // Only apply if NOT in a managed structure (constellation/formation handles position)
-            if (!isInConstellation && !isInFormation) {
-                cohesionX /= neighborCount;
-                cohesionY /= neighborCount;
-
-                const dx = cohesionX - this.enemy.x;
-                const dy = cohesionY - this.enemy.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist > 0.1) {
-                    this.velocity.x += (dx / dist) * cohesionForce * deltaTime;
-                    this.velocity.y += (dy / dist) * cohesionForce * deltaTime;
-                }
-            }
-        }
-    }
 }
 
-/**
- * Apply atomic lattice forces (Molecular Dynamics)
- * Uses Lennard-Jones-like potential for stable, crystal-like spacing
- * Prevents overlap (Pauli exclusion) and creates geometric bonds
- */
-EnemyMovement.prototype.applyAtomicForces = function (deltaTime, game) {
-    // Only apply if spatial grid is available and enemy is active
-    if (!game.spatialGrid || !game.gridSize || !this.enemy || this.enemy.isDead) return;
 
-    // Skip if performance mode is critical (save CPU)
-    if (game.performanceMode && game.performanceManager?.performanceMode === 'critical') return;
-
-    const isInConstellation = !!this.enemy.constellation;
-    const isInFormation = !!this.enemy.formationId;
-
-    // Atomic parameters
-    const atomicRadius = this.enemy.radius * 2.2; // Equilibrium distance
-    const interactionRadiusSq = (atomicRadius * 2.6) ** 2; // Expanded cutoff to reduce deep overlaps
-
-    // Force constants
-    const repulsionStrength = 1500; // Increased from 400 for stronger separation
-    const bondStrength = 60; // Medium-range attraction (Covalent)
-    const dampingFactor = 8.0; // Increased damping to prevent high-speed oscillation
-
-    // Calculate grid position
-    const gridX = Math.floor(this.enemy.x / game.gridSize);
-    const gridY = Math.floor(this.enemy.y / game.gridSize);
-
-    // Check current and adjacent cells
-    for (let x = -1; x <= 1; x++) {
-        for (let y = -1; y <= 1; y++) {
-            const key = game._encodeGridKey ? game._encodeGridKey(gridX + x, gridY + y) : null;
-            if (key === null) continue;
-
-            const cell = game.spatialGrid.get(key);
-            if (!cell) continue;
-
-            for (let i = 0; i < cell.length; i++) {
-                const other = cell[i];
-
-                // Skip self, dead, or non-enemies
-                if (other === this.enemy || other.isDead || other.type !== 'enemy') continue;
-
-                const sameConstellation = this.enemy.constellation && this.enemy.constellation === other.constellation;
-                const inAnyConstellation = !!this.enemy.constellation;
-
-                const dx = this.enemy.x - other.x;
-                const dy = this.enemy.y - other.y;
-                const distSq = dx * dx + dy * dy;
-
-                // Only interact within cutoff radius
-                if (distSq < interactionRadiusSq && distSq > 0.1) {
-                    const dist = Math.sqrt(distSq);
-                    const dirX = dx / dist;
-                    const dirY = dy / dist;
-
-                    // Lennard-Jones Potential Derivative (Force)
-                    let force = 0;
-
-                    // Scale repulsion based on constellation membership
-                    const repulsionScale = inAnyConstellation ? (sameConstellation ? 0.08 : 0.6) : 1.0;
-
-                    if (dist < atomicRadius) {
-                        // Strong repulsion (1/r^2 falloff approximation)
-                        const overlap = atomicRadius - dist;
-                        // Exponential ramp up for very close encounters (Hard Shell)
-                        const hardness = 1 + (overlap / atomicRadius) * 2;
-                        force = repulsionStrength * repulsionScale * (overlap / atomicRadius) * hardness;
-
-                        // Direct Position Correction (prevent stacking)
-                        // Only push apart enemies not in the same constellation
-                        if (!sameConstellation && dist < this.enemy.radius + (other.radius || 15)) {
-                            // Stronger pushout for deep overlaps
-                            const pushOut = (this.enemy.radius + other.radius - dist) * 0.5;
-                            this.enemy.x += dirX * pushOut;
-                            this.enemy.y += dirY * pushOut;
-
-                            // Kill velocity component towards the other enemy
-                            // This prevents them from fighting the pushout
-                            const velDot = this.velocity.x * dirX + this.velocity.y * dirY;
-                            if (velDot < 0) { // Moving towards other
-                                this.velocity.x -= dirX * velDot;
-                                this.velocity.y -= dirY * velDot;
-                            }
-                        }
-                    } else if (!isInConstellation && !isInFormation) {
-                        // Weak attraction for free atoms to form lattice
-                        const stretch = dist - atomicRadius;
-                        force = -bondStrength * (stretch / atomicRadius);
-                    }
-
-                    // Apply force
-                    const accelX = dirX * force * deltaTime;
-                    const accelY = dirY * force * deltaTime;
-
-                    this.velocity.x += accelX;
-                    this.velocity.y += accelY;
-
-                    // Apply damping based on relative velocity (friction)
-                    // This kills the oscillation ("clicking")
-                    if (other.movement && other.movement.velocity) {
-                        const relVelX = this.velocity.x - other.movement.velocity.x;
-                        const relVelY = this.velocity.y - other.movement.velocity.y;
-
-                        // Project relative velocity onto direction vector
-                        const relVelDot = relVelX * dirX + relVelY * dirY;
-
-                        const dampX = dirX * relVelDot * dampingFactor * deltaTime;
-                        const dampY = dirY * relVelDot * dampingFactor * deltaTime;
-
-                        this.velocity.x -= dampX;
-                        this.velocity.y -= dampY;
-                    }
-                }
-            }
-        }
-    }
-};
 
 // Make globally available
 if (typeof window !== 'undefined') {
