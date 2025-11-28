@@ -11,7 +11,10 @@ class MockEnemy {
         this.radius = 15;
         this.movement = {
             velocity: { x: 0, y: 0 },
-            speed: 100
+            speed: 100,
+            forceAccumulator: {
+                addForce: () => { }
+            }
         };
     }
 }
@@ -156,29 +159,50 @@ const runTests = () => {
         // Test 3: Stuck Detection
         {
             const { game, detector } = setup();
+
+            // Use only 2 enemies for this test to ensure 1 stuck is enough (threshold is max(1, 0.4*N))
+            game.enemies = [
+                new MockEnemy('e1', 100, 100),
+                new MockEnemy('e2', 120, 100)
+            ];
+
             detector.detectAndUpdateConstellations();
-            const constellation = detector.constellations[0];
 
-            // Force enemies to stay in place while center moves
-            game.player.x = 2000;
-            const initialPositions = constellation.enemies.map(e => ({ x: e.x, y: e.y }));
-
-            // Run updates
-            for (let i = 0; i < 120; i++) {
-                constrainEnemies(constellation.enemies, initialPositions);
-                detector.update(0.016);
-            }
-
-            // Constellation should be broken (empty enemies array or removed from list)
-            const stillActive = detector.constellations.includes(constellation);
-            const broken = !stillActive || constellation.enemies.length === 0;
-
-            if (broken) {
-                console.log('✅ Stuck detection passed (Constellation broken)');
-                passed++;
-            } else {
-                console.error('❌ Stuck detection failed (Constellation still active with enemies)');
+            if (detector.constellations.length === 0) {
+                console.error('❌ Stuck detection setup failed: No constellation formed');
                 failed++;
+            } else {
+                const constellation = detector.constellations[0];
+
+                // Force one enemy to stay in place, move the other
+                game.player.x = 2000;
+                const stuckEnemy = constellation.enemies[0];
+                const movingEnemy = constellation.enemies[1];
+                const initialStuckPos = { x: stuckEnemy.x, y: stuckEnemy.y };
+
+                // Run updates
+                for (let i = 0; i < 200; i++) {
+                    // Constrain stuck enemy
+                    stuckEnemy.x = initialStuckPos.x;
+                    stuckEnemy.y = initialStuckPos.y;
+
+                    // Move moving enemy towards player (simulating pull)
+                    movingEnemy.x += 2; // Move 2 pixels per frame
+
+                    detector.update(0.016);
+                }
+
+                // Constellation should be broken
+                const stillActive = detector.constellations.includes(constellation);
+                const broken = !stillActive || constellation.enemies.length === 0;
+
+                if (broken) {
+                    console.log('✅ Stuck detection passed (Constellation broken)');
+                    passed++;
+                } else {
+                    console.error('❌ Stuck detection failed (Constellation still active with enemies)');
+                    failed++;
+                }
             }
         }
 

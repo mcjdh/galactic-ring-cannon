@@ -44,7 +44,7 @@ global.document = {
 };
 
 // Load GameEngine
-require('../src/core/GameEngine.js');
+require('../src/core/gameEngine.js');
 const GameEngine = window.Game.GameEngine;
 
 async function runTests() {

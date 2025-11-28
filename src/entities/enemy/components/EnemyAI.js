@@ -87,44 +87,29 @@ class EnemyAI {
         this.canAvoidOthers = true;
         this.canUseSpecialAbilities = true;
     }
-    
+
     /**
      * Main AI update loop
      */
     update(deltaTime, game) {
         // Update timers
         this.updateTimers(deltaTime);
-        
+
         // Update target
         this.updateTarget(game);
-        
+
         // Update AI state machine
         this.updateStateMachine(deltaTime, game);
-        
+
         // Handle boss-specific AI
         if (this.enemy.isBoss) {
             this.updateBossAI(deltaTime, game);
         }
-        
-        // Calculate avoidance if enabled (throttled for performance)
-        if (this.canAvoidOthers) {
-            this.avoidanceUpdateTimer += deltaTime;
-            const frameCount = game?.frameCount;
-            const shouldProcess = typeof frameCount !== 'number'
-                || ((frameCount + this._avoidanceFrameGroup) % EnemyAI._avoidanceBuckets === 0);
 
-            if (shouldProcess && this.avoidanceUpdateTimer >= this.avoidanceUpdateInterval) {
-                const neighbors = this.calculateAvoidance(game);
-                this.avoidanceUpdateTimer = 0;
-                if (neighbors === 0) {
-                    this.avoidanceUpdateInterval = Math.min(0.35, this.avoidanceUpdateInterval + 0.05);
-                } else {
-                    this.avoidanceUpdateInterval = 0.08 + Math.random() * 0.04;
-                }
-            }
-        }
+        // Avoidance is now handled by EnemyMovement via LocalForceProducer
+        // Removed redundant avoidance calculation loop
     }
-    
+
     /**
      * Update AI timers
      */
@@ -133,18 +118,18 @@ class EnemyAI {
         this.targetUpdateTimer += deltaTime;
         this.attackTimer += deltaTime;
     }
-    
+
     /**
      * Update target selection
      */
     updateTarget(game) {
         if (this.targetUpdateTimer >= this.targetUpdateInterval) {
             this.targetUpdateTimer = 0;
-            
+
             // Primary target is always the player
             if (game.player && !game.player.isDead) {
                 const distance = this.getDistanceToTarget(game.player);
-                
+
                 if (distance <= this.maxTargetDistance) {
                     this.target = game.player;
                 } else {
@@ -155,7 +140,7 @@ class EnemyAI {
             }
         }
     }
-    
+
     /**
      * Main AI state machine
      */
@@ -178,7 +163,7 @@ class EnemyAI {
                 break;
         }
     }
-    
+
     /**
      * Handle idle AI state
      */
@@ -186,7 +171,7 @@ class EnemyAI {
         if (this.target && this.isAggressive) {
             this.changeState('pursuing');
         }
-        
+
         // Random movement when idle
         if (this.stateTimer > 2.0) {
             const angle = Math.random() * Math.PI * 2;
@@ -197,7 +182,7 @@ class EnemyAI {
             this.stateTimer = 0;
         }
     }
-    
+
     /**
      * Handle pursuing AI state
      */
@@ -224,7 +209,7 @@ class EnemyAI {
             this.changeState('special');
         }
     }
-    
+
     /**
      * Handle attacking AI state
      */
@@ -274,7 +259,7 @@ class EnemyAI {
             };
         }
     }
-    
+
     /**
      * Handle retreating AI state
      */
@@ -283,32 +268,32 @@ class EnemyAI {
             this.changeState('idle');
             return;
         }
-        
+
         // Move away from target
         const direction = this.getDirectionToTarget(this.target);
         this.enemy.targetDirection = {
             x: -direction.x,
             y: -direction.y
         };
-        
+
         // Return to pursuing after retreat time
         if (this.stateTimer > 2.0) {
             this.changeState('pursuing');
         }
     }
-    
+
     /**
      * Handle special ability AI state
      */
     handleSpecialState(deltaTime, game) {
         // This state is handled by the EnemyAbilities component
         // AI just waits for the special ability to complete
-        
+
         if (this.stateTimer > 1.0) { // Give abilities time to execute
             this.changeState('pursuing');
         }
     }
-    
+
     /**
      * Boss-specific AI updates
      */
@@ -316,26 +301,26 @@ class EnemyAI {
         // Check for phase changes based on health
         const healthPercent = this.enemy.health / this.enemy.maxHealth;
         let newPhase = this.currentPhase;
-        
+
         for (let i = 0; i < this.phaseChangeThresholds.length; i++) {
             if (healthPercent <= this.phaseChangeThresholds[i]) {
                 newPhase = i + 2; // Phases start at 2
                 break;
             }
         }
-        
+
         if (newPhase !== this.currentPhase) {
             this.onPhaseChange(newPhase, game);
             this.currentPhase = newPhase;
         }
-        
+
         // Update attack pattern progression
         this.updateAttackPattern();
-        
+
         // Boss-specific behaviors based on phase
         this.handleBossPhaseLogic(deltaTime, game);
     }
-    
+
     /**
      * Handle boss phase transitions
      */
@@ -409,7 +394,7 @@ class EnemyAI {
         if (window.audioSystem?.play) {
             window.audioSystem.play('bossPhase', 0.6);
         }
-        
+
         // Adjust AI behavior based on phase
         switch (newPhase) {
             case 2:
@@ -427,25 +412,25 @@ class EnemyAI {
                 break;
         }
     }
-    
+
     /**
      * Update boss attack patterns
      */
     updateAttackPattern() {
         if (!this.enemy.attackPatterns || this.enemy.attackPatterns.length === 0) return;
-        
+
         // Change attack pattern based on phase
         const patternsPerPhase = Math.ceil(this.enemy.attackPatterns.length / 4);
         const basePattern = (this.currentPhase - 1) * patternsPerPhase;
-        
+
         // Add some randomness to pattern selection
         const patternRange = Math.min(patternsPerPhase, this.enemy.attackPatterns.length - basePattern);
         this.currentAttackPattern = basePattern + Math.floor(Math.random() * patternRange);
-        
+
         // Ensure pattern index is valid
         this.currentAttackPattern = Math.min(this.currentAttackPattern, this.enemy.attackPatterns.length - 1);
     }
-    
+
     /**
      * Handle boss phase-specific logic
      */
@@ -483,184 +468,15 @@ class EnemyAI {
                 break;
         }
     }
-    
-    /**
-     * Calculate collision avoidance with other enemies
-     * > OPTIMIZATION: Uses neighbor caching to reduce spatial queries by 70%
-     */
-    calculateAvoidance(game) {
-        const currentFrame = game?.frameCount ?? 0;
-        
-        // > Check if we can use cached neighbors (massive performance gain on Pi5)
-        if (currentFrame - this._neighborCacheFrame < this._neighborCacheLifetime) {
-            return this._calculateAvoidanceFromCache();
-        }
-        
-        // Cache expired - rebuild neighbor list and calculate avoidance
-        this._cachedNeighbors.length = 0;
-        this._neighborCacheFrame = currentFrame;
-        
-        const avoidance = this.avoidanceVector;
-        avoidance.x = 0;
-        avoidance.y = 0;
-        let neighborCount = 0;
 
-        const separationRadius = this.separationRadius;
-        const separationRadiusSq = separationRadius * separationRadius;
-        const originX = this.enemy.x;
-        const originY = this.enemy.y;
 
-        if (!game || !game.spatialGrid || !game.gridSize) {
-            const enemies = game?.getEnemies?.() ?? game?.enemies ?? [];
-            for (let i = 0; i < enemies.length; i++) {
-                const other = enemies[i];
-                if (!other || other === this.enemy || other.isDead) continue;
-                const dx = originX - other.x;
-                const dy = originY - other.y;
-                const distSq = dx * dx + dy * dy;
-                if (distSq === 0 || distSq > separationRadiusSq) continue;
-                
-                // > Cache neighbor for future frames
-                this._cachedNeighbors.push({ other, distSq });
 
-                // Calculate distance and normalized direction
-                const distance = Math.sqrt(distSq);
-                const invDistance = 1 / distance;
-                const force = (separationRadius - distance) / separationRadius;
-                avoidance.x += dx * invDistance * force;
-                avoidance.y += dy * invDistance * force;
-                neighborCount++;
-                if (neighborCount >= EnemyAI.AI_CONSTANTS.MAX_NEIGHBOR_CHECK) break;
-            }
-        } else {
-            const gridSize = game.gridSize;
-            const gridX = Math.floor(originX / gridSize);
-            const gridY = Math.floor(originY / gridSize);
-            const searchRadius = Math.ceil(separationRadius / gridSize) + 1;
-            const grid = game.spatialGrid;
-
-            outerLoop:
-            for (let dxCell = -searchRadius; dxCell <= searchRadius; dxCell++) {
-                for (let dyCell = -searchRadius; dyCell <= searchRadius; dyCell++) {
-                    const key = game.encodeGridKey(gridX + dxCell, gridY + dyCell);
-                    const cell = grid.get(key);
-                    if (!cell || cell.length === 0) continue;
-
-                    for (let i = 0; i < cell.length; i++) {
-                        const other = cell[i];
-                        if (!other || other === this.enemy || other.isDead || other.type !== 'enemy') continue;
-
-                        const dx = originX - other.x;
-                        const dy = originY - other.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq === 0 || distSq > separationRadiusSq) continue;
-
-                        // > Cache neighbor for future frames
-                        this._cachedNeighbors.push({ other, distSq });
-
-                        // OPTIMIZED: Use inverse sqrt (faster than division on ARM)
-                        const invDistance = window.FastMath ? window.FastMath.invSqrt(distSq) : (1 / Math.sqrt(distSq));
-                        const distance = distSq * invDistance;
-                        const force = (separationRadius - distance) / separationRadius;
-                        avoidance.x += dx * invDistance * force;
-                        avoidance.y += dy * invDistance * force;
-                        neighborCount++;
-
-                        if (neighborCount >= EnemyAI.AI_CONSTANTS.MAX_NEIGHBOR_CHECK) {
-                            break outerLoop;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (neighborCount > 0 && this.enemy.targetDirection) {
-            avoidance.x /= neighborCount;
-            avoidance.y /= neighborCount;
-
-            const C = EnemyAI.AI_CONSTANTS;
-            this.enemy.targetDirection.x += avoidance.x * C.AVOIDANCE_STRENGTH;
-            this.enemy.targetDirection.y += avoidance.y * C.AVOIDANCE_STRENGTH;
-
-            // OPTIMIZED: Normalize using inverse sqrt
-            const dir = this.enemy.targetDirection;
-            const magnitudeSq = dir.x * dir.x + dir.y * dir.y;
-            if (magnitudeSq > 0) {
-                const invMagnitude = window.FastMath ? window.FastMath.invSqrt(magnitudeSq) : (1 / Math.sqrt(magnitudeSq));
-                dir.x *= invMagnitude;
-                dir.y *= invMagnitude;
-            }
-        }
-
-        return neighborCount;
-    }
-    
-    /**
-     * > OPTIMIZATION: Calculate avoidance from cached neighbors (avoids spatial queries)
-     */
-    _calculateAvoidanceFromCache() {
-        const avoidance = this.avoidanceVector;
-        avoidance.x = 0;
-        avoidance.y = 0;
-        let neighborCount = 0;
-
-        const separationRadius = this.separationRadius;
-        const separationRadiusSq = separationRadius * separationRadius;
-        const originX = this.enemy.x;
-        const originY = this.enemy.y;
-        
-        // Use cached neighbors - no spatial grid lookups!
-        for (let i = 0; i < this._cachedNeighbors.length; i++) {
-            const cached = this._cachedNeighbors[i];
-            const other = cached.other;
-            
-            // Skip if neighbor is now dead or too far (positions changed)
-            if (!other || other.isDead) continue;
-            
-            // Recalculate distance (positions changed since cache)
-            const dx = originX - other.x;
-            const dy = originY - other.y;
-            const distSq = dx * dx + dy * dy;
-            if (distSq === 0 || distSq > separationRadiusSq) continue;
-
-            // OPTIMIZED: Use inverse sqrt (faster than division on ARM)
-            const invDistance = window.FastMath ? window.FastMath.invSqrt(distSq) : (1 / Math.sqrt(distSq));
-            const distance = distSq * invDistance;
-            const force = (separationRadius - distance) / separationRadius;
-            avoidance.x += dx * invDistance * force;
-            avoidance.y += dy * invDistance * force;
-            neighborCount++;
-
-            if (neighborCount >= EnemyAI.AI_CONSTANTS.MAX_NEIGHBOR_CHECK) break;
-        }
-
-        if (neighborCount > 0 && this.enemy.targetDirection) {
-            avoidance.x /= neighborCount;
-            avoidance.y /= neighborCount;
-
-            const C = EnemyAI.AI_CONSTANTS;
-            this.enemy.targetDirection.x += avoidance.x * C.AVOIDANCE_STRENGTH;
-            this.enemy.targetDirection.y += avoidance.y * C.AVOIDANCE_STRENGTH;
-
-            // OPTIMIZED: Normalize using inverse sqrt
-            const dir = this.enemy.targetDirection;
-            const magnitudeSq = dir.x * dir.x + dir.y * dir.y;
-            if (magnitudeSq > 0) {
-                const invMagnitude = window.FastMath ? window.FastMath.invSqrt(magnitudeSq) : (1 / Math.sqrt(magnitudeSq));
-                dir.x *= invMagnitude;
-                dir.y *= invMagnitude;
-            }
-        }
-
-        return neighborCount;
-    }
-    
     /**
      * Perform attack based on enemy type and current pattern
      */
     performAttack(game) {
         if (!this.target || !this.canAttackPlayer) return;
-        
+
         // Delegate to enemy abilities component for actual attack execution
         if (this.enemy.abilities && this.enemy.abilities.performAttack) {
             this.enemy.abilities.performAttack(game, this.target, this.currentAttackPattern);
@@ -668,20 +484,20 @@ class EnemyAI {
             // Fallback basic attack
             this.performBasicAttack(game);
         }
-        
+
         this.lastAttackTime = Date.now();
     }
-    
+
     /**
      * Basic attack fallback
      */
     performBasicAttack(game) {
         if (!this.target || !game.spawnEnemyProjectile) return;
-        
+
         const direction = this.getDirectionToTarget(this.target);
         const speed = this.enemy.projectileSpeed || 200;
         const damage = this.enemy.projectileDamage || this.enemy.damage * 0.5;
-        
+
         game.spawnEnemyProjectile(
             this.enemy.x,
             this.enemy.y,
@@ -690,19 +506,19 @@ class EnemyAI {
             damage
         );
     }
-    
+
     /**
      * Check if should use special ability
      */
     shouldUseSpecialAbility(distanceToTarget) {
         // Use special abilities when at medium range and not recently used
         const timeSinceLastAttack = Date.now() - this.lastAttackTime;
-        return distanceToTarget > 100 && 
-               distanceToTarget < 300 && 
-               timeSinceLastAttack > 3000 &&
-               Math.random() < 0.3;
+        return distanceToTarget > 100 &&
+            distanceToTarget < 300 &&
+            timeSinceLastAttack > 3000 &&
+            Math.random() < 0.3;
     }
-    
+
     /**
      * Change AI state
      */
@@ -713,18 +529,18 @@ class EnemyAI {
             this.lastStateChange = Date.now();
         }
     }
-    
+
     /**
      * Get distance to target
      */
     getDistanceToTarget(target) {
         if (!target) return Infinity;
-        
+
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
         return Math.sqrt(dx * dx + dy * dy);
     }
-    
+
     /**
      * Get normalized direction to target
      */
@@ -784,7 +600,7 @@ class EnemyAI {
             return 50; // Melee enemies need to get close
         }
     }
-    
+
     /**
      * Get current AI state for debugging/UI
      */
@@ -799,7 +615,7 @@ class EnemyAI {
             isAggressive: this.isAggressive
         };
     }
-    
+
     /**
      * Get nearby enemies using spatial grid for efficient neighbor detection
      */

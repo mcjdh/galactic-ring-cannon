@@ -28,7 +28,9 @@ class EmergentFormationDetector {
         this.constellationRotationAlign = 1.0; // Radians/sec alignment toward the player (so rotation is steadier)
         this.constellationReformCooldownMs = 800; // Allow re-link sooner; rely on hysteresis for stability
         this.mergeInterval = 9999; // Effectively pause merging to reduce churn
+        this.mergeInterval = 9999; // Effectively pause merging to reduce churn
         this.mergeTimer = 0;
+        this.maxConstellationMaxSpeed = 850; // Max speed for enemies in constellations
 
         // Active constellations (emergent patterns)
         this.constellations = [];
@@ -820,67 +822,82 @@ class EmergentFormationDetector {
                     // Gentle nudge - doesn't override enemy AI, just suggests position
                     const strength = constellation.pattern.strength;
 
-                    // Use velocity if available for smoother physics integration
-                    if (enemy.movement && enemy.movement.velocity) {
-                        // [BALANCED] Conservative spring constant for stability
-                        const baseSpringK = strength * 4.5; // Balanced between 4.0 and 6.0
-                        const springK = isFreshJoin ? baseSpringK * 1.5 : baseSpringK;
-                        const force = springK * dist;
+                    // [REFACTORED] Use SteeringUtils for standardized arrival behavior
+                    // This replaces the manual spring force calculation
+                    if (window.Game?.SteeringUtils) {
+                        const steering = window.Game.SteeringUtils.arrive(
+                            { x: enemy.x, y: enemy.y },
+                            { x: target.x, y: target.y },
+                            enemy.movement.velocity,
+                            {
+                                maxSpeed: this.maxConstellationMaxSpeed || 800, // Ensure maxSpeed is defined
+                                deceleration: 2.5 // Tuned for "snappy" but smooth arrival
+                            }
+                        );
 
-                        // [BALANCED] Moderate max force to prevent oscillation
-                        const maxForce = isFreshJoin ? 1200 : 800; // Balanced between old/new
-                        const clampedForce = Math.min(force, maxForce);
+                        // Apply as 'constellation' force
+                        // Scale up because forceAccumulator expects forces, not just steering acceleration
+                        enemy.movement.forceAccumulator.addForce('constellation', steering.x * 50, steering.y * 50);
+                    } else {
+                        // Fallback if SteeringUtils not loaded (shouldn't happen)
+                        const dx = target.x - enemy.x;
+                        const dy = target.y - enemy.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
 
-                        const forceX = (dx / dist) * clampedForce * deltaTime;
-                        const forceY = (dy / dist) * clampedForce * deltaTime;
+                        if (dist > 0) {
+                            const strength = constellation.pattern.strength;
+                            const baseSpringK = strength * 4.5;
+                            const springK = isFreshJoin ? baseSpringK * 1.5 : baseSpringK;
+                            const maxForce = isFreshJoin ? 1200 : 800;
+                            const force = Math.min(springK * dist, maxForce);
+                            enemy.movement.forceAccumulator.addForce('constellation', (dx / dist) * force * deltaTime, (dy / dist) * force * deltaTime);
+                        }
+                    }
 
-                        // [UNIFIED] Always use force accumulator
-                        enemy.movement.forceAccumulator.addForce('constellation', forceX, forceY);
+                    // Damping is handled by SteeringUtils.arrive (via velocity diff),
+                    // but we can add extra damping if needed for stability
+                    const damping = isFreshJoin ? 4.5 : 3.0;
+                    enemy.movement.forceAccumulator.addForce('constellation',
+                        -enemy.movement.velocity.x * damping * deltaTime,
+                        -enemy.movement.velocity.y * damping * deltaTime
+                    );
 
-                        // Apply damping to prevent oscillation (F_damp = -c * v)
-                        const damping = isFreshJoin ? 4.5 : 3.0;
-                        const dampingX = -enemy.movement.velocity.x * damping * deltaTime;
-                        const dampingY = -enemy.movement.velocity.y * damping * deltaTime;
+                    // [TUNING] Stuck Detection
+                    // If enemy is far from target but moving slowly (likely blocked), count as stuck
+                    const dx = target.x - enemy.x;
+                    const dy = target.y - enemy.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
 
-                        enemy.movement.forceAccumulator.addForce('constellation', dampingX, dampingY);
-
-                        // [TUNING] Stuck Detection
-                        // If enemy is far from target but moving slowly (likely blocked), count as stuck
-                        if (dist > 60) {
-                            const speedSq = enemy.movement.velocity.x * enemy.movement.velocity.x +
-                                enemy.movement.velocity.y * enemy.movement.velocity.y;
-                            if (speedSq < 1000) { // Speed < ~31
-                                enemy.stuckFrames = (enemy.stuckFrames || 0) + 1;
-                                if (enemy.stuckFrames > 60) { // Stuck for 1 second
-                                    stuckCount++;
-                                }
-                            } else {
-                                enemy.stuckFrames = Math.max(0, (enemy.stuckFrames || 0) - 1);
+                    if (dist > 60) {
+                        const speedSq = enemy.movement.velocity.x * enemy.movement.velocity.x +
+                            enemy.movement.velocity.y * enemy.movement.velocity.y;
+                        if (speedSq < 1000) { // Speed < ~31
+                            enemy.stuckFrames = (enemy.stuckFrames || 0) + 1;
+                            if (enemy.stuckFrames > 60) { // Stuck for 1 second
+                                stuckCount++;
                             }
                         } else {
-                            enemy.stuckFrames = 0;
-                        }
-
-                        // Extra catch-up pull if enemy drifts beyond the intended radius
-                        const toCenterX = constellation.centerX - enemy.x;
-                        const toCenterY = constellation.centerY - enemy.y;
-                        const distToCenterSq = toCenterX * toCenterX + toCenterY * toCenterY;
-                        const catchUpThresholdSq = this.maxConstellationRadiusSq * 0.49; // ~70% of max radius
-                        if (distToCenterSq > catchUpThresholdSq) {
-                            const distToCenter = Math.sqrt(distToCenterSq);
-                            const pullStrength = Math.min(distToCenter / this.maxConstellationRadius, 1.8);
-                            const catchUpForce = (isFreshJoin ? 1300 : 900) * pullStrength; // Stronger pull for stragglers
-
-                            const catchUpX = (toCenterX / distToCenter) * catchUpForce * deltaTime;
-                            const catchUpY = (toCenterY / distToCenter) * catchUpForce * deltaTime;
-
-                            // [UNIFIED] Always use force accumulator
-                            enemy.movement.forceAccumulator.addForce('constellation', catchUpX, catchUpY);
+                            enemy.stuckFrames = Math.max(0, (enemy.stuckFrames || 0) - 1);
                         }
                     } else {
-                        // Fallback to direct position modification
-                        enemy.x += (dx / dist) * strength * deltaTime * 60;
-                        enemy.y += (dy / dist) * strength * deltaTime * 60;
+                        enemy.stuckFrames = 0;
+                    }
+
+                    // Extra catch-up pull if enemy drifts beyond the intended radius
+                    const toCenterX = constellation.centerX - enemy.x;
+                    const toCenterY = constellation.centerY - enemy.y;
+                    const distToCenterSq = toCenterX * toCenterX + toCenterY * toCenterY;
+                    const catchUpThresholdSq = this.maxConstellationRadiusSq * 0.49; // ~70% of max radius
+                    if (distToCenterSq > catchUpThresholdSq) {
+                        const distToCenter = Math.sqrt(distToCenterSq);
+                        const pullStrength = Math.min(distToCenter / this.maxConstellationRadius, 1.8);
+                        const catchUpForce = (isFreshJoin ? 1300 : 900) * pullStrength; // Stronger pull for stragglers
+
+                        const catchUpX = (toCenterX / distToCenter) * catchUpForce * deltaTime;
+                        const catchUpY = (toCenterY / distToCenter) * catchUpForce * deltaTime;
+
+                        // [UNIFIED] Always use force accumulator
+                        enemy.movement.forceAccumulator.addForce('constellation', catchUpX, catchUpY);
                     }
                 }
             }
@@ -899,14 +916,6 @@ class EmergentFormationDetector {
             // Note: Separation is now handled by the global atomic forces in EnemyMovement
             // We don't need to apply it twice here
         }
-    }
-
-    /**
-     * Apply separation force to enemies in a constellation
-     * @deprecated Handled by EnemyMovement.applyAtomicForces
-     */
-    applySeparation(constellation, deltaTime) {
-        // Deprecated - logic moved to EnemyMovement for global consistency
     }
 
     /**

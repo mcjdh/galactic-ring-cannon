@@ -22,17 +22,17 @@ class LocalForceProducer {
         // Separation (prevent overlap)
         this.separationRadius = (entity.radius || 15) * 2.5;
         this.separationRadiusSq = this.separationRadius * this.separationRadius;
-        this.separationStrength = 600;  // Unified strength (was 1500 + 200 + collision)
+        this.separationStrength = 800;  // BUFFED: Stronger separation to prevent clumping
 
         // Group behavior (alignment + cohesion)
         this.neighborRadius = this.separationRadius * 2.0;
         this.neighborRadiusSq = this.neighborRadius * this.neighborRadius;
-        this.alignmentStrength = 80;   // Match neighbor velocities
-        this.cohesionStrength = 40;    // Move toward group center
+        this.alignmentStrength = 60;   // REDUCED: Less rigid alignment
+        this.cohesionStrength = 30;    // REDUCED: Less clumping, more spread
 
         // Constellation-aware scaling
-        this.constellationSeparationScale = 0.08;  // Very low separation within constellation
-        this.differentConstellationScale = 0.6;    // Medium separation between constellations
+        this.constellationSeparationScale = 0.1;  // Slightly more separation within constellations
+        this.differentConstellationScale = 0.8;    // Stronger separation between different constellations
     }
 
     /**

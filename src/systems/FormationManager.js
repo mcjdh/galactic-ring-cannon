@@ -409,37 +409,36 @@ class FormationManager {
             const targetPos = positions[i];
             if (!targetPos) continue;
 
-            // Calculate vector to target slot
-            const dx = targetPos.x - enemy.x;
-            const dy = targetPos.y - enemy.y;
-            const dist = Math.hypot(dx, dy);
+            // [REFACTORED] Use SteeringUtils for standardized arrival behavior
+            if (window.Game?.SteeringUtils) {
+                const steering = window.Game.SteeringUtils.arrive(
+                    { x: enemy.x, y: enemy.y },
+                    { x: targetPos.x, y: targetPos.y },
+                    enemy.movement.velocity,
+                    {
+                        maxSpeed: enemy.movement.maxSpeed || 100,
+                        deceleration: 3.0 // Tuned for formation stability
+                    }
+                );
 
-            // Apply "Spring Force" to pull enemy into position
-            // F = -k * x (Hooke's Law)
-            // We use a soft spring so atomic forces can still push them around
+                // Apply as 'formation' force
+                enemy.movement.forceAccumulator.addForce('formation', steering.x * 50, steering.y * 50);
+            } else {
+                // Fallback
+                const dx = targetPos.x - enemy.x;
+                const dy = targetPos.y - enemy.y;
+                const dist = Math.hypot(dx, dy);
 
-            if (dist > 5) {
-                const springStrength = 8.0; // Increased from 4.0 to overcome stronger atomic repulsion
-
-                // If enemy has physics movement, apply force via accumulator
-                if (enemy.movement && enemy.movement.velocity) {
-                    // Calculate desired velocity
-                    const desiredSpeed = enemy.movement.speed * 1.5; // Move faster to catch up
-                    const targetVelX = (dx / dist) * desiredSpeed;
-                    const targetVelY = (dy / dist) * desiredSpeed;
-
-                    // Steering force = Desired - Current
-                    const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
-                    const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
-
-                    // [UNIFIED] Always use force accumulator
-                    enemy.movement.forceAccumulator.addForce('formation', steerX, steerY);
-                } else {
-                    // Fallback for non-physics entities (shouldn't happen for enemies)
-                    const moveSpeed = 200;
-                    const moveDist = Math.min(dist, moveSpeed * deltaTime);
-                    enemy.x += (dx / dist) * moveDist;
-                    enemy.y += (dy / dist) * moveDist;
+                if (dist > 5) {
+                    const springStrength = 8.0;
+                    if (enemy.movement && enemy.movement.velocity) {
+                        const desiredSpeed = enemy.movement.speed * 1.5;
+                        const targetVelX = (dx / dist) * desiredSpeed;
+                        const targetVelY = (dy / dist) * desiredSpeed;
+                        const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
+                        const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
+                        enemy.movement.forceAccumulator.addForce('formation', steerX, steerY);
+                    }
                 }
             }
         }
