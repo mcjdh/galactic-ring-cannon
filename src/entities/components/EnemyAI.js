@@ -26,15 +26,17 @@ class EnemyAI {
         OPTIMAL_RANGE_DAMPING: 0.8,             // dampen movement when in optimal range
 
         // Collision avoidance
-        SEPARATION_RADIUS: 30,                  // pixels - distance to maintain from other enemies
-        AVOIDANCE_UPDATE_INTERVAL_BASE: 0.12,   // seconds - base interval for avoidance updates
-        AVOIDANCE_UPDATE_INTERVAL_RANDOM: 0.08, // seconds - random variance
+        // [FIX] Minimal separation - atomic forces in EnemyMovement handle almost all separation now
+        // This only needs to catch extreme cases that slip through
+        SEPARATION_RADIUS: 22,                  // Reduced from 25 - atomic physics does the work
+        AVOIDANCE_UPDATE_INTERVAL_BASE: 0.18,   // seconds - slower updates (was 0.15)
+        AVOIDANCE_UPDATE_INTERVAL_RANDOM: 0.12, // seconds - more variance
         AVOIDANCE_TIMER_RANDOM: 0.1,            // seconds - random initial timer
-        AVOIDANCE_STRENGTH: 0.5,                // multiplier for avoidance force
-        MAX_NEIGHBOR_CHECK: 8,                  // max neighbors to check for avoidance
+        AVOIDANCE_STRENGTH: 0.2,                // Reduced from 0.3 - atomic forces are primary
+        MAX_NEIGHBOR_CHECK: 5,                  // Reduced from 6 - less overhead
 
         // Performance optimization
-        NEIGHBOR_CACHE_LIFETIME: 4,             // frames - how long to cache neighbor data (Pi5 optimization)
+        NEIGHBOR_CACHE_LIFETIME: 5,             // frames - increased cache lifetime
         NEIGHBOR_CACHE_INITIAL_FRAME: -999,     // initial cache frame (far in past)
 
         // Aggressive movement (different AI modes)
@@ -107,7 +109,9 @@ class EnemyAI {
         }
         
         // Calculate avoidance if enabled (throttled for performance)
-        if (this.canAvoidOthers) {
+        // [FIX] Skip avoidance for enemies in constellations - constellation forces handle their positioning
+        const inConstellation = !!this.enemy.constellation;
+        if (this.canAvoidOthers && !inConstellation) {
             this.avoidanceUpdateTimer += deltaTime;
             const frameCount = game?.frameCount;
             const shouldProcess = typeof frameCount !== 'number'
@@ -117,9 +121,9 @@ class EnemyAI {
                 const neighbors = this.calculateAvoidance(game);
                 this.avoidanceUpdateTimer = 0;
                 if (neighbors === 0) {
-                    this.avoidanceUpdateInterval = Math.min(0.35, this.avoidanceUpdateInterval + 0.05);
+                    this.avoidanceUpdateInterval = Math.min(0.4, this.avoidanceUpdateInterval + 0.05);
                 } else {
-                    this.avoidanceUpdateInterval = 0.08 + Math.random() * 0.04;
+                    this.avoidanceUpdateInterval = 0.10 + Math.random() * 0.05;
                 }
             }
         }

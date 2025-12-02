@@ -69,7 +69,8 @@ class Enemy {
     }
 }
 
-// --- Physics Logic (Copied from EnemyMovement.js) ---
+// --- Physics Logic (Synced with EnemyMovement.js) ---
+// Updated to match the latest atomic forces implementation
 
 function applyAtomicForces(deltaTime, game) {
     // Only apply if spatial grid is available and enemy is active
@@ -78,14 +79,18 @@ function applyAtomicForces(deltaTime, game) {
     const isInConstellation = !!this.enemy.constellation;
     const isInFormation = !!this.enemy.formationId;
 
-    // Atomic parameters
-    const atomicRadius = this.enemy.radius * 2.2; // Equilibrium distance
-    const interactionRadiusSq = (atomicRadius * 2.0) ** 2; // Cutoff radius
+    // Atomic parameters - synced with EnemyMovement.js
+    const myRadius = this.enemy.radius || 15;
+    const equilibriumMultiplier = isInConstellation ? 2.8 : 2.2; // Larger spacing in constellations
+    const atomicRadius = myRadius * equilibriumMultiplier; // Equilibrium distance
+    const interactionRadius = atomicRadius * 2.5; // Extended cutoff
+    const interactionRadiusSq = interactionRadius * interactionRadius;
     
-    // Force constants
-    const repulsionStrength = 1500; // Increased from 400 for stronger separation
-    const bondStrength = 60;       // Medium-range attraction (Covalent)
-    const dampingFactor = 8.0;     // Increased damping to prevent high-speed oscillation
+    // Force constants - synced with EnemyMovement.js
+    const repulsionStrength = 1200;
+    const bondStrength = isInConstellation ? 35 : 50;
+    const constellationCohesion = 40;
+    const dampingFactor = 8.0;
 
     // Get neighbors from our mock grid
     const neighbors = game.spatialGrid.getNeighbors(this.enemy);
@@ -106,58 +111,79 @@ function applyAtomicForces(deltaTime, game) {
             const dirX = dx / dist;
             const dirY = dy / dist;
             
+            // Use average radius for interaction calculations
+            const otherRadius = other.radius || 15;
+            const avgRadius = (myRadius + otherRadius) / 2;
+            const pairAtomicRadius = avgRadius * equilibriumMultiplier;
+            
             // Lennard-Jones Potential Derivative (Force)
             let force = 0;
             
-            if (dist < atomicRadius) {
+            if (dist < pairAtomicRadius) {
                 // Strong repulsion (1/r^2 falloff approximation)
-                const overlap = atomicRadius - dist;
+                const overlap = pairAtomicRadius - dist;
                 // Exponential ramp up for very close encounters (Hard Shell)
-                const hardness = 1 + (overlap / atomicRadius) * 2;
-                force = repulsionStrength * (overlap / atomicRadius) * hardness;
+                const hardness = 1 + (overlap / pairAtomicRadius) * 2;
+                force = repulsionStrength * (overlap / pairAtomicRadius) * hardness;
 
                 // Direct Position Correction (prevent stacking)
-                // Move away immediately if too close
-                if (dist < this.enemy.radius + (other.radius || 15)) {
-                    // Stronger pushout for deep overlaps
-                    const pushOut = (this.enemy.radius + other.radius - dist) * 0.5;
+                const minSeparation = myRadius + otherRadius;
+                if (dist < minSeparation) {
+                    const pushOut = (minSeparation - dist) * 0.4;
                     this.enemy.x += dirX * pushOut;
                     this.enemy.y += dirY * pushOut;
                     
-                    // Kill velocity component towards the other enemy
-                    // This prevents them from fighting the pushout
                     const velDot = this.velocity.x * dirX + this.velocity.y * dirY;
-                    if (velDot < 0) { // Moving towards other
-                        this.velocity.x -= dirX * velDot;
-                        this.velocity.y -= dirY * velDot;
+                    if (velDot < 0) {
+                        this.velocity.x -= dirX * velDot * 0.8;
+                        this.velocity.y -= dirY * velDot * 0.8;
                     }
                 }
-            } else if (!isInConstellation && !isInFormation) {
-                // Weak attraction for free atoms to form lattice
-                const stretch = dist - atomicRadius;
-                force = -bondStrength * (stretch / atomicRadius);
+            } else {
+                // Attraction zone
+                const stretch = dist - pairAtomicRadius;
+                const normalizedStretch = stretch / pairAtomicRadius;
+                
+                if (isInConstellation || isInFormation) {
+                    // Formation/constellation members get cohesion
+                    const sameGroup = (isInFormation && other.formationId === this.enemy.formationId);
+                    if (sameGroup) {
+                        const cohesionRamp = Math.min(1.0, normalizedStretch * 1.5);
+                        force = -constellationCohesion * cohesionRamp;
+                    } else if (normalizedStretch > 0.5) {
+                        force = -bondStrength * 0.3 * normalizedStretch;
+                    }
+                } else {
+                    // Free atoms get normal bonding
+                    force = -bondStrength * normalizedStretch;
+                }
             }
 
             // Apply force
-            const accelX = dirX * force * deltaTime;
-            const accelY = dirY * force * deltaTime;
+            if (Math.abs(force) > 0.01) {
+                const accelX = dirX * force * deltaTime;
+                const accelY = dirY * force * deltaTime;
 
-            this.velocity.x += accelX;
-            this.velocity.y += accelY;
+                this.velocity.x += accelX;
+                this.velocity.y += accelY;
+            }
 
             // Apply damping based on relative velocity (friction)
             if (other.movement && other.movement.velocity) {
                 const relVelX = this.velocity.x - other.movement.velocity.x;
                 const relVelY = this.velocity.y - other.movement.velocity.y;
                 
-                // Project relative velocity onto direction vector
                 const relVelDot = relVelX * dirX + relVelY * dirY;
                 
-                const dampX = dirX * relVelDot * dampingFactor * deltaTime;
-                const dampY = dirY * relVelDot * dampingFactor * deltaTime;
-                
-                this.velocity.x -= dampX;
-                this.velocity.y -= dampY;
+                if (Math.abs(relVelDot) > 0.1) {
+                    const dampScale = dampingFactor * deltaTime;
+                    const distanceFactor = Math.max(0.5, 1.0 - (dist / interactionRadius) * 0.5);
+                    const dampX = dirX * relVelDot * dampScale * distanceFactor;
+                    const dampY = dirY * relVelDot * dampScale * distanceFactor;
+                    
+                    this.velocity.x -= dampX;
+                    this.velocity.y -= dampY;
+                }
             }
         }
     }

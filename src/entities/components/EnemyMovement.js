@@ -695,6 +695,12 @@ class EnemyMovement {
         // Reset collision flag
         this.collidedThisFrame = false;
 
+        // [FIX] Skip collision handling for constellation members - they're positioned by formation forces
+        // and atomic forces already provide the necessary separation
+        if (this.enemy.constellation) {
+            return;
+        }
+
         // Only check collisions if we have a reasonable number of enemies to avoid performance issues
         const enemies = game?.getEnemies?.() ?? game?.enemies ?? [];
         if (enemies.length < 200 && this.enemy.canAvoidOthers !== false) {
@@ -708,62 +714,63 @@ class EnemyMovement {
     }
     
     /**
-     * Handle collisions with other enemies - improved anti-jitter system
+     * Handle collisions with other enemies - minimal intervention system
+     * [FIX] Now only handles deep overlap emergencies - atomic forces do the rest
+     * This prevents the collision system from fighting with atomic physics
      */
     handleEnemyCollisions(enemies) {
-        // Accumulate separation forces from all nearby enemies for smoother resolution
-        let totalSeparationX = 0;
-        let totalSeparationY = 0;
-        let collisionCount = 0;
+        const myRadius = this.collisionRadius || 15;
+        
+        // Only process a limited number of neighbors to prevent O(n²) explosion
+        let processedCount = 0;
+        const maxProcess = 8;
 
         for (const other of enemies) {
             if (other === this.enemy || other.isDead) continue;
+            if (processedCount >= maxProcess) break;
 
             const dx = other.x - this.enemy.x;
             const dy = other.y - this.enemy.y;
             const distanceSquared = dx * dx + dy * dy;
-            const minDistance = this.collisionRadius + (other.radius || 15);
-            const minDistanceSquared = minDistance * minDistance;
+            const otherRadius = other.radius || 15;
+            const minDistance = myRadius + otherRadius;
+            
+            // [FIX] Only intervene for DEEP overlaps (< 60% of minDistance)
+            // Atomic forces handle everything else
+            const emergencyThreshold = minDistance * 0.6;
+            const emergencyThresholdSq = emergencyThreshold * emergencyThreshold;
 
-            if (distanceSquared < minDistanceSquared && distanceSquared > 0.01) {
+            if (distanceSquared < emergencyThresholdSq && distanceSquared > 0.01) {
                 const distance = MovementPatternCache.fastSqrt(distanceSquared);
                 const overlap = minDistance - distance;
+                
+                // Calculate emergency pushout direction
+                const invDist = 1 / distance;
+                const dirX = -dx * invDist;
+                const dirY = -dy * invDist;
 
-                // Use gentler position-based correction instead of velocity-based
-                const correctionStrength = Math.min(overlap / minDistance, 1.0) * 0.5;
-                const separationX = -(dx / distance) * correctionStrength;
-                const separationY = -(dy / distance) * correctionStrength;
+                // [FIX] Minimal position correction - just enough to prevent total overlap
+                // Cap the pushout to prevent jitter
+                const pushAmount = Math.min(overlap * 0.25, 4);
+                this.enemy.x += dirX * pushAmount;
+                this.enemy.y += dirY * pushAmount;
 
-                totalSeparationX += separationX;
-                totalSeparationY += separationY;
-                collisionCount++;
+                // [FIX] Only apply velocity change if moving INTO the collision
+                const velDot = this.velocity.x * (-dirX) + this.velocity.y * (-dirY);
+                if (velDot > 0) {
+                    // Reduce velocity component moving into collision
+                    this.velocity.x -= (-dirX) * velDot * 0.4;
+                    this.velocity.y -= (-dirY) * velDot * 0.4;
+                }
+
+                processedCount++;
             }
         }
 
-        if (collisionCount > 0) {
-            // Apply averaged separation with damping to prevent oscillation
-            const avgSeparationX = (totalSeparationX / collisionCount) * 20;
-            const avgSeparationY = (totalSeparationY / collisionCount) * 20;
-
-            // Apply separation to position using a small, clamped adjustment to avoid oscillation
-            const positionAdjustmentScale = 0.18;
-            this.enemy.x += avgSeparationX * positionAdjustmentScale;
-            this.enemy.y += avgSeparationY * positionAdjustmentScale;
-
-            // Apply gentle velocity impulse to steer enemies apart without sudden snaps
-            const velocityImpulseScale = 0.1;
-            this.velocity.x += avgSeparationX * velocityImpulseScale;
-            this.velocity.y += avgSeparationY * velocityImpulseScale;
-            this.velocitySmoothing.x += avgSeparationX * (velocityImpulseScale * 0.5);
-            this.velocitySmoothing.y += avgSeparationY * (velocityImpulseScale * 0.5);
-
-            // Apply mild damping when colliding to settle movement gracefully
-            this.velocity.x *= 0.9;
-            this.velocity.y *= 0.9;
-
-            // Mark collision with longer cooldown
+        // Only set collision flag if we actually processed emergencies
+        if (processedCount > 0) {
             this.collidedThisFrame = true;
-            this.collisionCooldown = 0.12;
+            this.collisionCooldown = 0.08; // Short cooldown
             this.lastCollisionTime = performance.now();
         }
     }
@@ -862,6 +869,12 @@ class EnemyMovement {
      * Handle when enemy gets stuck
      */
     handleStuckState() {
+        // [FIX] Skip unstuck logic for constellation members - they're positioned by formation forces
+        if (this.enemy.constellation) {
+            this.stuckTimer = 0;
+            return;
+        }
+        
         // Apply gentle random impulse to unstuck the enemy
         const angle = this._randomAngle();
         const force = this._randomRange(50, 75); // Much gentler force
@@ -956,6 +969,20 @@ class EnemyMovement {
  * Apply atomic lattice forces (Molecular Dynamics)
  * Uses Lennard-Jones-like potential for stable, crystal-like spacing
  * Prevents overlap (Pauli exclusion) and creates geometric bonds
+ * 
+ * Force Coordination Notes:
+ * - Free enemies: Full repulsion + attraction for emergent lattice formation
+ * - Constellation members: Repulsion + weak cohesion (constellation forces do main positioning)
+ * - Formation members: Repulsion + weak cohesion (formation forces do main positioning)
+ * 
+ * This function complements:
+ * - EmergentFormationDetector.applyConstellationForces() - positions constellation members
+ * - FormationManager.updateEnemyPositions() - positions formation members
+ * - EnemyAI.calculateAvoidance() - skip for constellation members to reduce redundancy
+ * 
+ * [FIX] Improved grid search radius to handle adaptive grid sizes
+ * [FIX] Added bonding for constellation members (weaker) to maintain cohesion
+ * [FIX] Better damping for smoother emergent behavior
  */
 EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
     // Only apply if spatial grid is available and enemy is active
@@ -967,14 +994,41 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
     const isInConstellation = !!this.enemy.constellation;
     const isInFormation = !!this.enemy.formationId;
 
-    // Atomic parameters
-    const atomicRadius = this.enemy.radius * 2.2; // Equilibrium distance
-    const interactionRadiusSq = (atomicRadius * 2.0) ** 2; // Cutoff radius
+    // Atomic parameters - tuned for visual cohesion and emergent shapes
+    const myRadius = this.enemy.radius || 15;
     
-    // Force constants
-    const repulsionStrength = 1500; // Increased from 400 for stronger separation
-    const bondStrength = 60;       // Medium-range attraction (Covalent)
-    const dampingFactor = 8.0;     // Increased damping to prevent high-speed oscillation
+    // [FIX] Equilibrium multiplier determines natural spacing between enemies
+    // Higher values = more spacing, preventing clumping
+    // Constellation members need MORE spacing to form visible geometric patterns
+    let equilibriumMultiplier;
+    if (isInConstellation) {
+        const constellationObj = typeof this.enemy.constellation === 'object' 
+            ? this.enemy.constellation 
+            : null;
+        const age = constellationObj?.age || 0;
+        // Smoothly transition from 2.5 to 3.2 over 2 seconds for gradual formation
+        const t = Math.min(age / 2.0, 1.0);
+        equilibriumMultiplier = 2.5 + (3.2 - 2.5) * t;
+    } else if (isInFormation) {
+        // Formation members also need spacing to maintain shape
+        equilibriumMultiplier = 2.8;
+    } else {
+        // Free enemies use tighter spacing for natural clustering
+        equilibriumMultiplier = 2.2;
+    }
+
+    const atomicRadius = myRadius * equilibriumMultiplier; // Equilibrium distance (~33-48px)
+    // [FIX] Extended interaction radius to ensure forces apply across formation patterns
+    // Must exceed constellation detection radius (130px) significantly
+    const interactionRadius = atomicRadius * 3.5; // Increased from 3.0 to cover larger patterns
+    const interactionRadiusSq = interactionRadius * interactionRadius;
+    
+    // Force constants - balanced for emergent behavior without fighting formation forces
+    // [FIX] Reduced repulsion slightly to prevent oscillation with constellation forces
+    const repulsionStrength = isInConstellation ? 900 : 1100; // Softer for grouped enemies
+    const bondStrength = isInConstellation ? 25 : 45; // Weaker bonding in constellations (let constellation forces lead)
+    const constellationCohesion = 30; // Reduced - constellation forces handle main cohesion
+    const dampingFactor = isInConstellation ? 10.0 : 7.0; // More damping in groups for stability
 
     // Calculate grid position
     const gridX = Math.floor(this.enemy.x / game.gridSize);
@@ -984,9 +1038,15 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
     const encodeGridKey = game._encodeGridKey;
     if (!encodeGridKey) return; // Early exit if no encoder
 
-    // Check current and adjacent cells
-    for (let x = -1; x <= 1; x++) {
-        for (let y = -1; y <= 1; y++) {
+    // [FIX] Calculate search radius based on interaction distance and grid size
+    // Need to search enough cells to cover the full interaction radius
+    // Use ceiling to ensure we never miss neighbors at the edge
+    const cellsToSearch = Math.ceil(interactionRadius / game.gridSize);
+    const searchRange = Math.max(1, Math.min(cellsToSearch, 3)); // Clamp to 1-3 for performance (was 2, increased to handle larger formations)
+
+    // Check cells within search range
+    for (let x = -searchRange; x <= searchRange; x++) {
+        for (let y = -searchRange; y <= searchRange; y++) {
             const key = encodeGridKey(gridX + x, gridY + y);
             if (key === null) continue;
 
@@ -1009,21 +1069,45 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
                     const dirX = dx / dist;
                     const dirY = dy / dist;
                     
+                    // Use average radius for interaction calculations
+                    const otherRadius = other.radius || 15;
+                    const avgRadius = (myRadius + otherRadius) / 2;
+                    
+                    // [FIX] Dynamic atomic radius based on relationship
+                    // Same-group members have minimal atomic radius - just prevent overlap
+                    // Let constellation/formation forces handle the actual spacing
+                    const sameConstellation = isInConstellation && other.constellation === this.enemy.constellation;
+                    const sameFormation = isInFormation && other.formationId === this.enemy.formationId;
+                    const isSameGroup = sameConstellation || sameFormation;
+
+                    let effectiveAtomicRadius;
+                    if (isSameGroup) {
+                        // [FIX] Minimal atomic radius for same-group - just prevent physical overlap
+                        // This gives constellation forces full authority over positioning
+                        // Enemies can get close (touching) without atomic repulsion fighting the shape
+                        effectiveAtomicRadius = (myRadius + otherRadius) * 1.1; // Reduced from 1.6
+                    } else {
+                        // For enemies not in the same group, maintain full atomic spacing
+                        effectiveAtomicRadius = avgRadius * equilibriumMultiplier;
+                    }
+                    
                     // Lennard-Jones Potential Derivative (Force)
                     let force = 0;
                     
-                    if (dist < atomicRadius) {
+                    if (dist < effectiveAtomicRadius) {
                         // Strong repulsion (1/r^2 falloff approximation)
-                        const overlap = atomicRadius - dist;
+                        const overlap = effectiveAtomicRadius - dist;
                         // Exponential ramp up for very close encounters (Hard Shell)
-                        const hardness = 1 + (overlap / atomicRadius) * 2;
-                        force = repulsionStrength * (overlap / atomicRadius) * hardness;
+                        const hardness = 1 + (overlap / effectiveAtomicRadius) * 2;
+                        force = repulsionStrength * (overlap / effectiveAtomicRadius) * hardness;
 
                         // Direct Position Correction (prevent stacking)
-                        // Move away immediately if too close
-                        if (dist < this.enemy.radius + (other.radius || 15)) {
-                            // Stronger pushout for deep overlaps
-                            const pushOut = (this.enemy.radius + other.radius - dist) * 0.5;
+                        // Move away immediately if too close - critical for preventing overlap
+                        const minSeparation = myRadius + otherRadius;
+                        if (dist < minSeparation) {
+                            // [FIX] Smoother pushout with clamped maximum to prevent jitter
+                            const overlapAmount = minSeparation - dist;
+                            const pushOut = Math.min(overlapAmount * 0.35, 8); // Cap at 8px per frame
                             this.enemy.x += dirX * pushOut;
                             this.enemy.y += dirY * pushOut;
                             
@@ -1031,34 +1115,75 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
                             // This prevents them from fighting the pushout
                             const velDot = this.velocity.x * dirX + this.velocity.y * dirY;
                             if (velDot < 0) { // Moving towards other
-                                this.velocity.x -= dirX * velDot;
-                                this.velocity.y -= dirY * velDot;
+                                // [FIX] Softer velocity dampening to avoid sudden stops
+                                this.velocity.x -= dirX * velDot * 0.6;
+                                this.velocity.y -= dirY * velDot * 0.6;
                             }
                         }
-                    } else if (!isInConstellation && !isInFormation) {
-                        // Weak attraction for free atoms to form lattice
-                        const stretch = dist - atomicRadius;
-                        force = -bondStrength * (stretch / atomicRadius);
+                    } else {
+                        // Attraction zone - different behavior based on context
+                        const stretch = dist - effectiveAtomicRadius;
+                        const normalizedStretch = stretch / effectiveAtomicRadius;
+                        
+                        if (isInConstellation || isInFormation) {
+                            if (isSameGroup) {
+                                // [FIX] Add light cohesion for same-group members when they drift too far
+                                // This provides a safety net when constellation forces alone aren't enough
+                                // Only kicks in at significant stretch (> 0.8 equilibrium distances away)
+                                if (normalizedStretch > 0.8) {
+                                    // Gentle cohesion that ramps up with distance
+                                    const cohesionRamp = Math.min((normalizedStretch - 0.8) * 2.0, 1.5);
+                                    force = -constellationCohesion * 0.4 * cohesionRamp;
+                                } else {
+                                    force = 0;
+                                }
+                            } else {
+                                // Different groups - apply weaker bond to prevent complete separation
+                                if (normalizedStretch > 0.5) {
+                                    force = -bondStrength * 0.3 * normalizedStretch;
+                                }
+                            }
+                        } else {
+                            // Free atoms get normal bonding to form emergent lattices
+                            force = -bondStrength * normalizedStretch;
+                        }
                     }
 
                     // Apply force
-                    const accelX = dirX * force * deltaTime;
-                    const accelY = dirY * force * deltaTime;
+                    if (Math.abs(force) > 0.01) {
+                        const accelX = dirX * force * deltaTime;
+                        const accelY = dirY * force * deltaTime;
 
-                    this.velocity.x += accelX;
-                    this.velocity.y += accelY;
+                        this.velocity.x += accelX;
+                        this.velocity.y += accelY;
+                    }
 
                     // Apply damping based on relative velocity (friction)
-                    // This kills the oscillation ("clicking")
-                    if (other.movement && other.movement.velocity) {
-                        const relVelX = this.velocity.x - other.movement.velocity.x;
-                        const relVelY = this.velocity.y - other.movement.velocity.y;
+                    // This kills oscillation and helps enemies settle into stable positions
+                    const otherVelX = other.movement?.velocity?.x || 0;
+                    const otherVelY = other.movement?.velocity?.y || 0;
+                    const relVelX = this.velocity.x - otherVelX;
+                    const relVelY = this.velocity.y - otherVelY;
+                    
+                    // Project relative velocity onto direction vector
+                    const relVelDot = relVelX * dirX + relVelY * dirY;
+                    
+                    // [FIX] Only apply damping if enemies are approaching each other
+                    // or if they're very close (settling phase)
+                    const isApproaching = relVelDot < 0;
+                    const isSettling = dist < effectiveAtomicRadius * 1.5;
+                    
+                    if ((isApproaching || isSettling) && Math.abs(relVelDot) > 0.05) {
+                        // [FIX] Smoother damping curve based on distance
+                        const dampScale = dampingFactor * deltaTime;
+                        // More aggressive damping when very close, gentler at distance
+                        const normalizedDist = dist / effectiveAtomicRadius;
+                        const distanceFactor = normalizedDist < 1.0 
+                            ? 1.0  // Full damping when overlapping
+                            : Math.max(0.3, 1.0 - (normalizedDist - 1.0) * 0.4); // Gradual falloff
                         
-                        // Project relative velocity onto direction vector
-                        const relVelDot = relVelX * dirX + relVelY * dirY;
-                        
-                        const dampX = dirX * relVelDot * dampingFactor * deltaTime;
-                        const dampY = dirY * relVelDot * dampingFactor * deltaTime;
+                        const dampX = dirX * relVelDot * dampScale * distanceFactor;
+                        const dampY = dirY * relVelDot * dampScale * distanceFactor;
                         
                         this.velocity.x -= dampX;
                         this.velocity.y -= dampY;

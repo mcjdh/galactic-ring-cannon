@@ -407,35 +407,66 @@ class FormationManager {
             // Calculate vector to target slot
             const dx = targetPos.x - enemy.x;
             const dy = targetPos.y - enemy.y;
-            const dist = Math.hypot(dx, dy);
+            const distSq = dx * dx + dy * dy;
+            
+            // Skip if already close enough (within 4px)
+            if (distSq < 16) continue;
+            
+            const dist = Math.sqrt(distSq);
+            const dirX = dx / dist;
+            const dirY = dy / dist;
 
             // Apply "Spring Force" to pull enemy into position
-            // F = -k * x (Hooke's Law)
-            // We use a soft spring so atomic forces can still push them around
+            // [FIX] Gentler forces that cooperate with atomic physics instead of fighting
 
-            if (dist > 5) {
-                const springStrength = 8.0; // Increased from 4.0 to overcome stronger atomic repulsion
+            // If enemy has physics movement, apply force to velocity
+            if (enemy.movement && enemy.movement.velocity) {
+                // [FIX] Softer spring that works WITH atomic forces
+                // Atomic forces prevent overlap, formation forces guide to shape
+                const normalizedDist = Math.min(dist / 80, 2.0); // Wider normalization range
+                const baseSpring = 3.5; // Reduced from 5.0 to avoid fighting atomic forces
+                const distanceBonus = normalizedDist * 3.0; // Gentler distance scaling
+                const springStrength = baseSpring + distanceBonus;
 
-                // If enemy has physics movement, apply force to velocity
-                if (enemy.movement && enemy.movement.velocity) {
-                    // Calculate desired velocity
-                    const desiredSpeed = enemy.movement.speed * 1.5; // Move faster to catch up
-                    const targetVelX = (dx / dist) * desiredSpeed;
-                    const targetVelY = (dy / dist) * desiredSpeed;
+                // Calculate desired velocity - gentler acceleration
+                const baseSpeed = enemy.movement.speed || 100;
+                const speedMultiplier = 1.0 + normalizedDist * 0.4; // 1.0-1.8x (reduced)
+                const desiredSpeed = baseSpeed * speedMultiplier;
+                const targetVelX = dirX * desiredSpeed;
+                const targetVelY = dirY * desiredSpeed;
 
-                    // Steering force = Desired - Current
-                    const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
-                    const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
+                // Steering force = Desired - Current
+                const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
+                const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
 
-                    enemy.movement.velocity.x += steerX;
-                    enemy.movement.velocity.y += steerY;
-                } else {
-                    // Fallback for non-physics entities (shouldn't happen for enemies)
-                    const moveSpeed = 200;
-                    const moveDist = Math.min(dist, moveSpeed * deltaTime);
-                    enemy.x += (dx / dist) * moveDist;
-                    enemy.y += (dy / dist) * moveDist;
+                enemy.movement.velocity.x += steerX;
+                enemy.movement.velocity.y += steerY;
+                
+                // [FIX] Lighter damping - let atomic physics handle settling
+                // Only apply strong damping when very close to target
+                const baseDamp = 1.0; // Reduced from 1.5
+                const closeDampBonus = normalizedDist < 0.3 
+                    ? Math.max(0, 1.5 - normalizedDist * 5) // Only boost when very close
+                    : 0;
+                const dampFactor = 1 - (baseDamp + closeDampBonus) * deltaTime;
+                enemy.movement.velocity.x *= dampFactor;
+                enemy.movement.velocity.y *= dampFactor;
+                
+                // [FIX] Add velocity clamping to prevent runaway speeds
+                const maxVel = 280;
+                const velMagSq = enemy.movement.velocity.x * enemy.movement.velocity.x + 
+                                 enemy.movement.velocity.y * enemy.movement.velocity.y;
+                if (velMagSq > maxVel * maxVel) {
+                    const velMag = Math.sqrt(velMagSq);
+                    enemy.movement.velocity.x = (enemy.movement.velocity.x / velMag) * maxVel;
+                    enemy.movement.velocity.y = (enemy.movement.velocity.y / velMag) * maxVel;
                 }
+            } else {
+                // Fallback for non-physics entities (shouldn't happen for enemies)
+                const moveSpeed = 180;
+                const moveDist = Math.min(dist, moveSpeed * deltaTime);
+                enemy.x += dirX * moveDist;
+                enemy.y += dirY * moveDist;
             }
         }
     }
