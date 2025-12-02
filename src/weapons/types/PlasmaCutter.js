@@ -1,5 +1,6 @@
 /**
  * PlasmaCutterWeapon - Fast-firing energy beam that shreds through enemies.
+ * Extends WeaponBase for shared fire rate/cooldown logic.
  * Designed for the Cybernetic Berserker character.
  *
  * Core mechanics:
@@ -8,91 +9,9 @@
  * - Natural piercing capability
  * - Scales with Berserker passive (handled in PlayerCombat.js)
  */
-class PlasmaCutterWeapon {
+class PlasmaCutterWeapon extends window.Game.WeaponBase {
     constructor({ player, combat, definition, manager }) {
-        this.player = player;
-        this.combat = combat;
-        this.definition = definition || {};
-        this.manager = manager;
-
-        this.timer = 0;
-        this.cooldown = 0;
-        this._needsRecalc = true;
-    }
-
-    _getBaseAttackSpeed() {
-        return this.combat?.baseAttackSpeed || this.definition.fireRate || 1;
-    }
-
-    _getDefinitionFireRate() {
-        const fireRate = this.definition?.fireRate;
-        if (typeof fireRate !== 'number' || fireRate <= 0) {
-            return this._getBaseAttackSpeed();
-        }
-        return fireRate;
-    }
-
-    _computeEffectiveFireRate() {
-        const playerRate = Math.max(0.1, this.combat?.attackSpeed || 1);
-        const baseRate = Math.max(0.1, this._getBaseAttackSpeed());
-        const weaponRate = Math.max(0.1, this._getDefinitionFireRate());
-
-        const normalizedModifier = weaponRate / baseRate;
-        let effectiveRate = Math.max(0.05, playerRate * normalizedModifier);
-
-        // Berserker scaling is handled globally in PlayerCombat.js
-        return effectiveRate;
-    }
-
-    _recalculateCooldown(preserveProgress = true) {
-        const fireRate = this._computeEffectiveFireRate();
-        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
-        const safeFireRate = Math.max(0.1, fireRate);
-        const newCooldown = 1 / safeFireRate;
-
-        if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
-            const progress = Math.min(1, this.timer / this.cooldown);
-            this.cooldown = newCooldown;
-            this.timer = progress * this.cooldown;
-        } else {
-            this.cooldown = newCooldown;
-            this.timer = Math.min(this.timer, this.cooldown);
-        }
-
-        // Sync legacy combat fields for debugging/UI
-        this.combat.attackCooldown = this.cooldown;
-        this._needsRecalc = false;
-    }
-
-    onEquip() {
-        this._needsRecalc = true;
-        this.timer = 0;
-    }
-
-    onCombatStatsChanged() {
-        this._needsRecalc = true;
-    }
-
-    update(deltaTime, game) {
-        if (this._needsRecalc) {
-            this._recalculateCooldown(true);
-        }
-
-        if (!Number.isFinite(this.cooldown) || this.cooldown <= 0) {
-            return;
-        }
-
-        this.timer += deltaTime;
-        this.combat.attackTimer = this.timer;
-
-        if (this.timer >= this.cooldown) {
-            this.timer -= this.cooldown;
-            const fired = this.fire(game);
-            if (!fired) {
-                // If no target, reset timer for quick retry
-                this.timer = 0;
-            }
-        }
+        super({ player, combat, definition, manager });
     }
 
     fire(game) {
@@ -127,42 +46,18 @@ class PlasmaCutterWeapon {
     }
 
     _createMuzzleFlash(angle) {
-        if (!window.optimizedParticles) return;
-        
-        const pool = window.optimizedParticles;
-        const poolPressure = pool.activeParticles.length / pool.maxParticles;
-        const isHighLoad = poolPressure > 0.7;
-
-        if (isHighLoad && Math.random() > 0.5) return; // Skip some flashes on high load
-
-        const speed = 100 + Math.random() * 50;
-        const vx = Math.cos(angle) * speed;
-        const vy = Math.sin(angle) * speed;
-        
-        pool.spawnParticle({
-            x: this.player.x,
-            y: this.player.y,
-            vx,
-            vy,
-            size: 2 + Math.random() * 2,
-            color: '#00ffcc', // Cyan/Plasma
-            life: 0.15,
-            type: 'spark'
-        });
-    }
-
-    fireImmediate(game) {
-        // Reset timer so cadence feels consistent with manual triggers
-        this.timer = 0;
-        return this.fire(game);
-    }
-
-    getCooldown() {
-        return this.cooldown;
-    }
-
-    getTimer() {
-        return this.timer;
+        const ParticleHelpers = window.Game?.ParticleHelpers;
+        if (ParticleHelpers?.createMuzzleFlash) {
+            ParticleHelpers.createMuzzleFlash(this.player.x, this.player.y, angle, {
+                color: '#00ffcc', // Cyan/Plasma
+                count: 1,
+                speed: 100,
+                speedVariance: 50,
+                size: 2,
+                sizeVariance: 2,
+                life: 0.15
+            });
+        }
     }
 
     applyUpgrade(upgrade) {

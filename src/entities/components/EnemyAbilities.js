@@ -76,6 +76,41 @@ class EnemyAbilities {
         this.healTimer = 0;
         this.healAmount = 20;
         this.healRange = 150;
+
+        // [FIX] Track pending timers for cleanup on death (prevents memory leaks)
+        this._pendingTimers = [];
+    }
+
+    /**
+     * Schedule a delayed action with automatic cleanup tracking
+     * @param {Function} callback - Function to execute after delay
+     * @param {number} delayMs - Delay in milliseconds
+     * @returns {number} Timer ID
+     */
+    _scheduleDelayed(callback, delayMs) {
+        const timerId = setTimeout(() => {
+            // Remove from tracking array
+            const idx = this._pendingTimers.indexOf(timerId);
+            if (idx !== -1) this._pendingTimers.splice(idx, 1);
+            
+            // Don't execute if enemy died
+            if (this.enemy.isDead) return;
+            
+            callback();
+        }, delayMs);
+        
+        this._pendingTimers.push(timerId);
+        return timerId;
+    }
+
+    /**
+     * Clear all pending timers (call on enemy death)
+     */
+    cleanup() {
+        for (const timerId of this._pendingTimers) {
+            clearTimeout(timerId);
+        }
+        this._pendingTimers.length = 0;
     }
     
     /**
@@ -557,10 +592,8 @@ class EnemyAbilities {
             );
             game.addEntity(telegraph);
 
-            // Schedule zone spawn after telegraph
-            setTimeout(() => {
-                if (this.enemy.isDead) return; // Don't spawn if boss died
-
+            // Schedule zone spawn after telegraph (tracked for cleanup)
+            this._scheduleDelayed(() => {
                 const zone = new DamageZone(
                     pos.x,
                     pos.y,

@@ -1,69 +1,25 @@
 /**
  * PulseCannonWeapon - baseline volley weapon mirroring the legacy behavior.
+ * Extends WeaponBase for shared fire rate logic.
  */
-class PulseCannonWeapon {
-    constructor({ player, combat, definition, manager }) {
-        this.player = player;
-        this.combat = combat;
-        this.definition = definition || {};
-        this.manager = manager;
 
-        this.timer = 0;
-        this.cooldown = 0;
-        this._needsRecalc = true;
-    }
+// Get base class from window.Game namespace
+const WeaponBaseClass = (typeof window !== 'undefined' && window.Game?.WeaponBase) || class {
+    constructor(opts) { Object.assign(this, opts); this.timer = 0; this.cooldown = 1; }
+    _computeEffectiveFireRate() { return Math.max(0.1, this.combat?.attackSpeed || 1); }
+    _recalculateCooldown() { this.cooldown = 1 / this._computeEffectiveFireRate(); }
+    update(dt, game) { this.timer += dt; if (this.timer >= this.cooldown) { this.timer -= this.cooldown; this.fire(game); } }
+    onEquip() { this.timer = 0; }
+    onCombatStatsChanged() { this._needsRecalc = true; }
+};
 
-    _getBaseAttackSpeed() {
-        return this.combat?.baseAttackSpeed || this.definition.fireRate || 1;
-    }
-
-    _getDefinitionFireRate() {
-        const fireRate = this.definition?.fireRate;
-        if (typeof fireRate !== 'number' || fireRate <= 0) {
-            return this._getBaseAttackSpeed();
-        }
-        return fireRate;
-    }
-
-    _computeEffectiveFireRate() {
-        const playerRate = Math.max(0.1, this.combat?.attackSpeed || 1);
-        const baseRate = Math.max(0.1, this._getBaseAttackSpeed());
-        const weaponRate = Math.max(0.1, this._getDefinitionFireRate());
-
-        const normalizedModifier = weaponRate / baseRate;
-        return Math.max(0.05, playerRate * normalizedModifier);
-    }
-
-    _recalculateCooldown(preserveProgress = true) {
-        const fireRate = this._computeEffectiveFireRate();
-        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
-        const safeFireRate = Math.max(0.1, fireRate);
-        const newCooldown = 1 / safeFireRate;
-
-        if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
-            const progress = Math.min(1, this.timer / this.cooldown);
-            this.cooldown = newCooldown;
-            this.timer = progress * this.cooldown;
-        } else {
-            this.cooldown = newCooldown;
-            this.timer = Math.min(this.timer, this.cooldown);
-        }
-
-        // Sync legacy combat fields for debugging/UI
-        this.combat.attackCooldown = this.cooldown;
-        this._needsRecalc = false;
-    }
-
-    onEquip() {
-        this._needsRecalc = true;
-        this.timer = 0;
-    }
-
-    onCombatStatsChanged() {
-        this._needsRecalc = true;
+class PulseCannonWeapon extends WeaponBaseClass {
+    constructor(opts) {
+        super(opts);
     }
 
     update(deltaTime, game) {
+        // Use base class update, but handle retry-on-no-target
         if (this._needsRecalc) {
             this._recalculateCooldown(true);
         }
@@ -119,42 +75,16 @@ class PulseCannonWeapon {
     }
 
     _createMuzzleFlash(angle) {
-        if (!window.optimizedParticles) return;
-        
-        const pool = window.optimizedParticles;
-        const poolPressure = pool.activeParticles.length / pool.maxParticles;
-        const isHighLoad = poolPressure > 0.7;
-
-        if (isHighLoad && Math.random() > 0.5) return;
-
-        const speed = 80 + Math.random() * 40;
-        const vx = Math.cos(angle) * speed;
-        const vy = Math.sin(angle) * speed;
-        
-        pool.spawnParticle({
-            x: this.player.x,
-            y: this.player.y,
-            vx,
-            vy,
-            size: 2 + Math.random(),
-            color: '#ffffff',
-            life: 0.15,
-            type: 'spark'
-        });
-    }
-
-    fireImmediate(game) {
-        // Reset timer so cadence feels consistent with manual triggers
-        this.timer = 0;
-        return this.fire(game);
-    }
-
-    getCooldown() {
-        return this.cooldown;
-    }
-
-    getTimer() {
-        return this.timer;
+        const ParticleHelpers = window.Game?.ParticleHelpers;
+        if (ParticleHelpers?.createMuzzleFlash) {
+            ParticleHelpers.createMuzzleFlash(this.player.x, this.player.y, angle, {
+                color: '#ffffff',
+                count: 1,
+                speed: 80,
+                speedVariance: 40,
+                life: 0.15
+            });
+        }
     }
 
     applyUpgrade(upgrade) {

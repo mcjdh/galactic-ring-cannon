@@ -255,16 +255,22 @@ class SystemPerformanceManager {
             window.logger.log(`[R] _applyBackgroundQuality: lowGpuMode=${this.lowGpuMode}, _autoLowQualityCosmic=${this._autoLowQualityCosmic}, override=${manualOverride}, result=${shouldUseLowQuality}`);
         }
 
-        // Detect rapid flipping between quality states for diagnostics
+        // Detect and PREVENT rapid flipping between quality states (hysteresis)
         if (shouldUseLowQuality !== this._lastBackgroundQuality) {
             const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
                 ? performance.now()
                 : Date.now();
             const timeSinceLastSwitch = now - this._lastBackgroundSwitchTime;
+            
+            // If switching too rapidly, suppress the change to prevent flapping
             if (timeSinceLastSwitch < 2000) {
                 this._backgroundSwitchBurst += 1;
-                if (this._backgroundSwitchBurst >= 3 && window.logger?.warn) {
-                    window.logger.warn(`[R] CosmicBackground quality flapped ${this._backgroundSwitchBurst} times in ${(timeSinceLastSwitch).toFixed(0)}ms`);
+                if (this._backgroundSwitchBurst >= 3) {
+                    if (window.logger?.warn) {
+                        window.logger.warn(`[R] CosmicBackground quality flapped ${this._backgroundSwitchBurst} times in ${(timeSinceLastSwitch).toFixed(0)}ms - suppressing further changes for stability`);
+                    }
+                    // Don't apply the change - keep current state for stability
+                    return;
                 }
             } else {
                 this._backgroundSwitchBurst = 1;

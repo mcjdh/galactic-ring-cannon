@@ -1,16 +1,11 @@
 /**
  * ConstellationArrayWeapon - orbit-focused radial barrage weapon.
+ * Extends WeaponBase for shared fire rate/cooldown logic.
  */
-class ConstellationArrayWeapon {
+class ConstellationArrayWeapon extends window.Game.WeaponBase {
     constructor({ player, combat, definition, manager }) {
-        this.player = player;
-        this.combat = combat;
-        this.definition = definition || {};
-        this.manager = manager;
+        super({ player, combat, definition, manager });
 
-        this.timer = 0;
-        this.cooldown = 0;
-        this._needsRecalc = true;
         this.lastTargetAngle = 0;
         this.rotationOffset = 0;
         this.focusAngle = 0;
@@ -29,18 +24,9 @@ class ConstellationArrayWeapon {
         this.soundVolume = 0.22;
     }
 
-    _getBaseAttackSpeed() {
-        return this.combat?.baseAttackSpeed || 1;
-    }
-
-    _getDefinitionFireRate() {
-        const fireRate = this.definition?.fireRate;
-        if (typeof fireRate !== 'number' || fireRate <= 0) {
-            return this._getBaseAttackSpeed();
-        }
-        return fireRate;
-    }
-
+    /**
+     * Override: ConstellationArray has orbit-count-based fire rate bonus
+     */
     _computeEffectiveFireRate() {
         const playerRate = Math.max(0.1, this.combat?.attackSpeed || 1);
         const baseRate = Math.max(0.1, this._getBaseAttackSpeed());
@@ -54,25 +40,6 @@ class ConstellationArrayWeapon {
     _advanceRotation(deltaTime) {
         const spin = this.passiveSpinSpeed * deltaTime;
         this.rotationOffset = (this.rotationOffset + spin) % (Math.PI * 2);
-    }
-
-    _recalculateCooldown(preserveProgress = true) {
-        const fireRate = this._computeEffectiveFireRate();
-        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
-        const safeFireRate = Math.max(0.1, fireRate);
-        const newCooldown = 1 / safeFireRate;
-
-        if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
-            const progress = Math.min(1, this.timer / this.cooldown);
-            this.cooldown = newCooldown;
-            this.timer = progress * this.cooldown;
-        } else {
-            this.cooldown = newCooldown;
-            this.timer = Math.min(this.timer, this.cooldown);
-        }
-
-        this.combat.attackCooldown = this.cooldown;
-        this._needsRecalc = false;
     }
 
     _ensureOrbitBaseline() {
@@ -160,45 +127,36 @@ class ConstellationArrayWeapon {
     }
 
     _createMuzzleFlash(x, y, angle, color = '#aef3ff') {
-        if (!window.optimizedParticles) return;
-
-        const pool = window.optimizedParticles;
-        const poolPressure = pool.activeParticles.length / pool.maxParticles;
-        const isHighLoad = poolPressure > 0.7;
-
-        // Directional burst
-        const count = isHighLoad ? 2 : 4;
-        for (let i = 0; i < count; i++) {
-            const spread = (Math.random() - 0.5) * 0.5;
-            const speed = 80 + Math.random() * 40;
-            const vx = Math.cos(angle + spread) * speed;
-            const vy = Math.sin(angle + spread) * speed;
-            
-            pool.spawnParticle({
-                x,
-                y,
-                vx,
-                vy,
-                size: 2 + Math.random(),
+        const ParticleHelpers = window.Game?.ParticleHelpers;
+        if (ParticleHelpers?.createMuzzleFlash) {
+            // Directional burst
+            ParticleHelpers.createMuzzleFlash(x, y, angle, {
                 color: color,
-                life: 0.2,
-                type: 'spark'
+                count: 4,
+                spread: 0.5,
+                speed: 80,
+                speedVariance: 40,
+                size: 2,
+                sizeVariance: 1,
+                life: 0.2
             });
-        }
 
-        // Glow (single particle)
-        if (!isHighLoad) {
-            pool.spawnParticle({
-                x,
-                y,
-                vx: 0,
-                vy: 0,
-                size: 20,
-                color: color,
-                life: 0.1,
-                alpha: 0.4,
-                type: 'basic'
-            });
+            // Glow effect (single particle) - only spawn under low load
+            if (window.optimizedParticles) {
+                const pool = window.optimizedParticles;
+                const poolPressure = pool.activeParticles.length / pool.maxParticles;
+                if (poolPressure <= 0.7) {
+                    pool.spawnParticle({
+                        x, y,
+                        vx: 0, vy: 0,
+                        size: 20,
+                        color: color,
+                        life: 0.1,
+                        alpha: 0.4,
+                        type: 'basic'
+                    });
+                }
+            }
         }
     }
 
@@ -249,22 +207,14 @@ class ConstellationArrayWeapon {
         }
     }
 
-    _playFireSound() {
-        if (window.audioSystem?.play) {
-            window.audioSystem.play('shoot', this.soundVolume);
-        }
-    }
-
     onEquip() {
+        super.onEquip();
         this._ensureOrbitBaseline();
-        this._needsRecalc = true;
-        this.timer = 0;
     }
 
-    onCombatStatsChanged() {
-        this._needsRecalc = true;
-    }
-
+    /**
+     * Override: ConstellationArray has custom update with rotation advancement
+     */
     update(deltaTime, game) {
         if (this._needsRecalc) {
             this._recalculateCooldown(true);
@@ -365,17 +315,10 @@ class ConstellationArrayWeapon {
         return true;
     }
 
-    fireImmediate(game) {
-        this.timer = 0;
-        return this.fire(game);
-    }
-
-    getCooldown() {
-        return this.cooldown;
-    }
-
-    getTimer() {
-        return this.timer;
+    _playFireSound() {
+        if (window.audioSystem?.play) {
+            window.audioSystem.play('shoot', this.soundVolume);
+        }
     }
 
     applyUpgrade(upgrade) {

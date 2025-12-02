@@ -147,21 +147,10 @@ class EnemyMovement {
 
     /**
      * Per-enemy random number generation to prevent synchronized patterns
+     * Uses pre-initialized static table for performance
      */
     _getNextRandom() {
-        // Use cached random table with per-enemy seed
-        const TABLE_SIZE = 4096;
-        const TABLE_MASK = TABLE_SIZE - 1;
-        const randomTable = new Float32Array(TABLE_SIZE);
-
-        // Initialize table on first use (cache in static if needed)
-        if (!EnemyMovement._randomTableCache) {
-            EnemyMovement._randomTableCache = new Float32Array(TABLE_SIZE);
-            for (let i = 0; i < TABLE_SIZE; i++) {
-                EnemyMovement._randomTableCache[i] = Math.random();
-            }
-        }
-
+        const TABLE_MASK = 4095; // TABLE_SIZE - 1
         const value = EnemyMovement._randomTableCache[this._randomSeed];
         this._randomSeed = (this._randomSeed + 1) & TABLE_MASK;
         return value;
@@ -961,120 +950,6 @@ class EnemyMovement {
             stuckTimer: this.stuckTimer
         };
     }
-    
-    /**
-     * Apply advanced flocking behavior (Separation, Alignment, Cohesion)
-     * Creates organic, fluid swarm movement and prevents clipping
-     */
-    applyFlockingBehavior(deltaTime, game) {
-        // Only apply if spatial grid is available and enemy is active
-        if (!game.spatialGrid || !game.gridSize || !this.enemy || this.enemy.isDead) return;
-
-        // Skip if performance mode is critical (save CPU)
-        if (game.performanceMode && game.performanceManager?.performanceMode === 'critical') return;
-
-        const isInConstellation = !!this.enemy.constellation;
-        const isInFormation = !!this.enemy.formationId;
-
-        // Tuning constants
-        const separationRadius = this.enemy.radius * 2.5;
-        const separationRadiusSq = separationRadius * separationRadius;
-        const neighborRadiusSq = (separationRadius * 2.0) ** 2; // Look further for alignment/cohesion
-
-        // Forces
-        const separationForce = 200; // Stronger push to prevent clipping
-        const alignmentForce = 80;   // Match direction
-        const cohesionForce = 40;    // Stay together (only for free enemies)
-
-        // Accumulators
-        let alignX = 0, alignY = 0;
-        let cohesionX = 0, cohesionY = 0;
-        let neighborCount = 0;
-
-        // Calculate grid position
-        const gridX = Math.floor(this.enemy.x / game.gridSize);
-        const gridY = Math.floor(this.enemy.y / game.gridSize);
-
-        // Check current and adjacent cells
-        for (let x = -1; x <= 1; x++) {
-            for (let y = -1; y <= 1; y++) {
-                const key = game._encodeGridKey ? game._encodeGridKey(gridX + x, gridY + y) : null;
-                if (key === null) continue;
-
-                const cell = game.spatialGrid.get(key);
-                if (!cell) continue;
-
-            for (let i = 0; i < cell.length; i++) {
-                const other = cell[i];
-                if (other === this.enemy || other.isDead) continue;                    const dx = this.enemy.x - other.x;
-                    const dy = this.enemy.y - other.y;
-                    const distSq = dx * dx + dy * dy;
-
-                    // 1. Separation (Avoid crowding)
-                    if (distSq < separationRadiusSq && distSq > 0.1) {
-                        const dist = Math.sqrt(distSq);
-                        const overlap = separationRadius - dist;
-                        
-                        // Exponential push for very close enemies to prevent clipping
-                        const pushFactor = overlap / separationRadius;
-                        const force = separationForce * (1 + pushFactor * 2);
-                        
-                        const pushX = (dx / dist) * overlap * force * deltaTime;
-                        const pushY = (dy / dist) * overlap * force * deltaTime;
-
-                        this.velocity.x += pushX;
-                        this.velocity.y += pushY;
-                    }
-
-                    // 2. Alignment & Cohesion (Group behavior)
-                    if (distSq < neighborRadiusSq) {
-                        // Accumulate alignment (velocity matching)
-                        if (other.movement && other.movement.velocity) {
-                            alignX += other.movement.velocity.x;
-                            alignY += other.movement.velocity.y;
-                        }
-                        
-                        // Accumulate cohesion (center of mass)
-                        cohesionX += other.x;
-                        cohesionY += other.y;
-                        
-                        neighborCount++;
-                    }
-                }
-            }
-        }
-
-        // Apply accumulated group forces
-        if (neighborCount > 0) {
-            // Alignment: Steer towards average heading
-            // This prevents "clipping past each other" by making paths parallel
-            alignX /= neighborCount;
-            alignY /= neighborCount;
-            
-            // Normalize and apply
-            const alignMag = Math.sqrt(alignX * alignX + alignY * alignY);
-            if (alignMag > 0.1) {
-                this.velocity.x += (alignX / alignMag) * alignmentForce * deltaTime;
-                this.velocity.y += (alignY / alignMag) * alignmentForce * deltaTime;
-            }
-
-            // Cohesion: Steer towards center of mass
-            // Only apply if NOT in a managed structure (constellation/formation handles position)
-            if (!isInConstellation && !isInFormation) {
-                cohesionX /= neighborCount;
-                cohesionY /= neighborCount;
-                
-                const dx = cohesionX - this.enemy.x;
-                const dy = cohesionY - this.enemy.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                
-                if (dist > 0.1) {
-                    this.velocity.x += (dx / dist) * cohesionForce * deltaTime;
-                    this.velocity.y += (dy / dist) * cohesionForce * deltaTime;
-                }
-            }
-        }
-    }
 }
 
 /**
@@ -1105,10 +980,14 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
     const gridX = Math.floor(this.enemy.x / game.gridSize);
     const gridY = Math.floor(this.enemy.y / game.gridSize);
 
+    // [PERF FIX] Cache grid key encoder reference to avoid 9 property lookups per frame
+    const encodeGridKey = game._encodeGridKey;
+    if (!encodeGridKey) return; // Early exit if no encoder
+
     // Check current and adjacent cells
     for (let x = -1; x <= 1; x++) {
         for (let y = -1; y <= 1; y++) {
-            const key = game._encodeGridKey ? game._encodeGridKey(gridX + x, gridY + y) : null;
+            const key = encodeGridKey(gridX + x, gridY + y);
             if (key === null) continue;
 
             const cell = game.spatialGrid.get(key);
@@ -1194,4 +1073,18 @@ EnemyMovement.prototype.applyAtomicForces = function(deltaTime, game) {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.EnemyMovement = EnemyMovement;
+}
+
+// [PERF] Initialize random table at module load time instead of first enemy spawn
+// This moves the 4096 Math.random() calls from gameplay to page load
+(function initRandomTable() {
+    const TABLE_SIZE = 4096;
+    EnemyMovement._randomTableCache = new Float32Array(TABLE_SIZE);
+    for (let i = 0; i < TABLE_SIZE; i++) {
+        EnemyMovement._randomTableCache[i] = Math.random();
+    }
+})();
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = EnemyMovement;
 }

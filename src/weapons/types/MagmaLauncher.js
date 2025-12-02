@@ -1,17 +1,11 @@
 /**
  * MagmaLauncherWeapon - Explosive fire weapon that lobs magma charges.
+ * Extends WeaponBase for shared fire rate/cooldown logic.
  * Creates burning and explosive effects.
  */
-class MagmaLauncherWeapon {
+class MagmaLauncherWeapon extends window.Game.WeaponBase {
     constructor({ player, combat, definition, manager }) {
-        this.player = player;
-        this.combat = combat;
-        this.definition = definition || {};
-        this.manager = manager;
-
-        this.timer = 0;
-        this.cooldown = 0;
-        this._needsRecalc = true;
+        super({ player, combat, definition, manager });
 
         // Weapon stats from definition
         const template = this.definition.projectileTemplate || {};
@@ -20,86 +14,9 @@ class MagmaLauncherWeapon {
         this.baseProjectileCount = template.count || 1;
     }
 
-    _getBaseAttackSpeed() {
-        return this.combat?.baseAttackSpeed || this.definition.fireRate || 1;
-    }
-
-    _getDefinitionFireRate() {
-        const fireRate = this.definition?.fireRate;
-        if (typeof fireRate !== 'number' || fireRate <= 0) {
-            return this._getBaseAttackSpeed();
-        }
-        return fireRate;
-    }
-
-    _computeEffectiveFireRate() {
-        const playerRate = Math.max(0.1, this.combat?.attackSpeed || 1);
-        const baseRate = Math.max(0.1, this._getBaseAttackSpeed());
-        const weaponRate = Math.max(0.1, this._getDefinitionFireRate());
-
-        const normalizedModifier = weaponRate / baseRate;
-        return Math.max(0.05, playerRate * normalizedModifier);
-    }
-
-    _recalculateCooldown(preserveProgress = true) {
-        const fireRate = this._computeEffectiveFireRate();
-        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
-        const safeFireRate = Math.max(0.1, fireRate);
-        const newCooldown = 1 / safeFireRate;
-
-        if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
-            const progress = Math.min(1, this.timer / this.cooldown);
-            this.cooldown = newCooldown;
-            this.timer = progress * this.cooldown;
-        } else {
-            this.cooldown = newCooldown;
-            this.timer = Math.min(this.timer, this.cooldown);
-        }
-
-        this.combat.attackCooldown = this.cooldown;
-        this._needsRecalc = false;
-    }
-
-
-
     _playFireSound() {
         if (window.audioSystem?.play) {
             window.audioSystem.play('shoot', 0.25);
-        }
-    }
-
-    onEquip() {
-        this._needsRecalc = true;
-        this.timer = 0;
-    }
-
-    onUnequip() {
-        // Clean up if needed
-    }
-
-    onCombatStatsChanged() {
-        this._needsRecalc = true;
-    }
-
-    update(deltaTime, game) {
-        if (this._needsRecalc) {
-            this._recalculateCooldown(true);
-        }
-
-        if (!Number.isFinite(this.cooldown) || this.cooldown <= 0) {
-            return;
-        }
-
-        this.timer += deltaTime;
-        this.combat.attackTimer = this.timer;
-
-        if (this.timer >= this.cooldown) {
-            this.timer -= this.cooldown;
-            const fired = this.fire(game);
-            if (!fired) {
-                // No target found, reset timer for quick retry
-                this.timer = 0;
-            }
         }
     }
 
@@ -132,11 +49,23 @@ class MagmaLauncherWeapon {
                         chance: 1.0  // Always apply burn on hit
                     }));
                 } else {
-                    // Log error if BurnBehavior is missing - helps debug load failures
+                    // [TELEMETRY] Track BurnBehavior failures for debugging
+                    // Increment counter to know how often this happens in production
+                    if (!MagmaLauncherWeapon._burnFailures) {
+                        MagmaLauncherWeapon._burnFailures = { noBehaviorManager: 0, noBurnClass: 0 };
+                    }
+                    
                     if (!projectile?.behaviorManager) {
-                        window.logger.error('[MagmaLauncher] Projectile missing behaviorManager - burn effect disabled');
+                        MagmaLauncherWeapon._burnFailures.noBehaviorManager++;
+                        // Only log first few errors to avoid spam
+                        if (MagmaLauncherWeapon._burnFailures.noBehaviorManager <= 3) {
+                            window.logger.error('[MagmaLauncher] Projectile missing behaviorManager - burn effect disabled');
+                        }
                     } else if (typeof BurnBehaviorClass !== 'function') {
-                        window.logger.error('[MagmaLauncher] BurnBehavior class not loaded - burn effect disabled. Check if BurnBehavior.js loaded correctly.');
+                        MagmaLauncherWeapon._burnFailures.noBurnClass++;
+                        if (MagmaLauncherWeapon._burnFailures.noBurnClass <= 3) {
+                            window.logger.error('[MagmaLauncher] BurnBehavior class not loaded - burn effect disabled. Check if BurnBehavior.js loaded correctly.');
+                        }
                     }
                 }
             }
@@ -150,46 +79,21 @@ class MagmaLauncherWeapon {
     }
 
     _createMuzzleFlash(angle) {
-        if (!window.optimizedParticles) return;
-        
-        const pool = window.optimizedParticles;
-        const poolPressure = pool.activeParticles.length / pool.maxParticles;
-        const isHighLoad = poolPressure > 0.7;
-
-        // Magma flash is heavier, more smoke
-        const count = isHighLoad ? 4 : 8;
-
-        for (let i = 0; i < count; i++) {
-            const spread = (Math.random() - 0.5) * 0.4;
-            const speed = 100 + Math.random() * 80;
-            const vx = Math.cos(angle + spread) * speed;
-            const vy = Math.sin(angle + spread) * speed;
-            
-            pool.spawnParticle({
-                x: this.player.x,
-                y: this.player.y,
-                vx,
-                vy,
-                size: 4 + Math.random() * 3,
-                color: i % 2 === 0 ? '#ff4500' : '#2d3436', // Orange and dark smoke
-                life: 0.4,
-                type: i % 2 === 0 ? 'spark' : 'smoke'
+        const ParticleHelpers = window.Game?.ParticleHelpers;
+        if (ParticleHelpers?.createMuzzleFlash) {
+            // Magma flash is heavier, more smoke
+            ParticleHelpers.createMuzzleFlash(this.player.x, this.player.y, angle, {
+                color: '#ff4500',
+                secondaryColor: '#2d3436', // Dark smoke
+                count: 8,
+                spread: 0.4,
+                speed: 100,
+                speedVariance: 80,
+                size: 4,
+                sizeVariance: 3,
+                life: 0.4
             });
         }
-    }
-
-    fireImmediate(game) {
-        // Reset timer for consistent cadence
-        this.timer = 0;
-        return this.fire(game);
-    }
-
-    getCooldown() {
-        return this.cooldown;
-    }
-
-    getTimer() {
-        return this.timer;
     }
 
     applyUpgrade(upgrade) {

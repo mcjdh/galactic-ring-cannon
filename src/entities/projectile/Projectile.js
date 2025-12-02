@@ -77,8 +77,12 @@ class Projectile {
         this.hitEnemies = new Set();
 
         // Visual trail - using circular buffer for performance
+        // [OPTIMIZATION] Pre-allocate trail point objects to reduce GC pressure
         this.maxTrailLength = 5;
         this.trail = new Array(this.maxTrailLength);
+        for (let i = 0; i < this.maxTrailLength; i++) {
+            this.trail[i] = { x: 0, y: 0 };
+        }
         this.trailIndex = 0;
         this.trailCount = 0;
 
@@ -339,7 +343,9 @@ class Projectile {
         }
 
         // Update trail using circular buffer (O(1) instead of O(n))
-        this.trail[this.trailIndex] = { x: this.x, y: this.y };
+        // [OPTIMIZATION] Reuse pre-allocated trail point objects
+        this.trail[this.trailIndex].x = this.x;
+        this.trail[this.trailIndex].y = this.y;
         this.trailIndex = (this.trailIndex + 1) % this.maxTrailLength;
         this.trailCount = Math.min(this.trailCount + 1, this.maxTrailLength);
 
@@ -370,7 +376,8 @@ class Projectile {
         const shouldDie = this.behaviorManager.handleCollision(target, engine);
 
         // Handle lifesteal (percentage of damage dealt)
-        if (this.lifesteal > 0 && engine?.player) {
+        // [FIX] Added isDead check to prevent lifesteal on dead player (race condition)
+        if (this.lifesteal > 0 && engine?.player && !engine.player.isDead) {
             // Fix: Calculate lifesteal based on damage dealt, not just the raw percentage value
             // this.lifesteal is a percentage (e.g. 0.05 for 5%), so we multiply by damage
             const healAmount = this.damage * this.lifesteal;
@@ -558,9 +565,14 @@ class Projectile {
         // We don't reallocate the array, just reset indices
         this.trailIndex = 0;
         this.trailCount = 0;
-        // Optional: Clear trail data to prevent visual artifacts
+        // Reset trail points to initial state (keeping pre-allocated objects)
         for (let i = 0; i < this.trail.length; i++) {
-            this.trail[i] = null;
+            if (this.trail[i]) {
+                this.trail[i].x = 0;
+                this.trail[i].y = 0;
+            } else {
+                this.trail[i] = { x: 0, y: 0 };
+            }
         }
 
         // 6. Reset Behaviors & Legacy Flags

@@ -58,8 +58,11 @@ class EnemyRenderer {
         ctx.save();
         ctx.translate(enemy.x, enemy.y);
         
-        // Rotate based on ID to give some variation/spin
-        const spin = (Date.now() * 0.001) + (parseInt(enemy.id || '0', 36) % 10);
+        // [PERF] Cache spin offset on enemy to avoid parseInt per frame
+        if (enemy._spinOffset === undefined) {
+            enemy._spinOffset = (parseInt(enemy.id || '0', 36) % 10);
+        }
+        const spin = (Date.now() * 0.001) + enemy._spinOffset;
         if (enemy.isBoss) ctx.rotate(spin * 0.5);
         else if (enemy.isElite) ctx.rotate(-spin);
         
@@ -67,14 +70,18 @@ class EnemyRenderer {
         ctx.strokeStyle = fillColor;
         ctx.lineWidth = enemy.isBoss ? 3 : 2;
 
+        // [PERF] Use FastMath for cached trig
+        const FastMath = window.Game?.FastMath;
         ctx.beginPath();
         if (enemy.isBoss) {
             // Hexagon for Bosses
             for (let i = 0; i < 6; i++) {
                 const angle = (i / 6) * Math.PI * 2;
                 const r = drawRadius;
-                if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
-                else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+                const cosA = FastMath ? FastMath.cos(angle) : Math.cos(angle);
+                const sinA = FastMath ? FastMath.sin(angle) : Math.sin(angle);
+                if (i === 0) ctx.moveTo(cosA * r, sinA * r);
+                else ctx.lineTo(cosA * r, sinA * r);
             }
         } else if (enemy.isElite) {
             // Diamond for Elites
@@ -153,6 +160,10 @@ class EnemyRenderer {
         bossCrownBatch.length = 0;
         phaseIndicatorBatch.length = 0;
         burnOverlayBatch.length = 0;
+
+        // [PERF] Cache time once per batch instead of per-enemy (saves ~3000 Date.now() calls/sec at 60fps with 50 enemies)
+        const batchTime = Date.now() * 0.001;
+        const FastMath = window.Game?.FastMath;
 
         for (let i = 0; i < enemies.length; i++) {
             const enemy = enemies[i];
@@ -238,28 +249,33 @@ class EnemyRenderer {
                 const x = enemy.x;
                 const y = enemy.y;
                 
-                // Rotation logic (simplified for batching)
-                const spin = (Date.now() * 0.001) + (parseInt(enemy.id || '0', 36) % 10);
+                // [PERF] Rotation logic - cache spin offset on enemy to avoid parseInt per frame
+                if (enemy._spinOffset === undefined) {
+                    enemy._spinOffset = (parseInt(enemy.id || '0', 36) % 10);
+                }
+                const spin = batchTime + enemy._spinOffset;
                 let angleOffset = 0;
                 if (enemy.isBoss) angleOffset = spin * 0.5;
                 else if (enemy.isElite) angleOffset = -spin;
 
                 if (enemy.isBoss) {
-                    // Hexagon
+                    // Hexagon - use FastMath if available
                     for (let j = 0; j < 6; j++) {
                         const angle = angleOffset + (j / 6) * Math.PI * 2;
-                        const px = x + Math.cos(angle) * r;
-                        const py = y + Math.sin(angle) * r;
+                        const px = x + (FastMath ? FastMath.cos(angle) : Math.cos(angle)) * r;
+                        const py = y + (FastMath ? FastMath.sin(angle) : Math.sin(angle)) * r;
                         if (j === 0) ctx.moveTo(px, py);
                         else ctx.lineTo(px, py);
                     }
                     ctx.closePath();
                 } else if (enemy.isElite) {
-                    // Diamond
-                    ctx.moveTo(x + r * Math.sin(angleOffset), y - r * Math.cos(angleOffset));
-                    ctx.lineTo(x + r * Math.cos(angleOffset), y + r * Math.sin(angleOffset));
-                    ctx.lineTo(x - r * Math.sin(angleOffset), y + r * Math.cos(angleOffset));
-                    ctx.lineTo(x - r * Math.cos(angleOffset), y - r * Math.sin(angleOffset));
+                    // Diamond - use FastMath if available
+                    const sinA = FastMath ? FastMath.sin(angleOffset) : Math.sin(angleOffset);
+                    const cosA = FastMath ? FastMath.cos(angleOffset) : Math.cos(angleOffset);
+                    ctx.moveTo(x + r * sinA, y - r * cosA);
+                    ctx.lineTo(x + r * cosA, y + r * sinA);
+                    ctx.lineTo(x - r * sinA, y + r * cosA);
+                    ctx.lineTo(x - r * cosA, y - r * sinA);
                     ctx.closePath();
                 } else {
                     // Square (Basic)

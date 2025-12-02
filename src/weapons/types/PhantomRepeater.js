@@ -1,5 +1,6 @@
 /**
  * PhantomRepeaterWeapon - A ricochet-focused twin projectile weapon
+ * Extends WeaponBase for shared fire rate/cooldown logic.
  *
  * The Phantom Striker's signature weapon that fires dual void-charged projectiles
  * designed to bounce between enemies. Works in synergy with the character's
@@ -11,16 +12,9 @@
  * - Balanced damage output
  * - Optimized for ricochet builds
  */
-class PhantomRepeaterWeapon {
+class PhantomRepeaterWeapon extends window.Game.WeaponBase {
     constructor({ player, combat, definition, manager }) {
-        this.player = player;
-        this.combat = combat;
-        this.definition = definition || {};
-        this.manager = manager;
-
-        this.timer = 0;
-        this.cooldown = 0;
-        this._needsRecalc = true;
+        super({ player, combat, definition, manager });
 
         // Phantom-specific properties
         this.baseProjectileCount = 2; // Twin projectiles
@@ -29,78 +23,6 @@ class PhantomRepeaterWeapon {
 
     _getBaseAttackSpeed() {
         return this.combat?.baseAttackSpeed || this.definition.fireRate || 1.05;
-    }
-
-    _getDefinitionFireRate() {
-        const fireRate = this.definition?.fireRate;
-        if (typeof fireRate !== 'number' || fireRate <= 0) {
-            return this._getBaseAttackSpeed();
-        }
-        return fireRate;
-    }
-
-    _computeEffectiveFireRate() {
-        const playerRate = Math.max(0.1, this.combat?.attackSpeed || 1);
-        const baseRate = Math.max(0.1, this._getBaseAttackSpeed());
-        const weaponRate = Math.max(0.1, this._getDefinitionFireRate());
-
-        const normalizedModifier = weaponRate / baseRate;
-        return Math.max(0.05, playerRate * normalizedModifier);
-    }
-
-    _recalculateCooldown(preserveProgress = true) {
-        const fireRate = this._computeEffectiveFireRate();
-        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
-        const safeFireRate = Math.max(0.1, fireRate);
-        const newCooldown = 1 / safeFireRate;
-
-        if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
-            const progress = Math.min(1, this.timer / this.cooldown);
-            this.cooldown = newCooldown;
-            this.timer = progress * this.cooldown;
-        } else {
-            this.cooldown = newCooldown;
-            this.timer = Math.min(this.timer, this.cooldown);
-        }
-
-        // Sync legacy combat fields for debugging/UI
-        this.combat.attackCooldown = this.cooldown;
-        this._needsRecalc = false;
-    }
-
-    onEquip() {
-        this._needsRecalc = true;
-        this.timer = 0;
-    }
-
-    onUnequip() {
-        // Cleanup if needed
-    }
-
-    onCombatStatsChanged() {
-        this._needsRecalc = true;
-    }
-
-    update(deltaTime, game) {
-        if (this._needsRecalc) {
-            this._recalculateCooldown(true);
-        }
-
-        if (!Number.isFinite(this.cooldown) || this.cooldown <= 0) {
-            return;
-        }
-
-        this.timer += deltaTime;
-        this.combat.attackTimer = this.timer;
-
-        if (this.timer >= this.cooldown) {
-            this.timer -= this.cooldown;
-            const fired = this.fire(game);
-            if (!fired) {
-                // If no target, reset timer to retry quickly
-                this.timer = 0;
-            }
-        }
     }
 
     fire(game) {
@@ -166,20 +88,6 @@ class PhantomRepeaterWeapon {
                 });
             }
         }
-    }
-
-    fireImmediate(game) {
-        // Reset timer so cadence feels consistent with manual triggers
-        this.timer = 0;
-        return this.fire(game);
-    }
-
-    getCooldown() {
-        return this.cooldown;
-    }
-
-    getTimer() {
-        return this.timer;
     }
 
     applyUpgrade(upgrade) {

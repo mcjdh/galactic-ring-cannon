@@ -37,8 +37,10 @@ class PlayerRenderer {
         ctx.translate(x, y);
         ctx.rotate(rotation + Math.PI / 2); // Point upwards by default
 
-        // Engine Glow (Pulsing)
-        const pulse = 1 + Math.sin(Date.now() * 0.01) * 0.1;
+        // Engine Glow (Pulsing) - [PERF] Use FastMath if available
+        const FastMath = window.Game?.FastMath;
+        const pulseAngle = Date.now() * 0.01;
+        const pulse = 1 + (FastMath ? FastMath.sin(pulseAngle) : Math.sin(pulseAngle)) * 0.1;
         ctx.fillStyle = PlayerRenderer._colorWithAlpha(glowColor, 0.3);
         ctx.beginPath();
         ctx.moveTo(-radius * 0.5, radius * 0.5);
@@ -250,7 +252,10 @@ class PlayerRenderer {
             // Pulsing recharge effect
             if (rechargeProgress > 0) {
                 ctx.save();
-                const pulseAlpha = 0.1 + (Math.sin(Date.now() / 200) * 0.05);
+                // [PERF] Use FastMath for pulse calculation
+                const FastMath = window.Game?.FastMath;
+                const pulseAngle = Date.now() / 200;
+                const pulseAlpha = 0.1 + ((FastMath ? FastMath.sin(pulseAngle) : Math.sin(pulseAngle)) * 0.05);
                 ctx.globalAlpha = pulseAlpha;
                 ctx.strokeStyle = '#00ffff';
                 ctx.lineWidth = 2;
@@ -352,10 +357,13 @@ class PlayerRenderer {
         const dangerIntensity = Math.min((LOW_HP_THRESHOLD - healthPercent) / LOW_HP_THRESHOLD, 1.0);
 
         // Pulsing effect - faster pulse at lower HP
+        // [PERF] Use FastMath for sin calculation if available
+        const FastMath = window.Game?.FastMath;
         const pulseSpeed = isBerserker
             ? (150 - (missingHealth * 100))  // Berserker: Very fast pulse
             : (200 - (dangerIntensity * 80)); // Normal: Moderate pulse
-        const pulse = Math.sin(Date.now() / pulseSpeed) * 0.5 + 0.5;
+        const pulseAngle = Date.now() / pulseSpeed;
+        const pulse = (FastMath ? FastMath.sin(pulseAngle) : Math.sin(pulseAngle)) * 0.5 + 0.5;
 
         // Color selection: Orange for warning, Red for berserker rage
         const baseColor = isBerserker ? [255, 0, 0] : [255, 140, 0]; // Red vs Orange
@@ -399,18 +407,22 @@ class PlayerRenderer {
             ctx.shadowColor = '#ff0000';
 
             const arcCount = 4;
+            const arcTimeOffset = Date.now() / 500;
             for (let i = 0; i < arcCount; i++) {
-                const angle = (i / arcCount) * Math.PI * 2 + (Date.now() / 500);
+                const angle = (i / arcCount) * Math.PI * 2 + arcTimeOffset;
                 const arcLength = radius * 2;
+                // [PERF] Use FastMath for arc trig calculations
+                const cosAngle = FastMath ? FastMath.cos(angle) : Math.cos(angle);
+                const sinAngle = FastMath ? FastMath.sin(angle) : Math.sin(angle);
 
                 ctx.beginPath();
                 ctx.moveTo(
-                    x + Math.cos(angle) * radius,
-                    y + Math.sin(angle) * radius
+                    x + cosAngle * radius,
+                    y + sinAngle * radius
                 );
                 ctx.lineTo(
-                    x + Math.cos(angle) * arcLength,
-                    y + Math.sin(angle) * arcLength
+                    x + cosAngle * arcLength,
+                    y + sinAngle * arcLength
                 );
                 ctx.stroke();
             }

@@ -131,6 +131,11 @@ class EnemyStats {
         enemy.isDead = true;
         enemy.deathTimer = 500; // 500ms fade out animation
 
+        // [FIX] Clean up pending timers to prevent memory leaks
+        if (enemy.abilities?.cleanup) {
+            enemy.abilities.cleanup();
+        }
+
         // Trigger death effects through abilities component
         enemy.abilities.onDeath((window.gameManager || window.gameManagerBridge)?.game);
 

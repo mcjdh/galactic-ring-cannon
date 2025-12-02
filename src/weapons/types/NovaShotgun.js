@@ -1,16 +1,10 @@
 /**
  * NovaShotgunWeapon - wide cone burst weapon favoring close-range combat.
+ * Extends WeaponBase for shared fire rate/cooldown logic.
  */
-class NovaShotgunWeapon {
+class NovaShotgunWeapon extends window.Game.WeaponBase {
     constructor({ player, combat, definition, manager }) {
-        this.player = player;
-        this.combat = combat;
-        this.definition = definition || {};
-        this.manager = manager;
-
-        this.timer = 0;
-        this.cooldown = 0;
-        this._needsRecalc = true;
+        super({ player, combat, definition, manager });
 
         const template = this.definition.projectileTemplate || {};
         this.baseProjectileCount = template.count || 5;
@@ -29,75 +23,14 @@ class NovaShotgunWeapon {
         return this.combat?.baseAttackSpeed || this.definition.fireRate || 0.8;
     }
 
-    _getDefinitionFireRate() {
-        const fireRate = this.definition?.fireRate;
-        if (typeof fireRate !== 'number' || fireRate <= 0) {
-            return this._getBaseAttackSpeed();
-        }
-        return fireRate;
-    }
-
-    _computeEffectiveFireRate() {
-        const playerRate = Math.max(0.1, this.combat?.attackSpeed || 1);
-        const baseRate = Math.max(0.1, this._getBaseAttackSpeed());
-        const weaponRate = Math.max(0.05, this._getDefinitionFireRate());
-        const normalizedModifier = weaponRate / baseRate;
-        return Math.max(0.05, playerRate * normalizedModifier);
-    }
-
-    _recalculateCooldown(preserveProgress = true) {
-        const fireRate = this._computeEffectiveFireRate();
-        // [FIX] Enforce minimum fire rate to prevent Infinity cooldown softlock
-        const safeFireRate = Math.max(0.1, fireRate);
-        const newCooldown = 1 / safeFireRate;
-
-        if (preserveProgress && this.cooldown > 0 && Number.isFinite(this.cooldown)) {
-            const progress = Math.min(1, this.timer / this.cooldown);
-            this.cooldown = newCooldown;
-            this.timer = progress * this.cooldown;
-        } else {
-            this.cooldown = newCooldown;
-            this.timer = Math.min(this.timer, this.cooldown);
-        }
-
-        this.combat.attackCooldown = this.cooldown;
-        this._needsRecalc = false;
-    }
-
     onEquip() {
-        this._needsRecalc = true;
-        this.timer = 0;
+        super.onEquip();
         this.combat.hasSpreadAttack = true;
     }
 
     onUnequip() {
-        // Restore state as needed
+        super.onUnequip();
         this.combat.hasSpreadAttack = this.combat.projectileCount > 1;
-    }
-
-    onCombatStatsChanged() {
-        this._needsRecalc = true;
-    }
-
-    update(deltaTime, game) {
-        if (this._needsRecalc) {
-            this._recalculateCooldown(true);
-        }
-
-        if (!Number.isFinite(this.cooldown) || this.cooldown <= 0) {
-            return;
-        }
-
-        this.timer += deltaTime;
-        this.combat.attackTimer = this.timer;
-
-        if (this.timer >= this.cooldown) {
-            this.timer -= this.cooldown;
-            const fired = this.fire(game);
-            if (!fired) {
-                this.timer = 0;
-            }
-        }
     }
 
     fire(game) {
@@ -158,51 +91,23 @@ class NovaShotgunWeapon {
     }
 
     _createMuzzleFlash(angle) {
-        if (!window.optimizedParticles) return;
-        
-        const pool = window.optimizedParticles;
-        const poolPressure = pool.activeParticles.length / pool.maxParticles;
-        const isHighLoad = poolPressure > 0.7;
-
-        // Reduce particles under load
-        const count = isHighLoad ? 6 : 12;
-        
-        // Determine color based on state
-        let color = '#f39c12'; // Default orange
-        if (this.forceExplosive) {
-            color = '#e74c3c'; // Red for explosive rounds
-        }
-
-        for (let i = 0; i < count; i++) {
-            const spread = (Math.random() - 0.5) * 0.6;
-            const speed = 180 + Math.random() * 120;
-            const vx = Math.cos(angle + spread) * speed;
-            const vy = Math.sin(angle + spread) * speed;
+        const ParticleHelpers = window.Game?.ParticleHelpers;
+        if (ParticleHelpers?.createMuzzleFlash) {
+            // Determine color based on state
+            const color = this.forceExplosive ? '#e74c3c' : '#f39c12';
             
-            pool.spawnParticle({
-                x: this.player.x,
-                y: this.player.y,
-                vx,
-                vy,
-                size: 3 + Math.random() * 2,
-                color: i % 2 === 0 ? color : '#ffffff',
-                life: 0.25,
-                type: 'spark'
+            ParticleHelpers.createMuzzleFlash(this.player.x, this.player.y, angle, {
+                color: color,
+                secondaryColor: '#ffffff',
+                count: 12,
+                spread: 0.6,
+                speed: 180,
+                speedVariance: 120,
+                size: 3,
+                sizeVariance: 2,
+                life: 0.25
             });
         }
-    }
-
-    fireImmediate(game) {
-        this.timer = 0;
-        return this.fire(game);
-    }
-
-    getCooldown() {
-        return this.cooldown;
-    }
-
-    getTimer() {
-        return this.timer;
     }
 
     applyUpgrade(upgrade) {

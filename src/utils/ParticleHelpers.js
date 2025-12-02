@@ -340,6 +340,78 @@ class ParticleHelpers {
             window.gameManager.addParticleViaEffectsManager(particle);
         }
     }
+
+    /**
+     * Create muzzle flash effect for weapons
+     * [REFACTOR] Centralized to eliminate duplicate code across 9 weapon types
+     * 
+     * @param {number} x - Origin X position (typically player.x)
+     * @param {number} y - Origin Y position (typically player.y)
+     * @param {number} angle - Fire direction in radians
+     * @param {Object} options - Customization options
+     * @param {string} options.color - Primary particle color (default: '#ffffff')
+     * @param {string} options.secondaryColor - Alternate color for variety (optional)
+     * @param {number} options.count - Base particle count (default: 1)
+     * @param {number} options.spread - Angular spread in radians (default: 0)
+     * @param {number} options.speed - Base particle speed (default: 80)
+     * @param {number} options.speedVariance - Random speed variance (default: 40)
+     * @param {number} options.size - Base particle size (default: 2)
+     * @param {number} options.life - Particle lifetime in seconds (default: 0.15)
+     * @param {number} options.offset - Distance from origin (default: 0)
+     */
+    static createMuzzleFlash(x, y, angle, options = {}) {
+        if (!window.optimizedParticles) return;
+        
+        const pool = window.optimizedParticles;
+        const poolPressure = pool.activeParticles.length / pool.maxParticles;
+        const isHighLoad = poolPressure > 0.7;
+
+        // Skip some particles under high load
+        if (isHighLoad && Math.random() > 0.5) return;
+
+        const {
+            color = '#ffffff',
+            secondaryColor = null,
+            count = 1,
+            spread = 0,
+            speed = 80,
+            speedVariance = 40,
+            size = 2,
+            sizeVariance = 1,
+            life = 0.15,
+            offset = 0
+        } = options;
+
+        // Reduce count under high load
+        const actualCount = isHighLoad ? Math.ceil(count / 2) : count;
+
+        for (let i = 0; i < actualCount; i++) {
+            const particleSpread = spread > 0 ? (Math.random() - 0.5) * spread : 0;
+            const particleAngle = angle + particleSpread;
+            const particleSpeed = speed + Math.random() * speedVariance;
+            
+            const vx = Math.cos(particleAngle) * particleSpeed;
+            const vy = Math.sin(particleAngle) * particleSpeed;
+            
+            // Apply offset from origin
+            const startX = offset > 0 ? x + Math.cos(angle) * offset : x;
+            const startY = offset > 0 ? y + Math.sin(angle) * offset : y;
+            
+            // Alternate colors if secondary provided
+            const particleColor = secondaryColor && i % 2 === 1 ? secondaryColor : color;
+            
+            pool.spawnParticle({
+                x: startX,
+                y: startY,
+                vx,
+                vy,
+                size: size + Math.random() * sizeVariance,
+                color: particleColor,
+                life,
+                type: 'spark'
+            });
+        }
+    }
 }
 
 // Initialize on load

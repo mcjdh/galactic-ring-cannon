@@ -286,6 +286,8 @@ class CosmicBackground {
         }
 
         // Fallback: Original dynamic star rendering
+        // [PERF] Use FastMath for blink sin calculation
+        const FastMath = window.Game?.FastMath;
         this.ctx.save();
         for (const star of this.stars) {
             // Parallax with robust wrapping
@@ -301,8 +303,9 @@ class CosmicBackground {
             if (relX < 0) relX += wrapW;
             if (relY < 0) relY += wrapH;
 
-            // Blink
-            const alpha = 0.5 + 0.5 * Math.sin(this.time * star.blinkSpeed + star.blinkOffset);
+            // Blink - use FastMath if available
+            const blinkAngle = this.time * star.blinkSpeed + star.blinkOffset;
+            const alpha = 0.5 + 0.5 * (FastMath ? FastMath.sin(blinkAngle) : Math.sin(blinkAngle));
             this.ctx.globalAlpha = alpha;
             this.ctx.fillStyle = star.color;
 
@@ -467,22 +470,31 @@ class CosmicBackground {
     }
 
     project(v, rx, ry, rz) {
-        // Simplified rotation
+        // [PERF] Use FastMath for cached trig lookups (saves ~2400 trig calls/frame)
+        const FastMath = window.Game?.FastMath;
+        const sin = FastMath ? FastMath.sin.bind(FastMath) : Math.sin;
+        const cos = FastMath ? FastMath.cos.bind(FastMath) : Math.cos;
+        
+        // Pre-compute all trig values once (6 values instead of 12 calls)
+        const sinRx = sin(rx), cosRx = cos(rx);
+        const sinRy = sin(ry), cosRy = cos(ry);
+        const sinRz = sin(rz), cosRz = cos(rz);
+        
         let x = v.x, y = v.y, z = v.z;
 
         // Rotate Y
-        let x1 = x * Math.cos(ry) - z * Math.sin(ry);
-        let z1 = x * Math.sin(ry) + z * Math.cos(ry);
+        let x1 = x * cosRy - z * sinRy;
+        let z1 = x * sinRy + z * cosRy;
         x = x1; z = z1;
 
         // Rotate X
-        let y1 = y * Math.cos(rx) - z * Math.sin(rx);
-        let z2 = y * Math.sin(rx) + z * Math.cos(rx);
+        let y1 = y * cosRx - z * sinRx;
+        let z2 = y * sinRx + z * cosRx;
         y = y1; z = z2;
 
         // Rotate Z
-        let x2 = x * Math.cos(rz) - y * Math.sin(rz);
-        let y2 = x * Math.sin(rz) + y * Math.cos(rz);
+        let x2 = x * cosRz - y * sinRz;
+        let y2 = x * sinRz + y * cosRz;
         x = x2; y = y2;
 
         // Polybius Perspective Warp

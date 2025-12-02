@@ -1,14 +1,40 @@
 const CosmicBackground = require('../src/systems/CosmicBackground.js');
 
+// Setup global window mock for Node.js environment
+global.window = global.window || {};
+global.window.Game = global.window.Game || {};
+global.window.Game.FastMath = {
+    sin: Math.sin,
+    cos: Math.cos,
+    distance: (x1, y1, x2, y2) => Math.sqrt((x2-x1)**2 + (y2-y1)**2),
+    distanceSquared: (x1, y1, x2, y2) => (x2-x1)**2 + (y2-y1)**2
+};
+global.window.gameManager = { lowQuality: false };
+global.window.logger = {
+    log: () => {},
+    warn: () => {},
+    error: () => {}
+};
+global.performance = global.performance || { now: () => Date.now() };
+
 // Mock CanvasRenderingContext2D
 class MockContext {
     constructor() {
         this.fillStyle = '';
         this.strokeStyle = '';
         this.lineWidth = 1;
+        this.globalAlpha = 1;
+        this.globalCompositeOperation = 'source-over';
+        this.shadowBlur = 0;
+        this.shadowColor = '';
+        this.lineCap = 'butt';
+        this.lineJoin = 'miter';
     }
     fillRect() {}
+    strokeRect() {}
+    clearRect() {}
     beginPath() {}
+    closePath() {}
     moveTo() {}
     lineTo() {}
     stroke() {}
@@ -18,7 +44,21 @@ class MockContext {
     translate() {}
     rotate() {}
     scale() {}
+    setTransform() {}
+    resetTransform() {}
     arc() {}
+    ellipse() {}
+    rect() {}
+    quadraticCurveTo() {}
+    bezierCurveTo() {}
+    drawImage() {}
+    createLinearGradient() { return { addColorStop: () => {} }; }
+    createRadialGradient() { return { addColorStop: () => {} }; }
+    getImageData() { return { data: new Uint8ClampedArray(4) }; }
+    putImageData() {}
+    measureText() { return { width: 10 }; }
+    fillText() {}
+    strokeText() {}
 }
 
 // Mock Canvas

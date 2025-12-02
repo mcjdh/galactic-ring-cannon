@@ -232,7 +232,10 @@ class ProjectileRenderer {
             batch.length = 0;
         }
         if (critSpriteBatches.size || critFallbackBatches.size) {
-            const pulseIntensity = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+            // [PERF] Use FastMath for sin calculation if available
+            const FastMath = window.Game?.FastMath;
+            const pulseAngle = Date.now() / 100;
+            const pulseIntensity = (FastMath ? FastMath.sin(pulseAngle) : Math.sin(pulseAngle)) * 0.3 + 0.7;
 
             if (critSpriteBatches.size) {
                 ctx.globalAlpha = pulseIntensity;
@@ -362,7 +365,10 @@ class ProjectileRenderer {
      * Render crit glow/pulse
      */
     static renderCritGlow(projectile, ctx) {
-        const pulseIntensity = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+        // [PERF] Use FastMath for sin calculation if available
+        const FastMath = window.Game?.FastMath;
+        const pulseAngle = Date.now() / 100;
+        const pulseIntensity = (FastMath ? FastMath.sin(pulseAngle) : Math.sin(pulseAngle)) * 0.3 + 0.7;
         const sprite = this._getCritGlowSprite(projectile.radius);
 
         if (sprite) {

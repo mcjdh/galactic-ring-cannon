@@ -165,13 +165,8 @@ class GameEngine {
         this._lowGpuModeFallback = false;
         this._lowPerformanceModeFallback = false;
 
-        // Legacy flags - now proxies to PerformanceManager
-        // this.performanceMode = false; // Accessed via getter/setter
-        // this.debugMode = false; // Kept in GameEngine
+        // Debug mode (kept in GameEngine, toggled with F3)
         this.debugMode = false;
-        // this.lowGpuMode = false; // Accessed via getter
-        // this.lowPerformanceMode = false; // Accessed via getter
-        // this._autoLowQualityCosmic = false; // Managed by PerformanceManager
 
         this._visibleEntitiesScratch = [];
         this._visibleEntitiesGeneration = 1;
@@ -1179,8 +1174,6 @@ class GameEngine {
 
     adjustPerformanceMode() {
         // Defer to centralized performance manager if present
-        // [R] We are using PerformanceManager now, but GameEngine still drives FPS monitoring
-
         const manualOverride = this.performanceManager?._manualPerformanceOverride;
         if (manualOverride === 'on') {
             if (!this.performanceMode) {
@@ -1200,8 +1193,6 @@ class GameEngine {
         } else if (this.fps > 55 && this.performanceMode) {
             this.disablePerformanceMode();
         }
-        // adjustPerformanceMode method removed as its logic is now fully handled by PerformanceManager
-
     }
 
     setPerformancePreference(level) {

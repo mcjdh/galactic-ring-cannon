@@ -218,7 +218,11 @@ class EnemyProjectile {
             const projectile = projectiles[i];
             if (!projectile || projectile.isDead) continue;
 
-            const trailKey = `${projectile.color}|${(projectile.radius * 1.5).toFixed(3)}|${projectile.trailLength}`;
+            // [PERF] Cache trail key to avoid toFixed() string allocation per frame
+            if (!projectile._trailKey) {
+                projectile._trailKey = `${projectile.color}|${(projectile.radius * 1.5).toFixed(3)}|${projectile.trailLength}`;
+            }
+            const trailKey = projectile._trailKey;
             let trailBatch = trailBatches.get(trailKey);
             if (!trailBatch) {
                 trailBatch = [];

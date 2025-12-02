@@ -506,17 +506,35 @@ XPOrb.renderBatch = function(orbs, ctx) {
     const lowQuality = window.gameManager?.lowQuality;
     const PI2 = Math.PI * 2;
 
+    // [PERF] Pre-compute render data once per orb instead of 4x (saves ~300 sin calls with 100 orbs)
+    // Reuse static array to avoid allocation
+    const renderData = XPOrb._renderDataCache || (XPOrb._renderDataCache = []);
+    let dataCount = 0;
+
+    for (let i = 0; i < orbs.length; i++) {
+        const orb = orbs[i];
+        if (orb.collected) continue;
+
+        const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
+        
+        // Store or reuse cached entry
+        let entry = renderData[dataCount];
+        if (!entry) {
+            entry = renderData[dataCount] = {};
+        }
+        entry.orb = orb;
+        entry.renderY = orb.y + bobY;
+        entry.scaledRadius = orb.radius * orb.scale;
+        dataCount++;
+    }
+
     // Single save for entire batch
     ctx.save();
 
     // Render all glows first (if not low quality) - single pass, no state changes
     if (!lowQuality) {
-        for (let i = 0; i < orbs.length; i++) {
-            const orb = orbs[i];
-            if (orb.collected) continue;
-
-            const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
-            const renderY = orb.y + bobY;
+        for (let i = 0; i < dataCount; i++) {
+            const { orb, renderY } = renderData[i];
 
             ctx.beginPath();
             ctx.arc(orb.x, renderY, orb.radius * 2, 0, PI2);
@@ -526,13 +544,8 @@ XPOrb.renderBatch = function(orbs, ctx) {
     }
 
     // Render all orb bodies - single pass
-    for (let i = 0; i < orbs.length; i++) {
-        const orb = orbs[i];
-        if (orb.collected) continue;
-
-        const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
-        const renderY = orb.y + bobY;
-        const scaledRadius = orb.radius * orb.scale;
+    for (let i = 0; i < dataCount; i++) {
+        const { orb, renderY, scaledRadius } = renderData[i];
 
         // Main orb body
         ctx.beginPath();
@@ -540,7 +553,7 @@ XPOrb.renderBatch = function(orbs, ctx) {
         ctx.fillStyle = orb.color;
         ctx.fill();
 
-        // Highlight (no separate beginPath needed, reuse arc)
+        // Highlight
         ctx.beginPath();
         ctx.arc(
             orb.x - scaledRadius * 0.3,
@@ -558,14 +571,10 @@ XPOrb.renderBatch = function(orbs, ctx) {
     ctx.lineCap = 'round';
 
     // Render all XP symbols - minimal state changes
-    for (let i = 0; i < orbs.length; i++) {
-        const orb = orbs[i];
-        if (orb.collected) continue;
-
-        const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
-        const renderY = orb.y + bobY;
-        const symbolSize = orb.radius * orb.scale * 0.6;
-        const lineWidth = Math.max(1, orb.radius * orb.scale * 0.1);
+    for (let i = 0; i < dataCount; i++) {
+        const { orb, renderY, scaledRadius } = renderData[i];
+        const symbolSize = scaledRadius * 0.6;
+        const lineWidth = Math.max(1, scaledRadius * 0.1);
 
         // Only change lineWidth if different from previous
         if (ctx.lineWidth !== lineWidth) {
@@ -599,12 +608,9 @@ XPOrb.renderBatch = function(orbs, ctx) {
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 2]);
 
-    for (let i = 0; i < orbs.length; i++) {
-        const orb = orbs[i];
-        if (orb.collected || !orb.isBeingMagnetized) continue;
-
-        const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
-        const renderY = orb.y + bobY;
+    for (let i = 0; i < dataCount; i++) {
+        const { orb, renderY } = renderData[i];
+        if (!orb.isBeingMagnetized) continue;
 
         ctx.beginPath();
         ctx.arc(orb.x, renderY, orb.radius * 1.8, 0, PI2);
