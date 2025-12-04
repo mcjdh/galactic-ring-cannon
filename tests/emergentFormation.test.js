@@ -12,13 +12,16 @@ const EmergentFormationDetector = require('../src/systems/EmergentFormationDetec
  * - 4 enemies: LINE, DIAMOND  
  * - 5 enemies: LINE, CROSS, STAR, PENTAGON, V_FORMATION
  * - 6 enemies: V_FORMATION, HEXAGON, DOUBLE_TRIANGLE
- * - 7 enemies: V_FORMATION, ARROW_FLIGHT
- * - 8 enemies: DUAL_DIAMOND, OCTAGON
- * - 9-11 enemies: CRESCENT
- * - 10 enemies: DOUBLE_V
- * - 11-12 enemies: SPIRAL
+ * - 7 enemies: V_FORMATION, ARROW_FLIGHT, ORBIT, SHIELD_WALL
+ * - 8 enemies: DUAL_DIAMOND, OCTAGON, HOURGLASS, PINCER, SHIELD_WALL
+ * - 9 enemies: CRESCENT, PINCER, TRIDENT
+ * - 10 enemies: DOUBLE_V, CRESCENT, CROWN
+ * - 11 enemies: CLAW, SPIRAL, CRESCENT
+ * - 11-12 enemies: SPIRAL, CRESCENT
  * - 12-15 enemies: CIRCLE (reduced priority)
  * - 13-14 enemies: DOUBLE_CRESCENT
+ * 
+ * Total: 25 unique patterns
  */
 
 // Mock classes
@@ -177,17 +180,19 @@ const runTests = () => {
             }
         }
 
-        // Test 4: Pattern for 8 enemies (should be DUAL_DIAMOND or OCTAGON)
+        // Test 4: Pattern for 8 enemies (should be a valid 8-enemy pattern)
+        // Valid patterns for 8: DUAL_DIAMOND, OCTAGON, HOURGLASS, PINCER, SHIELD_WALL
         {
             const { detector } = setup(8, 30);
             detector.detectAndUpdateConstellations();
             const pattern = detector.constellations[0]?.pattern;
+            const valid8Patterns = ['DUAL_DIAMOND', 'OCTAGON', 'HOURGLASS', 'PINCER', 'SHIELD_WALL'];
 
-            if (pattern && (pattern.name === 'DUAL_DIAMOND' || pattern.name === 'OCTAGON')) {
+            if (pattern && valid8Patterns.includes(pattern.name)) {
                 console.log(`✅ Test 4: Pattern for 8 enemies passed (got ${pattern.name})`);
                 passed++;
             } else {
-                console.error(`❌ Test 4: Pattern for 8 enemies expected DUAL_DIAMOND or OCTAGON, got ${pattern?.name}`);
+                console.error(`❌ Test 4: Pattern for 8 enemies expected one of ${valid8Patterns.join('/')}, got ${pattern?.name}`);
                 failed++;
             }
         }

@@ -389,6 +389,193 @@ class EmergentFormationDetector {
                     return positions;
                 }
             },
+            // PINCER - Two curved arms that flank from sides (8-9 enemies)
+            // Creates a tactical "trap" feel - enemies approaching from two directions
+            PINCER: {
+                minEnemies: 8,
+                maxEnemies: 9,
+                strength: 0.55,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const count = enemies.length;
+                    const positions = [];
+                    const armLength = Math.ceil(count / 2);
+                    const radius = 70;
+                    const armSpread = Math.PI * 0.4;  // 72 degrees per arm
+                    
+                    // Left pincer arm
+                    for (let i = 0; i < armLength; i++) {
+                        const t = i / Math.max(1, armLength - 1);
+                        const angle = rotation + Math.PI / 2 + t * armSpread;
+                        const armRadius = radius + i * 20;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * armRadius,
+                            y: centerY + Math.sin(angle) * armRadius
+                        });
+                    }
+                    
+                    // Right pincer arm
+                    const rightCount = count - armLength;
+                    for (let i = 0; i < rightCount; i++) {
+                        const t = i / Math.max(1, rightCount - 1);
+                        const angle = rotation - Math.PI / 2 - t * armSpread;
+                        const armRadius = radius + i * 20;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * armRadius,
+                            y: centerY + Math.sin(angle) * armRadius
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // TRIDENT - Three-pronged attack formation (9 enemies)
+            // Center prong leads, flanking prongs provide support
+            TRIDENT: {
+                minEnemies: 9,
+                maxEnemies: 9,
+                strength: 0.5,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    const prongSpacing = 55;
+                    const prongLength = 50;
+                    const prongAngle = Math.PI / 5;  // 36 degrees
+                    
+                    // Center prong (3 enemies) - leads the charge
+                    for (let i = 0; i < 3; i++) {
+                        const dist = (i - 1) * prongLength;
+                        positions.push({
+                            x: centerX + Math.cos(rotation) * dist,
+                            y: centerY + Math.sin(rotation) * dist
+                        });
+                    }
+                    
+                    // Left prong (3 enemies)
+                    const leftAngle = rotation + prongAngle;
+                    for (let i = 0; i < 3; i++) {
+                        const dist = (i - 0.5) * prongLength - 20;
+                        positions.push({
+                            x: centerX + Math.cos(leftAngle) * dist - Math.sin(leftAngle) * prongSpacing,
+                            y: centerY + Math.sin(leftAngle) * dist + Math.cos(leftAngle) * prongSpacing
+                        });
+                    }
+                    
+                    // Right prong (3 enemies)
+                    const rightAngle = rotation - prongAngle;
+                    for (let i = 0; i < 3; i++) {
+                        const dist = (i - 0.5) * prongLength - 20;
+                        positions.push({
+                            x: centerX + Math.cos(rightAngle) * dist + Math.sin(rightAngle) * prongSpacing,
+                            y: centerY + Math.sin(rightAngle) * dist - Math.cos(rightAngle) * prongSpacing
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // SHIELD_WALL - Defensive arc formation (7-8 enemies)
+            // Enemies form a protective barrier, good for shielder/tank types
+            SHIELD_WALL: {
+                minEnemies: 7,
+                maxEnemies: 8,
+                strength: 0.45,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const count = enemies.length;
+                    const positions = [];
+                    // Two rows: front row (curved) and back row (support)
+                    const frontCount = Math.ceil(count * 0.6);
+                    const backCount = count - frontCount;
+                    const frontRadius = 60;
+                    const backRadius = 30;
+                    const arcSpan = Math.PI * 0.5;  // 90 degree arc
+                    
+                    // Front row - curved shield
+                    for (let i = 0; i < frontCount; i++) {
+                        const t = frontCount > 1 ? i / (frontCount - 1) : 0.5;
+                        const arcPos = (t - 0.5) * 2;
+                        const angle = rotation + arcPos * (arcSpan / 2);
+                        positions.push({
+                            x: centerX + Math.cos(angle) * frontRadius,
+                            y: centerY + Math.sin(angle) * frontRadius
+                        });
+                    }
+                    
+                    // Back row - support line
+                    for (let i = 0; i < backCount; i++) {
+                        const t = backCount > 1 ? i / (backCount - 1) : 0.5;
+                        const arcPos = (t - 0.5) * 2;
+                        const angle = rotation + arcPos * (arcSpan / 2) * 0.6;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * backRadius,
+                            y: centerY + Math.sin(angle) * backRadius
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // HOURGLASS - Two triangles meeting at points (8 enemies)
+            // Visually striking, enemies flow through the center
+            HOURGLASS: {
+                minEnemies: 8,
+                maxEnemies: 8,
+                strength: 0.5,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    const height = 70;
+                    const width = 55;
+                    
+                    // Top triangle (4 enemies: 1 tip + 3 base)
+                    positions.push({ 
+                        x: centerX + Math.cos(rotation) * height,
+                        y: centerY + Math.sin(rotation) * height 
+                    });
+                    for (let i = 0; i < 3; i++) {
+                        const t = (i - 1) * width * 0.5;
+                        const perpAngle = rotation + Math.PI / 2;
+                        positions.push({
+                            x: centerX + Math.cos(rotation) * 15 + Math.cos(perpAngle) * t,
+                            y: centerY + Math.sin(rotation) * 15 + Math.sin(perpAngle) * t
+                        });
+                    }
+                    
+                    // Bottom triangle (4 enemies: 3 base + 1 tip)
+                    for (let i = 0; i < 3; i++) {
+                        const t = (i - 1) * width * 0.5;
+                        const perpAngle = rotation + Math.PI / 2;
+                        positions.push({
+                            x: centerX - Math.cos(rotation) * 15 + Math.cos(perpAngle) * t,
+                            y: centerY - Math.sin(rotation) * 15 + Math.sin(perpAngle) * t
+                        });
+                    }
+                    positions.push({ 
+                        x: centerX - Math.cos(rotation) * height,
+                        y: centerY - Math.sin(rotation) * height 
+                    });
+                    
+                    return positions;
+                }
+            },
+            // ORBIT - Inner core with orbiting satellites (7 enemies)
+            // 1 center + 6 orbiting - creates dynamic rotation feel
+            ORBIT: {
+                minEnemies: 7,
+                maxEnemies: 7,
+                strength: 0.45,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    const orbitRadius = 65;
+                    
+                    // Center enemy (the "planet")
+                    positions.push({ x: centerX, y: centerY });
+                    
+                    // 6 orbiting enemies (the "moons")
+                    for (let i = 0; i < 6; i++) {
+                        const angle = rotation + (i / 6) * Math.PI * 2;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * orbitRadius,
+                            y: centerY + Math.sin(angle) * orbitRadius
+                        });
+                    }
+                    return positions;
+                }
+            },
             // DOUBLE_V - 10 enemies in double-V formation
             DOUBLE_V: {
                 minEnemies: 10,
@@ -430,6 +617,107 @@ class EmergentFormationDetector {
                         });
                     }
                     return positions.slice(0, 10);
+                }
+            },
+            // CROWN - 10 enemies forming a royal crown shape
+            // Base line + 3 pointed peaks - intimidating approach pattern
+            CROWN: {
+                minEnemies: 10,
+                maxEnemies: 10,
+                strength: 0.45,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    const baseWidth = 120;
+                    const peakHeight = 80;
+                    const baseY = 30;
+                    
+                    // Base of crown (4 enemies along bottom)
+                    for (let i = 0; i < 4; i++) {
+                        const t = (i - 1.5) / 1.5; // -1 to 1
+                        const x = centerX + t * (baseWidth / 2);
+                        const y = centerY + baseY;
+                        // Apply rotation around center
+                        const dx = x - centerX;
+                        const dy = y - centerY;
+                        positions.push({
+                            x: centerX + dx * Math.cos(rotation) - dy * Math.sin(rotation),
+                            y: centerY + dx * Math.sin(rotation) + dy * Math.cos(rotation)
+                        });
+                    }
+                    
+                    // Three peaks (2 enemies each = 6 enemies)
+                    const peakOffsets = [-0.75, 0, 0.75];
+                    for (const offset of peakOffsets) {
+                        // Peak tip
+                        const tipX = centerX + offset * (baseWidth / 2);
+                        const tipY = centerY - peakHeight;
+                        const dx1 = tipX - centerX;
+                        const dy1 = tipY - centerY;
+                        positions.push({
+                            x: centerX + dx1 * Math.cos(rotation) - dy1 * Math.sin(rotation),
+                            y: centerY + dx1 * Math.sin(rotation) + dy1 * Math.cos(rotation)
+                        });
+                        
+                        // Midpoint below peak
+                        const midY = centerY - peakHeight / 2;
+                        const dx2 = tipX - centerX;
+                        const dy2 = midY - centerY;
+                        positions.push({
+                            x: centerX + dx2 * Math.cos(rotation) - dy2 * Math.sin(rotation),
+                            y: centerY + dx2 * Math.sin(rotation) + dy2 * Math.cos(rotation)
+                        });
+                    }
+                    return positions.slice(0, 10);
+                }
+            },
+            // CLAW - 11 enemies in aggressive claw/talon shape
+            // Three curved prongs reaching forward - predatory attack formation
+            CLAW: {
+                minEnemies: 11,
+                maxEnemies: 11,
+                strength: 0.5,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    const prongLength = 90;
+                    const prongSpacing = 55;
+                    const curvature = 0.3;
+                    
+                    // Center prong (4 enemies)
+                    for (let i = 0; i < 4; i++) {
+                        const t = i / 3;
+                        const baseX = centerX + t * prongLength;
+                        // Curve slightly inward at tips
+                        const curve = Math.sin(t * Math.PI) * curvature * 20;
+                        const localX = t * prongLength;
+                        const localY = curve;
+                        positions.push({
+                            x: centerX + localX * Math.cos(rotation) - localY * Math.sin(rotation),
+                            y: centerY + localX * Math.sin(rotation) + localY * Math.cos(rotation)
+                        });
+                    }
+                    
+                    // Upper prong (3 enemies) - curves upward
+                    for (let i = 0; i < 3; i++) {
+                        const t = (i + 1) / 3;
+                        const localX = t * prongLength * 0.9;
+                        const localY = -prongSpacing + Math.sin(t * Math.PI) * curvature * 25;
+                        positions.push({
+                            x: centerX + localX * Math.cos(rotation) - localY * Math.sin(rotation),
+                            y: centerY + localX * Math.sin(rotation) + localY * Math.cos(rotation)
+                        });
+                    }
+                    
+                    // Lower prong (4 enemies) - curves downward
+                    for (let i = 0; i < 4; i++) {
+                        const t = i / 3;
+                        const localX = t * prongLength * 0.9;
+                        const localY = prongSpacing - Math.sin(t * Math.PI) * curvature * 25;
+                        positions.push({
+                            x: centerX + localX * Math.cos(rotation) - localY * Math.sin(rotation),
+                            y: centerY + localX * Math.sin(rotation) + localY * Math.cos(rotation)
+                        });
+                    }
+                    return positions.slice(0, 11);
                 }
             },
             // SPIRAL - Compact dual-arm spiral for 11-12 enemies
@@ -1879,7 +2167,7 @@ class EmergentFormationDetector {
 
     /**
      * Get color for constellation pattern type
-     * [UPDATED] Added all 18 patterns
+     * [UPDATED] Added all patterns including new tactical formations
      */
     getPatternColor(patternName) {
         const colors = {
@@ -1900,7 +2188,15 @@ class EmergentFormationDetector {
             'CRESCENT': { r: 200, g: 200, b: 255 },        // Pale blue
             'DOUBLE_V': { r: 255, g: 180, b: 50 },         // Gold-orange
             'SPIRAL': { r: 100, g: 255, b: 200 },          // Mint green
-            'DOUBLE_CRESCENT': { r: 255, g: 150, b: 200 }  // Light pink
+            'DOUBLE_CRESCENT': { r: 255, g: 150, b: 200 }, // Light pink
+            // New tactical patterns
+            'PINCER': { r: 220, g: 50, b: 100 },           // Crimson - aggressive flanking
+            'TRIDENT': { r: 100, g: 150, b: 255 },         // Steel blue - piercing attack
+            'SHIELD_WALL': { r: 180, g: 180, b: 200 },     // Silver - defensive
+            'HOURGLASS': { r: 255, g: 100, b: 255 },       // Fuchsia - unique shape
+            'ORBIT': { r: 150, g: 220, b: 255 },           // Light cyan - planetary
+            'CROWN': { r: 255, g: 215, b: 0 },             // Gold - royal formation
+            'CLAW': { r: 200, g: 80, b: 80 }               // Dark red - predatory
         };
         return colors[patternName] || { r: 0, g: 255, b: 153 };
     }
@@ -1929,7 +2225,15 @@ class EmergentFormationDetector {
             'DOUBLE_V': 130,       // Double V formation
             'SPIRAL': 100,         // Spiral: varies with position
             'DOUBLE_CRESCENT': 90, // Two crescents
-            'CIRCLE': 150          // Circle: dynamic radius based on count
+            'CIRCLE': 150,         // Circle: dynamic radius based on count
+            // New tactical patterns
+            'PINCER': 100,         // Pincer arms: 70px base + 20px per enemy
+            'TRIDENT': 90,         // Trident prongs: 50px spacing
+            'SHIELD_WALL': 80,     // Shield wall: tight formation
+            'HOURGLASS': 100,      // Hourglass: triangle edges
+            'ORBIT': 80,           // Orbit: tight circle around center
+            'CROWN': 110,          // Crown: peaks and base spacing
+            'CLAW': 100            // Claw: prong spacing
         };
         return lengths[patternName] || 120;
     }

@@ -889,8 +889,8 @@ class EnemySpawner {
 
     /**
      * Generate cluster sizes that add up to total wave size
-     * Creates variety: some clusters of 3, 4, 5, 6, 7 enemies for different patterns
-     * [IMPROVED] Better distribution favoring pattern-friendly sizes
+     * Creates variety: some clusters of 3, 4, 5, 6, 7, 8, 9 enemies for different patterns
+     * [IMPROVED] Better distribution favoring pattern-friendly sizes including new tactical patterns
      * @param {number} totalSize - Total number of enemies to spawn
      * @returns {Array<number>} Array of cluster sizes
      */
@@ -903,14 +903,22 @@ class EnemySpawner {
         // 4: Diamond/Line  
         // 5: Star/Cross/Pentagon/V_FORMATION
         // 6: Hexagon/V_FORMATION
-        // 7: Circle/V_FORMATION
+        // 7: Orbit/Circle/V_FORMATION
+        // 8: Hourglass/Pincer/Dual_Diamond/Octagon
+        // 9: Trident/Pincer/Crescent
+        // 10: Crown/Double_V - royal formations
+        // 11: Claw/Spiral - predatory/dynamic patterns
         // Weighted to favor more interesting patterns
         const sizeWeights = [
             { size: 3, weight: 2 },   // Triangle/Arrow - common
             { size: 4, weight: 3 },   // Diamond/Line - good variety
             { size: 5, weight: 4 },   // Star/Cross - very interesting
             { size: 6, weight: 3 },   // Hexagon - impressive
-            { size: 7, weight: 2 },   // Circle start - rare but cool
+            { size: 7, weight: 3 },   // Orbit - unique planetary look
+            { size: 8, weight: 2.5 }, // Hourglass/Pincer - tactical
+            { size: 9, weight: 2 },   // Trident/Crescent - dramatic
+            { size: 10, weight: 2 },  // Crown/Double_V - royal formations
+            { size: 11, weight: 1.5 },// Claw/Spiral - predatory/dynamic
         ];
 
         // Calculate total weight for random selection

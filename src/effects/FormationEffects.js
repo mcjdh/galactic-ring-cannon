@@ -332,7 +332,15 @@ class FormationEffects {
             'CRESCENT': { r: 200, g: 200, b: 255, intensity: 1.1 },       // Pale blue
             'DOUBLE_V': { r: 255, g: 180, b: 50, intensity: 1.2 },        // Gold-orange
             'SPIRAL': { r: 100, g: 255, b: 200, intensity: 1.2 },         // Mint green
-            'DOUBLE_CRESCENT': { r: 255, g: 150, b: 200, intensity: 1.15 } // Light pink
+            'DOUBLE_CRESCENT': { r: 255, g: 150, b: 200, intensity: 1.15 }, // Light pink
+            // Tactical patterns
+            'PINCER': { r: 220, g: 50, b: 100, intensity: 1.3 },     // Crimson - aggressive flanking
+            'TRIDENT': { r: 100, g: 150, b: 255, intensity: 1.25 },  // Steel blue - piercing
+            'SHIELD_WALL': { r: 180, g: 180, b: 200, intensity: 1.0 }, // Silver - defensive
+            'HOURGLASS': { r: 255, g: 100, b: 255, intensity: 1.3 }, // Fuchsia - unique
+            'ORBIT': { r: 150, g: 220, b: 255, intensity: 1.15 },    // Light cyan - planetary
+            'CROWN': { r: 255, g: 215, b: 0, intensity: 1.35 },      // Gold - royal
+            'CLAW': { r: 200, g: 80, b: 80, intensity: 1.25 }        // Dark red - predatory
         };
         return colors[patternName] || { r: 0, g: 255, b: 153, intensity: 1.0 };
     }
@@ -361,7 +369,15 @@ class FormationEffects {
             'DOUBLE_V': 130,       // Double V formation
             'SPIRAL': 100,         // Spiral: varies with position
             'DOUBLE_CRESCENT': 90, // Two crescents
-            'CIRCLE': 150          // Circle: dynamic radius based on count
+            'CIRCLE': 150,         // Circle: dynamic radius based on count
+            // Tactical patterns
+            'PINCER': 100,         // Pincer arms: 70px base + 20px per enemy
+            'TRIDENT': 90,         // Trident prongs: 50px spacing
+            'SHIELD_WALL': 80,     // Shield wall: tight formation
+            'HOURGLASS': 100,      // Hourglass: triangle edges
+            'ORBIT': 80,           // Orbit: tight circle around center
+            'CROWN': 110,          // Crown: peaks and base spacing
+            'CLAW': 100            // Claw: prong spacing
         };
         return lengths[patternName] || 120;
     }
@@ -784,6 +800,257 @@ class FormationEffects {
                     ctx.moveTo(e1.x, e1.y);
                     ctx.lineTo(e2.x, e2.y);
                 }
+            }
+            return;
+        }
+        
+        // PINCER: draw two curved arms (don't connect tips)
+        if (patternName === 'PINCER') {
+            const armLength = Math.ceil(sorted.length / 2);
+            // Left arm: 0 to armLength-1
+            for (let i = 0; i < armLength - 1; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Right arm: armLength to end
+            for (let i = armLength; i < sorted.length - 1; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            return;
+        }
+        
+        // TRIDENT: draw three prongs from center
+        if (patternName === 'TRIDENT' && sorted.length === 9) {
+            // Center prong: 0, 1, 2
+            for (let i = 0; i < 2; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Left prong: 3, 4, 5
+            for (let i = 3; i < 5; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Right prong: 6, 7, 8
+            for (let i = 6; i < 8; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Connect prong bases (indices 2, 5, 8 form base, 5 connects to 2 and 8)
+            const base1 = sorted[2];
+            const base2 = sorted[5];
+            const base3 = sorted[8];
+            if (base1 && base2 && !base1.isDead && !base2.isDead) {
+                ctx.moveTo(base1.x, base1.y);
+                ctx.lineTo(base2.x, base2.y);
+            }
+            if (base2 && base3 && !base2.isDead && !base3.isDead) {
+                ctx.moveTo(base2.x, base2.y);
+                ctx.lineTo(base3.x, base3.y);
+            }
+            return;
+        }
+        
+        // SHIELD_WALL: draw curved front row and support row
+        if (patternName === 'SHIELD_WALL') {
+            const frontCount = Math.ceil(sorted.length * 0.6);
+            // Front row: curved arc
+            for (let i = 0; i < frontCount - 1; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Back row: support line
+            for (let i = frontCount; i < sorted.length - 1; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Connect front corners to back corners for visual cohesion
+            if (sorted[0] && sorted[frontCount] && !sorted[0].isDead && !sorted[frontCount].isDead) {
+                ctx.moveTo(sorted[0].x, sorted[0].y);
+                ctx.lineTo(sorted[frontCount].x, sorted[frontCount].y);
+            }
+            if (sorted[frontCount - 1] && sorted[sorted.length - 1] && 
+                !sorted[frontCount - 1].isDead && !sorted[sorted.length - 1].isDead) {
+                ctx.moveTo(sorted[frontCount - 1].x, sorted[frontCount - 1].y);
+                ctx.lineTo(sorted[sorted.length - 1].x, sorted[sorted.length - 1].y);
+            }
+            return;
+        }
+        
+        // HOURGLASS: draw two triangles meeting at center
+        if (patternName === 'HOURGLASS' && sorted.length === 8) {
+            // Top triangle: 0 (tip), 1, 2, 3 (base)
+            const topTip = sorted[0];
+            // Connect tip to base corners
+            if (topTip && sorted[1] && !topTip.isDead && !sorted[1].isDead) {
+                ctx.moveTo(topTip.x, topTip.y);
+                ctx.lineTo(sorted[1].x, sorted[1].y);
+            }
+            if (topTip && sorted[3] && !topTip.isDead && !sorted[3].isDead) {
+                ctx.moveTo(topTip.x, topTip.y);
+                ctx.lineTo(sorted[3].x, sorted[3].y);
+            }
+            // Connect base: 1-2-3
+            for (let i = 1; i < 3; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Bottom triangle: 4, 5, 6 (base), 7 (tip)
+            const bottomTip = sorted[7];
+            // Connect base: 4-5-6
+            for (let i = 4; i < 6; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Connect tip to base corners
+            if (bottomTip && sorted[4] && !bottomTip.isDead && !sorted[4].isDead) {
+                ctx.moveTo(bottomTip.x, bottomTip.y);
+                ctx.lineTo(sorted[4].x, sorted[4].y);
+            }
+            if (bottomTip && sorted[6] && !bottomTip.isDead && !sorted[6].isDead) {
+                ctx.moveTo(bottomTip.x, bottomTip.y);
+                ctx.lineTo(sorted[6].x, sorted[6].y);
+            }
+            return;
+        }
+        
+        // ORBIT: draw center to all satellites, and satellite ring
+        if (patternName === 'ORBIT' && sorted.length === 7) {
+            const center = sorted[0];
+            if (center && !center.isDead) {
+                // Connect center to all satellites
+                for (let i = 1; i < sorted.length; i++) {
+                    const sat = sorted[i];
+                    if (sat && !sat.isDead) {
+                        ctx.moveTo(center.x, center.y);
+                        ctx.lineTo(sat.x, sat.y);
+                    }
+                }
+                // Connect satellites in a ring
+                for (let i = 1; i < sorted.length; i++) {
+                    const next = i === sorted.length - 1 ? 1 : i + 1;
+                    const e1 = sorted[i];
+                    const e2 = sorted[next];
+                    if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                        ctx.moveTo(e1.x, e1.y);
+                        ctx.lineTo(e2.x, e2.y);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // CROWN: draw base line and three peaks
+        if (patternName === 'CROWN' && sorted.length === 10) {
+            // Base: 0, 1, 2, 3
+            for (let i = 0; i < 3; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Each peak: tip (4,6,8) + midpoint (5,7,9)
+            // Connect base to peaks
+            for (let peakIdx = 0; peakIdx < 3; peakIdx++) {
+                const tipIdx = 4 + peakIdx * 2;
+                const midIdx = 5 + peakIdx * 2;
+                const tip = sorted[tipIdx];
+                const mid = sorted[midIdx];
+                // Connect midpoint to tip
+                if (tip && mid && !tip.isDead && !mid.isDead) {
+                    ctx.moveTo(mid.x, mid.y);
+                    ctx.lineTo(tip.x, tip.y);
+                }
+                // Connect base to midpoint (distribute peaks across base)
+                const baseIdx = Math.min(peakIdx, 3);
+                const base = sorted[baseIdx];
+                if (base && mid && !base.isDead && !mid.isDead) {
+                    ctx.moveTo(base.x, base.y);
+                    ctx.lineTo(mid.x, mid.y);
+                }
+            }
+            return;
+        }
+        
+        // CLAW: draw three curved prongs
+        if (patternName === 'CLAW' && sorted.length === 11) {
+            // Center prong: 0, 1, 2, 3
+            for (let i = 0; i < 3; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Upper prong: 4, 5, 6
+            for (let i = 4; i < 6; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Lower prong: 7, 8, 9, 10
+            for (let i = 7; i < 10; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Connect prong roots (0, 4, 7)
+            const root0 = sorted[0];
+            const root1 = sorted[4];
+            const root2 = sorted[7];
+            if (root0 && root1 && !root0.isDead && !root1.isDead) {
+                ctx.moveTo(root0.x, root0.y);
+                ctx.lineTo(root1.x, root1.y);
+            }
+            if (root0 && root2 && !root0.isDead && !root2.isDead) {
+                ctx.moveTo(root0.x, root0.y);
+                ctx.lineTo(root2.x, root2.y);
             }
             return;
         }
