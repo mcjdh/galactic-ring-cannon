@@ -16,48 +16,30 @@ class LocalForceProducer {
         this.entity = entity;
         this.game = game;
 
-        // [PERFORMANCE] Frame skipping for non-critical updates
-        // Stagger updates across frames to reduce per-frame work
-        this._frameCounter = Math.floor(Math.random() * 3); // Random start to desync entities
-        this._updateInterval = 2; // Only calculate forces every N frames
+        // [FIXED] Removed frame skipping - it caused stuttery, inconsistent movement
+        // The performance gain wasn't worth the visual quality loss
+        // Instead, we optimize the neighbor search itself
 
         // Tuning constants - unified from atomic + flocking
-        // (No longer triple-applied, so we can use reasonable values)
-
         // Separation (prevent overlap)
-        this.separationRadius = (entity.radius || 15) * 2.5;
+        this.separationRadius = (entity.radius || 15) * 2.2;  // Slightly reduced for tighter formations
         this.separationRadiusSq = this.separationRadius * this.separationRadius;
-        // [FIXED] Increased separation strength to prevent stacking
-        this.separationStrength = 800;
+        this.separationStrength = 600;  // Reduced - was causing jitter when too high
 
         // Group behavior (alignment + cohesion)
-        this.neighborRadius = this.separationRadius * 2.0;
+        this.neighborRadius = this.separationRadius * 1.8;  // Reduced from 2.0
         this.neighborRadiusSq = this.neighborRadius * this.neighborRadius;
-        // [TUNED] Increased alignment for better group cohesion
-        this.alignmentStrength = 80;
-        // [TUNED] Reduced cohesion to prevent clumping that causes stuck enemies
-        this.cohesionStrength = 20;
+        this.alignmentStrength = 50;  // Reduced from 80 - less fighting with formation forces
+        this.cohesionStrength = 15;   // Reduced from 20
 
-        // Constellation-aware scaling
-        // Within same constellation: still need strong separation to maintain shape
-        // Between different constellations: very strong separation (prevent collision)
-        // [FIXED] Increased scales significantly to prevent stacking
-        this.constellationSeparationScale = 0.7;  // Was 0.3 - too weak
-        this.differentConstellationScale = 1.0;
-
-        // [PERFORMANCE] Cache last calculated forces to use on skipped frames
-        this._cachedForceX = 0;
-        this._cachedForceY = 0;
-        this._cachedCollisionX = 0;
-        this._cachedCollisionY = 0;
+        // Overlap threshold - when enemies are THIS close, apply hard collision
+        this.hardOverlapRadius = (entity.radius || 15) * 1.6;
+        this.hardOverlapRadiusSq = this.hardOverlapRadius * this.hardOverlapRadius;
     }
 
     /**
      * Calculate all local forces from neighbors
      * Single spatial grid traversal replaces atomic + flocking
-     * 
-     * [PERFORMANCE] Uses frame skipping to reduce CPU load - only recalculates
-     * every N frames, using cached values in between.
      * 
      * @param {ForceAccumulator} forceAccumulator - Target accumulator
      * @param {number} deltaTime - Time step
@@ -66,24 +48,12 @@ class LocalForceProducer {
         const grid = this.game.spatialGrid;
         if (!grid || !this.game.gridSize) return;
 
-        // [PERFORMANCE] Frame skipping - only recalculate every N frames
-        this._frameCounter++;
-        const shouldRecalculate = (this._frameCounter % this._updateInterval) === 0;
-
-        // Always apply collision forces (safety critical) but skip flocking on off-frames
-        if (!shouldRecalculate) {
-            // Use cached forces from last calculation, scaled by deltaTime ratio
-            forceAccumulator.addForce('local', this._cachedForceX, this._cachedForceY);
-            forceAccumulator.addForce('collision', this._cachedCollisionX, this._cachedCollisionY);
-            return;
-        }
-
         // [FIX] Formations/constellations still need SEPARATION to prevent overlap
         // Only skip alignment/cohesion (handled by their managers)
         const isManaged = !!(this.entity.formationId || this.entity.constellation);
 
-        // Skip if performance mode is critical
-        if (this.game.performanceMode && this.game.performanceManager?.performanceMode === 'critical') return;
+        // Skip entirely if performance mode is critical (rare)
+        if (this.game.performanceManager?.performanceMode === 'critical') return;
 
         // Calculate grid position
         const gridX = Math.floor(this.entity.x / this.game.gridSize);
@@ -128,7 +98,6 @@ class LocalForceProducer {
                     const myRadius = this.entity.radius || 15;
                     const otherRadius = other.radius || 15;
                     const combinedRadii = myRadius + otherRadius;
-                    const hardCollisionDist = combinedRadii * 0.8;  // Trigger when nearly touching
                     
                     // Pre-calculate group membership for collision and separation logic
                     const sameConstellation = this.entity.constellation &&
@@ -138,44 +107,37 @@ class LocalForceProducer {
                     const bothInSameGroup = sameConstellation || sameFormation;
 
                     // === HARD COLLISION FORCE (actual overlap - emergency separation) ===
-                    // [FIXED] Only apply collision force between different groups to prevent jitter
-                    if (distSq < hardCollisionDist * hardCollisionDist && distSq > 0.01 && !bothInSameGroup) {
+                    // [SIMPLIFIED] Apply to ALL overlapping enemies, but gentler for same-group
+                    if (distSq < this.hardOverlapRadiusSq && distSq > 0.01) {
                         const dist = Math.sqrt(distSq);
-                        const penetration = hardCollisionDist - dist;
-                        const emergencyForce = 600 * (penetration / hardCollisionDist);  // Reduced from 2000
+                        const penetration = Math.max(0, combinedRadii * 0.9 - dist);
                         
-                        collisionX += (deltaX / dist) * emergencyForce * deltaTime;
-                        collisionY += (deltaY / dist) * emergencyForce * deltaTime;
+                        if (penetration > 0) {
+                            // Gentler force for same-group to prevent jitter, stronger for different groups
+                            const forceScale = bothInSameGroup ? 200 : 500;
+                            const emergencyForce = forceScale * (penetration / combinedRadii);
+                            
+                            collisionX += (deltaX / dist) * emergencyForce * deltaTime;
+                            collisionY += (deltaY / dist) * emergencyForce * deltaTime;
+                        }
                     }
 
                     // === SEPARATION FORCE (close range) ===
+                    // [SIMPLIFIED] Always apply some separation, scaled by group membership
                     if (distSq < this.separationRadiusSq && distSq > 0.1) {
                         const dist = Math.sqrt(distSq);
-                        const overlap = this.separationRadius - dist;
-                        const inAnyConstellation = !!this.entity.constellation;
-                        const inAnyFormation = !!this.entity.formationId;
+                        const proximityRatio = 1 - (dist / this.separationRadius);  // 1.0 at center, 0.0 at edge
 
-                        // [FIXED] Minimal separation within same group to prevent jitter
-                        let scale = 1.0;
-                        if (bothInSameGroup) {
-                            // Within same constellation/formation: only push if actually overlapping
-                            const actualOverlap = combinedRadii - dist;
-                            if (actualOverlap > 0) {
-                                scale = 0.2;  // Very gentle push only when truly overlapping
-                            } else {
-                                scale = 0;  // No separation force - let positioning system handle it
-                            }
-                        } else if (inAnyConstellation || inAnyFormation) {
-                            // In a group but other entity is not in same group
-                            scale = 1.0;
-                        }
+                        // Scale based on group membership
+                        // Same group: very light separation (positioning system handles it)
+                        // Different group: full separation
+                        const scale = bothInSameGroup ? 0.15 : 1.0;
                         
-                        // Skip if scale is zero
-                        if (scale === 0) continue;
+                        // Skip negligible forces
+                        if (scale * proximityRatio < 0.05) continue;
 
-                        // Calculate separation force
-                        const hardness = 1 + (overlap / this.separationRadius) * 2;
-                        const force = this.separationStrength * scale * (overlap / this.separationRadius) * hardness;
+                        // Calculate separation force - quadratic falloff for smoother behavior
+                        const force = this.separationStrength * scale * proximityRatio * proximityRatio;
 
                         separationX += (deltaX / dist) * force;
                         separationY += (deltaY / dist) * force;
@@ -236,13 +198,7 @@ class LocalForceProducer {
             }
         }
 
-        // [PERFORMANCE] Cache calculated forces for use on skipped frames
-        this._cachedForceX = totalFx;
-        this._cachedForceY = totalFy;
-        this._cachedCollisionX = collisionX;
-        this._cachedCollisionY = collisionY;
-
-        // Add to force accumulator
+        // Add to force accumulator (no caching - applied every frame)
         forceAccumulator.addForce('local', totalFx, totalFy);
         forceAccumulator.addForce('collision', collisionX, collisionY);
     }

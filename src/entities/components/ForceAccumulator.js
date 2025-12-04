@@ -44,9 +44,9 @@ class ForceAccumulator {
             collision: 1.0,      // Always active (safety override)
             external: 1.0        // Always active (environmental effects)
         };
-        // Managed entities still need some separation; this weight is applied to the
-        // local channel when formation/constellation flags are active.
-        this.managedLocalWeight = 0.6;
+        // [INCREASED] Managed entities need stronger local forces for separation
+        // 0.8 allows separation forces to prevent overlap while letting formation forces steer
+        this.managedLocalWeight = 0.8;
 
         // Debug tracking
         this.debugEnabled = false;

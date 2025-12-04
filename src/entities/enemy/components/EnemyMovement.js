@@ -120,7 +120,7 @@ class EnemyMovement {
 
     /**
      * Apply steering force toward formation target position
-     * [TUNED] Stronger forces and no dead zone to prevent enemies freezing
+     * [SIMPLIFIED] Direct velocity-based steering for consistent behavior
      */
     _applyFormationForce(deltaTime, formation, game) {
         const enemy = this.enemy;
@@ -138,59 +138,43 @@ class EnemyMovement {
         const dy = targetPos.y - enemy.y;
         const dist = Math.hypot(dx, dy);
 
-        // [FIX] Always apply some force - use seek instead of arrive to prevent stopping
-        // Formation enemies should always be moving since the formation moves toward player
-        if (dist > 0.1) {
-            // Use SteeringUtils.seek for continuous movement (no deceleration)
-            if (window.Game?.SteeringUtils) {
-                // [IMPROVED] Use 'arrive' behavior with a small slowing radius for smoother settling
-                // but keep the force high to prevent lagging behind
-                const steering = window.Game.SteeringUtils.arrive(
-                    { x: enemy.x, y: enemy.y },
-                    { x: targetPos.x, y: targetPos.y },
-                    this.velocity,
-                    {
-                        maxSpeed: (this.maxSpeed || 100) * 1.3,
-                        deceleration: 0.5 // Low value = fast arrival (distance / deceleration)
-                    }
-                );
-                // [BUFFED] Increased force multiplier for more responsive formation keeping
-                this.forceAccumulator.addForce('formation', steering.x * 120 * deltaTime, steering.y * 120 * deltaTime);
-            } else {
-                // Fallback spring force - no dead zone
-                // [IMPROVED] Damped spring for organic movement
-                const springStrength = 20.0;  // Stronger spring
-                const damping = 0.8;
-                
-                const targetVelX = (dx / dist) * (enemy.speed || 100);
-                const targetVelY = (dy / dist) * (enemy.speed || 100);
-                
-                // Spring force: k * displacement
-                const springX = dx * springStrength;
-                const springY = dy * springStrength;
-                
-                // Damping force: -c * velocity
-                const dampX = -this.velocity.x * damping;
-                const dampY = -this.velocity.y * damping;
-                
-                this.forceAccumulator.addForce('formation', (springX + dampX) * deltaTime, (springY + dampY) * deltaTime);
-            }
+        // Always apply force toward target (no dead zone that causes freezing)
+        if (dist < 1) return;  // Only skip if essentially at target
+        
+        // Simple velocity steering toward target
+        const maxSpeed = (this.maxSpeed || 100) * 1.2;  // Slightly faster than max to catch up
+        const arrivalRadius = 50;  // Start slowing at this distance
+        
+        let desiredSpeed;
+        if (dist > arrivalRadius) {
+            desiredSpeed = maxSpeed;
+        } else {
+            // Cubic smoothstep for gentle arrival
+            const t = dist / arrivalRadius;
+            desiredSpeed = maxSpeed * t * (2 - t);  // Quadratic falloff
         }
+        
+        // Desired velocity toward target
+        const desiredVelX = (dx / dist) * desiredSpeed;
+        const desiredVelY = (dy / dist) * desiredSpeed;
+        
+        // Steering force
+        const steerStrength = 4.0;
+        const steerX = (desiredVelX - this.velocity.x) * steerStrength * deltaTime * 50;
+        const steerY = (desiredVelY - this.velocity.y) * steerStrength * deltaTime * 50;
+        
+        this.forceAccumulator.addForce('formation', steerX, steerY);
     }
 
     /**
      * Apply steering force toward constellation target position
-     * [FIXED] Simplified stable spring-damper system to prevent oscillation
+     * [REWRITTEN] Simple velocity-based approach that prevents oscillation
      */
     _applyConstellationForce(deltaTime, constellation, game) {
         const enemy = this.enemy;
-        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        const joinAge = now - (enemy.constellationJoinedAt || now);
-        const isFreshJoin = joinAge < 2000;
-
+        
         // Get target positions (cached per frame)
         const targetPositions = this._getConstellationPositions(constellation);
-
         if (!targetPositions || targetPositions.length === 0) return;
 
         const anchorIndex = enemy.constellationAnchor ?? 0;
@@ -201,64 +185,44 @@ class EnemyMovement {
         const dy = target.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // [FIXED] Simple critically-damped spring system
-        // Uses velocity-based approach rather than acceleration-based to prevent oscillation
+        // [SIMPLE APPROACH] Direct velocity steering toward target
+        // No complex spring-damper system that can oscillate
         
-        // Calculate desired velocity toward target
-        // Speed scales with distance but caps at max speed
-        const maxApproachSpeed = isFreshJoin ? 180 : 120;
-        const minSpeed = 5;  // Always move at least a little if not at target
-        
-        // Dead zone - if very close, just stop
-        if (dist < 3) {
-            // Apply gentle velocity damping to settle
+        // Dead zone - if very close, apply gentle damping to settle
+        if (dist < 5) {
             this.forceAccumulator.addForce('constellation',
-                -this.velocity.x * 3.0 * deltaTime,
-                -this.velocity.y * 3.0 * deltaTime
+                -this.velocity.x * 2.0 * deltaTime,
+                -this.velocity.y * 2.0 * deltaTime
             );
             return;
         }
         
-        // Desired speed: fast when far, slow when close (smooth arrival)
-        const arrivalRadius = 60;  // Start slowing down at this distance
+        // Calculate desired speed based on distance
+        // Close = slow, Far = fast (arrival behavior)
+        const maxSpeed = 140;  // Max approach speed
+        const arrivalRadius = 80;  // Start slowing at this distance
+        
         let desiredSpeed;
         if (dist > arrivalRadius) {
-            desiredSpeed = maxApproachSpeed;
+            desiredSpeed = maxSpeed;
         } else {
-            // Linear slowdown as we approach
-            desiredSpeed = Math.max(minSpeed, maxApproachSpeed * (dist / arrivalRadius));
+            // Smooth cubic falloff for gentle arrival
+            const t = dist / arrivalRadius;  // 0 to 1
+            desiredSpeed = maxSpeed * (t * t * (3 - 2 * t));  // Smoothstep
         }
         
         // Desired velocity toward target
         const desiredVelX = (dx / dist) * desiredSpeed;
         const desiredVelY = (dy / dist) * desiredSpeed;
         
-        // Steering force: smoothly blend current velocity toward desired
-        // Higher values = snappier but can oscillate
-        // Lower values = smoother but sluggish
-        const steerStrength = isFreshJoin ? 4.0 : 2.5;
+        // Steering force: blend toward desired velocity
+        // [KEY] Fixed multiplier, not dependent on complex factors
+        const steerStrength = 3.5;  // How quickly to change direction
         
-        const steerX = (desiredVelX - this.velocity.x) * steerStrength;
-        const steerY = (desiredVelY - this.velocity.y) * steerStrength;
+        const steerX = (desiredVelX - this.velocity.x) * steerStrength * deltaTime * 50;
+        const steerY = (desiredVelY - this.velocity.y) * steerStrength * deltaTime * 50;
         
-        this.forceAccumulator.addForce('constellation', steerX * deltaTime * 50, steerY * deltaTime * 50);
-
-        // Catch-up pull if too far from constellation center (emergency only)
-        const maxConstellationRadius = 280;
-        const toCenterX = constellation.centerX - enemy.x;
-        const toCenterY = constellation.centerY - enemy.y;
-        const distToCenterSq = toCenterX * toCenterX + toCenterY * toCenterY;
-        const catchUpThresholdSq = maxConstellationRadius * maxConstellationRadius * 0.5;
-        
-        if (distToCenterSq > catchUpThresholdSq) {
-            const distToCenter = Math.sqrt(distToCenterSq);
-            const pullStrength = (distToCenter / maxConstellationRadius - 0.7) * 2;  // Ramps up past 70%
-            const catchUpForce = 600 * Math.max(0, pullStrength);
-            this.forceAccumulator.addForce('constellation',
-                (toCenterX / distToCenter) * catchUpForce * deltaTime,
-                (toCenterY / distToCenter) * catchUpForce * deltaTime
-            );
-        }
+        this.forceAccumulator.addForce('constellation', steerX, steerY);
     }
 
     /**
@@ -332,8 +296,7 @@ class EnemyMovement {
 
     /**
      * [REFACTORED] Calculate and apply steering forces based on current pattern
-     * Instead of setting velocity directly, we calculate a desired velocity
-     * and apply a steering force to reach it.
+     * Calculates a desired velocity and applies a steering force to reach it.
      */
     applyPatternForces(deltaTime, game) {
         if (!this.forceAccumulator) return;
@@ -348,8 +311,6 @@ class EnemyMovement {
             return;
         }
 
-        // If we have a target direction from AI, that overrides specific patterns
-        // (AI is the "brain", Movement is the "legs")
         // Use pooled object
         const desiredVelocity = this._tempDesiredVelocity;
         desiredVelocity.x = 0;
@@ -358,38 +319,32 @@ class EnemyMovement {
         const moveSpeed = this.enemy.speed || 100;
         let currentSteeringStrength = this.steeringStrength;
 
-        // [FIX] Priority: Dash > AI > Pattern
+        // Priority: Dash > AI > Pattern
         if (this.enemy.abilities && this.enemy.abilities.isDashing) {
-            // Dash override
+            // Dash override - very high speed
             const dashSpeed = this.enemy.abilities.dashSpeed || (moveSpeed * 3);
             const dashDir = this.enemy.abilities.dashDirection || { x: 1, y: 0 };
 
             desiredVelocity.x = dashDir.x * dashSpeed;
             desiredVelocity.y = dashDir.y * dashSpeed;
 
-            // Dash needs high steering strength to be snappy
-            currentSteeringStrength = 20.0;
-        } else if (this.enemy.targetDirection) {
-            // AI-driven movement (Direct/Pursuit)
+            currentSteeringStrength = 15.0;  // Snappy dash
+        } else if (this.enemy.targetDirection && 
+                   (this.enemy.targetDirection.x !== 0 || this.enemy.targetDirection.y !== 0)) {
+            // AI-driven movement
             desiredVelocity.x = this.enemy.targetDirection.x * moveSpeed;
             desiredVelocity.y = this.enemy.targetDirection.y * moveSpeed;
         } else {
-            // Pattern-driven movement (Fallback if no AI target)
-            // Calculate desired velocity based on pattern
-            // Pass the pooled object to be filled
+            // Pattern-driven movement (fallback)
             this.calculatePatternVelocity(deltaTime, game, desiredVelocity);
         }
 
-        // Calculate Steering Force: F = (Desired - Current) * SteeringStrength
-        // Higher steering strength = snappier movement
-        // Lower steering strength = more "drift"
+        // Calculate Steering Force
+        // [SIMPLIFIED] Direct force calculation without complex scaling
+        const steerX = (desiredVelocity.x - this.velocity.x) * currentSteeringStrength * deltaTime * 40;
+        const steerY = (desiredVelocity.y - this.velocity.y) * currentSteeringStrength * deltaTime * 40;
 
-        const steerX = (desiredVelocity.x - this.velocity.x) * currentSteeringStrength * deltaTime;
-        const steerY = (desiredVelocity.y - this.velocity.y) * currentSteeringStrength * deltaTime;
-
-        // Apply as a 'local' force (or could be a new 'steering' category)
-        // Using 'local' for now as it represents the entity's own volition
-        this.forceAccumulator.addForce('local', steerX * 50, steerY * 50); // Scale up for mass
+        this.forceAccumulator.addForce('local', steerX, steerY);
     }
 
     /**
@@ -504,23 +459,25 @@ class EnemyMovement {
         const netForce = this.forceAccumulator.computeNetForce();
 
         // 2. Apply Force to Velocity (F = ma, assume m=1 for now)
+        // [FIX] Forces are already scaled by deltaTime in their producers, so apply directly
         this.velocity.x += netForce.x;
         this.velocity.y += netForce.y;
 
-        // 3. Apply Friction/Damping (frame-rate independent)
-        // [FIX] Normalize friction to 60fps to prevent sliding differences at varying framerates
-        const frictionFactor = Math.pow(this.friction, deltaTime * 60);
-        this.velocity.x *= frictionFactor;
-        this.velocity.y *= frictionFactor;
+        // 3. Apply Friction/Damping
+        // [SIMPLIFIED] Use a constant friction per frame for stability
+        // Instead of frame-rate dependent exponential decay
+        const frictionPerFrame = 0.92;  // 8% velocity loss per frame
+        this.velocity.x *= frictionPerFrame;
+        this.velocity.y *= frictionPerFrame;
 
         // 4. Clamp Velocity to Max Speed
-        // (Allow exceeding max speed slightly from external forces like knockback)
         const speedSq = this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y;
         const maxSpeedSq = this.maxSpeed * this.maxSpeed;
 
         if (speedSq > maxSpeedSq) {
             // Soft cap: only clamp if not being knocked back
-            if (this.knockbackVelocity.x === 0 && this.knockbackVelocity.y === 0) {
+            const hasKnockback = Math.abs(this.knockbackVelocity.x) > 1 || Math.abs(this.knockbackVelocity.y) > 1;
+            if (!hasKnockback) {
                 const speed = Math.sqrt(speedSq);
                 const scale = this.maxSpeed / speed;
                 this.velocity.x *= scale;
@@ -615,55 +572,58 @@ class EnemyMovement {
     }
 
     /**
-     * Check if enemy is stuck
-     * [TUNED] More aggressive stuck detection and recovery with anti-jitter cooldown
+     * Check if enemy is stuck and apply recovery
+     * [IMPROVED] More reliable detection and stronger recovery
      */
     checkStuck(deltaTime) {
-        // [FIX] Cooldown prevents rapid re-triggering that causes jitter
+        // Cooldown prevents rapid re-triggering
         if (this._stuckCooldown > 0) {
             this._stuckCooldown -= deltaTime;
             return;
         }
 
         this.stuckTimer += deltaTime;
-        // [FIX] Check more frequently (0.5s) for faster stuck recovery
-        if (this.stuckTimer >= 0.5) {
+        
+        // Check every 0.4 seconds
+        if (this.stuckTimer >= 0.4) {
             const dx = this.enemy.x - this.lastPosition.x;
             const dy = this.enemy.y - this.lastPosition.y;
             const distSq = dx * dx + dy * dy;
 
-            // [FIX] If moved less than 5 pixels in 0.5 second, consider stuck
-            // This catches enemies that are barely moving
-            if (distSq < 25 && !this.enemy.isDead) {
+            // If moved less than 3 pixels in 0.4 seconds, consider stuck
+            // (That's only 7.5 pixels/second - essentially not moving)
+            if (distSq < 9 && !this.enemy.isDead) {
                 this.isStuck = true;
+                this._stuckCooldown = 2.0;  // Don't check again for 2 seconds
                 
-                // [FIX] Set cooldown to prevent jitter from repeated stuck detection
-                this._stuckCooldown = 1.5; // Don't check again for 1.5 seconds
-                
-                // Attempt to unstuck: apply directional impulse toward player (smarter than random)
+                // Recovery: Apply strong impulse in a smart direction
                 if (this.forceAccumulator) {
                     let angle;
                     const player = window.gameManager?.player;
+                    
                     if (player && !player.isDead) {
-                        // Push toward player (more likely to be open space)
+                        // Push toward player with randomness
                         const toPlayerX = player.x - this.enemy.x;
                         const toPlayerY = player.y - this.enemy.y;
                         angle = Math.atan2(toPlayerY, toPlayerX);
-                        // Add some randomness to avoid all enemies going same direction
-                        angle += (Math.random() - 0.5) * Math.PI * 0.5;
+                        angle += (Math.random() - 0.5) * Math.PI * 0.6;  // ±54 degree spread
                     } else {
                         angle = Math.random() * Math.PI * 2;
                     }
                     
-                    // [BUFFED] Stronger impulse for more reliable unstuck
-                    const impulseStrength = 2000;
+                    // Strong impulse to break out of stuck state
+                    const impulseStrength = 3000;
                     this.forceAccumulator.addForce('external', 
                         Math.cos(angle) * impulseStrength, 
                         Math.sin(angle) * impulseStrength
                     );
+                    
+                    // Also directly add some velocity to ensure movement
+                    this.velocity.x += Math.cos(angle) * 50;
+                    this.velocity.y += Math.sin(angle) * 50;
                 }
                 
-                // [FIX] Also give AI a new direction to pursue
+                // Give AI a new random direction
                 if (this.enemy.targetDirection) {
                     const newAngle = Math.random() * Math.PI * 2;
                     this.enemy.targetDirection.x = Math.cos(newAngle);

@@ -153,11 +153,12 @@ class EnemyAI {
     handleIdleState(deltaTime, game) {
         if (this.target && this.isAggressive) {
             this.changeState('pursuing');
+            return;
         }
 
-        // Random movement when idle - more frequent direction changes
-        // [FIX] Changed from 2.0s to 0.8s to prevent enemies standing still
-        if (this.stateTimer > 0.8) {
+        // Random movement when idle - frequent direction changes to appear alive
+        // [IMPROVED] Changed from 0.8s to 0.5s for more active movement
+        if (this.stateTimer > 0.5) {
             const angle = Math.random() * Math.PI * 2;
             this.enemy.targetDirection = {
                 x: Math.cos(angle),
@@ -166,14 +167,14 @@ class EnemyAI {
             this.stateTimer = 0;
         }
         
-        // [FIX] If no direction set yet, set one immediately AND reset timer
-        if (this.enemy.targetDirection.x === 0 && this.enemy.targetDirection.y === 0) {
+        // [FIX] If no direction set, set one immediately
+        if (!this.enemy.targetDirection || 
+            (this.enemy.targetDirection.x === 0 && this.enemy.targetDirection.y === 0)) {
             const angle = Math.random() * Math.PI * 2;
             this.enemy.targetDirection = {
                 x: Math.cos(angle),
                 y: Math.sin(angle)
             };
-            this.stateTimer = 0; // [FIX] Reset timer to prevent immediate re-randomization
         }
     }
 
@@ -228,7 +229,7 @@ class EnemyAI {
             this.attackTimer = 0;
         }
 
-        // Slight movement to maintain optimal attack distance (with hysteresis to prevent jittering)
+        // Movement while in attack state
         const C = EnemyAI.AI_CONSTANTS;
         const optimalDistance = this.getAttackRange() * C.OPTIMAL_ATTACK_DISTANCE_RATIO;
         const hysteresisRange = optimalDistance * C.ATTACK_HYSTERESIS_RATIO;
@@ -246,17 +247,15 @@ class EnemyAI {
                 y: direction.y * C.APPROACH_SPEED
             };
         } else {
-            // In optimal range - circle strafe instead of standing still
-            // [FIX] Previous damping caused exponential decay to zero, making enemies freeze
-            // Now enemies strafe perpendicular to target for dynamic combat
-            // [IMPROVED] Oscillate strafe direction for more organic movement
-            const strafeAngle = Math.PI / 2; // 90 degrees
-            const strafeSpeed = 0.3;
-            const oscillation = Math.sin(this.stateTimer * 1.5); // Oscillate direction
-            const finalAngle = strafeAngle * oscillation;
+            // In optimal range - circle strafe for dynamic combat
+            // [IMPROVED] Consistent strafing that doesn't decay to zero
+            const strafeSpeed = 0.4;  // Increased from 0.3
+            const strafeDirection = Math.sin(this.stateTimer * 2) > 0 ? 1 : -1;  // Oscillate direction
+            
+            // Perpendicular to target (strafe)
             this.enemy.targetDirection = {
-                x: (direction.x * Math.cos(finalAngle) - direction.y * Math.sin(finalAngle)) * strafeSpeed,
-                y: (direction.x * Math.sin(finalAngle) + direction.y * Math.cos(finalAngle)) * strafeSpeed
+                x: -direction.y * strafeSpeed * strafeDirection,
+                y: direction.x * strafeSpeed * strafeDirection
             };
         }
     }

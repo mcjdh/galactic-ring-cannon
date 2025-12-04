@@ -14,23 +14,23 @@ class EmergentFormationDetector {
         this.game = game;
 
         // Detection parameters
-        // [TUNED] Balanced detection for interesting shapes instead of binary swarms
-        this.detectionRadius = 160; // Increased slightly for more clustering opportunities
-        this.minEnemiesForConstellation = 3; // [FIX] Increased from 2 - require 3+ for proper shapes
-        this.maxConstellations = 10; // BUFFED: Was 8 - Allow more simultaneous constellations
-        this.detectionInterval = 0.18; // Slightly faster detection for snappier linking
+        // [OPTIMIZED] Slightly longer detection interval to reduce CPU load
+        this.detectionRadius = 150;  // Reduced from 160 for tighter, more natural clusters
+        this.minEnemiesForConstellation = 3;
+        this.maxConstellations = 8;  // Reduced from 10 to prevent overwhelming the system
+        this.detectionInterval = 0.25;  // Increased from 0.18 for better performance
         this.detectionTimer = 0;
-        this.maxConstellationRadius = 280; // Increased from 250 to accommodate larger patterns
+        this.maxConstellationRadius = 250;  // Reduced from 280
         this.maxConstellationRadiusSq = this.maxConstellationRadius * this.maxConstellationRadius;
-        this.integrityStrikeLimit = 30; // [TUNED] Increased from 18 for more stable formations
-        this.constellationStandoffDistance = 220; // Desired distance from player for constellation centers
-        this.constellationChaseGain = 1.0; // [REDUCED] How quickly centers correct toward/away from player
-        this.constellationOrbitGain = 0.4; // [REDUCED] Tangential motion to keep shapes moving as a unit
-        this.constellationRotationAlign = 1.0; // Radians/sec alignment toward the player
-        this.constellationReformCooldownMs = 600; // Faster re-linking after breaks
-        this.mergeInterval = 9999; // Effectively pause merging to reduce churn
+        this.integrityStrikeLimit = 25;  // Reduced from 30 for faster cleanup of broken formations
+        this.constellationStandoffDistance = 200;  // Reduced from 220
+        this.constellationChaseGain = 0.6;  // Reduced from 1.0 for smoother movement
+        this.constellationOrbitGain = 0.25;  // Reduced from 0.4 for less wobble
+        this.constellationRotationAlign = 0.5;  // Reduced from 1.0 for gentler rotation
+        this.constellationReformCooldownMs = 800;  // Increased from 600 to prevent churn
+        this.mergeInterval = 9999;  // Effectively disabled - merging causes instability
         this.mergeTimer = 0;
-        this.maxConstellationMaxSpeed = 850; // Max speed for enemies in constellations
+        this.maxConstellationMaxSpeed = 700;  // Reduced from 850 for smoother movement
 
         // Active constellations (emergent patterns)
         this.constellations = [];
@@ -879,14 +879,9 @@ class EmergentFormationDetector {
 
     /**
      * Update constellation state (center, rotation) and detect stuck enemies
-     * [REFACTORED] Force application moved to EnemyMovement.applyManagedStructureForces()
-     * to fix timing issue where forces were reset before being applied.
+     * [SIMPLIFIED] Removed complex calculations that caused lag and oscillation
      */
     applyConstellationForces(deltaTime) {
-        const now = (typeof performance !== 'undefined' && performance.now)
-            ? performance.now()
-            : Date.now();
-
         for (const constellation of this.constellations) {
             constellation.age += deltaTime;
 
@@ -906,131 +901,41 @@ class EmergentFormationDetector {
             centerX /= validEnemies;
             centerY /= validEnemies;
 
-            // [FIXED] Smoother center tracking - slower blend to prevent jerky movement
-            // Blend more slowly when constellation is young (settling in)
-            const ageBlendFactor = Math.min(1, constellation.age / 3);  // Ramps up over 3 seconds
-            const blendFactor = 0.3 + 0.3 * ageBlendFactor;  // 0.3 to 0.6
+            // [SIMPLIFIED] Smooth center tracking with fixed blend factor
+            // No complex age-based calculations that vary per frame
+            const blendFactor = 0.4;
             constellation.centerX = constellation.centerX * (1 - blendFactor) + centerX * blendFactor;
             constellation.centerY = constellation.centerY * (1 - blendFactor) + centerY * blendFactor;
 
-            // Group-level steering toward player with standoff and mild orbit
-            // [IMPROVED] Slower movement when constellation is young to let it form
+            // Group-level steering toward player with standoff
             const player = this.game?.player;
             if (player) {
                 const dxp = player.x - constellation.centerX;
                 const dyp = player.y - constellation.centerY;
                 const dist = Math.sqrt(dxp * dxp + dyp * dyp) || 1;
 
+                // Simple distance error calculation
                 const standoff = this.constellationStandoffDistance;
                 const distError = dist - standoff;
-                const clampedError = Math.max(-standoff * 1.5, Math.min(standoff * 1.5, distError));
                 
-                // Slower chase when young, faster when established
-                const chaseMultiplier = 0.3 + 0.5 * ageBlendFactor;  // 0.3 to 0.8 over 3 seconds
-                let chaseStep = clampedError * this.constellationChaseGain * chaseMultiplier * deltaTime;
+                // [SIMPLIFIED] Linear movement toward/away from standoff distance
+                const moveSpeed = 80;  // Pixels per second base speed
+                const errorSign = distError > 0 ? 1 : -1;
+                const errorMagnitude = Math.min(Math.abs(distError), 150);  // Cap error contribution
+                
+                const moveAmount = errorSign * (errorMagnitude / 150) * moveSpeed * deltaTime;
+                constellation.centerX += (dxp / dist) * moveAmount;
+                constellation.centerY += (dyp / dist) * moveAmount;
 
-                let moveX = (dxp / dist) * chaseStep;
-                let moveY = (dyp / dist) * chaseStep;
-
-                // Check for obstacles in the path
-                const obstacles = this.game.obstacles || [];
-                for (const obstacle of obstacles) {
-                    if (!obstacle || !obstacle.radius) continue;
-
-                    const obDx = obstacle.x - constellation.centerX;
-                    const obDy = obstacle.y - constellation.centerY;
-                    const obDistSq = obDx * obDx + obDy * obDy;
-                    const avoidDist = obstacle.radius + 80;
-
-                    if (obDistSq < avoidDist * avoidDist) {
-                        const obDist = Math.sqrt(obDistSq) || 1;
-                        const pushX = -(obDx / obDist);
-                        const pushY = -(obDy / obDist);
-
-                        moveX += pushX * 100 * deltaTime;  // Reduced from 150
-                        moveY += pushY * 100 * deltaTime;
-
-                        const dot = moveX * pushX + moveY * pushY;
-                        if (dot < 0) {
-                            moveX -= pushX * dot;
-                            moveY -= pushY * dot;
-                        }
-                    }
-                }
-
-                // Update constellation center (target for enemies to follow)
-                constellation.centerX += moveX;
-                constellation.centerY += moveY;
-
-                // Add tangential orbit motion when near desired distance
-                // [REDUCED] Less orbit motion for more stable shapes
-                const orbitScale = Math.max(0, 1 - Math.abs(distError) / (standoff * 0.6));
-                const orbitStep = orbitScale * this.constellationOrbitGain * deltaTime * standoff * 0.12;  // Reduced from 0.2
-                constellation.centerX += (-dyp / dist) * orbitStep;
-                constellation.centerY += (dxp / dist) * orbitStep;
+                // Simple orbit motion (perpendicular to player direction)
+                const orbitSpeed = 20 * deltaTime;
+                constellation.centerX += (-dyp / dist) * orbitSpeed;
+                constellation.centerY += (dxp / dist) * orbitSpeed;
             }
 
-            // Update rotation - slow and steady
-            // [SIMPLIFIED] Just use age-based slowdown, no complex calculations
-            const baseRotationSpeed = constellation.rotationSpeed;
-            const ageMultiplier = Math.max(0.2, 1.0 - constellation.age * 0.04);  // Slows to 20% over 20 seconds
-            constellation.rotation += baseRotationSpeed * ageMultiplier * deltaTime;
-
-            // Gently align rotation to face the player (very subtle)
-            if (player) {
-                const dxp2 = player.x - constellation.centerX;
-                const dyp2 = player.y - constellation.centerY;
-                const targetRot = Math.atan2(dyp2, dxp2);
-                const delta = Math.atan2(Math.sin(targetRot - constellation.rotation), Math.cos(targetRot - constellation.rotation));
-                const maxStep = this.constellationRotationAlign * 0.5 * deltaTime;  // Reduced alignment speed
-                const step = Math.max(-maxStep, Math.min(maxStep, delta));
-                constellation.rotation += step;
-            }
-
-            // Stuck detection (for constellation health monitoring)
-            let stuckCount = 0;
-            const targetPositions = this._getConstellationPositions(constellation);
-
-            for (let i = 0; i < constellation.enemies.length; i++) {
-                const enemy = constellation.enemies[i];
-                if (!enemy || enemy.isDead || enemy.formationId) continue;
-
-                const anchorIndex = enemy.constellationAnchor ?? i;
-                const target = targetPositions[anchorIndex % targetPositions.length];
-                if (!target) continue;
-
-                const dx = target.x - enemy.x;
-                const dy = target.y - enemy.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                // [TUNED] More lenient stuck detection - only count as stuck if far from target AND not moving
-                if (dist > 100) {  // Increased from 60 - give more room before considering stuck
-                    const speedSq = enemy.movement.velocity.x * enemy.movement.velocity.x +
-                        enemy.movement.velocity.y * enemy.movement.velocity.y;
-                    // Only stuck if very slow (< 10 pixels/sec)
-                    if (speedSq < 100) {
-                        enemy.stuckFrames = (enemy.stuckFrames || 0) + 1;
-                        // Need 60 frames of being stuck (about 1 second)
-                        if (enemy.stuckFrames > 60) {
-                            stuckCount++;
-                        }
-                    } else {
-                        // Decay stuck frames faster when moving
-                        enemy.stuckFrames = Math.max(0, (enemy.stuckFrames || 0) - 3);
-                    }
-                } else {
-                    enemy.stuckFrames = 0;
-                }
-            }
-
-            // If too many enemies are stuck, add integrity strikes (reduced from +5 to +2)
-            if (stuckCount >= Math.max(2, constellation.enemies.length * 0.5)) {  // Need half stuck, min 2
-                constellation.integrityStrikes += 2;  // Reduced from 5
-                if (constellation.integrityStrikes > this.integrityStrikeLimit) {
-                    window.logger?.log(`[Emergent] Breaking constellation ${constellation.id} due to stuck enemies`);
-                    constellation.enemies = [];
-                }
-            }
+            // Update rotation - simple constant rate with age decay
+            const rotationRate = constellation.rotationSpeed * Math.max(0.3, 1.0 - constellation.age * 0.02);
+            constellation.rotation += rotationRate * deltaTime;
         }
     }
 

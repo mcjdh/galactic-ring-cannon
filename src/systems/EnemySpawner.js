@@ -184,19 +184,20 @@ class EnemySpawner {
 
     /**
      * Monitor performance and adjust enemy limits
+     * [OPTIMIZED] Simplified monitoring with less overhead
      * @param {number} deltaTime - Time since last update
      */
     updatePerformanceMonitoring(deltaTime) {
         const monitor = this.performanceMonitor;
         const frameTime = deltaTime * 1000; // Convert to milliseconds
 
-        // Track frame time history using circular buffer (O(1) instead of O(n))
+        // Track frame time history using circular buffer (O(1))
         monitor.frameTimeHistory[monitor.frameTimeIndex] = frameTime;
         monitor.frameTimeIndex = (monitor.frameTimeIndex + 1) % monitor.maxHistory;
         monitor.frameTimeCount = Math.min(monitor.frameTimeCount + 1, monitor.maxHistory);
 
-        // Calculate average frame time every few frames
-        if (monitor.frameTimeCount >= monitor.maxHistory) {
+        // Only recalculate every 10 frames to reduce overhead
+        if (monitor.frameTimeCount >= monitor.maxHistory && monitor.frameTimeIndex === 0) {
             let sum = 0;
             for (let i = 0; i < monitor.maxHistory; i++) {
                 sum += monitor.frameTimeHistory[i];
@@ -208,11 +209,11 @@ class EnemySpawner {
             // Adjust adaptive limits based on performance
             if (monitor.isLagging && !wasLagging) {
                 // Performance degraded - reduce enemy count
-                monitor.adaptiveMaxEnemies = Math.max(30, Math.floor(this.maxEnemies * 0.7));
-                this.cullDistantEnemies(); // Remove distant enemies immediately
+                monitor.adaptiveMaxEnemies = Math.max(25, Math.floor(this.maxEnemies * 0.6));
+                this.cullDistantEnemies();
             } else if (!monitor.isLagging && wasLagging) {
                 // Performance improved - gradually increase limit
-                monitor.adaptiveMaxEnemies = Math.min(this.maxEnemies, monitor.adaptiveMaxEnemies + 5);
+                monitor.adaptiveMaxEnemies = Math.min(this.maxEnemies, monitor.adaptiveMaxEnemies + 10);
             }
         }
 
