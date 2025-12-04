@@ -507,55 +507,6 @@ class FormationManager {
     }
 
     /**
-     * Render formation center marker (faint wireframe icon)
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     * @param {Object} formation - Formation object
-     */
-    renderFormationMarker(ctx, formation) {
-        const { x, y } = formation.center;
-        const config = formation.config;
-
-        ctx.save();
-        ctx.strokeStyle = 'rgba(0, 255, 153, 0.15)'; // Faint neon green
-        ctx.lineWidth = 1;
-
-        // Draw simple geometric marker based on formation type
-        const size = 15;
-
-        if (config.id === 'cubic_swarm') {
-            // Draw square (cube projection)
-            ctx.strokeRect(x - size, y - size, size * 2, size * 2);
-        } else if (config.id === 'pyramid_squadron') {
-            // Draw triangle
-            ctx.beginPath();
-            ctx.moveTo(x, y - size);
-            ctx.lineTo(x - size, y + size);
-            ctx.lineTo(x + size, y + size);
-            ctx.closePath();
-            ctx.stroke();
-        } else if (config.id === 'octahedron_ring') {
-            // Draw hexagon
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const angle = (i / 6) * Math.PI * 2 + formation.rotation;
-                const px = x + Math.cos(angle) * size;
-                const py = y + Math.sin(angle) * size;
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.stroke();
-        } else {
-            // Default: circle
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        ctx.restore();
-    }
-
-    /**
      * Render connecting lines between formation enemies
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {Object} formation - Formation object

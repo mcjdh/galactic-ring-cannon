@@ -685,7 +685,6 @@ class EmergentFormationDetector {
                     // Center prong (4 enemies)
                     for (let i = 0; i < 4; i++) {
                         const t = i / 3;
-                        const baseX = centerX + t * prongLength;
                         // Curve slightly inward at tips
                         const curve = Math.sin(t * Math.PI) * curvature * 20;
                         const localX = t * prongLength;
