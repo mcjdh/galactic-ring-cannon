@@ -72,6 +72,11 @@ class CosmicBackground {
         this.gridCanvas = null; // Initialized in initializeGridCanvas()
         this.enableGridCache = true; // Feature flag
 
+        // [PERF OPT-4] Low-quality throttling to reduce CPU when enabled
+        this._lastRenderTs = 0;
+        this._lowQualityMinInterval = 50; // ms (~20fps cap)
+        this._lowQualityStarStride = 3; // Skip stars to lower fill calls
+
         this.initialize();
     }
 
@@ -165,6 +170,15 @@ class CosmicBackground {
         let deltaTime = (now - this.lastTime) / 1000;
         this.lastTime = now;
 
+        // Throttle rendering when low quality is enabled to cut CPU/GPU work
+        if (this.lowQuality && this._lastRenderTs) {
+            const sinceLast = now - this._lastRenderTs;
+            if (sinceLast < this._lowQualityMinInterval) {
+                return;
+            }
+        }
+        this._lastRenderTs = now;
+
         // Safety check for NaN or huge time jumps (lag spikes)
         if (isNaN(deltaTime) || deltaTime > 0.1) {
             deltaTime = 0.016; // Fallback to ~60fps
@@ -185,10 +199,16 @@ class CosmicBackground {
         this.drawGrid();
 
         // Draw Stars
-        this.drawStars();
+        if (this.lowQuality) {
+            this.drawStarsLowQuality();
+        } else {
+            this.drawStars();
+        }
 
         // Draw Shapes
-        this.drawShapes();
+        if (!this.lowQuality) {
+            this.drawShapes();
+        }
     }
 
     drawGrid() {
@@ -320,6 +340,30 @@ class CosmicBackground {
             }
         }
         this.ctx.restore();
+    }
+
+    /**
+     * Lightweight star rendering for low-quality mode
+     * Skips most stars and avoids layer compositing to reduce CPU/GPU load.
+     */
+    drawStarsLowQuality() {
+        const stars = this.stars;
+        const stride = Math.max(1, this._lowQualityStarStride);
+        this.ctx.fillStyle = '#00ff99';
+
+        for (let i = 0; i < stars.length; i += stride) {
+            const star = stars[i];
+            // Simple parallax offset
+            const parallaxFactor = 0.08 * star.z;
+            let x = (star.x - this.lastPlayerX * parallaxFactor) % this.canvas.width;
+            let y = (star.y - this.lastPlayerY * parallaxFactor) % this.canvas.height;
+
+            if (x < 0) x += this.canvas.width;
+            if (y < 0) y += this.canvas.height;
+
+            const baseSize = Math.max(1, star.size * 0.6);
+            this.ctx.fillRect(x, y, baseSize, baseSize);
+        }
     }
 
     drawShapes() {

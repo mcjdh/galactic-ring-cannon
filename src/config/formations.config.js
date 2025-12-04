@@ -316,7 +316,204 @@
 
                 return positions;
             }
-        }
+        },
+
+        // [NEW] Vortex Swarm - Spiraling inward
+        VORTEX_SWARM: {
+            id: 'vortex_swarm',
+            name: 'Vortex Swarm',
+            enemyCount: 16,
+            radius: 120,
+            rotationSpeed: 0.8, // Fast rotation
+            moveSpeed: 70,
+            breakDistance: 160,
+            minWave: 6,
+            spawnWeight: 1.0,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                const arms = 4;
+                const enemiesPerArm = 4;
+                
+                for (let arm = 0; arm < arms; arm++) {
+                    for (let i = 0; i < enemiesPerArm; i++) {
+                        // Calculate position along the spiral arm
+                        const progress = i / enemiesPerArm; // 0 to 1 (inner to outer)
+                        const armAngle = (arm / arms) * Math.PI * 2;
+                        const spiralOffset = progress * Math.PI; // Twist
+                        
+                        const angle = rotation + armAngle + spiralOffset + (time * 0.5 * (1 - progress));
+                        const r = 30 + (this.radius * progress) + (Math.sin(time * 2 + i) * 5);
+                        
+                        positions.push({
+                            x: centerX + Math.cos(angle) * r,
+                            y: centerY + Math.sin(angle) * r,
+                            type: i === 0 ? 'tank' : 'fast' // Inner enemies are tanks
+                        });
+                    }
+                }
+                return positions;
+            }
+        },
+
+        // [NEW] Hydra Head - Central boss-like structure with weaving tendrils
+        HYDRA_HEAD: {
+            id: 'hydra_head',
+            name: 'Hydra Head',
+            enemyCount: 13, // 1 Head + 3 tendrils of 4
+            radius: 80,
+            rotationSpeed: 0.1,
+            moveSpeed: 50, // Slow and menacing
+            breakDistance: 150,
+            minWave: 8,
+            spawnWeight: 0.8,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                
+                // Head (Center)
+                positions.push({ 
+                    x: centerX, 
+                    y: centerY, 
+                    isLeader: true,
+                    type: 'tank' 
+                });
+
+                // 3 Tendrils
+                const tendrils = 3;
+                const length = 4;
+                const spacing = 25;
+                
+                for (let t = 0; t < tendrils; t++) {
+                    const baseAngle = (t / tendrils) * Math.PI * 2 + rotation;
+                    
+                    for (let i = 1; i <= length; i++) {
+                        // Waving motion
+                        const wave = Math.sin(time * 3 + i * 0.5) * 0.5;
+                        const angle = baseAngle + wave * (i * 0.1);
+                        const dist = i * spacing + 20;
+                        
+                        positions.push({
+                            x: centerX + Math.cos(angle) * dist,
+                            y: centerY + Math.sin(angle) * dist,
+                            type: 'dasher'
+                        });
+                    }
+                }
+                return positions;
+            }
+        },
+
+        // [NEW] Bio Orb - Pulsing organic sphere
+        BIO_ORB: {
+            id: 'bio_orb',
+            name: 'Bio Orb',
+            enemyCount: 12,
+            radius: 60,
+            rotationSpeed: 0.4,
+            moveSpeed: 85,
+            breakDistance: 140,
+            minWave: 4,
+            spawnWeight: 1.2,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                // 3 layers of 4 enemies
+                for (let layer = 0; layer < 3; layer++) {
+                    const layerRadius = this.radius * (0.5 + layer * 0.3);
+                    // Pulse effect varies by layer
+                    const pulse = 1 + Math.sin(time * 3 + layer) * 0.15;
+                    const r = layerRadius * pulse;
+                    
+                    // Rotate layers in alternating directions
+                    const layerRotation = rotation * (layer % 2 === 0 ? 1 : -1);
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const angle = (i / 4) * Math.PI * 2 + layerRotation + (layer * Math.PI / 4);
+                        positions.push({
+                            x: centerX + Math.cos(angle) * r,
+                            y: centerY + Math.sin(angle) * r,
+                            type: layer === 0 ? 'tank' : 'basic'
+                        });
+                    }
+                }
+                return positions;
+            }
+        },
+
+        // [NEW] Interceptor Cross - Rotating X formation
+        INTERCEPTOR_CROSS: {
+            id: 'interceptor_cross',
+            name: 'Interceptor Cross',
+            enemyCount: 9, // Center + 2 per arm * 4 arms
+            radius: 90,
+            rotationSpeed: 1.2, // Very fast rotation
+            moveSpeed: 110, // Fast approach
+            breakDistance: 120,
+            minWave: 5,
+            spawnWeight: 1.0,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                
+                // Center
+                positions.push({ x: centerX, y: centerY, isLeader: true });
+
+                // 4 Arms
+                for (let arm = 0; arm < 4; arm++) {
+                    const armAngle = (arm / 4) * Math.PI * 2 + rotation;
+                    
+                    // 2 enemies per arm
+                    for (let i = 1; i <= 2; i++) {
+                        const dist = i * 40;
+                        positions.push({
+                            x: centerX + Math.cos(armAngle) * dist,
+                            y: centerY + Math.sin(armAngle) * dist,
+                            type: 'fast'
+                        });
+                    }
+                }
+                return positions;
+            }
+        },
+
+        // [NEW] Chaos Cloud - Swarming loose formation
+        CHAOS_CLOUD: {
+            id: 'chaos_cloud',
+            name: 'Chaos Cloud',
+            enemyCount: 15,
+            radius: 100,
+            rotationSpeed: 0.1,
+            moveSpeed: 60,
+            breakDistance: 180,
+            minWave: 7,
+            spawnWeight: 0.9,
+
+            getPositions(centerX, centerY, rotation, time = 0) {
+                const positions = [];
+                // Deterministic chaos using sine waves
+                for (let i = 0; i < this.enemyCount; i++) {
+                    // Unique offsets for each enemy
+                    const offset1 = i * 1.1;
+                    const offset2 = i * 2.3;
+                    
+                    // Lissajous-like movement relative to center
+                    const angle = rotation + offset1 + time * 0.5;
+                    const r = this.radius * (0.4 + 0.6 * Math.abs(Math.sin(time * 0.8 + offset2)));
+                    
+                    // Add some jitter
+                    const jitterX = Math.sin(time * 4 + offset1) * 10;
+                    const jitterY = Math.cos(time * 3 + offset2) * 10;
+
+                    positions.push({
+                        x: centerX + Math.cos(angle) * r + jitterX,
+                        y: centerY + Math.sin(angle) * r + jitterY,
+                        type: i % 3 === 0 ? 'dasher' : 'basic'
+                    });
+                }
+                return positions;
+            }
+        },
     };
 
     // Utility functions for formation selection

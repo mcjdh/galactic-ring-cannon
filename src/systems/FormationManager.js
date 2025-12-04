@@ -41,7 +41,7 @@ class FormationManager {
     initMarkerCache() {
         if (typeof document === 'undefined') return;
 
-        const types = ['cubic_swarm', 'pyramid_squadron', 'octahedron_ring', 'default'];
+        const types = ['cubic_swarm', 'pyramid_squadron', 'octahedron_ring', 'hex_lattice', 'double_helix', 'electron_shell', 'line_wedge', 'vortex_swarm', 'hydra_head', 'bio_orb', 'interceptor_cross', 'chaos_cloud', 'default'];
         const size = 15;
         const dim = (size + 2) * 2; // Add padding for line width
 
@@ -69,7 +69,7 @@ class FormationManager {
                 ctx.lineTo(size, size);
                 ctx.closePath();
                 ctx.stroke();
-            } else if (type === 'octahedron_ring') {
+            } else if (type === 'octahedron_ring' || type === 'hex_lattice') {
                 // Draw hexagon
                 ctx.beginPath();
                 for (let i = 0; i < 6; i++) {
@@ -80,6 +80,48 @@ class FormationManager {
                     else ctx.lineTo(px, py);
                 }
                 ctx.closePath();
+                ctx.stroke();
+            } else if (type === 'vortex_swarm' || type === 'bio_orb') {
+                // Draw spiral/circle
+                ctx.beginPath();
+                for (let i = 0; i < 20; i++) {
+                    const angle = i * 0.5;
+                    const r = (i / 20) * size;
+                    const px = Math.cos(angle) * r;
+                    const py = Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+            } else if (type === 'hydra_head') {
+                // Draw multi-headed symbol
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.4, 0, Math.PI * 2); // Center
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -size); // Top
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-size * 0.8, size * 0.6); // Left
+                ctx.moveTo(0, 0);
+                ctx.lineTo(size * 0.8, size * 0.6); // Right
+                ctx.stroke();
+            } else if (type === 'interceptor_cross') {
+                // Draw X
+                ctx.beginPath();
+                ctx.moveTo(-size, -size);
+                ctx.lineTo(size, size);
+                ctx.moveTo(size, -size);
+                ctx.lineTo(-size, size);
+                ctx.stroke();
+            } else if (type === 'chaos_cloud') {
+                // Draw cloud-like shape
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.6, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(size * 0.5, -size * 0.3, size * 0.4, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(-size * 0.5, size * 0.3, size * 0.4, 0, Math.PI * 2);
                 ctx.stroke();
             } else {
                 // Default: circle
@@ -105,18 +147,19 @@ class FormationManager {
 
         // Determine type key
         let type = 'default';
-        if (config.id === 'cubic_swarm') type = 'cubic_swarm';
+        if (this.markerCache.has(config.id)) {
+            type = config.id;
+        } else if (config.id === 'cubic_swarm') type = 'cubic_swarm';
         else if (config.id === 'pyramid_squadron') type = 'pyramid_squadron';
         else if (config.id === 'octahedron_ring') type = 'octahedron_ring';
+        else if (config.id === 'bio_orb') type = 'bio_orb';
+        else if (config.id === 'interceptor_cross') type = 'interceptor_cross';
+        else if (config.id === 'chaos_cloud') type = 'chaos_cloud';
 
-        const sprite = this.markerCache.get(type);
+        const sprite = this.markerCache.get(type) || this.markerCache.get('default');
 
         if (sprite) {
             const halfSize = sprite.width / 2;
-
-            // If rotation is needed (hexagon/triangle), we might need to rotate context
-            // Square and Circle are rotation invariant (mostly)
-            // But let's support rotation for all for correctness
 
             ctx.save();
             ctx.translate(x, y);
@@ -135,36 +178,10 @@ class FormationManager {
             ctx.lineWidth = 1;
 
             const size = 15;
-
-            if (config.id === 'cubic_swarm') {
-                // Draw square (cube projection)
-                ctx.strokeRect(x - size, y - size, size * 2, size * 2);
-            } else if (config.id === 'pyramid_squadron') {
-                // Draw triangle
-                ctx.beginPath();
-                ctx.moveTo(x, y - size);
-                ctx.lineTo(x - size, y + size);
-                ctx.lineTo(x + size, y + size);
-                ctx.closePath();
-                ctx.stroke();
-            } else if (config.id === 'octahedron_ring') {
-                // Draw hexagon
-                ctx.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    const angle = (i / 6) * Math.PI * 2 + formation.rotation;
-                    const px = x + Math.cos(angle) * size;
-                    const py = y + Math.sin(angle) * size;
-                    if (i === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
-                }
-                ctx.closePath();
-                ctx.stroke();
-            } else {
-                // Default: circle
-                ctx.beginPath();
-                ctx.arc(x, y, size, 0, Math.PI * 2);
-                ctx.stroke();
-            }
+            // ... existing fallback code ...
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.stroke();
 
             ctx.restore();
         }
@@ -354,13 +371,15 @@ class FormationManager {
         // Update formation time (for pulse effects)
         formation.time += deltaTime;
 
-        // Update rotation
-        formation.rotation += config.rotationSpeed * deltaTime;
-
-        // Move formation center toward player
+        // Update rotation - speed up when close to player for dramatic effect
         const dx = this.game.player.x - formation.center.x;
         const dy = this.game.player.y - formation.center.y;
         const distance = Math.hypot(dx, dy);
+        
+        // Rotation speeds up as formation approaches break distance
+        const proximityRatio = Math.max(0, 1 - distance / (config.breakDistance * 2));
+        const rotationBoost = 1 + proximityRatio * 1.5; // Up to 2.5x rotation when close
+        formation.rotation += config.rotationSpeed * rotationBoost * deltaTime;
 
         // Check if formation should break
         if (distance < config.breakDistance) {
@@ -368,9 +387,10 @@ class FormationManager {
             return;
         }
 
-        // Move center toward player
+        // Move center toward player - accelerate when closer
         if (distance > 0) {
-            const moveAmount = config.moveSpeed * deltaTime;
+            const speedBoost = 1 + proximityRatio * 0.5; // Up to 1.5x speed when close
+            const moveAmount = config.moveSpeed * speedBoost * deltaTime;
             formation.center.x += (dx / distance) * moveAmount;
             formation.center.y += (dy / distance) * moveAmount;
         }
@@ -394,52 +414,16 @@ class FormationManager {
      * @param {number} deltaTime - Time delta
      */
     updateEnemyPositions(formation, deltaTime) {
-        const config = formation.config;
-        const positions = config.getPositions(
-            formation.center.x,
-            formation.center.y,
-            formation.rotation,
-            formation.time
-        );
-
-        for (let i = 0; i < formation.enemies.length; i++) {
+        // [REFACTORED] Formation forces are now applied by EnemyMovement.applyManagedStructureForces()
+        // This method only updates formation state (center, rotation, time) and validates enemies
+        // The actual force application happens during each enemy's movement update to avoid
+        // the timing issue where forces were reset before being applied.
+        
+        // Validate enemies are still alive
+        for (let i = formation.enemies.length - 1; i >= 0; i--) {
             const enemy = formation.enemies[i];
-            if (!enemy || enemy.isDead) continue;
-
-            const targetPos = positions[i];
-            if (!targetPos) continue;
-
-            // [REFACTORED] Use SteeringUtils for standardized arrival behavior
-            if (window.Game?.SteeringUtils) {
-                const steering = window.Game.SteeringUtils.arrive(
-                    { x: enemy.x, y: enemy.y },
-                    { x: targetPos.x, y: targetPos.y },
-                    enemy.movement.velocity,
-                    {
-                        maxSpeed: enemy.movement.maxSpeed || 100,
-                        deceleration: 3.0 // Tuned for formation stability
-                    }
-                );
-
-                // Apply as 'formation' force
-                enemy.movement.forceAccumulator.addForce('formation', steering.x * 50, steering.y * 50);
-            } else {
-                // Fallback
-                const dx = targetPos.x - enemy.x;
-                const dy = targetPos.y - enemy.y;
-                const dist = Math.hypot(dx, dy);
-
-                if (dist > 5) {
-                    const springStrength = 8.0;
-                    if (enemy.movement && enemy.movement.velocity) {
-                        const desiredSpeed = enemy.movement.speed * 1.5;
-                        const targetVelX = (dx / dist) * desiredSpeed;
-                        const targetVelY = (dy / dist) * desiredSpeed;
-                        const steerX = (targetVelX - enemy.movement.velocity.x) * springStrength * deltaTime;
-                        const steerY = (targetVelY - enemy.movement.velocity.y) * springStrength * deltaTime;
-                        enemy.movement.forceAccumulator.addForce('formation', steerX, steerY);
-                    }
-                }
+            if (!enemy || enemy.isDead) {
+                formation.enemies.splice(i, 1);
             }
         }
     }

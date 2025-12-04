@@ -22,15 +22,15 @@ class FormationEffects {
         this.qualityMode = 'high'; // 'high', 'medium', 'low'
 
         // Visual settings
-        this.beamOpacity = 0.4; // Buffed from 0.3
-        this.beamWidth = 2.0; // Buffed from 1.5
+        this.beamOpacity = 0.5; // Buffed from 0.4 for better visibility
+        this.beamWidth = 2.5; // Buffed from 2.0 for thicker lines
         this.beamColor = { r: 0, g: 255, b: 153 }; // Neon cyan
-        this.glowIntensity = 0.8; // Buffed from 0.6
+        this.glowIntensity = 1.0; // Buffed from 0.8 for brighter effects
         this.maxBeamLengthSq = 200 * 200; // Prevent stretched links from lingering
         this.beamWarningLengthSq = this.maxBeamLengthSq * 0.75; // Start fading before hard break
 
         // Particle pool for performance
-        this.maxParticles = 300; // Buffed from 200
+        this.maxParticles = 400; // Buffed from 300 for richer effects
         this.particlePool = [];
         this.nextFreeIndex = 0; // [OPTIMIZATION] Fast pool lookup
         this.initParticlePool();

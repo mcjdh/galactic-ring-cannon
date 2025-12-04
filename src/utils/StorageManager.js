@@ -10,7 +10,15 @@ class StorageManager {
      * @private
      */
     static _warn(message, error) {
-        window.logger.warn(`[StorageManager] ${message}`, error);
+        try {
+            if (typeof window !== 'undefined' && window.logger?.warn) {
+                window.logger.warn(`[StorageManager] ${message}`, error);
+            } else if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+                console.warn(`[StorageManager] ${message}`, error);
+            }
+        } catch (_) {
+            // Swallow logging errors to avoid masking the original issue
+        }
     }
 
     /**

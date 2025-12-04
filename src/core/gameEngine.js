@@ -750,6 +750,10 @@ class GameEngine {
             this.particlePool.length = 0;
         }
 
+        // [OPTIMIZATION] Pre-allocate enemy projectile pool to reduce GC stutter
+        // during initial enemy attacks
+        this._preallocateEnemyProjectilePool();
+
         // Reset spatial caches
         if (this.spatialGrid && typeof this.spatialGrid.clear === 'function') {
             this.spatialGrid.clear();
@@ -2269,6 +2273,37 @@ class GameEngine {
             }
         }
     }
+
+    /**
+     * [OPTIMIZATION] Pre-allocate enemy projectile pool to reduce GC stutter
+     * during initial enemy attacks. Creates projectiles upfront instead of
+     * allocating them on-demand during gameplay.
+     */
+    _preallocateEnemyProjectilePool() {
+        const EnemyProjectile = window.Game?.EnemyProjectile;
+        if (typeof EnemyProjectile !== 'function') {
+            // Class not loaded yet, will allocate on-demand
+            return;
+        }
+
+        if (!this.enemyProjectilePool) {
+            this.enemyProjectilePool = [];
+        }
+
+        // Pre-allocate 50 enemy projectiles (half of maxPoolSize)
+        const preAllocCount = Math.min(50, this.maxPoolSize);
+        for (let i = this.enemyProjectilePool.length; i < preAllocCount; i++) {
+            try {
+                const ep = new EnemyProjectile(0, 0, 0, 0, 0);
+                ep.isDead = true; // Mark as available for reuse
+                this.enemyProjectilePool.push(ep);
+            } catch (error) {
+                window.logger?.warn('Failed to pre-allocate enemy projectile:', error);
+                break;
+            }
+        }
+    }
+
     // Add error handling to addEntity
     addEntity(entity) {
         if (!entity) {

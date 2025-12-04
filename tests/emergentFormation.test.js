@@ -160,10 +160,11 @@ const runTests = () => {
         {
             const { game, detector } = setup();
 
-            // Use only 2 enemies for this test to ensure 1 stuck is enough (threshold is max(1, 0.4*N))
+            // Use 3 enemies for this test (minimum for constellation after PAIR removal)
             game.enemies = [
                 new MockEnemy('e1', 100, 100),
-                new MockEnemy('e2', 120, 100)
+                new MockEnemy('e2', 120, 100),
+                new MockEnemy('e3', 110, 120)
             ];
 
             detector.detectAndUpdateConstellations();
@@ -174,20 +175,23 @@ const runTests = () => {
             } else {
                 const constellation = detector.constellations[0];
 
-                // Force one enemy to stay in place, move the other
+                // Force one enemy to stay in place, move the others FAR away
                 game.player.x = 2000;
                 const stuckEnemy = constellation.enemies[0];
-                const movingEnemy = constellation.enemies[1];
+                const movingEnemy1 = constellation.enemies[1];
+                const movingEnemy2 = constellation.enemies[2];
                 const initialStuckPos = { x: stuckEnemy.x, y: stuckEnemy.y };
 
-                // Run updates
-                for (let i = 0; i < 200; i++) {
+                // Run updates - need more iterations due to more lenient stuck detection
+                // Also move enemies faster to trigger edge length violations
+                for (let i = 0; i < 400; i++) {
                     // Constrain stuck enemy
                     stuckEnemy.x = initialStuckPos.x;
                     stuckEnemy.y = initialStuckPos.y;
 
-                    // Move moving enemy towards player (simulating pull)
-                    movingEnemy.x += 2; // Move 2 pixels per frame
+                    // Move moving enemies FAR away (faster - 5 pixels per frame)
+                    movingEnemy1.x += 5;
+                    movingEnemy2.x += 5;
 
                     detector.update(0.016);
                 }

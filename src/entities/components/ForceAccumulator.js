@@ -44,6 +44,9 @@ class ForceAccumulator {
             collision: 1.0,      // Always active (safety override)
             external: 1.0        // Always active (environmental effects)
         };
+        // Managed entities still need some separation; this weight is applied to the
+        // local channel when formation/constellation flags are active.
+        this.managedLocalWeight = 0.6;
 
         // Debug tracking
         this.debugEnabled = false;
@@ -81,9 +84,10 @@ class ForceAccumulator {
      * Compute net force with priority rules
      * 
      * Priority Rules:
-     * 1. Managed structures (formation/constellation) suppress local forces
-     * 2. Collision forces always apply (safety)
-     * 3. External forces always apply (environmental effects)
+     * 1. Managed structures (formation/constellation) suppress STEERING local forces
+     * 2. Separation forces always apply (prevent overlap) - handled by LocalForceProducer
+     * 3. Collision forces always apply (safety)
+     * 4. External forces always apply (environmental effects)
      * 
      * @returns {{x: number, y: number}} Net force vector
      */
@@ -94,8 +98,11 @@ class ForceAccumulator {
         // Check if entity is in a managed structure
         const isManaged = this.weights.formation > 0 || this.weights.constellation > 0;
 
-        // Local forces suppressed when managed
-        const localWeight = isManaged ? 0.0 : this.weights.local;
+        // [FIX] Local forces are NOT fully suppressed when managed anymore
+        // LocalForceProducer handles the separation logic and adds reduced separation
+        // for managed entities. We apply local forces at higher weight so separation
+        // can properly prevent overlap.
+        const localWeight = this._getLocalWeight(isManaged);
 
         // Accumulate weighted forces
         this.netForce.x += this.forces.local.x * localWeight;
@@ -162,7 +169,7 @@ class ForceAccumulator {
      */
     getDebugSummary() {
         const isManaged = this.weights.formation > 0 || this.weights.constellation > 0;
-        const localWeight = isManaged ? 0.0 : this.weights.local;
+        const localWeight = this._getLocalWeight(isManaged);
 
         return {
             netForce: { ...this.netForce },
@@ -195,6 +202,15 @@ class ForceAccumulator {
             },
             isManaged
         };
+    }
+
+    /**
+     * Return the active local weight, accounting for managed entities
+     * @param {boolean} isManaged
+     * @returns {number}
+     */
+    _getLocalWeight(isManaged) {
+        return isManaged ? this.managedLocalWeight : this.weights.local;
     }
 
     /**

@@ -421,6 +421,7 @@ class EnemySpawner {
     
     /**
      * Update regular enemy spawning
+     * [IMPROVED] Sometimes spawns small clusters for constellation variety
      * @param {number} deltaTime - Time since last update
      */
     updateRegularSpawning(deltaTime) {
@@ -441,7 +442,24 @@ class EnemySpawner {
 
         if (this.spawnTimer >= effectiveSpawnCooldown && enemies.length < effectiveMaxEnemies) {
             this.spawnTimer = 0;
-            this.spawnEnemy();
+            
+            // [IMPROVED] 30% chance to spawn a mini-cluster (2-4 enemies) instead of single
+            // This creates more opportunities for varied constellation patterns
+            const clusterChance = 0.3;
+            const roomForCluster = effectiveMaxEnemies - enemies.length;
+            
+            if (Math.random() < clusterChance && roomForCluster >= 3) {
+                // Spawn a mini-cluster
+                const clusterSize = Math.min(roomForCluster, 3 + Math.floor(Math.random() * 2)); // 3-4 enemies
+                const clusterCenter = this.getSpawnPosition();
+                
+                for (let i = 0; i < clusterSize; i++) {
+                    this.spawnEnemyNear(clusterCenter.x, clusterCenter.y, 60);
+                }
+            } else {
+                // Normal single enemy spawn
+                this.spawnEnemy();
+            }
         }
     }
     
@@ -819,6 +837,7 @@ class EnemySpawner {
     
     /**
      * Spawn a wave of enemies
+     * [IMPROVED] Now spawns enemies in clusters to encourage constellation variety
      */
     spawnWave() {
         this.waveCount++;
@@ -839,24 +858,100 @@ class EnemySpawner {
         // > OPTIMIZATION: Longer delays on Pi5 to prevent GC spikes
         const spawnDelay = window.isRaspberryPi ? 250 : 100; // 250ms on Pi5, 100ms on desktop
 
-        for (let i = 0; i < waveSize; i++) {
-            // Delay spawning to spread out the wave and reduce instantiation spikes
-            const timeoutId = setTimeout(() => {
-                // Clear this timeout from the list
-                const index = this.waveTimeouts.indexOf(timeoutId);
-                if (index !== -1) this.waveTimeouts.splice(index, 1);
+        // [IMPROVED] Spawn in clusters of varying sizes for constellation variety
+        // This creates groups of 3-6 enemies near each other
+        const clusterSizes = this._generateClusterSizes(waveSize);
+        let spawnIndex = 0;
 
-                // Only spawn if spawner is still active
-                if (this.game && !this.game.isShuttingDown) {
-                    this.spawnEnemy();
-                }
-            }, i * spawnDelay); // Spread over 250ms intervals on Pi5
+        for (const clusterSize of clusterSizes) {
+            const clusterCenter = this.getSpawnPosition();
+            
+            for (let i = 0; i < clusterSize; i++) {
+                const timeoutId = setTimeout(() => {
+                    const index = this.waveTimeouts.indexOf(timeoutId);
+                    if (index !== -1) this.waveTimeouts.splice(index, 1);
 
-            this.waveTimeouts.push(timeoutId);
+                    if (this.game && !this.game.isShuttingDown) {
+                        // Spawn near cluster center with some spread
+                        this.spawnEnemyNear(clusterCenter.x, clusterCenter.y, 80);
+                    }
+                }, spawnIndex * spawnDelay);
+
+                this.waveTimeouts.push(timeoutId);
+                spawnIndex++;
+            }
         }
         
         this.showNewEnemyMessage(`Wave ${this.waveCount} incoming!`);
         this.enemiesKilledThisWave = 0;
+    }
+
+    /**
+     * Generate cluster sizes that add up to total wave size
+     * Creates variety: some clusters of 3, 4, 5, 6 enemies
+     * @param {number} totalSize - Total number of enemies to spawn
+     * @returns {Array<number>} Array of cluster sizes
+     */
+    _generateClusterSizes(totalSize) {
+        const clusters = [];
+        let remaining = totalSize;
+
+        // Preferred cluster sizes for constellation patterns
+        // 3: Triangle/Arrow, 4: Diamond/Line, 5: Star/Cross/Pentagon, 6: Hexagon
+        const preferredSizes = [3, 4, 5, 6, 4, 5, 3, 6, 5, 4];
+        let sizeIndex = Math.floor(Math.random() * preferredSizes.length);
+
+        while (remaining >= 3) {
+            // Pick a cluster size, ensuring we don't go over remaining
+            let size = preferredSizes[sizeIndex % preferredSizes.length];
+            sizeIndex++;
+
+            // Adjust size if needed
+            if (size > remaining) {
+                size = remaining;
+            }
+
+            // Don't create clusters smaller than 3 (no good patterns)
+            if (remaining - size > 0 && remaining - size < 3) {
+                size = remaining; // Take all remaining
+            }
+
+            if (size >= 3) {
+                clusters.push(size);
+                remaining -= size;
+            } else {
+                break;
+            }
+        }
+
+        // If we have 1-2 leftovers, add them to the last cluster
+        if (remaining > 0 && clusters.length > 0) {
+            clusters[clusters.length - 1] += remaining;
+        }
+
+        return clusters;
+    }
+
+    /**
+     * Spawn an enemy near a specific position
+     * @param {number} centerX - Center X position
+     * @param {number} centerY - Center Y position
+     * @param {number} spread - Max distance from center
+     */
+    spawnEnemyNear(centerX, centerY, spread) {
+        if (!this.game.player) return;
+        
+        // Random offset within spread
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * spread;
+        const x = centerX + Math.cos(angle) * distance;
+        const y = centerY + Math.sin(angle) * distance;
+        
+        const enemyType = this.getRandomEnemyType();
+        const enemy = this.createEnemy(enemyType, x, y);
+        if (!enemy) return;
+        this.game.addEntity(enemy);
+        this.totalEnemiesSpawned++;
     }
     
     /**

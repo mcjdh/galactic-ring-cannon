@@ -7,7 +7,10 @@
       "Bash(tree:*)",
       "Bash(mkdir:*)",
       "Bash(npm test)",
-      "Bash(zip:*)"
+      "Bash(zip:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

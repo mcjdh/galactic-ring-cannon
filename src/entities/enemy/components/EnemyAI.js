@@ -30,12 +30,8 @@ class EnemyAI {
         AVOIDANCE_UPDATE_INTERVAL_BASE: 0.12,   // seconds - base interval for avoidance updates
         AVOIDANCE_UPDATE_INTERVAL_RANDOM: 0.08, // seconds - random variance
         AVOIDANCE_TIMER_RANDOM: 0.1,            // seconds - random initial timer
-        AVOIDANCE_STRENGTH: 0.5,                // multiplier for avoidance force
+        AVOIDANCE_STRENGTH: 0.8,                // [BUFFED] multiplier for avoidance force - prevents clumping
         MAX_NEIGHBOR_CHECK: 8,                  // max neighbors to check for avoidance
-
-        // Performance optimization
-        NEIGHBOR_CACHE_LIFETIME: 4,             // frames - how long to cache neighbor data (Pi5 optimization)
-        NEIGHBOR_CACHE_INITIAL_FRAME: -999,     // initial cache frame (far in past)
 
         // Aggressive movement (different AI modes)
         AGGRESSIVE_CHASE_DISTANCE: 150          // pixels - distance threshold for aggressive pursuit
@@ -67,19 +63,6 @@ class EnemyAI {
         this.currentAttackPattern = 0;
         this.phaseChangeThresholds = [0.7, 0.4, 0.15]; // Health % thresholds
         this.currentPhase = 1;
-
-        // Collision avoidance (randomized to desync)
-        this.avoidanceVector = { x: 0, y: 0 };
-        this.separationRadius = C.SEPARATION_RADIUS;
-        this.avoidanceUpdateTimer = Math.random() * C.AVOIDANCE_TIMER_RANDOM;
-        this.avoidanceUpdateInterval = C.AVOIDANCE_UPDATE_INTERVAL_BASE + Math.random() * C.AVOIDANCE_UPDATE_INTERVAL_RANDOM;
-        this._avoidanceFrameGroup = EnemyAI._nextAvoidanceAssignment;
-        EnemyAI._nextAvoidanceAssignment = (EnemyAI._nextAvoidanceAssignment + 1) % EnemyAI._avoidanceBuckets;
-
-        // > OPTIMIZATION: Neighbor cache for Pi5 performance (70% reduction in spatial queries)
-        this._cachedNeighbors = [];
-        this._neighborCacheFrame = C.NEIGHBOR_CACHE_INITIAL_FRAME;
-        this._neighborCacheLifetime = C.NEIGHBOR_CACHE_LIFETIME;
 
         // Behavior flags
         this.isAggressive = true;
@@ -172,14 +155,25 @@ class EnemyAI {
             this.changeState('pursuing');
         }
 
-        // Random movement when idle
-        if (this.stateTimer > 2.0) {
+        // Random movement when idle - more frequent direction changes
+        // [FIX] Changed from 2.0s to 0.8s to prevent enemies standing still
+        if (this.stateTimer > 0.8) {
             const angle = Math.random() * Math.PI * 2;
             this.enemy.targetDirection = {
                 x: Math.cos(angle),
                 y: Math.sin(angle)
             };
             this.stateTimer = 0;
+        }
+        
+        // [FIX] If no direction set yet, set one immediately AND reset timer
+        if (this.enemy.targetDirection.x === 0 && this.enemy.targetDirection.y === 0) {
+            const angle = Math.random() * Math.PI * 2;
+            this.enemy.targetDirection = {
+                x: Math.cos(angle),
+                y: Math.sin(angle)
+            };
+            this.stateTimer = 0; // [FIX] Reset timer to prevent immediate re-randomization
         }
     }
 
@@ -252,10 +246,17 @@ class EnemyAI {
                 y: direction.y * C.APPROACH_SPEED
             };
         } else {
-            // In optimal range, minimal movement
+            // In optimal range - circle strafe instead of standing still
+            // [FIX] Previous damping caused exponential decay to zero, making enemies freeze
+            // Now enemies strafe perpendicular to target for dynamic combat
+            // [IMPROVED] Oscillate strafe direction for more organic movement
+            const strafeAngle = Math.PI / 2; // 90 degrees
+            const strafeSpeed = 0.3;
+            const oscillation = Math.sin(this.stateTimer * 1.5); // Oscillate direction
+            const finalAngle = strafeAngle * oscillation;
             this.enemy.targetDirection = {
-                x: this.enemy.targetDirection.x * C.OPTIMAL_RANGE_DAMPING,
-                y: this.enemy.targetDirection.y * C.OPTIMAL_RANGE_DAMPING
+                x: (direction.x * Math.cos(finalAngle) - direction.y * Math.sin(finalAngle)) * strafeSpeed,
+                y: (direction.x * Math.sin(finalAngle) + direction.y * Math.cos(finalAngle)) * strafeSpeed
             };
         }
     }
@@ -450,13 +451,16 @@ class EnemyAI {
                 }
                 break;
             case 3:
-                // Erratic movement patterns
+                // Erratic movement patterns - random direction changes
                 if (this.stateTimer > 1.0) {
                     const angle = Math.random() * Math.PI * 2;
+                    // [FIX] Direction vectors must be normalized (magnitude 1.0)
+                    // Previous 0.5 magnitude caused boss to move at 50% intended speed
                     this.enemy.targetDirection = {
-                        x: Math.cos(angle) * 0.5,
-                        y: Math.sin(angle) * 0.5
+                        x: Math.cos(angle),
+                        y: Math.sin(angle)
                     };
+                    this.stateTimer = 0; // Reset timer after changing direction
                 }
                 break;
             case 4:
@@ -616,47 +620,6 @@ class EnemyAI {
         };
     }
 
-    /**
-     * Get nearby enemies using spatial grid for efficient neighbor detection
-     */
-    /**
-     * Configure AI for specific enemy type
-     */
-    configureForEnemyType(enemyType) {
-        switch (enemyType) {
-            case 'basic':
-                this.attackCooldown = 2.0;
-                this.separationRadius = 30;
-                break;
-            case 'fast':
-                this.attackCooldown = 1.3 + Math.random() * 0.4; // Random 1.3-1.7s instead of fixed 1.5s
-                this.separationRadius = 25;
-                this.targetUpdateInterval = 0.5 + Math.random() * 0.3; // Random 0.5-0.8s to desync
-                break;
-            case 'tank':
-                this.attackCooldown = 3.0;
-                this.separationRadius = 40;
-                this.isAggressive = true;
-                break;
-            case 'ranged':
-                this.attackCooldown = 2.5;
-                this.separationRadius = 35;
-                this.canAttackPlayer = true;
-                break;
-            case 'dasher':
-                this.attackCooldown = 2.0;
-                this.separationRadius = 20;
-                this.isAggressive = true;
-                break;
-            case 'boss':
-                this.attackCooldown = 1.5;
-                this.separationRadius = 50;
-                this.isAggressive = true;
-                this.canUseSpecialAbilities = true;
-                this.maxTargetDistance = 1200;
-                break;
-        }
-    }
 }
 
 // Make globally available
@@ -664,6 +627,3 @@ if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.EnemyAI = EnemyAI;
 }
-
-EnemyAI._nextAvoidanceAssignment = 0;
-EnemyAI._avoidanceBuckets = 4;

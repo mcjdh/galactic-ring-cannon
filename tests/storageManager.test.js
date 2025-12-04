@@ -269,6 +269,30 @@ function runTests() {
         }
     });
 
+    test('StorageManager does not throw when logger is missing', () => {
+        const failingStorage = createMockLocalStorage(true);
+        global.localStorage = failingStorage;
+
+        const originalLogger = window.logger;
+        delete window.logger;
+
+        let threw = false;
+        try {
+            const result = window.StorageManager.setItem('key', 'value');
+            if (result !== false) {
+                throw new Error('Expected false when storage unavailable without logger');
+            }
+        } catch (err) {
+            threw = true;
+        } finally {
+            window.logger = originalLogger;
+        }
+
+        if (threw) {
+            throw new Error('StorageManager should not throw when logger is unavailable');
+        }
+    });
+
     // Restore working localStorage for remaining tests
     global.localStorage = createMockLocalStorage();
 
