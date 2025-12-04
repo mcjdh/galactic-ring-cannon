@@ -14,26 +14,42 @@ class EmergentFormationDetector {
         this.game = game;
 
         // Detection parameters
-        // [OPTIMIZED] Slightly longer detection interval to reduce CPU load
-        this.detectionRadius = 150;  // Reduced from 160 for tighter, more natural clusters
+        // [TUNED] Faster detection for better responsiveness
+        this.detectionRadius = 140;  // Slightly reduced for tighter clusters
         this.minEnemiesForConstellation = 3;
-        this.maxConstellations = 8;  // Reduced from 10 to prevent overwhelming the system
-        this.detectionInterval = 0.25;  // Increased from 0.18 for better performance
+        this.maxConstellations = 10;  // Increased from 8 to allow more shapes
+        this.detectionInterval = 0.18;  // Faster detection (was 0.25)
         this.detectionTimer = 0;
         this.maxConstellationRadius = 250;  // Reduced from 280
         this.maxConstellationRadiusSq = this.maxConstellationRadius * this.maxConstellationRadius;
         this.integrityStrikeLimit = 25;  // Reduced from 30 for faster cleanup of broken formations
-        this.constellationStandoffDistance = 200;  // Reduced from 220
-        this.constellationChaseGain = 0.6;  // Reduced from 1.0 for smoother movement
-        this.constellationOrbitGain = 0.25;  // Reduced from 0.4 for less wobble
+        this.constellationStandoffDistance = 180;  // Reduced for more aggressive approach
+        this.constellationChaseGain = 0.8;  // Increased from 0.6 for more dynamic movement
+        this.constellationOrbitGain = 0.35;  // Increased from 0.25 for more movement
         this.constellationRotationAlign = 0.5;  // Reduced from 1.0 for gentler rotation
-        this.constellationReformCooldownMs = 800;  // Increased from 600 to prevent churn
-        this.mergeInterval = 9999;  // Effectively disabled - merging causes instability
+        this.constellationReformCooldownMs = 600;  // Cooldown before enemy can rejoin constellation
+        this.mergeInterval = 3.0;  // Less frequent merges to prevent churn
         this.mergeTimer = 0;
-        this.maxConstellationMaxSpeed = 700;  // Reduced from 850 for smoother movement
+        this.mergeMinAge = 3.0;  // Constellations must be 3s old before merging
+        this.maxConstellationMaxSpeed = 600;  // Reduced for smoother movement
+        this.strayAbsorptionEnabled = true;  // Actively pull stray enemies into nearby constellations
+        this.anchorReoptimizeInterval = 2.0;  // Reoptimize anchors every 2 seconds to fix glitchy shapes
+        this.anchorReoptimizeTimer = 0;
 
         // Active constellations (emergent patterns)
         this.constellations = [];
+
+        // Pattern diversity tracking - promotes variety by boosting underused patterns
+        this.patternDiversityEnabled = true;
+        this.diversityBoostFactor = 2.0;    // How much to boost underrepresented patterns
+        this.overusePenaltyFactor = 0.3;    // Penalty multiplier for overused patterns
+        this.circleMaxRatio = 0.25;         // Max ratio of constellations that should be circles
+        this.targetPatternVariety = 0.6;    // Target: 60% of patterns should be unique types
+        
+        // Size diversity - balance small vs large formations
+        this.preferSmallFormations = false;  // Set true when too many large formations
+        this.smallPatternThreshold = 5;      // Patterns with maxEnemies <= this are "small"
+        this.targetSmallRatio = 0.4;         // Target 40% small formations
 
         // Visual effects system
         this.effects = null; // Will be initialized when FormationEffects is available
@@ -46,9 +62,9 @@ class EmergentFormationDetector {
             LINE: {
                 minEnemies: 4,
                 maxEnemies: 5,
-                strength: 0.4,  // Medium-high chance for 4-5 enemies
+                strength: 0.4,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    const spacing = 60;
+                    const spacing = 50;  // Reduced from 60 for tighter line
                     const count = enemies.length;
                     const totalWidth = spacing * (count - 1);
                     const startOffset = -totalWidth / 2;
@@ -70,31 +86,39 @@ class EmergentFormationDetector {
             ARROW: {
                 minEnemies: 3,
                 maxEnemies: 3,
-                strength: 0.35,  // Good chance for 3 enemies
+                strength: 0.35,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    const size = 70;
-                    // Tip at rotation angle
-                    const tipX = centerX + Math.cos(rotation) * size;
-                    const tipY = centerY + Math.sin(rotation) * size;
-
-                    const backAngle1 = rotation + Math.PI * 0.8;
-                    const backAngle2 = rotation - Math.PI * 0.8;
+                    // Arrow pointing in rotation direction with clear V shape behind
+                    const tipDist = 55;  // Reduced for tighter formation
+                    const wingDist = 50;
+                    const wingAngle = Math.PI * 0.75;  // 135 degrees back from tip
+                    
+                    const tipX = centerX + Math.cos(rotation) * tipDist;
+                    const tipY = centerY + Math.sin(rotation) * tipDist;
 
                     return [
                         { x: tipX, y: tipY },
-                        { x: centerX + Math.cos(backAngle1) * size, y: centerY + Math.sin(backAngle1) * size },
-                        { x: centerX + Math.cos(backAngle2) * size, y: centerY + Math.sin(backAngle2) * size }
+                        { 
+                            x: centerX + Math.cos(rotation + wingAngle) * wingDist, 
+                            y: centerY + Math.sin(rotation + wingAngle) * wingDist 
+                        },
+                        { 
+                            x: centerX + Math.cos(rotation - wingAngle) * wingDist, 
+                            y: centerY + Math.sin(rotation - wingAngle) * wingDist 
+                        }
                     ];
                 }
             },
             TRIANGLE: {
                 minEnemies: 3,
                 maxEnemies: 3,
-                strength: 0.35,  // Equal chance with arrow for 3 enemies
+                strength: 0.35,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    const radius = 90;
+                    // Equilateral triangle - positions equally spaced
+                    const radius = 65;  // Reduced for tighter formation
                     const positions = [];
                     for (let i = 0; i < 3; i++) {
+                        // Start at top (-90 deg), then 120 degree spacing
                         const angle = rotation + (i * Math.PI * 2 / 3) - Math.PI / 2;
                         positions.push({
                             x: centerX + Math.cos(angle) * radius,
@@ -107,12 +131,13 @@ class EmergentFormationDetector {
             DIAMOND: {
                 minEnemies: 4,
                 maxEnemies: 4,
-                strength: 0.5,  // High chance for exactly 4 enemies
+                strength: 0.5,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    const radius = 100;
+                    const radius = 70;  // Reduced for tighter formation
                     const positions = [];
                     for (let i = 0; i < 4; i++) {
-                        const angle = rotation + (i * Math.PI * 2 / 4) - Math.PI / 2;
+                        // Diamond orientation: points at cardinal directions
+                        const angle = rotation + (i * Math.PI / 2);
                         positions.push({
                             x: centerX + Math.cos(angle) * radius,
                             y: centerY + Math.sin(angle) * radius
@@ -124,19 +149,14 @@ class EmergentFormationDetector {
             CROSS: {
                 minEnemies: 5,
                 maxEnemies: 5,
-                strength: 0.45,  // Good chance for exactly 5 enemies
+                strength: 0.45,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    // [IMPROVED] Cross without center congestion
-                    // Places enemies at the 4 cardinal tips plus one at center but offset
-                    const armLength = 80;
-                    const centerOffset = 20;  // Small offset so center enemy isn't exactly at center
+                    // Cross with center enemy and 4 arms
+                    const armLength = 65;  // Reduced for tighter formation
                     const positions = [];
 
-                    // Center enemy - slightly offset in rotation direction
-                    positions.push({
-                        x: centerX + Math.cos(rotation) * centerOffset,
-                        y: centerY + Math.sin(rotation) * centerOffset
-                    });
+                    // Center enemy (no offset - clean center)
+                    positions.push({ x: centerX, y: centerY });
 
                     // Four arm tips
                     for (let i = 0; i < 4; i++) {
@@ -152,14 +172,13 @@ class EmergentFormationDetector {
             STAR: {
                 minEnemies: 5,
                 maxEnemies: 5,
-                strength: 0.45,  // Equal chance with cross for 5 enemies
+                strength: 0.45,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    const radius = 95;
+                    const radius = 70;  // Reduced for tighter formation
                     const positions = [];
-                    // Star order: 0, 2, 4, 1, 3 to draw the star shape with lines
-                    const indices = [0, 2, 4, 1, 3];
+                    // Regular pentagon order (not star drawing order)
                     for (let i = 0; i < 5; i++) {
-                        const angle = rotation + (indices[i] * Math.PI * 2 / 5) - Math.PI / 2;
+                        const angle = rotation + (i * Math.PI * 2 / 5) - Math.PI / 2;
                         positions.push({
                             x: centerX + Math.cos(angle) * radius,
                             y: centerY + Math.sin(angle) * radius
@@ -171,9 +190,9 @@ class EmergentFormationDetector {
             PENTAGON: {
                 minEnemies: 5,
                 maxEnemies: 5,
-                strength: 0.35,  // Lower chance - less distinctive than star/cross
+                strength: 0.35,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    const radius = 95;
+                    const radius = 70;  // Reduced from 95 to match other shapes
                     const positions = [];
                     for (let i = 0; i < 5; i++) {
                         const angle = rotation + (i * Math.PI * 2 / 5) - Math.PI / 2;
@@ -189,16 +208,16 @@ class EmergentFormationDetector {
             V_FORMATION: {
                 minEnemies: 5,
                 maxEnemies: 7,
-                strength: 0.4,  // Good chance for 5-7 enemies
+                strength: 0.4,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
                     const count = enemies.length;
-                    const armSpacing = 55;  // Distance between enemies on each arm
-                    const wingAngle = Math.PI / 5;  // 36 degree spread on each side
+                    const armSpacing = 45;  // Reduced from 55 for tighter formation
+                    const wingAngle = Math.PI / 4.5;  // ~40 degree spread (slightly wider for visibility)
                     const positions = [];
                     
                     // Leader at the front
-                    const tipX = centerX + Math.cos(rotation) * 40;
-                    const tipY = centerY + Math.sin(rotation) * 40;
+                    const tipX = centerX + Math.cos(rotation) * 35;
+                    const tipY = centerY + Math.sin(rotation) * 35;
                     positions.push({ x: tipX, y: tipY });
                     
                     // Distribute remaining enemies on two wings
@@ -232,9 +251,9 @@ class EmergentFormationDetector {
             HEXAGON: {
                 minEnemies: 6,
                 maxEnemies: 6,
-                strength: 0.5,  // High chance for exactly 6 enemies
+                strength: 0.5,
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
-                    const radius = 110;
+                    const radius = 80;  // Reduced from 110 for tighter formation
                     const positions = [];
                     for (let i = 0; i < 6; i++) {
                         const angle = rotation + i * Math.PI / 3;
@@ -246,10 +265,238 @@ class EmergentFormationDetector {
                     return positions;
                 }
             },
-            CIRCLE: {
+            // DOUBLE_TRIANGLE - Two overlapping triangles forming star of david
+            DOUBLE_TRIANGLE: {
+                minEnemies: 6,
+                maxEnemies: 6,
+                strength: 0.45,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const radius = 75;  // Reduced from 100 for tighter formation
+                    const positions = [];
+                    // First triangle (pointing up)
+                    for (let i = 0; i < 3; i++) {
+                        const angle = rotation + (i * Math.PI * 2 / 3) - Math.PI / 2;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    // Second triangle (pointing down, slightly smaller)
+                    for (let i = 0; i < 3; i++) {
+                        const angle = rotation + (i * Math.PI * 2 / 3) + Math.PI / 2;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius * 0.85,
+                            y: centerY + Math.sin(angle) * radius * 0.85
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // DUAL_DIAMOND - Two diamonds, inner and outer
+            DUAL_DIAMOND: {
+                minEnemies: 8,
+                maxEnemies: 8,
+                strength: 0.5,  // High chance for exactly 8 enemies
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    // Outer diamond
+                    for (let i = 0; i < 4; i++) {
+                        const angle = rotation + (i * Math.PI / 2);
+                        positions.push({
+                            x: centerX + Math.cos(angle) * 110,
+                            y: centerY + Math.sin(angle) * 110
+                        });
+                    }
+                    // Inner diamond (rotated 45 degrees)
+                    for (let i = 0; i < 4; i++) {
+                        const angle = rotation + (i * Math.PI / 2) + Math.PI / 4;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * 60,
+                            y: centerY + Math.sin(angle) * 60
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // OCTAGON - 8 enemies in octagon formation
+            OCTAGON: {
+                minEnemies: 8,
+                maxEnemies: 8,
+                strength: 0.45,  // Good chance for 8 enemies
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const radius = 105;
+                    const positions = [];
+                    for (let i = 0; i < 8; i++) {
+                        const angle = rotation + (i * Math.PI * 2 / 8);
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // ARROW_FLIGHT - 7 enemies in flying arrow/bird formation
+            ARROW_FLIGHT: {
                 minEnemies: 7,
-                maxEnemies: 15,  // Increased from 12 to allow larger, more impressive circles
-                strength: 0.45,  // Slightly increased for 7+ enemies - impressive when it forms
+                maxEnemies: 7,
+                strength: 0.5,  // High chance for exactly 7 enemies
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    const tipSize = 60;
+                    // Tip at rotation angle
+                    const tipX = centerX + Math.cos(rotation) * tipSize;
+                    const tipY = centerY + Math.sin(rotation) * tipSize;
+                    positions.push({ x: tipX, y: tipY });
+                    
+                    // Wings - 3 enemies on each side
+                    for (let side = -1; side <= 1; side += 2) {
+                        for (let i = 1; i <= 3; i++) {
+                            const backDist = i * 45;
+                            const sideDist = i * 35 * side;
+                            const backAngle = rotation + Math.PI;
+                            const perpAngle = rotation + Math.PI / 2;
+                            positions.push({
+                                x: centerX + Math.cos(backAngle) * backDist + Math.cos(perpAngle) * sideDist,
+                                y: centerY + Math.sin(backAngle) * backDist + Math.sin(perpAngle) * sideDist
+                            });
+                        }
+                    }
+                    return positions;
+                }
+            },
+            // CRESCENT - 9-11 enemies in crescent moon shape (120 degree arc, not 180)
+            CRESCENT: {
+                minEnemies: 9,
+                maxEnemies: 11,
+                strength: 0.5,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const count = enemies.length;
+                    const radius = 95;
+                    const positions = [];
+                    // Arc of 120 degrees (2/3 of half circle) - cleaner crescent shape
+                    const arcSpan = Math.PI * 0.65;  // ~117 degrees
+                    for (let i = 0; i < count; i++) {
+                        const t = count > 1 ? i / (count - 1) : 0.5;
+                        const arcPos = (t - 0.5) * 2;  // -1 to 1
+                        const angle = rotation + arcPos * (arcSpan / 2);
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // DOUBLE_V - 10 enemies in double-V formation
+            DOUBLE_V: {
+                minEnemies: 10,
+                maxEnemies: 10,
+                strength: 0.5,  // High chance for exactly 10 enemies
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const positions = [];
+                    const spacing = 50;
+                    const wingAngle = Math.PI / 5;
+                    
+                    // First V (front)
+                    positions.push({ x: centerX + Math.cos(rotation) * 60, y: centerY + Math.sin(rotation) * 60 });
+                    for (let i = 1; i <= 2; i++) {
+                        const dist = i * spacing;
+                        positions.push({
+                            x: centerX + Math.cos(rotation + Math.PI + wingAngle) * dist,
+                            y: centerY + Math.sin(rotation + Math.PI + wingAngle) * dist
+                        });
+                        positions.push({
+                            x: centerX + Math.cos(rotation + Math.PI - wingAngle) * dist,
+                            y: centerY + Math.sin(rotation + Math.PI - wingAngle) * dist
+                        });
+                    }
+                    
+                    // Second V (back, offset)
+                    const offsetDist = 80;
+                    const backCenterX = centerX + Math.cos(rotation + Math.PI) * offsetDist;
+                    const backCenterY = centerY + Math.sin(rotation + Math.PI) * offsetDist;
+                    positions.push({ x: backCenterX + Math.cos(rotation) * 40, y: backCenterY + Math.sin(rotation) * 40 });
+                    for (let i = 1; i <= 2; i++) {
+                        const dist = i * spacing * 0.8;
+                        positions.push({
+                            x: backCenterX + Math.cos(rotation + Math.PI + wingAngle) * dist,
+                            y: backCenterY + Math.sin(rotation + Math.PI + wingAngle) * dist
+                        });
+                        positions.push({
+                            x: backCenterX + Math.cos(rotation + Math.PI - wingAngle) * dist,
+                            y: backCenterY + Math.sin(rotation + Math.PI - wingAngle) * dist
+                        });
+                    }
+                    return positions.slice(0, 10);
+                }
+            },
+            // SPIRAL - Compact dual-arm spiral for 11-12 enemies
+            SPIRAL: {
+                minEnemies: 11,
+                maxEnemies: 12,
+                strength: 0.55,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const count = enemies.length;
+                    const positions = [];
+                    
+                    // Single expanding spiral from center outward
+                    for (let i = 0; i < count; i++) {
+                        const progress = i / count;
+                        // Tighter spiral: 1.5 rotations total
+                        const angle = rotation + progress * Math.PI * 3;
+                        // Start small, grow outward
+                        const radius = 30 + progress * 85;
+                        positions.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    return positions;
+                }
+            },
+            // DOUBLE_CRESCENT - Two small crescents forming a shape like )(
+            DOUBLE_CRESCENT: {
+                minEnemies: 13,
+                maxEnemies: 14,
+                strength: 0.55,
+                getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
+                    const count = enemies.length;
+                    const positions = [];
+                    const perCrescent = Math.ceil(count / 2);
+                    const radius = 70;  // Smaller radius
+                    const offset = 40;  // Closer together
+                    const arcSpan = Math.PI * 0.5;  // 90 degree arcs (not 144 degrees)
+                    
+                    // First crescent (left side, opening right)
+                    for (let i = 0; i < perCrescent && positions.length < count; i++) {
+                        const t = perCrescent > 1 ? i / (perCrescent - 1) : 0.5;
+                        const arcPos = (t - 0.5) * 2;  // -1 to 1
+                        const angle = rotation + Math.PI / 2 + arcPos * (arcSpan / 2);
+                        positions.push({
+                            x: centerX - offset + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    
+                    // Second crescent (right side, opening left)
+                    const remaining = count - positions.length;
+                    for (let i = 0; i < remaining; i++) {
+                        const t = remaining > 1 ? i / (remaining - 1) : 0.5;
+                        const arcPos = (t - 0.5) * 2;
+                        const angle = rotation - Math.PI / 2 + arcPos * (arcSpan / 2);
+                        positions.push({
+                            x: centerX + offset + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius
+                        });
+                    }
+                    return positions;
+                }
+            },
+            CIRCLE: {
+                minEnemies: 12,  // Increased from 10 - let other patterns handle smaller groups
+                maxEnemies: 15,
+                strength: 0.25,  // Further reduced from 0.3 - less dominant
                 getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
                     const count = enemies.length;
                     // Dynamic radius scales with enemy count for proper spacing
@@ -270,6 +517,9 @@ class EmergentFormationDetector {
         };
 
         this.enabled = true;
+
+        // [PERF] Cache pattern count to avoid Object.keys() calls each frame
+        this._patternCount = Object.keys(this.patterns).length;
 
         // DIAGNOSTIC: Expose to window for debugging
         window.emergentDetector = this;
@@ -303,6 +553,8 @@ class EmergentFormationDetector {
         }
 
         this.detectionTimer += deltaTime;
+        this.mergeTimer += deltaTime;
+        this.anchorReoptimizeTimer += deltaTime;
 
         // Periodic detection to avoid performance overhead
         if (this.detectionTimer >= this.detectionInterval) {
@@ -310,11 +562,95 @@ class EmergentFormationDetector {
             this.detectAndUpdateConstellations();
         }
 
+        // Periodic merge check for combining nearby constellations
+        if (this.mergeTimer >= this.mergeInterval) {
+            this.mergeTimer = 0;
+            this.mergeNearbyConstellations();
+        }
+        
+        // Periodic anchor reoptimization to fix shapes that look glitchy
+        if (this.anchorReoptimizeTimer >= this.anchorReoptimizeInterval) {
+            this.anchorReoptimizeTimer = 0;
+            this.reoptimizeAnchors();
+        }
+
         // Apply constellation forces to enemies (every frame)
         this.applyConstellationForces(deltaTime);
+        
+        // Apply attraction force to stray enemies near constellations
+        if (this.strayAbsorptionEnabled) {
+            this.applyStrayAttractionForces(deltaTime);
+        }
 
         // Clean up broken constellations
         this.cleanupConstellations();
+    }
+
+    /**
+     * Apply weak attraction forces to stray enemies near constellations
+     * This encourages free enemies to drift toward existing formations
+     * [IMPROVED] Reduces attraction when many constellations exist to prevent swarming
+     */
+    applyStrayAttractionForces(deltaTime) {
+        const enemies = this.game?.enemies || [];
+        if (enemies.length === 0 || this.constellations.length === 0) return;
+
+        const now = (typeof performance !== 'undefined' && performance.now)
+            ? performance.now()
+            : Date.now();
+
+        const attractRadius = this.detectionRadius * 2.5;  // Pull from further away
+        const attractRadiusSq = attractRadius * attractRadius;
+        
+        // [NEW] Reduce attraction strength when many constellations exist
+        // This prevents all enemies from swarming toward formations late game
+        const baseStrength = 30;
+        const constellationCount = this.constellations.length;
+        let attractStrength = baseStrength;
+        if (constellationCount >= 6) {
+            // Reduce attraction by 50% when 6+ constellations
+            attractStrength = baseStrength * 0.5;
+        } else if (constellationCount >= 4) {
+            // Reduce attraction by 25% when 4-5 constellations
+            attractStrength = baseStrength * 0.75;
+        }
+
+        for (const enemy of enemies) {
+            // Skip enemies already in formations/constellations or on cooldown
+            if (enemy.isDead || enemy.isBoss || enemy.formationId || enemy.constellation) continue;
+            if (enemy.constellationCooldown && enemy.constellationCooldown > now) continue;
+
+            // Find nearest constellation
+            let nearestDist = Infinity;
+            let nearestConstellation = null;
+
+            for (const constellation of this.constellations) {
+                const dx = constellation.centerX - enemy.x;
+                const dy = constellation.centerY - enemy.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < attractRadiusSq && distSq < nearestDist) {
+                    nearestDist = distSq;
+                    nearestConstellation = constellation;
+                }
+            }
+
+            // Apply gentle attraction toward nearest constellation
+            if (nearestConstellation && enemy.movement?.forceAccumulator) {
+                const dx = nearestConstellation.centerX - enemy.x;
+                const dy = nearestConstellation.centerY - enemy.y;
+                const dist = Math.sqrt(nearestDist);
+                
+                // Strength falls off with distance
+                const falloff = 1 - (dist / attractRadius);
+                const force = attractStrength * falloff * deltaTime;
+                
+                enemy.movement.forceAccumulator.addForce('external',
+                    (dx / dist) * force,
+                    (dy / dist) * force
+                );
+            }
+        }
     }
 
     /**
@@ -343,12 +679,144 @@ class EmergentFormationDetector {
         // Find clusters using spatial hashing for performance
         const clusters = this.findClusters(freeEnemies);
 
-        if (clusters.length === 0) return;
+        if (clusters.length === 0) {
+            // Even without new clusters, try to expand existing constellations
+            this.tryExpandConstellations(freeEnemies);
+            return;
+        }
 
         // Form constellations from clusters
         for (const cluster of clusters) {
             if (this.constellations.length >= this.maxConstellations) break;
             this.carveConstellationsFromCluster(cluster);
+        }
+
+        // Also try to expand existing constellations with remaining free enemies
+        const usedEnemies = new Set();
+        for (const cluster of clusters) {
+            for (const e of cluster) usedEnemies.add(e);
+        }
+        const leftover = freeEnemies.filter(e => !usedEnemies.has(e));
+        if (leftover.length > 0) {
+            this.tryExpandConstellations(leftover);
+        }
+    }
+
+    /**
+     * Try to expand existing constellations by absorbing nearby free enemies
+     * This helps constellations grow when enemies swarm near them
+     */
+    tryExpandConstellations(freeEnemies) {
+        if (freeEnemies.length === 0) return;
+
+        const absorptionRadius = this.detectionRadius * 1.2;  // Slightly larger than detection
+        const absorptionRadiusSq = absorptionRadius * absorptionRadius;
+
+        for (const constellation of this.constellations) {
+            // Skip constellations that are already at max size or too young
+            if (constellation.age < 1.5) continue;
+            const currentSize = constellation.enemies.filter(e => e && !e.isDead).length;
+            const pattern = constellation.pattern;
+            
+            // Check if constellation can grow to a larger pattern
+            if (currentSize >= pattern.maxEnemies) {
+                // Try to find a larger pattern that would fit
+                const potentialSize = currentSize + 1;
+                const largerPattern = this.selectPattern(potentialSize, { allowSubset: false });
+                if (!largerPattern || largerPattern.maxEnemies <= pattern.maxEnemies) continue;
+            }
+
+            // Find free enemies near this constellation's center
+            const nearbyFree = [];
+            for (const enemy of freeEnemies) {
+                if (enemy.isDead || enemy.constellation) continue;
+                const dx = enemy.x - constellation.centerX;
+                const dy = enemy.y - constellation.centerY;
+                if (dx * dx + dy * dy < absorptionRadiusSq) {
+                    nearbyFree.push(enemy);
+                }
+            }
+
+            if (nearbyFree.length === 0) continue;
+
+            // Try to reform constellation with additional enemies
+            const combinedEnemies = [
+                ...constellation.enemies.filter(e => e && !e.isDead),
+                ...nearbyFree
+            ];
+
+            // Use variety-aware selection to avoid always expanding into CIRCLEs
+            const recentPatterns = this.constellations
+                .filter(c => c && c.age < 15)
+                .map(c => c.pattern?.name).filter(Boolean);
+            let newPattern = this.selectPatternWithVariety(combinedEnemies.length, recentPatterns);
+            if (!newPattern) {
+                newPattern = this.selectPattern(combinedEnemies.length, { allowSubset: true });
+            }
+            if (!newPattern) continue;
+
+            // Only proceed if new pattern uses more enemies than current
+            if (newPattern.maxEnemies <= currentSize) continue;
+
+            // Take only as many as the new pattern can hold
+            const finalCount = Math.min(combinedEnemies.length, newPattern.maxEnemies);
+            
+            // Sort by distance to center and take closest
+            // [STABILITY] Guard against NaN in centerX/Y which would break sorting
+            const centerX = Number.isFinite(constellation.centerX) ? constellation.centerX : 0;
+            const centerY = Number.isFinite(constellation.centerY) ? constellation.centerY : 0;
+            combinedEnemies.sort((a, b) => {
+                const da = (a.x - centerX) ** 2 + (a.y - centerY) ** 2;
+                const db = (b.x - centerX) ** 2 + (b.y - centerY) ** 2;
+                return da - db;
+            });
+            const finalEnemies = combinedEnemies.slice(0, finalCount);
+
+            // Clear old tags
+            for (const enemy of constellation.enemies) {
+                if (enemy) {
+                    delete enemy.constellation;
+                    delete enemy.constellationAnchor;
+                }
+            }
+
+            // Update constellation in place
+            constellation.enemies = finalEnemies;
+            constellation.pattern = newPattern;
+            delete constellation._targetCache;  // Clear cache since pattern changed
+            
+            // Assign new anchors
+            for (let i = 0; i < finalEnemies.length; i++) {
+                const enemy = finalEnemies[i];
+                enemy.constellation = constellation.id;
+                enemy.constellationAnchor = i;
+                enemy.constellationCooldown = 0;
+            }
+
+            // Recalculate center
+            // [STABILITY] Guard against division by zero
+            if (finalEnemies.length === 0) continue;
+            let cx = 0, cy = 0;
+            for (const e of finalEnemies) {
+                cx += e.x;
+                cy += e.y;
+            }
+            constellation.centerX = cx / finalEnemies.length;
+            constellation.centerY = cy / finalEnemies.length;
+
+            // Update visual effects - remove old beams and create new ones for the expanded pattern
+            if (this.effects) {
+                this.effects.removeConstellationBeams(constellation.id);
+                this.effects.createConstellationBeams(constellation);
+            }
+
+            window.logger?.log(`🔄 [Emergent] Expanded ${pattern.name} to ${newPattern.name} with ${finalEnemies.length} enemies`);
+            
+            // Remove absorbed enemies from the free list
+            const absorbedSet = new Set(finalEnemies);
+            freeEnemies = freeEnemies.filter(e => !absorbedSet.has(e));
+            
+            if (freeEnemies.length === 0) break;
         }
     }
 
@@ -413,9 +881,26 @@ class EmergentFormationDetector {
                 }
             }
 
-            // Only consider clusters with enough enemies
+            // Only consider clusters with enough enemies AND verify they're compact
             if (cluster.length >= this.minEnemiesForConstellation) {
-                clusters.push(cluster);
+                // Verify cluster compactness - all enemies should be within reasonable distance of centroid
+                let cx = 0, cy = 0;
+                for (const e of cluster) { cx += e.x; cy += e.y; }
+                cx /= cluster.length;
+                cy /= cluster.length;
+                
+                let maxDistSq = 0;
+                for (const e of cluster) {
+                    const dx = e.x - cx;
+                    const dy = e.y - cy;
+                    maxDistSq = Math.max(maxDistSq, dx * dx + dy * dy);
+                }
+                
+                // Cluster must be compact enough to form a coherent shape
+                const maxClusterRadius = this.maxConstellationRadius * 0.8;
+                if (maxDistSq < maxClusterRadius * maxClusterRadius) {
+                    clusters.push(cluster);
+                }
             }
         }
 
@@ -424,7 +909,7 @@ class EmergentFormationDetector {
 
     /**
      * Carve one or more constellations out of a cluster, favoring variety in patterns
-     * [IMPROVED] Better handling of different cluster sizes for more shape variety
+     * [IMPROVED] Prefers splitting large clusters into multiple smaller formations
      */
     carveConstellationsFromCluster(cluster) {
         const remaining = [...cluster];
@@ -432,8 +917,11 @@ class EmergentFormationDetector {
 
         // Track recently used patterns to encourage variety
         const recentPatterns = this.constellations
-            .filter(c => c.age < 10) // Only consider recent constellations
+            .filter(c => c.age < 10)
             .map(c => c.pattern.name);
+        
+        // Check size diversity - if too many large formations, prefer small ones
+        this.updateSizeDiversity();
 
         while (
             remaining.length >= this.minEnemiesForConstellation &&
@@ -448,10 +936,30 @@ class EmergentFormationDetector {
             centerX /= remaining.length;
             centerY /= remaining.length;
 
+            // [NEW] For large clusters, prefer making smaller formations to increase variety
+            let targetCount = remaining.length;
+            if (remaining.length > 8 && this.preferSmallFormations) {
+                // Split into smaller groups - aim for 4-6 enemies per formation
+                targetCount = Math.min(6, Math.floor(remaining.length / 2));
+            } else if (remaining.length > 10) {
+                // Even without preference, don't always make the biggest possible shape
+                // 50% chance to make a medium-sized formation instead
+                if (Math.random() < 0.5) {
+                    targetCount = Math.min(8, remaining.length);
+                }
+            }
+
             // Try to select a pattern, with preference for variety
-            let pattern = this.selectPatternWithVariety(remaining.length, recentPatterns);
+            let pattern = this.selectPatternWithVariety(targetCount, recentPatterns);
             if (!pattern) {
-                pattern = this.selectPattern(remaining.length, { allowSubset: true });
+                pattern = this.selectPattern(targetCount, { allowSubset: true });
+            }
+            if (!pattern) {
+                // Fall back to original count if target count didn't work
+                pattern = this.selectPatternWithVariety(remaining.length, recentPatterns);
+                if (!pattern) {
+                    pattern = this.selectPattern(remaining.length, { allowSubset: true });
+                }
             }
             if (!pattern) break;
 
@@ -498,7 +1006,37 @@ class EmergentFormationDetector {
     }
 
     /**
+     * Update size diversity preference based on current constellation distribution
+     */
+    updateSizeDiversity() {
+        if (this.constellations.length < 3) {
+            this.preferSmallFormations = false;
+            return;
+        }
+        
+        let smallCount = 0;
+        let largeCount = 0;
+        for (const c of this.constellations) {
+            if (c && c.pattern) {
+                if (c.pattern.maxEnemies <= this.smallPatternThreshold) {
+                    smallCount++;
+                } else {
+                    largeCount++;
+                }
+            }
+        }
+        
+        const totalFormations = smallCount + largeCount;
+        const smallRatio = smallCount / totalFormations;
+        
+        // If we have too few small formations, prefer creating them
+        this.preferSmallFormations = smallRatio < this.targetSmallRatio;
+    }
+
+    /**
      * Select a pattern with preference for variety (avoid recently used patterns)
+     * Now includes dynamic diversity balancing based on current constellation distribution
+     * [IMPROVED] Also considers size diversity
      * @param {number} count - Number of enemies available
      * @param {Array<string>} recentPatterns - Names of recently used patterns
      * @returns {Object|null} Selected pattern or null
@@ -516,21 +1054,86 @@ class EmergentFormationDetector {
 
         if (exactMatches.length === 0) return null;
 
+        // Get current pattern distribution from active constellations
+        const distribution = this.getPatternDistribution();
+        const totalActive = this.constellations.length;
+
         // Count how often each pattern has been used recently
         const usageCounts = {};
         for (const name of recentPatterns) {
             usageCounts[name] = (usageCounts[name] || 0) + 1;
         }
 
-        // Adjust weights based on recent usage (reduce weight for frequently used patterns)
+        // Adjust weights based on both recent usage AND current distribution
         const adjustedPatterns = exactMatches.map(pattern => {
+            let adjustedStrength = pattern.strength;
+            
+            // Factor 1: Recent usage penalty (30% reduction per recent use)
             const usageCount = usageCounts[pattern.name] || 0;
-            // Reduce strength by 30% for each recent use (minimum 10% of original)
-            const adjustedStrength = pattern.strength * Math.max(0.1, Math.pow(0.7, usageCount));
+            adjustedStrength *= Math.max(0.1, Math.pow(0.7, usageCount));
+            
+            // Factor 2: Dynamic diversity balancing
+            if (this.patternDiversityEnabled && totalActive > 0) {
+                const currentCount = distribution[pattern.name] || 0;
+                const currentRatio = currentCount / totalActive;
+                // [PERF] Use cached pattern count instead of Object.keys() each frame
+                const expectedRatio = 1 / this._patternCount;  // Fair share
+                
+                if (currentRatio > expectedRatio * 2) {
+                    // Pattern is overrepresented - penalize heavily
+                    adjustedStrength *= this.overusePenaltyFactor;
+                } else if (currentRatio < expectedRatio * 0.5) {
+                    // Pattern is underrepresented - boost it
+                    adjustedStrength *= this.diversityBoostFactor;
+                }
+                
+                // Special handling for CIRCLE - always penalize if over threshold
+                if (pattern.name === 'CIRCLE') {
+                    const circleRatio = (distribution['CIRCLE'] || 0) / Math.max(1, totalActive);
+                    if (circleRatio >= this.circleMaxRatio) {
+                        adjustedStrength *= 0.1;  // Heavy penalty when circles dominate
+                    }
+                }
+                
+                // [NEW] Size diversity: boost small patterns if we have too many large ones
+                if (this.preferSmallFormations) {
+                    if (pattern.maxEnemies <= this.smallPatternThreshold) {
+                        adjustedStrength *= 1.8;  // Boost small patterns
+                    } else if (pattern.maxEnemies >= 10) {
+                        adjustedStrength *= 0.5;  // Penalize large patterns
+                    }
+                }
+            }
+            
             return { ...pattern, strength: adjustedStrength };
         });
 
         return this._weightedRandomSelect(adjustedPatterns);
+    }
+
+    /**
+     * Get distribution of pattern types in active constellations
+     * @returns {Object} Map of pattern name to count
+     */
+    getPatternDistribution() {
+        const distribution = {};
+        for (const c of this.constellations) {
+            if (c && c.pattern && c.pattern.name) {
+                distribution[c.pattern.name] = (distribution[c.pattern.name] || 0) + 1;
+            }
+        }
+        return distribution;
+    }
+
+    /**
+     * Get variety score (0-1) - how diverse are current constellations?
+     * @returns {number} Variety score
+     */
+    getVarietyScore() {
+        if (this.constellations.length === 0) return 1;
+        const distribution = this.getPatternDistribution();
+        const uniquePatterns = Object.keys(distribution).length;
+        return uniquePatterns / this.constellations.length;
     }
 
     /**
@@ -560,7 +1163,14 @@ class EmergentFormationDetector {
                 combinedEnemies.push(enemy);
             }
 
-            const pattern = this.selectPattern(combinedEnemies.length, { allowSubset: true });
+            // Use variety selection to avoid always merging into CIRCLEs
+            const recentPatterns = this.constellations
+                .filter(c => c && c.age < 15)
+                .map(c => c.pattern?.name).filter(Boolean);
+            let pattern = this.selectPatternWithVariety(combinedEnemies.length, recentPatterns);
+            if (!pattern) {
+                pattern = this.selectPattern(combinedEnemies.length, { allowSubset: true });
+            }
             if (!pattern || pattern.maxEnemies < 3) return null; // Skip merging into pairs
 
             // Spatial sanity check: ensure combined cluster isn't too spread out
@@ -595,8 +1205,8 @@ class EmergentFormationDetector {
         for (let i = 0; i < this.constellations.length; i++) {
             const a = this.constellations[i];
             if (!a) continue;
-            // Avoid merging constellations that are still settling
-            if (a.age < 2.0) {
+            // Constellations must be mature before merging (prevents churn)
+            if (a.age < this.mergeMinAge) {
                 kept.push(a);
                 continue;
             }
@@ -605,10 +1215,13 @@ class EmergentFormationDetector {
             for (let j = i + 1; j < this.constellations.length; j++) {
                 const b = this.constellations[j];
                 if (!b) continue;
-                if (b.age < 2.0) continue;
+                if (b.age < this.mergeMinAge) continue;  // Both must be mature
 
                 merged = attemptMerge(a, b);
                 if (merged) {
+                    // Clean up old beam effects before consuming
+                    this.effects?.removeConstellationBeams?.(a.id);
+                    this.effects?.removeConstellationBeams?.(b.id);
                     this.constellations[j] = null; // consume b
                     mergedAny = true;
                     break;
@@ -652,7 +1265,6 @@ class EmergentFormationDetector {
         if (!allowSubset) return null;
 
         // For subset mode: find patterns we can fully fill (count >= maxEnemies)
-        // Prefer patterns that use more enemies (bigger shapes)
         const subsetMatches = [];
         for (const [name, pattern] of Object.entries(this.patterns)) {
             if (count >= pattern.maxEnemies) {
@@ -662,15 +1274,37 @@ class EmergentFormationDetector {
 
         if (subsetMatches.length === 0) return null;
 
-        // Sort by maxEnemies descending to prefer larger shapes
-        subsetMatches.sort((a, b) => b.maxEnemies - a.maxEnemies);
+        // [IMPROVED] Adjust pattern selection based on size diversity preference
+        // When we have too many large formations, prefer smaller patterns
+        const adjustedMatches = subsetMatches.map(p => {
+            let adjustedStrength = p.strength;
+            
+            // Reduce CIRCLE weight in subset mode to prevent dominance
+            if (p.name === 'CIRCLE') {
+                adjustedStrength *= 0.4;
+            }
+            
+            // Apply size diversity preference
+            if (this.preferSmallFormations) {
+                if (p.maxEnemies <= this.smallPatternThreshold) {
+                    adjustedStrength *= 2.0;  // Boost small patterns
+                } else if (p.maxEnemies >= 10) {
+                    adjustedStrength *= 0.3;  // Strong penalty for large patterns
+                } else {
+                    adjustedStrength *= 0.7;  // Mild penalty for medium patterns
+                }
+            } else {
+                // Normal mode: slight preference for medium-sized patterns (5-8)
+                if (p.maxEnemies >= 5 && p.maxEnemies <= 8) {
+                    adjustedStrength *= 1.2;
+                }
+            }
+            
+            return { ...p, strength: adjustedStrength };
+        });
 
-        // Get all patterns that share the maximum size
-        const maxSize = subsetMatches[0].maxEnemies;
-        const topTier = subsetMatches.filter(p => p.maxEnemies === maxSize);
-
-        // Weighted random among the largest patterns
-        return this._weightedRandomSelect(topTier);
+        // Weighted random among all matching patterns (no tier filtering)
+        return this._weightedRandomSelect(adjustedMatches);
     }
 
     /**
@@ -878,6 +1512,79 @@ class EmergentFormationDetector {
     }
 
     /**
+     * Reoptimize anchor assignments for all constellations
+     * Fixes shapes that look glitchy because enemies are assigned to suboptimal positions
+     * Uses greedy nearest-neighbor to minimize total movement needed
+     */
+    reoptimizeAnchors() {
+        for (const constellation of this.constellations) {
+            if (!constellation || constellation.age < 1.0) continue;  // Let new constellations settle first
+            
+            const aliveEnemies = constellation.enemies.filter(e => e && !e.isDead);
+            if (aliveEnemies.length < 2) continue;
+            
+            const positions = this._getConstellationPositions(constellation);
+            if (!positions || positions.length === 0) continue;
+            
+            // Calculate current total distance (sum of all enemy-to-target distances)
+            let currentTotalDist = 0;
+            for (const enemy of aliveEnemies) {
+                const anchor = enemy.constellationAnchor ?? 0;
+                const target = positions[anchor % positions.length];
+                if (target) {
+                    const dx = enemy.x - target.x;
+                    const dy = enemy.y - target.y;
+                    currentTotalDist += Math.sqrt(dx * dx + dy * dy);
+                }
+            }
+            
+            // Try greedy reassignment to minimize crossing
+            const assigned = new Set();
+            const newAssignments = [];
+            
+            // Sort enemies by distance from constellation center (inner first)
+            const sortedEnemies = [...aliveEnemies].map(e => ({
+                enemy: e,
+                distToCenter: Math.hypot(e.x - constellation.centerX, e.y - constellation.centerY)
+            })).sort((a, b) => a.distToCenter - b.distToCenter);
+            
+            for (const { enemy } of sortedEnemies) {
+                let bestPos = -1;
+                let bestDistSq = Infinity;
+                
+                for (let p = 0; p < positions.length; p++) {
+                    if (assigned.has(p)) continue;
+                    const dx = enemy.x - positions[p].x;
+                    const dy = enemy.y - positions[p].y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < bestDistSq) {
+                        bestDistSq = distSq;
+                        bestPos = p;
+                    }
+                }
+                
+                if (bestPos >= 0) {
+                    assigned.add(bestPos);
+                    newAssignments.push({ enemy, anchor: bestPos, dist: Math.sqrt(bestDistSq) });
+                }
+            }
+            
+            // Calculate new total distance
+            let newTotalDist = 0;
+            for (const { dist } of newAssignments) {
+                newTotalDist += dist;
+            }
+            
+            // Only apply if it's an improvement (reduces total distance by at least 10%)
+            if (newTotalDist < currentTotalDist * 0.9) {
+                for (const { enemy, anchor } of newAssignments) {
+                    enemy.constellationAnchor = anchor;
+                }
+            }
+        }
+    }
+
+    /**
      * Update constellation state (center, rotation) and detect stuck enemies
      * [SIMPLIFIED] Removed complex calculations that caused lag and oscillation
      */
@@ -918,24 +1625,69 @@ class EmergentFormationDetector {
                 const standoff = this.constellationStandoffDistance;
                 const distError = dist - standoff;
                 
-                // [SIMPLIFIED] Linear movement toward/away from standoff distance
-                const moveSpeed = 80;  // Pixels per second base speed
+                // [IMPROVED] Scale movement based on constellation count to prevent chaos
+                const constellationCount = this.constellations.length;
+                let moveScale = 1.0;
+                if (constellationCount >= 8) {
+                    moveScale = 0.6;  // Much slower when many constellations
+                } else if (constellationCount >= 5) {
+                    moveScale = 0.8;  // Slightly slower
+                }
+                
+                const moveSpeed = 120 * moveScale;
                 const errorSign = distError > 0 ? 1 : -1;
-                const errorMagnitude = Math.min(Math.abs(distError), 150);  // Cap error contribution
+                const errorMagnitude = Math.min(Math.abs(distError), 200);
                 
                 const moveAmount = errorSign * (errorMagnitude / 150) * moveSpeed * deltaTime;
                 constellation.centerX += (dxp / dist) * moveAmount;
                 constellation.centerY += (dyp / dist) * moveAmount;
 
-                // Simple orbit motion (perpendicular to player direction)
-                const orbitSpeed = 20 * deltaTime;
+                // [IMPROVED] Reduce orbit motion when many constellations to prevent chaos
+                const orbitSpeed = 35 * moveScale * deltaTime;
                 constellation.centerX += (-dyp / dist) * orbitSpeed;
                 constellation.centerY += (dxp / dist) * orbitSpeed;
+                
+                // [NEW] Blend rotation toward player for aggressive patterns
+                // Arrow-type patterns face the player, circular patterns spin freely
+                const facingPatterns = ['ARROW', 'ARROW_FLIGHT', 'V_FORMATION', 'DOUBLE_V', 'LINE'];
+                if (facingPatterns.includes(constellation.pattern?.name)) {
+                    const targetRotation = Math.atan2(dyp, dxp);
+                    // Smooth rotation toward player (blend factor 0.03 = slow turn)
+                    let rotDiff = targetRotation - constellation.rotation;
+                    // Normalize to -PI to PI
+                    while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+                    while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+                    constellation.rotation += rotDiff * 0.03;
+                }
             }
 
-            // Update rotation - simple constant rate with age decay
-            const rotationRate = constellation.rotationSpeed * Math.max(0.3, 1.0 - constellation.age * 0.02);
+            // Update rotation - maintain rotation longer for more dynamic feel
+            // Slower decay rate so shapes keep spinning
+            const rotationRate = constellation.rotationSpeed * Math.max(0.5, 1.0 - constellation.age * 0.01);
             constellation.rotation += rotationRate * deltaTime;
+            
+            // Normalize rotation to prevent floating point issues over time
+            if (constellation.rotation > Math.PI * 2) {
+                constellation.rotation -= Math.PI * 2;
+            } else if (constellation.rotation < 0) {
+                constellation.rotation += Math.PI * 2;
+            }
+            
+            // Periodically clean dead enemies from the array (every ~1 second based on age)
+            if (Math.floor(constellation.age) !== Math.floor(constellation.age - deltaTime)) {
+                const before = constellation.enemies.length;
+                constellation.enemies = constellation.enemies.filter(e => e && !e.isDead);
+                if (constellation.enemies.length < before) {
+                    // Clear target cache since enemy count changed
+                    delete constellation._targetCache;
+                    // [FIX] Reassign anchors sequentially to prevent stacking
+                    // Without this, enemies with high anchor indices would map to
+                    // the same positions as low indices via modulo (e.g., anchor 6 % 6 = 0)
+                    for (let i = 0; i < constellation.enemies.length; i++) {
+                        constellation.enemies[i].constellationAnchor = i;
+                    }
+                }
+            }
         }
     }
 
@@ -1019,11 +1771,12 @@ class EmergentFormationDetector {
             let edgeTooLong = false;
             let worstEdgeRatio = 0;
             
-            for (let i = 0; i < constellation.enemies.length; i++) {
-                const e1 = constellation.enemies[i];
-                const e2 = constellation.enemies[(i + 1) % constellation.enemies.length];
+            // Only check edges between alive enemies
+            for (let i = 0; i < aliveEnemies.length; i++) {
+                const e1 = aliveEnemies[i];
+                const e2 = aliveEnemies[(i + 1) % aliveEnemies.length];
 
-                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                if (e1 && e2) {
                     const distSq = (e1.x - e2.x) ** 2 + (e1.y - e2.y) ** 2;
                     const ratio = distSq / maxEdgeLengthSq;
                     if (ratio > worstEdgeRatio) worstEdgeRatio = ratio;
@@ -1036,14 +1789,13 @@ class EmergentFormationDetector {
 
             // 2. Target Deviation Check using cached positions
             // [TUNED] More lenient deviation threshold - enemies need time to reach targets
-            const maxDeviationSq = 300 * 300; // Reduced from 400 but still generous
+            const maxDeviationSq = 300 * 300;
             let deviationTooHigh = false;
-            for (let i = 0; i < constellation.enemies.length; i++) {
-                const enemy = constellation.enemies[i];
-                if (!enemy || enemy.isDead) continue;
+            for (let i = 0; i < aliveEnemies.length; i++) {
+                const enemy = aliveEnemies[i];
 
                 const anchorIndex = enemy.constellationAnchor ?? i;
-                // [FIX] Safety check for empty targetPositions array to prevent division by zero
+                // [FIX] Safety check for empty targetPositions array
                 const target = targetPositions.length > 0
                     ? targetPositions[anchorIndex % targetPositions.length]
                     : null;
@@ -1089,16 +1841,17 @@ class EmergentFormationDetector {
      * @returns {Array<{x:number,y:number}>}
      */
     _getConstellationPositions(constellation) {
+        // [STABILITY] Guard against missing constellation or pattern
         if (!constellation || !constellation.pattern || typeof constellation.pattern.getTargetPositions !== 'function') {
             return [];
         }
 
         const cache = constellation._targetCache || (constellation._targetCache = {});
         const enemyCount = constellation.enemies?.length || 0;
-        
+
         // [PERFORMANCE] Use frame number as cache key instead of comparing floats
-        const currentFrame = this.game?.frameCount || 
-                            window.gameManager?.frameCount || 
+        const currentFrame = this.game?.frameCount ||
+                            window.gameManager?.frameCount ||
                             Math.floor(performance.now() / 16.67);
 
         if (cache.frame !== currentFrame || cache.count !== enemyCount) {
@@ -1124,19 +1877,28 @@ class EmergentFormationDetector {
 
     /**
      * Get color for constellation pattern type
+     * [UPDATED] Added all 18 patterns
      */
     getPatternColor(patternName) {
         const colors = {
-            'LINE': { r: 50, g: 200, b: 255 },    // Cyan-blue for line
-            'ARROW': { r: 255, g: 50, b: 50 },
-            'TRIANGLE': { r: 0, g: 255, b: 153 },
-            'CROSS': { r: 255, g: 200, b: 50 },
-            'DIAMOND': { r: 153, g: 0, b: 255 },
-            'STAR': { r: 255, g: 255, b: 0 },
-            'PENTAGON': { r: 255, g: 153, b: 0 },
-            'V_FORMATION': { r: 255, g: 120, b: 80 },  // Orange-red for V
-            'HEXAGON': { r: 255, g: 0, b: 153 },
-            'CIRCLE': { r: 0, g: 153, b: 255 }
+            'LINE': { r: 50, g: 200, b: 255 },       // Cyan-blue
+            'ARROW': { r: 255, g: 80, b: 80 },       // Red
+            'TRIANGLE': { r: 0, g: 255, b: 153 },    // Neon green
+            'CROSS': { r: 255, g: 200, b: 50 },      // Gold
+            'DIAMOND': { r: 153, g: 50, b: 255 },    // Purple
+            'STAR': { r: 255, g: 255, b: 50 },       // Bright yellow
+            'PENTAGON': { r: 255, g: 153, b: 0 },    // Orange
+            'V_FORMATION': { r: 255, g: 120, b: 80 }, // Orange-red
+            'HEXAGON': { r: 255, g: 50, b: 180 },    // Magenta
+            'CIRCLE': { r: 50, g: 180, b: 255 },     // Sky blue
+            'DOUBLE_TRIANGLE': { r: 0, g: 220, b: 180 },   // Teal
+            'DUAL_DIAMOND': { r: 180, g: 80, b: 255 },     // Bright purple
+            'OCTAGON': { r: 255, g: 100, b: 150 },         // Pink
+            'ARROW_FLIGHT': { r: 255, g: 60, b: 60 },      // Bright red
+            'CRESCENT': { r: 200, g: 200, b: 255 },        // Pale blue
+            'DOUBLE_V': { r: 255, g: 180, b: 50 },         // Gold-orange
+            'SPIRAL': { r: 100, g: 255, b: 200 },          // Mint green
+            'DOUBLE_CRESCENT': { r: 255, g: 150, b: 200 }  // Light pink
         };
         return colors[patternName] || { r: 0, g: 255, b: 153 };
     }
@@ -1144,21 +1906,30 @@ class EmergentFormationDetector {
     /**
      * Get max edge length for pattern integrity checks
      * Different patterns have different natural spacing
+     * [UPDATED] Values tuned to match tighter pattern radii
      */
     getPatternMaxEdgeLength(patternName) {
         const lengths = {
-            'LINE': 140,        // Lines have longer edges between enemies
-            'ARROW': 200,       // Arrow wings can stretch
-            'TRIANGLE': 220,    // Triangles have medium-large edges
-            'DIAMOND': 240,     // Diamonds are medium-large
-            'CROSS': 180,       // Cross arms are medium (center to tip)
-            'STAR': 240,        // Stars have longer points
-            'PENTAGON': 200,    // Pentagon edges are medium
-            'V_FORMATION': 160, // V formation has shorter arm segments
-            'HEXAGON': 220,     // Hexagon edges are medium
-            'CIRCLE': 180       // Circle edges - smaller for tighter circles
+            'LINE': 100,           // Lines: 60px spacing, allow some stretch
+            'ARROW': 140,          // Arrow: ~55px tip, ~50px wings
+            'TRIANGLE': 130,       // Triangle: 65px radius = ~113px edges
+            'DIAMOND': 110,        // Diamond: 70px radius = ~99px edges
+            'CROSS': 100,          // Cross: 65px arms from center
+            'STAR': 120,           // Star: 70px radius = ~82px edges (pentagon)
+            'PENTAGON': 130,       // Pentagon: medium edges
+            'V_FORMATION': 120,    // V formation: 50px spacing
+            'HEXAGON': 140,        // Hexagon: slightly larger
+            'DOUBLE_TRIANGLE': 140, // Two triangles
+            'DUAL_DIAMOND': 120,   // Two diamonds (inner smaller)
+            'OCTAGON': 100,        // Octagon: 105px radius, many edges
+            'ARROW_FLIGHT': 120,   // Flying arrow wings
+            'CRESCENT': 80,        // Crescent arc: closer spacing
+            'DOUBLE_V': 130,       // Double V formation
+            'SPIRAL': 100,         // Spiral: varies with position
+            'DOUBLE_CRESCENT': 90, // Two crescents
+            'CIRCLE': 150          // Circle: dynamic radius based on count
         };
-        return lengths[patternName] || 200;
+        return lengths[patternName] || 120;
     }
 
     /**

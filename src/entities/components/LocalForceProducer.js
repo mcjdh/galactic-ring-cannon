@@ -27,14 +27,19 @@ class LocalForceProducer {
         this.separationStrength = 600;  // Reduced - was causing jitter when too high
 
         // Group behavior (alignment + cohesion)
-        this.neighborRadius = this.separationRadius * 1.8;  // Reduced from 2.0
+        // [TUNED] Reduced cohesion to prevent tight swarming before constellation detection
+        // Enemies should cluster loosely, not swarm into tight balls
+        this.neighborRadius = this.separationRadius * 1.8;
         this.neighborRadiusSq = this.neighborRadius * this.neighborRadius;
-        this.alignmentStrength = 50;  // Reduced from 80 - less fighting with formation forces
-        this.cohesionStrength = 15;   // Reduced from 20
+        this.alignmentStrength = 35;  // Reduced from 45 - less herding behavior
+        this.cohesionStrength = 6;    // Reduced from 12 - looser clustering allows better shapes
 
         // Overlap threshold - when enemies are THIS close, apply hard collision
         this.hardOverlapRadius = (entity.radius || 15) * 1.6;
         this.hardOverlapRadiusSq = this.hardOverlapRadius * this.hardOverlapRadius;
+
+        // [STABILITY] Minimum distance for safe division (prevents NaN/Infinity)
+        this.EPSILON = 0.1;
     }
 
     /**
@@ -74,7 +79,8 @@ class LocalForceProducer {
         outerLoop:
         for (let dx = -1; dx <= 1; dx++) {
             for (let dy = -1; dy <= 1; dy++) {
-                const key = this.game._encodeGridKey(gridX + dx, gridY + dy);
+                // [FIX] Use public encodeGridKey API instead of private _encodeGridKey
+                const key = this.game.encodeGridKey(gridX + dx, gridY + dy);
                 const cell = grid.get(key);
                 if (!cell) continue;
 
@@ -123,15 +129,16 @@ class LocalForceProducer {
                     }
 
                     // === SEPARATION FORCE (close range) ===
-                    // [SIMPLIFIED] Always apply some separation, scaled by group membership
+                    // [FIX] Increased same-group separation to maintain geometric shape spacing
                     if (distSq < this.separationRadiusSq && distSq > 0.1) {
                         const dist = Math.sqrt(distSq);
                         const proximityRatio = 1 - (dist / this.separationRadius);  // 1.0 at center, 0.0 at edge
 
                         // Scale based on group membership
-                        // Same group: very light separation (positioning system handles it)
-                        // Different group: full separation
-                        const scale = bothInSameGroup ? 0.15 : 1.0;
+                        // [TUNED] Same group: increased separation to maintain geometric spacing
+                        // This helps enemies stay at their target positions in shapes
+                        // Different group: full separation to avoid overlap
+                        const scale = bothInSameGroup ? 0.55 : 1.0;
                         
                         // Skip negligible forces
                         if (scale * proximityRatio < 0.05) continue;
@@ -179,7 +186,8 @@ class LocalForceProducer {
             alignmentY /= neighborCount;
 
             const alignMag = Math.sqrt(alignmentX * alignmentX + alignmentY * alignmentY);
-            if (alignMag > 0.1) {
+            // [STABILITY] Use EPSILON for consistent guard threshold
+            if (alignMag > this.EPSILON) {
                 totalFx += (alignmentX / alignMag) * this.alignmentStrength * deltaTime;
                 totalFy += (alignmentY / alignMag) * this.alignmentStrength * deltaTime;
             }
@@ -192,7 +200,8 @@ class LocalForceProducer {
             const toCenterY = cohesionY - this.entity.y;
             const centerDist = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
 
-            if (centerDist > 0.1) {
+            // [STABILITY] Use EPSILON for consistent guard threshold
+            if (centerDist > this.EPSILON) {
                 totalFx += (toCenterX / centerDist) * this.cohesionStrength * deltaTime;
                 totalFy += (toCenterY / centerDist) * this.cohesionStrength * deltaTime;
             }
@@ -236,11 +245,7 @@ class LocalForceProducer {
             neighborRadius: this.neighborRadius,
             separationStrength: this.separationStrength,
             alignmentStrength: this.alignmentStrength,
-            cohesionStrength: this.cohesionStrength,
-            constellationScaling: {
-                same: this.constellationSeparationScale,
-                different: this.differentConstellationScale
-            }
+            cohesionStrength: this.cohesionStrength
         };
     }
 }

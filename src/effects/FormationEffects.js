@@ -97,6 +97,11 @@ class FormationEffects {
         canvas.width = dim;
         canvas.height = dim;
         const ctx = canvas.getContext('2d');
+        // [STABILITY] Guard against missing canvas context (can happen in some environments)
+        if (!ctx) {
+            window.logger?.warn('FormationEffects: Failed to create 2D canvas context for sprite cache');
+            return;
+        }
         const center = dim / 2;
 
         const r = color.r;
@@ -318,7 +323,16 @@ class FormationEffects {
             'PENTAGON': { r: 255, g: 153, b: 0, intensity: 1.1 },   // Orange
             'V_FORMATION': { r: 255, g: 120, b: 80, intensity: 1.25 }, // Orange-red - aggressive V
             'HEXAGON': { r: 255, g: 50, b: 180, intensity: 1.2 },   // Magenta
-            'CIRCLE': { r: 50, g: 180, b: 255, intensity: 1.0 }     // Sky blue
+            'CIRCLE': { r: 50, g: 180, b: 255, intensity: 1.0 },    // Sky blue
+            // New patterns
+            'DOUBLE_TRIANGLE': { r: 0, g: 220, b: 180, intensity: 1.2 },  // Teal
+            'DUAL_DIAMOND': { r: 180, g: 80, b: 255, intensity: 1.25 },   // Bright purple
+            'OCTAGON': { r: 255, g: 100, b: 150, intensity: 1.15 },       // Pink
+            'ARROW_FLIGHT': { r: 255, g: 60, b: 60, intensity: 1.3 },     // Bright red
+            'CRESCENT': { r: 200, g: 200, b: 255, intensity: 1.1 },       // Pale blue
+            'DOUBLE_V': { r: 255, g: 180, b: 50, intensity: 1.2 },        // Gold-orange
+            'SPIRAL': { r: 100, g: 255, b: 200, intensity: 1.2 },         // Mint green
+            'DOUBLE_CRESCENT': { r: 255, g: 150, b: 200, intensity: 1.15 } // Light pink
         };
         return colors[patternName] || { r: 0, g: 255, b: 153, intensity: 1.0 };
     }
@@ -326,21 +340,30 @@ class FormationEffects {
     /**
      * Get max edge length for a pattern type
      * Different patterns have different natural edge lengths
+     * [UPDATED] Values tuned to match tighter pattern radii
      */
     getPatternMaxEdgeLength(patternName) {
         const lengths = {
-            'LINE': 120,        // Lines have longer edges
-            'ARROW': 180,       // Arrows can be stretched
-            'TRIANGLE': 200,    // Triangles have medium edges
-            'DIAMOND': 220,     // Diamonds are medium-large
-            'CROSS': 180,       // Cross arms are medium
-            'STAR': 220,        // Stars have longer points
-            'PENTAGON': 180,    // Pentagon edges are medium
-            'V_FORMATION': 140, // V formation has short arm segments  
-            'HEXAGON': 200,     // Hexagon edges are medium
-            'CIRCLE': 160       // Circle edges depend on enemy count
+            'LINE': 100,           // Lines: 60px spacing, allow some stretch
+            'ARROW': 140,          // Arrow: ~55px tip, ~50px wings
+            'TRIANGLE': 130,       // Triangle: 65px radius = ~113px edges
+            'DIAMOND': 110,        // Diamond: 70px radius = ~99px edges
+            'CROSS': 100,          // Cross: 65px arms from center
+            'STAR': 120,           // Star: 70px radius = ~82px edges (pentagon)
+            'PENTAGON': 130,       // Pentagon: medium edges
+            'V_FORMATION': 120,    // V formation: 50px spacing
+            'HEXAGON': 140,        // Hexagon: slightly larger
+            'DOUBLE_TRIANGLE': 140, // Two triangles
+            'DUAL_DIAMOND': 120,   // Two diamonds (inner smaller)
+            'OCTAGON': 100,        // Octagon: 105px radius, many edges
+            'ARROW_FLIGHT': 120,   // Flying arrow wings
+            'CRESCENT': 80,        // Crescent arc: closer spacing
+            'DOUBLE_V': 130,       // Double V formation
+            'SPIRAL': 100,         // Spiral: varies with position
+            'DOUBLE_CRESCENT': 90, // Two crescents
+            'CIRCLE': 150          // Circle: dynamic radius based on count
         };
-        return lengths[patternName] || 200;
+        return lengths[patternName] || 120;
     }
 
     /**
@@ -349,8 +372,12 @@ class FormationEffects {
     update(deltaTime) {
         if (!this.enabled) return;
 
-        // Update particles
-        for (const particle of this.particlePool) {
+        // [OPTIMIZATION] Use indexed loop instead of for-of for hot path
+        const particles = this.particlePool;
+        const particleCount = particles.length;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = particles[i];
             if (!particle.active) continue;
 
             particle.life += deltaTime;
@@ -359,18 +386,21 @@ class FormationEffects {
             particle.x += particle.vx * deltaTime;
             particle.y += particle.vy * deltaTime;
 
-            // Apply gravity/drag based on type
-            if (particle.type === 'spark') {
-                particle.vx *= 0.95;
-                particle.vy *= 0.95;
-            } else if (particle.type === 'fragment') {
+            // Apply gravity/drag based on type (inlined for perf)
+            // [FIX] Frame-rate independent drag using exponential decay
+            const type = particle.type;
+            if (type === 'spark') {
+                const sparkDrag = Math.pow(0.95, deltaTime * 60);
+                particle.vx *= sparkDrag;
+                particle.vy *= sparkDrag;
+            } else if (type === 'fragment') {
                 particle.vy += 200 * deltaTime; // Gravity
-                particle.vx *= 0.98;
+                const fragDrag = Math.pow(0.98, deltaTime * 60);
+                particle.vx *= fragDrag;
             }
 
             // Fade out
-            const lifeRatio = particle.life / particle.maxLife;
-            particle.alpha = 1 - lifeRatio;
+            particle.alpha = 1 - (particle.life / particle.maxLife);
 
             // Deactivate when done
             if (particle.life >= particle.maxLife) {
@@ -378,33 +408,46 @@ class FormationEffects {
             }
         }
 
-        // Update snap effects (pulse rings)
-        for (let i = this.snapEffects.length - 1; i >= 0; i--) {
-            const effect = this.snapEffects[i];
+        // Update snap effects (pulse rings) - use swap-remove for O(1) removal
+        const snapEffects = this.snapEffects;
+        for (let i = snapEffects.length - 1; i >= 0; i--) {
+            const effect = snapEffects[i];
             effect.life += deltaTime;
             effect.radius += effect.growthRate * deltaTime;
             effect.alpha = 1 - (effect.life / effect.maxLife);
 
             if (effect.life >= effect.maxLife) {
-                this.snapEffects.splice(i, 1);
+                // Swap with last element and pop (O(1) instead of O(n) splice)
+                const lastIdx = snapEffects.length - 1;
+                if (i !== lastIdx) {
+                    snapEffects[i] = snapEffects[lastIdx];
+                }
+                snapEffects.pop();
             }
         }
 
-        // Update shatter effects (implosion rings)
-        for (let i = this.shatterEffects.length - 1; i >= 0; i--) {
-            const effect = this.shatterEffects[i];
+        // Update shatter effects (implosion rings) - use swap-remove
+        const shatterEffects = this.shatterEffects;
+        for (let i = shatterEffects.length - 1; i >= 0; i--) {
+            const effect = shatterEffects[i];
             effect.life += deltaTime;
             effect.radius -= effect.shrinkRate * deltaTime;
             effect.alpha = 0.6 * (1 - effect.life / effect.maxLife);
 
             if (effect.life >= effect.maxLife || effect.radius <= 0) {
-                this.shatterEffects.splice(i, 1);
+                // Swap with last element and pop (O(1) instead of O(n) splice)
+                const lastIdx = shatterEffects.length - 1;
+                if (i !== lastIdx) {
+                    shatterEffects[i] = shatterEffects[lastIdx];
+                }
+                shatterEffects.pop();
             }
         }
 
         // Update constellation beams
-        for (let i = this.constellationBeams.length - 1; i >= 0; i--) {
-            const beam = this.constellationBeams[i];
+        const beams = this.constellationBeams;
+        for (let i = beams.length - 1; i >= 0; i--) {
+            const beam = beams[i];
             beam.age += deltaTime;
             beam.pulsePhase += deltaTime * 2;
 
@@ -414,40 +457,64 @@ class FormationEffects {
             }
 
             // Remove if constellation is dead or enemies wandered away
-            const activeEnemies = beam.enemies.filter(e =>
-                e && !e.isDead && e.constellation === beam.constellation
-            );
+            const enemies = beam.enemies;
+            let activeCount = 0;
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                const e = enemies[j];
+                if (e && !e.isDead && e.constellation === beam.constellation) {
+                    activeCount++;
+                } else {
+                    // Remove inactive enemy from array inline
+                    const lastIdx = enemies.length - 1;
+                    if (j !== lastIdx) {
+                        enemies[j] = enemies[lastIdx];
+                    }
+                    enemies.pop();
+                }
+            }
 
-            if (activeEnemies.length < 2) {
-                this.constellationBeams.splice(i, 1);
+            if (activeCount < 2) {
+                // Swap with last element and pop
+                const lastIdx = beams.length - 1;
+                if (i !== lastIdx) {
+                    beams[i] = beams[lastIdx];
+                }
+                beams.pop();
                 continue;
             }
 
             // Sort by anchor index for consistent connection order
-            activeEnemies.sort((a, b) => (a.constellationAnchor || 0) - (b.constellationAnchor || 0));
+            enemies.sort((a, b) => (a.constellationAnchor || 0) - (b.constellationAnchor || 0));
 
             // Check max edge length - use pattern-specific thresholds
-            const patternMaxEdge = this.getPatternMaxEdgeLength(beam.patternName);
-            const maxEdgeSq = patternMaxEdge * patternMaxEdge;
-            
+            // [STABILITY] Guard against invalid patternMaxEdge
+            const patternMaxEdge = this.getPatternMaxEdgeLength(beam.patternName) || 120;
+            if (patternMaxEdge <= 0) continue;
+
             let exceedsLength = false;
-            let stretchRatio = 0;  // Track how stretched edges are
-            
-            for (let j = 0; j < activeEnemies.length; j++) {
-                const next = (j + 1) % activeEnemies.length;
+            let stretchRatio = 0;  // Track how stretched edges are (linear, not squared)
+            const activeEnemies = enemies;
+            const enemyCount = activeEnemies.length;
+
+            for (let j = 0; j < enemyCount; j++) {
+                const next = (j + 1) % enemyCount;
                 const e1 = activeEnemies[j];
                 const e2 = activeEnemies[next];
+                // [STABILITY] Guard against null enemies in array
+                if (!e1 || !e2) continue;
                 const dx = e1.x - e2.x;
                 const dy = e1.y - e2.y;
                 const distSq = dx * dx + dy * dy;
-                
-                if (distSq > maxEdgeSq) {
+
+                if (distSq > patternMaxEdge * patternMaxEdge) {
                     exceedsLength = true;
                     break;
                 }
-                
-                // Track stretch ratio for alpha fading
-                const ratio = distSq / maxEdgeSq;
+
+                // [FIX] Track stretch ratio using linear distance, not squared
+                // This ensures fadeFactor calculation below works correctly
+                const dist = Math.sqrt(distSq);
+                const ratio = dist / patternMaxEdge;
                 if (ratio > stretchRatio) stretchRatio = ratio;
             }
 
@@ -455,10 +522,14 @@ class FormationEffects {
                 // Fade out before removing
                 beam.alpha -= deltaTime * 3;
                 if (beam.alpha <= 0) {
-                    this.constellationBeams.splice(i, 1);
+                    // Swap with last element and pop
+                    const lastIdx = beams.length - 1;
+                    if (i !== lastIdx) {
+                        beams[i] = beams[lastIdx];
+                    }
+                    beams.pop();
                 }
             } else {
-                beam.enemies = activeEnemies;
                 // Reduce alpha when edges are stretched (starts fading at 60% of max)
                 if (stretchRatio > 0.6) {
                     const fadeFactor = 1 - (stretchRatio - 0.6) / 0.4;
@@ -625,7 +696,101 @@ class FormationEffects {
             return;
         }
         
+        // DOUBLE_TRIANGLE: draw two triangles
+        if (patternName === 'DOUBLE_TRIANGLE' && sorted.length === 6) {
+            // First triangle: 0, 1, 2
+            for (let i = 0; i < 3; i++) {
+                const next = (i + 1) % 3;
+                const e1 = sorted[i];
+                const e2 = sorted[next];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Second triangle: 3, 4, 5
+            for (let i = 3; i < 6; i++) {
+                const next = 3 + ((i - 3 + 1) % 3);
+                const e1 = sorted[i];
+                const e2 = sorted[next];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            return;
+        }
+        
+        // DUAL_DIAMOND: draw two diamonds
+        if (patternName === 'DUAL_DIAMOND' && sorted.length === 8) {
+            // Outer diamond: 0, 1, 2, 3
+            for (let i = 0; i < 4; i++) {
+                const next = (i + 1) % 4;
+                const e1 = sorted[i];
+                const e2 = sorted[next];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            // Inner diamond: 4, 5, 6, 7
+            for (let i = 4; i < 8; i++) {
+                const next = 4 + ((i - 4 + 1) % 4);
+                const e1 = sorted[i];
+                const e2 = sorted[next];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            return;
+        }
+        
+        // ARROW_FLIGHT: draw as flying arrow (tip + two wings)
+        if (patternName === 'ARROW_FLIGHT' && sorted.length === 7) {
+            const tip = sorted[0];
+            if (tip && !tip.isDead) {
+                // Connect tip to first of each wing, then chain wings
+                // Left wing: 1, 2, 3
+                for (let i = 1; i <= 3; i++) {
+                    const prev = i === 1 ? tip : sorted[i - 1];
+                    const curr = sorted[i];
+                    if (prev && curr && !prev.isDead && !curr.isDead) {
+                        ctx.moveTo(prev.x, prev.y);
+                        ctx.lineTo(curr.x, curr.y);
+                    }
+                }
+                // Right wing: 4, 5, 6
+                for (let i = 4; i <= 6; i++) {
+                    const prev = i === 4 ? tip : sorted[i - 1];
+                    const curr = sorted[i];
+                    if (prev && curr && !prev.isDead && !curr.isDead) {
+                        ctx.moveTo(prev.x, prev.y);
+                        ctx.lineTo(curr.x, curr.y);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // CRESCENT, DOUBLE_V, SPIRAL, DOUBLE_CRESCENT: draw as open arc (don't close)
+        // These patterns work well with any enemy count within their range
+        if (patternName === 'CRESCENT' || patternName === 'DOUBLE_V' || 
+            patternName === 'SPIRAL' || patternName === 'DOUBLE_CRESCENT') {
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            return;
+        }
+        
         // Default: connect adjacent enemies in a loop (polygon)
+        // Used for: TRIANGLE, DIAMOND, PENTAGON, HEXAGON, OCTAGON, CIRCLE
+        // Also fallback for patterns when enemy count doesn't match expected
         for (let i = 0; i < sorted.length; i++) {
             const next = (i + 1) % sorted.length;
             const e1 = sorted[i];
@@ -755,12 +920,21 @@ class FormationEffects {
 
     /**
      * Remove constellation beams tied to a specific constellation id
+     * [FIX] Uses swap-and-pop pattern to avoid creating new array (reduces GC)
      */
     removeConstellationBeams(constellationId) {
         if (!constellationId) return;
-        this.constellationBeams = this.constellationBeams.filter(
-            beam => beam.constellation !== constellationId
-        );
+        const beams = this.constellationBeams;
+        for (let i = beams.length - 1; i >= 0; i--) {
+            if (beams[i].constellation === constellationId) {
+                // Swap with last element and pop (O(1) removal)
+                const lastIdx = beams.length - 1;
+                if (i !== lastIdx) {
+                    beams[i] = beams[lastIdx];
+                }
+                beams.pop();
+            }
+        }
     }
 
     /**

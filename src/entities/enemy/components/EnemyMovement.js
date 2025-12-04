@@ -168,7 +168,8 @@ class EnemyMovement {
 
     /**
      * Apply steering force toward constellation target position
-     * [REWRITTEN] Simple velocity-based approach that prevents oscillation
+     * [IMPROVED] Smoother arrival behavior that prevents freezing
+     * [IMPROVED] Reduced forces when many constellations are active
      */
     _applyConstellationForce(deltaTime, constellation, game) {
         const enemy = this.enemy;
@@ -185,39 +186,59 @@ class EnemyMovement {
         const dy = target.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // [SIMPLE APPROACH] Direct velocity steering toward target
-        // No complex spring-damper system that can oscillate
+        // [FIXED] No dead zone - always apply some force to match constellation movement
+        // This prevents the "frozen" appearance when near target
         
-        // Dead zone - if very close, apply gentle damping to settle
-        if (dist < 5) {
-            this.forceAccumulator.addForce('constellation',
-                -this.velocity.x * 2.0 * deltaTime,
-                -this.velocity.y * 2.0 * deltaTime
-            );
-            return;
-        }
+        // Estimate how fast the target is moving (constellation center + rotation)
+        const rotSpeed = Math.abs(constellation.rotationSpeed || 0);
+        const estimatedTargetSpeed = 20 + rotSpeed * 50;  // Base drift + rotation contribution
         
-        // Calculate desired speed based on distance
-        // Close = slow, Far = fast (arrival behavior)
-        const maxSpeed = 140;  // Max approach speed
-        const arrivalRadius = 80;  // Start slowing at this distance
+        // Calculate desired speed based on distance to target
+        const maxSpeed = 200;
+        const arrivalRadius = 60;
         
         let desiredSpeed;
         if (dist > arrivalRadius) {
             desiredSpeed = maxSpeed;
+        } else if (dist < 5) {
+            // Very close: just match estimated target motion, don't stop completely
+            desiredSpeed = estimatedTargetSpeed;
         } else {
-            // Smooth cubic falloff for gentle arrival
-            const t = dist / arrivalRadius;  // 0 to 1
-            desiredSpeed = maxSpeed * (t * t * (3 - 2 * t));  // Smoothstep
+            // Smooth interpolation in arrival zone
+            const t = dist / arrivalRadius;
+            desiredSpeed = estimatedTargetSpeed + (maxSpeed - estimatedTargetSpeed) * t;
         }
         
-        // Desired velocity toward target
-        const desiredVelX = (dx / dist) * desiredSpeed;
-        const desiredVelY = (dy / dist) * desiredSpeed;
+        // Direction toward target (or maintain current direction if very close)
+        let dirX, dirY;
+        if (dist > 1) {
+            dirX = dx / dist;
+            dirY = dy / dist;
+        } else {
+            // Maintain previous direction or use constellation rotation
+            const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
+            if (speed > 5) {
+                dirX = this.velocity.x / speed;
+                dirY = this.velocity.y / speed;
+            } else {
+                dirX = Math.cos(constellation.rotation);
+                dirY = Math.sin(constellation.rotation);
+            }
+        }
         
-        // Steering force: blend toward desired velocity
-        // [KEY] Fixed multiplier, not dependent on complex factors
-        const steerStrength = 3.5;  // How quickly to change direction
+        // Desired velocity
+        const desiredVelX = dirX * desiredSpeed;
+        const desiredVelY = dirY * desiredSpeed;
+        
+        // [TUNED] Increased base steering to help enemies reach shape positions
+        // Reduces when many constellations to prevent chaos
+        const constellationCount = game?.emergentDetector?.constellations?.length || 1;
+        let steerStrength = 6.5;  // Increased from 5.0 for stronger shape adherence
+        if (constellationCount >= 8) {
+            steerStrength = 4.0;  // Still gentler when many constellations
+        } else if (constellationCount >= 5) {
+            steerStrength = 5.0;  // Slightly gentler
+        }
         
         const steerX = (desiredVelX - this.velocity.x) * steerStrength * deltaTime * 50;
         const steerY = (desiredVelY - this.velocity.y) * steerStrength * deltaTime * 50;
@@ -464,11 +485,13 @@ class EnemyMovement {
         this.velocity.y += netForce.y;
 
         // 3. Apply Friction/Damping
-        // [SIMPLIFIED] Use a constant friction per frame for stability
-        // Instead of frame-rate dependent exponential decay
-        const frictionPerFrame = 0.92;  // 8% velocity loss per frame
-        this.velocity.x *= frictionPerFrame;
-        this.velocity.y *= frictionPerFrame;
+        // [FIX] Frame-rate independent friction using exponential decay
+        // At 60fps: frictionFactor ≈ 0.92 (same as before)
+        // At 30fps: frictionFactor ≈ 0.85 (more friction per frame, same over time)
+        const baseFriction = 0.92;
+        const frictionFactor = Math.pow(baseFriction, deltaTime * 60);
+        this.velocity.x *= frictionFactor;
+        this.velocity.y *= frictionFactor;
 
         // 4. Clamp Velocity to Max Speed
         const speedSq = this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y;

@@ -150,8 +150,13 @@ class CosmicBackground {
         this.lastPlayerX = playerX;
         this.lastPlayerY = playerY;
 
+        // [OPTIMIZATION] Skip shape updates in lowQuality mode (not rendered anyway)
+        if (this.lowQuality) return;
+
         // Update Shapes
-        this.shapes.forEach(shape => {
+        const shapes = this.shapes;
+        for (let i = 0, len = shapes.length; i < len; i++) {
+            const shape = shapes[i];
             shape.rotX += shape.rotSpeedX * deltaTime;
             shape.rotY += shape.rotSpeedY * deltaTime;
             shape.rotZ += shape.rotSpeedZ * deltaTime;
@@ -161,7 +166,7 @@ class CosmicBackground {
             shape.y += shape.driftY * deltaTime;
 
             // Note: We no longer wrap here. Wrapping is handled in render relative to camera.
-        });
+        }
     }
 
     render(player) {
@@ -184,7 +189,7 @@ class CosmicBackground {
             deltaTime = 0.016; // Fallback to ~60fps
         }
 
-        // Update state
+        // Update state (skip shape updates in lowQuality since we don't render them)
         if (player) {
             this.update(deltaTime, player.x, player.y);
         } else {
@@ -195,8 +200,10 @@ class CosmicBackground {
         this.ctx.fillStyle = this.colors.bg;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw Grid
-        this.drawGrid();
+        // Draw Grid (skip in lowQuality to save more performance)
+        if (!this.lowQuality) {
+            this.drawGrid();
+        }
 
         // Draw Stars
         if (this.lowQuality) {

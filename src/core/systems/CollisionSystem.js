@@ -210,9 +210,31 @@
                 for (const [key, entities] of engine.spatialGrid) {
                     // + EARLY EXIT STRATEGY for empty regions
                     if (!entities || entities.length === 0) continue;
+                    
+                    // [OPTIMIZATION] Skip cells with < 2 entities or all same type
+                    if (entities.length < 2) {
+                        // Still need to check adjacent cells
+                        const [gridX, gridY] = engine.decodeGridKey(key);
+                        this.checkAdjacentCellCollisions(gridX, gridY, entities);
+                        continue;
+                    }
+                    
+                    // Fast path: check if all entities are same type (no internal collisions possible)
+                    const firstType = entities[0]?.type;
+                    let allSameType = true;
+                    for (let k = 1; k < entities.length; k++) {
+                        if (entities[k]?.type !== firstType) {
+                            allSameType = false;
+                            break;
+                        }
+                    }
+                    
                     const [gridX, gridY] = engine.decodeGridKey(key);
 
                     this.checkAdjacentCellCollisions(gridX, gridY, entities);
+
+                    // [OPTIMIZATION] Skip same-cell checks if all entities are same type
+                    if (allSameType) continue;
 
                     for (let i = 0; i < entities.length; i++) {
                         const entity1 = entities[i];
