@@ -14,23 +14,23 @@ class EmergentFormationDetector {
         this.game = game;
 
         // Detection parameters
-        // [TUNED] Faster detection for better responsiveness
-        this.detectionRadius = 140;  // Slightly reduced for tighter clusters
+        // [TUNED] Optimized for more shapes in late game
+        this.detectionRadius = 150;  // Slightly increased to catch more clusters
         this.minEnemiesForConstellation = 3;
-        this.maxConstellations = 10;  // Increased from 8 to allow more shapes
-        this.detectionInterval = 0.18;  // Faster detection (was 0.25)
+        this.maxConstellations = 16;  // Increased from 10 for more late-game shapes
+        this.detectionInterval = 0.12;  // Faster detection (was 0.18) for quicker shape formation
         this.detectionTimer = 0;
-        this.maxConstellationRadius = 250;  // Reduced from 280
+        this.maxConstellationRadius = 250;
         this.maxConstellationRadiusSq = this.maxConstellationRadius * this.maxConstellationRadius;
-        this.integrityStrikeLimit = 25;  // Reduced from 30 for faster cleanup of broken formations
-        this.constellationStandoffDistance = 180;  // Reduced for more aggressive approach
-        this.constellationChaseGain = 0.8;  // Increased from 0.6 for more dynamic movement
-        this.constellationOrbitGain = 0.35;  // Increased from 0.25 for more movement
-        this.constellationRotationAlign = 0.5;  // Reduced from 1.0 for gentler rotation
-        this.constellationReformCooldownMs = 600;  // Cooldown before enemy can rejoin constellation
-        this.mergeInterval = 3.0;  // Less frequent merges to prevent churn
+        this.integrityStrikeLimit = 25;
+        this.constellationStandoffDistance = 180;
+        this.constellationChaseGain = 0.8;
+        this.constellationOrbitGain = 0.35;
+        this.constellationRotationAlign = 0.5;
+        this.constellationReformCooldownMs = 350;  // Reduced from 600 - enemies rejoin shapes faster
+        this.mergeInterval = 3.5;  // Slightly less frequent merges to let shapes stabilize
         this.mergeTimer = 0;
-        this.mergeMinAge = 3.0;  // Constellations must be 3s old before merging
+        this.mergeMinAge = 2.5;  // Reduced from 3.0 - allow merging sooner for dynamic gameplay
         this.maxConstellationMaxSpeed = 600;  // Reduced for smoother movement
         this.strayAbsorptionEnabled = true;  // Actively pull stray enemies into nearby constellations
         this.anchorReoptimizeInterval = 2.0;  // Reoptimize anchors every 2 seconds to fix glitchy shapes
@@ -47,9 +47,10 @@ class EmergentFormationDetector {
         this.targetPatternVariety = 0.6;    // Target: 60% of patterns should be unique types
         
         // Size diversity - balance small vs large formations
-        this.preferSmallFormations = false;  // Set true when too many large formations
+        // [TUNED] Prefer more small shapes for visual variety and coverage
+        this.preferSmallFormations = true;   // Prefer smaller formations = more total shapes
         this.smallPatternThreshold = 5;      // Patterns with maxEnemies <= this are "small"
-        this.targetSmallRatio = 0.4;         // Target 40% small formations
+        this.targetSmallRatio = 0.55;        // Increased from 0.4 - more small shapes
 
         // Visual effects system
         this.effects = null; // Will be initialized when FormationEffects is available
@@ -602,17 +603,18 @@ class EmergentFormationDetector {
         const attractRadius = this.detectionRadius * 2.5;  // Pull from further away
         const attractRadiusSq = attractRadius * attractRadius;
         
-        // [NEW] Reduce attraction strength when many constellations exist
-        // This prevents all enemies from swarming toward formations late game
-        const baseStrength = 30;
+        // [TUNED] Increased base attraction to help free enemies join shapes faster
+        // Still reduces with constellation count to prevent chaos
+        const baseStrength = 45;  // Increased from 30
         const constellationCount = this.constellations.length;
         let attractStrength = baseStrength;
-        if (constellationCount >= 6) {
-            // Reduce attraction by 50% when 6+ constellations
-            attractStrength = baseStrength * 0.5;
+        if (constellationCount >= 10) {
+            // Reduce attraction when very many constellations
+            attractStrength = baseStrength * 0.4;
+        } else if (constellationCount >= 6) {
+            attractStrength = baseStrength * 0.6;
         } else if (constellationCount >= 4) {
-            // Reduce attraction by 25% when 4-5 constellations
-            attractStrength = baseStrength * 0.75;
+            attractStrength = baseStrength * 0.8;
         }
 
         for (const enemy of enemies) {
@@ -936,16 +938,16 @@ class EmergentFormationDetector {
             centerX /= remaining.length;
             centerY /= remaining.length;
 
-            // [NEW] For large clusters, prefer making smaller formations to increase variety
+            // [TUNED] More aggressive splitting for more total shapes
             let targetCount = remaining.length;
-            if (remaining.length > 8 && this.preferSmallFormations) {
-                // Split into smaller groups - aim for 4-6 enemies per formation
-                targetCount = Math.min(6, Math.floor(remaining.length / 2));
-            } else if (remaining.length > 10) {
-                // Even without preference, don't always make the biggest possible shape
-                // 50% chance to make a medium-sized formation instead
-                if (Math.random() < 0.5) {
-                    targetCount = Math.min(8, remaining.length);
+            if (remaining.length > 6 && this.preferSmallFormations) {
+                // Split into smaller groups - aim for 3-5 enemies per formation
+                targetCount = Math.min(5, Math.max(3, Math.floor(remaining.length / 2)));
+            } else if (remaining.length > 8) {
+                // Even without preference, split large clusters
+                // 70% chance to make a medium-sized formation instead
+                if (Math.random() < 0.7) {
+                    targetCount = Math.min(6, remaining.length);
                 }
             }
 
