@@ -888,7 +888,8 @@ class EnemySpawner {
 
     /**
      * Generate cluster sizes that add up to total wave size
-     * Creates variety: some clusters of 3, 4, 5, 6 enemies
+     * Creates variety: some clusters of 3, 4, 5, 6, 7 enemies for different patterns
+     * [IMPROVED] Better distribution favoring pattern-friendly sizes
      * @param {number} totalSize - Total number of enemies to spawn
      * @returns {Array<number>} Array of cluster sizes
      */
@@ -896,29 +897,57 @@ class EnemySpawner {
         const clusters = [];
         let remaining = totalSize;
 
-        // Preferred cluster sizes for constellation patterns
-        // 3: Triangle/Arrow, 4: Diamond/Line, 5: Star/Cross/Pentagon, 6: Hexagon
-        const preferredSizes = [3, 4, 5, 6, 4, 5, 3, 6, 5, 4];
-        let sizeIndex = Math.floor(Math.random() * preferredSizes.length);
+        // Preferred cluster sizes for constellation patterns:
+        // 3: Triangle/Arrow
+        // 4: Diamond/Line  
+        // 5: Star/Cross/Pentagon/V_FORMATION
+        // 6: Hexagon/V_FORMATION
+        // 7: Circle/V_FORMATION
+        // Weighted to favor more interesting patterns
+        const sizeWeights = [
+            { size: 3, weight: 2 },   // Triangle/Arrow - common
+            { size: 4, weight: 3 },   // Diamond/Line - good variety
+            { size: 5, weight: 4 },   // Star/Cross - very interesting
+            { size: 6, weight: 3 },   // Hexagon - impressive
+            { size: 7, weight: 2 },   // Circle start - rare but cool
+        ];
+
+        // Calculate total weight for random selection
+        const totalWeight = sizeWeights.reduce((sum, sw) => sum + sw.weight, 0);
 
         while (remaining >= 3) {
-            // Pick a cluster size, ensuring we don't go over remaining
-            let size = preferredSizes[sizeIndex % preferredSizes.length];
-            sizeIndex++;
+            // Weighted random selection
+            let roll = Math.random() * totalWeight;
+            let selectedSize = 3; // Default fallback
+            
+            for (const sw of sizeWeights) {
+                roll -= sw.weight;
+                if (roll <= 0) {
+                    selectedSize = sw.size;
+                    break;
+                }
+            }
 
             // Adjust size if needed
-            if (size > remaining) {
-                size = remaining;
+            if (selectedSize > remaining) {
+                selectedSize = remaining;
             }
 
-            // Don't create clusters smaller than 3 (no good patterns)
-            if (remaining - size > 0 && remaining - size < 3) {
-                size = remaining; // Take all remaining
+            // Avoid leaving 1-2 enemies (no good patterns)
+            // Either take all remaining or leave at least 3
+            if (remaining - selectedSize > 0 && remaining - selectedSize < 3) {
+                // Option 1: Take all remaining
+                // Option 2: Take fewer to leave exactly 3
+                if (remaining <= 5) {
+                    selectedSize = remaining; // Just take all for small remainders
+                } else {
+                    selectedSize = remaining - 3; // Leave exactly 3 for a triangle
+                }
             }
 
-            if (size >= 3) {
-                clusters.push(size);
-                remaining -= size;
+            if (selectedSize >= 3) {
+                clusters.push(selectedSize);
+                remaining -= selectedSize;
             } else {
                 break;
             }
@@ -927,6 +956,12 @@ class EnemySpawner {
         // If we have 1-2 leftovers, add them to the last cluster
         if (remaining > 0 && clusters.length > 0) {
             clusters[clusters.length - 1] += remaining;
+        }
+
+        // Shuffle clusters so pattern distribution is more random
+        for (let i = clusters.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [clusters[i], clusters[j]] = [clusters[j], clusters[i]];
         }
 
         return clusters;

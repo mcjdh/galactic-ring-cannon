@@ -129,15 +129,21 @@ class LocalForceProducer {
                     const otherRadius = other.radius || 15;
                     const combinedRadii = myRadius + otherRadius;
                     const hardCollisionDist = combinedRadii * 0.8;  // Trigger when nearly touching
+                    
+                    // Pre-calculate group membership for collision and separation logic
+                    const sameConstellation = this.entity.constellation &&
+                        this.entity.constellation === other.constellation;
+                    const sameFormation = this.entity.formationId && 
+                        this.entity.formationId === other.formationId;
+                    const bothInSameGroup = sameConstellation || sameFormation;
 
                     // === HARD COLLISION FORCE (actual overlap - emergency separation) ===
-                    if (distSq < hardCollisionDist * hardCollisionDist && distSq > 0.01) {
+                    // [FIXED] Only apply collision force between different groups to prevent jitter
+                    if (distSq < hardCollisionDist * hardCollisionDist && distSq > 0.01 && !bothInSameGroup) {
                         const dist = Math.sqrt(distSq);
-                        // Very strong push when actually overlapping - this ALWAYS applies
                         const penetration = hardCollisionDist - dist;
-                        const emergencyForce = 2000 * (penetration / hardCollisionDist);
+                        const emergencyForce = 600 * (penetration / hardCollisionDist);  // Reduced from 2000
                         
-                        // Accumulate collision forces to cache
                         collisionX += (deltaX / dist) * emergencyForce * deltaTime;
                         collisionY += (deltaY / dist) * emergencyForce * deltaTime;
                     }
@@ -146,28 +152,28 @@ class LocalForceProducer {
                     if (distSq < this.separationRadiusSq && distSq > 0.1) {
                         const dist = Math.sqrt(distSq);
                         const overlap = this.separationRadius - dist;
-
-                        // Check constellation membership for scaling
-                        const sameConstellation = this.entity.constellation &&
-                            this.entity.constellation === other.constellation;
                         const inAnyConstellation = !!this.entity.constellation;
-
-                        // Scale separation based on constellation relationship
-                        let scale = 1.0;
-                        if (inAnyConstellation) {
-                            scale = sameConstellation ?
-                                0.25 : // [TUNED] Reduced from 0.7 to allow tighter shapes without jitter
-                                this.differentConstellationScale;
-                        }
-                        // [FIX] Also check for formation membership
                         const inAnyFormation = !!this.entity.formationId;
-                        const sameFormation = inAnyFormation && this.entity.formationId === other.formationId;
-                        if (inAnyFormation && !inAnyConstellation) {
-                            scale = sameFormation ? 0.2 : 1.0;  // [TUNED] Reduced from 0.6 to allow tight formation packing
+
+                        // [FIXED] Minimal separation within same group to prevent jitter
+                        let scale = 1.0;
+                        if (bothInSameGroup) {
+                            // Within same constellation/formation: only push if actually overlapping
+                            const actualOverlap = combinedRadii - dist;
+                            if (actualOverlap > 0) {
+                                scale = 0.2;  // Very gentle push only when truly overlapping
+                            } else {
+                                scale = 0;  // No separation force - let positioning system handle it
+                            }
+                        } else if (inAnyConstellation || inAnyFormation) {
+                            // In a group but other entity is not in same group
+                            scale = 1.0;
                         }
+                        
+                        // Skip if scale is zero
+                        if (scale === 0) continue;
 
                         // Calculate separation force
-                        // Strong exponential ramp for very close encounters
                         const hardness = 1 + (overlap / this.separationRadius) * 2;
                         const force = this.separationStrength * scale * (overlap / this.separationRadius) * hardness;
 

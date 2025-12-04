@@ -219,12 +219,14 @@ class FormationEffects {
 
     /**
      * Create connecting beam effects for constellation
+     * [IMPROVED] Store pattern info for proper connection rendering
      */
     createConstellationBeams(constellation) {
         const beam = {
             constellation: constellation.id,
             enemies: [...constellation.enemies],
             pattern: constellation.pattern,
+            patternName: constellation.pattern?.name || 'UNKNOWN',
             alpha: 0,
             targetAlpha: this.beamOpacity,
             pulsePhase: 0,
@@ -302,20 +304,43 @@ class FormationEffects {
 
     /**
      * Get color for pattern type
+     * [IMPROVED] Added glow intensity per pattern for visual variety
      */
     getPatternColor(patternName) {
         const colors = {
-            'PAIR': { r: 100, g: 200, b: 255 },
-            'ARROW': { r: 255, g: 50, b: 50 },
-            'TRIANGLE': { r: 0, g: 255, b: 153 },
-            'CROSS': { r: 255, g: 200, b: 50 },
-            'DIAMOND': { r: 153, g: 0, b: 255 },
-            'STAR': { r: 255, g: 255, b: 0 },
-            'PENTAGON': { r: 255, g: 153, b: 0 },
-            'HEXAGON': { r: 255, g: 0, b: 153 },
-            'CIRCLE': { r: 0, g: 153, b: 255 }
+            'LINE': { r: 50, g: 200, b: 255, intensity: 1.1 },      // Cyan-blue
+            'PAIR': { r: 100, g: 200, b: 255, intensity: 0.8 },
+            'ARROW': { r: 255, g: 80, b: 80, intensity: 1.2 },      // Red - aggressive
+            'TRIANGLE': { r: 0, g: 255, b: 153, intensity: 1.0 },   // Neon green
+            'CROSS': { r: 255, g: 200, b: 50, intensity: 1.3 },     // Gold - prominent
+            'DIAMOND': { r: 153, g: 50, b: 255, intensity: 1.15 },  // Purple
+            'STAR': { r: 255, g: 255, b: 50, intensity: 1.4 },      // Bright yellow - special
+            'PENTAGON': { r: 255, g: 153, b: 0, intensity: 1.1 },   // Orange
+            'V_FORMATION': { r: 255, g: 120, b: 80, intensity: 1.25 }, // Orange-red - aggressive V
+            'HEXAGON': { r: 255, g: 50, b: 180, intensity: 1.2 },   // Magenta
+            'CIRCLE': { r: 50, g: 180, b: 255, intensity: 1.0 }     // Sky blue
         };
-        return colors[patternName] || { r: 0, g: 255, b: 153 };
+        return colors[patternName] || { r: 0, g: 255, b: 153, intensity: 1.0 };
+    }
+
+    /**
+     * Get max edge length for a pattern type
+     * Different patterns have different natural edge lengths
+     */
+    getPatternMaxEdgeLength(patternName) {
+        const lengths = {
+            'LINE': 120,        // Lines have longer edges
+            'ARROW': 180,       // Arrows can be stretched
+            'TRIANGLE': 200,    // Triangles have medium edges
+            'DIAMOND': 220,     // Diamonds are medium-large
+            'CROSS': 180,       // Cross arms are medium
+            'STAR': 220,        // Stars have longer points
+            'PENTAGON': 180,    // Pentagon edges are medium
+            'V_FORMATION': 140, // V formation has short arm segments  
+            'HEXAGON': 200,     // Hexagon edges are medium
+            'CIRCLE': 160       // Circle edges depend on enemy count
+        };
+        return lengths[patternName] || 200;
     }
 
     /**
@@ -383,9 +408,9 @@ class FormationEffects {
             beam.age += deltaTime;
             beam.pulsePhase += deltaTime * 2;
 
-            // Fade in
+            // Fade in smoothly
             if (beam.alpha < beam.targetAlpha) {
-                beam.alpha = Math.min(beam.targetAlpha, beam.alpha + deltaTime * 2);
+                beam.alpha = Math.min(beam.targetAlpha, beam.alpha + deltaTime * 1.5);
             }
 
             // Remove if constellation is dead or enemies wandered away
@@ -398,24 +423,49 @@ class FormationEffects {
                 continue;
             }
 
-            // Drop beams that stretch too far to avoid screen-length strings
+            // Sort by anchor index for consistent connection order
+            activeEnemies.sort((a, b) => (a.constellationAnchor || 0) - (b.constellationAnchor || 0));
+
+            // Check max edge length - use pattern-specific thresholds
+            const patternMaxEdge = this.getPatternMaxEdgeLength(beam.patternName);
+            const maxEdgeSq = patternMaxEdge * patternMaxEdge;
+            
             let exceedsLength = false;
+            let stretchRatio = 0;  // Track how stretched edges are
+            
             for (let j = 0; j < activeEnemies.length; j++) {
                 const next = (j + 1) % activeEnemies.length;
                 const e1 = activeEnemies[j];
                 const e2 = activeEnemies[next];
                 const dx = e1.x - e2.x;
                 const dy = e1.y - e2.y;
-                if ((dx * dx + dy * dy) > this.maxBeamLengthSq) {
+                const distSq = dx * dx + dy * dy;
+                
+                if (distSq > maxEdgeSq) {
                     exceedsLength = true;
                     break;
                 }
+                
+                // Track stretch ratio for alpha fading
+                const ratio = distSq / maxEdgeSq;
+                if (ratio > stretchRatio) stretchRatio = ratio;
             }
 
             if (exceedsLength) {
-                this.constellationBeams.splice(i, 1);
+                // Fade out before removing
+                beam.alpha -= deltaTime * 3;
+                if (beam.alpha <= 0) {
+                    this.constellationBeams.splice(i, 1);
+                }
             } else {
                 beam.enemies = activeEnemies;
+                // Reduce alpha when edges are stretched (starts fading at 60% of max)
+                if (stretchRatio > 0.6) {
+                    const fadeFactor = 1 - (stretchRatio - 0.6) / 0.4;
+                    beam.targetAlpha = this.beamOpacity * Math.max(0.3, fadeFactor);
+                } else {
+                    beam.targetAlpha = this.beamOpacity;
+                }
             }
         }
     }
@@ -445,70 +495,46 @@ class FormationEffects {
 
     /**
      * Render connecting beams between constellation enemies
-     * [OPTIMIZED] Batched rendering
+     * [IMPROVED] Pattern-aware connection drawing
      */
     renderConstellationBeams(ctx) {
         if (this.constellationBeams.length === 0) return;
 
-        // Group beams by color/style to minimize state changes
-        // Currently all beams use the same color, but we respect alpha
-
-        // Optimization: Use a single path for all beams if possible,
-        // but since they have different alphas (fade in/out), we batch by alpha roughly?
-        // Actually, for now, let's just optimize the path construction.
-
         for (const beam of this.constellationBeams) {
             if (beam.enemies.length < 2) continue;
 
-            // Precompute longest edge to scale alpha near break threshold
-            let longestEdgeSq = 0;
-            for (let i = 0; i < beam.enemies.length; i++) {
-                const next = (i + 1) % beam.enemies.length;
-                const e1 = beam.enemies[i];
-                const e2 = beam.enemies[next];
-                if (e1 && e2 && !e1.isDead && !e2.isDead) {
-                    const dx = e1.x - e2.x;
-                    const dy = e1.y - e2.y;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq > longestEdgeSq) longestEdgeSq = distSq;
-                }
-            }
-
-            // Pulsing alpha
-            const pulse = 0.9 + Math.sin(beam.pulsePhase) * 0.1;
-            const warnRatio = Math.max(0, Math.min(1,
-                (longestEdgeSq - this.beamWarningLengthSq) /
-                (this.maxBeamLengthSq - this.beamWarningLengthSq || 1)
-            ));
-            const alphaScale = Math.max(0.6, 1 - warnRatio * 0.25);
-            const alpha = beam.alpha * pulse * alphaScale;
+            // Pulsing alpha - gentler pulse
+            const pulse = 0.85 + Math.sin(beam.pulsePhase) * 0.15;
+            const alpha = beam.alpha * pulse;
 
             if (alpha < 0.01) continue;
 
-            // Set style once per beam (or batch if we had many same-alpha beams)
-            const r = this.beamColor.r;
-            const g = this.beamColor.g;
-            const b = this.beamColor.b;
+            // Get pattern-specific color
+            const patternColor = this.getPatternColor(beam.patternName);
+            const r = patternColor.r;
+            const g = patternColor.g;
+            const b = patternColor.b;
+            const intensity = patternColor.intensity || 1.0;
 
             // [OPTIMIZATION] Manual glow effect (multi-pass stroke)
             if (this.qualityMode === 'high') {
                 // Outer glow (wide, low alpha)
-                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.3})`;
-                ctx.lineWidth = this.beamWidth * 4;
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.25 * intensity})`;
+                ctx.lineWidth = this.beamWidth * 4 * intensity;
                 ctx.beginPath();
                 this.drawBeamPath(ctx, beam);
                 ctx.stroke();
 
                 // Inner glow (medium, medium alpha)
-                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`;
-                ctx.lineWidth = this.beamWidth * 2;
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.4 * intensity})`;
+                ctx.lineWidth = this.beamWidth * 2 * intensity;
                 ctx.beginPath();
                 this.drawBeamPath(ctx, beam);
                 ctx.stroke();
             }
 
             // Core beam (bright, sharp)
-            ctx.strokeStyle = `rgba(200, 255, 230, ${alpha})`; // Whiter core
+            ctx.strokeStyle = `rgba(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)}, ${alpha})`;
             ctx.lineWidth = this.beamWidth;
             ctx.beginPath();
             this.drawBeamPath(ctx, beam);
@@ -518,14 +544,92 @@ class FormationEffects {
 
     /**
      * Helper to draw lines for a beam
+     * [IMPROVED] Pattern-aware drawing - different patterns connect differently
      */
     drawBeamPath(ctx, beam) {
         const enemies = beam.enemies;
-        // Connect adjacent enemies
-        for (let i = 0; i < enemies.length; i++) {
-            const next = (i + 1) % enemies.length;
-            const e1 = enemies[i];
-            const e2 = enemies[next];
+        const patternName = beam.patternName;
+        
+        // Sort by anchor for consistent ordering
+        const sorted = [...enemies].sort((a, b) => 
+            (a.constellationAnchor || 0) - (b.constellationAnchor || 0)
+        );
+        
+        // STAR pattern: draw as a star (connect every other vertex)
+        if (patternName === 'STAR' && sorted.length === 5) {
+            // Star order: 0->2->4->1->3->0
+            const starOrder = [0, 2, 4, 1, 3];
+            for (let i = 0; i < starOrder.length; i++) {
+                const curr = sorted[starOrder[i]];
+                const next = sorted[starOrder[(i + 1) % starOrder.length]];
+                if (curr && next && !curr.isDead && !next.isDead) {
+                    ctx.moveTo(curr.x, curr.y);
+                    ctx.lineTo(next.x, next.y);
+                }
+            }
+            return;
+        }
+        
+        // CROSS pattern: draw as cross (center to each arm)
+        if (patternName === 'CROSS' && sorted.length === 5) {
+            const center = sorted[0];  // First position is center
+            if (center && !center.isDead) {
+                for (let i = 1; i < sorted.length; i++) {
+                    const arm = sorted[i];
+                    if (arm && !arm.isDead) {
+                        ctx.moveTo(center.x, center.y);
+                        ctx.lineTo(arm.x, arm.y);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // V_FORMATION: draw as V (tip to each wing)
+        if (patternName === 'V_FORMATION' && sorted.length >= 3) {
+            const tip = sorted[0];  // First is the tip
+            if (tip && !tip.isDead) {
+                // Connect tip to first wing member, then chain down each wing
+                // Left wing: indices 1, 3, 5...
+                // Right wing: indices 2, 4, 6...
+                let prevLeft = tip;
+                let prevRight = tip;
+                for (let i = 1; i < sorted.length; i++) {
+                    const curr = sorted[i];
+                    if (!curr || curr.isDead) continue;
+                    
+                    if (i % 2 === 1) {  // Left wing
+                        ctx.moveTo(prevLeft.x, prevLeft.y);
+                        ctx.lineTo(curr.x, curr.y);
+                        prevLeft = curr;
+                    } else {  // Right wing
+                        ctx.moveTo(prevRight.x, prevRight.y);
+                        ctx.lineTo(curr.x, curr.y);
+                        prevRight = curr;
+                    }
+                }
+            }
+            return;
+        }
+        
+        // LINE pattern: draw as a line (don't close the loop)
+        if (patternName === 'LINE') {
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const e1 = sorted[i];
+                const e2 = sorted[i + 1];
+                if (e1 && e2 && !e1.isDead && !e2.isDead) {
+                    ctx.moveTo(e1.x, e1.y);
+                    ctx.lineTo(e2.x, e2.y);
+                }
+            }
+            return;
+        }
+        
+        // Default: connect adjacent enemies in a loop (polygon)
+        for (let i = 0; i < sorted.length; i++) {
+            const next = (i + 1) % sorted.length;
+            const e1 = sorted[i];
+            const e2 = sorted[next];
 
             if (e1 && e2 && !e1.isDead && !e2.isDead) {
                 ctx.moveTo(e1.x, e1.y);

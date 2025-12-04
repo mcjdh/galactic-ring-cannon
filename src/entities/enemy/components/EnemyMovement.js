@@ -180,13 +180,13 @@ class EnemyMovement {
 
     /**
      * Apply steering force toward constellation target position
-     * [TUNED] Stronger forces and reduced damping to prevent freezing
+     * [FIXED] Simplified stable spring-damper system to prevent oscillation
      */
     _applyConstellationForce(deltaTime, constellation, game) {
         const enemy = this.enemy;
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const joinAge = now - (enemy.constellationJoinedAt || now);
-        const isFreshJoin = joinAge < 1200;
+        const isFreshJoin = joinAge < 2000;
 
         // Get target positions (cached per frame)
         const targetPositions = this._getConstellationPositions(constellation);
@@ -201,57 +201,63 @@ class EnemyMovement {
         const dy = target.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Get pattern strength (increased values: 0.25-0.4)
-        const patternStrength = constellation.pattern.strength || 0.35;
-
-        // [FIX] Always apply force, even when very close (no dead zone)
-        if (dist > 0.1) {
-            // Use SteeringUtils.seek for continuous movement
-            if (window.Game?.SteeringUtils) {
-                const steering = window.Game.SteeringUtils.seek(
-                    { x: enemy.x, y: enemy.y },
-                    { x: target.x, y: target.y },
-                    this.velocity,
-                    isFreshJoin ? 1000 : 600,  // Higher speed for fresh joins
-                    isFreshJoin ? 15 : 30      // Smaller slowing radius for more decisive approach
-                );
-                // [TUNED] Use pattern strength as multiplier base
-                const forceMultiplier = patternStrength * 250;  // With strength 0.35 -> 87.5x
-                this.forceAccumulator.addForce('constellation', 
-                    steering.x * forceMultiplier * deltaTime, 
-                    steering.y * forceMultiplier * deltaTime);
-            } else {
-                // Fallback spring force
-                const baseSpringK = patternStrength * 8.0;  // Increased from 6.0
-                const springK = isFreshJoin ? baseSpringK * 1.5 : baseSpringK;
-                const maxForce = isFreshJoin ? 1800 : 1200;  // Increased max forces
-                const force = Math.min(springK * dist, maxForce);
-                this.forceAccumulator.addForce('constellation', (dx / dist) * force * deltaTime, (dy / dist) * force * deltaTime);
-            }
-
-            // [REDUCED] Damping reduced to prevent overdamping that causes freezing
-            const damping = isFreshJoin ? 2.0 : 1.2;
+        // [FIXED] Simple critically-damped spring system
+        // Uses velocity-based approach rather than acceleration-based to prevent oscillation
+        
+        // Calculate desired velocity toward target
+        // Speed scales with distance but caps at max speed
+        const maxApproachSpeed = isFreshJoin ? 180 : 120;
+        const minSpeed = 5;  // Always move at least a little if not at target
+        
+        // Dead zone - if very close, just stop
+        if (dist < 3) {
+            // Apply gentle velocity damping to settle
             this.forceAccumulator.addForce('constellation',
-                -this.velocity.x * damping * deltaTime,
-                -this.velocity.y * damping * deltaTime
+                -this.velocity.x * 3.0 * deltaTime,
+                -this.velocity.y * 3.0 * deltaTime
             );
+            return;
+        }
+        
+        // Desired speed: fast when far, slow when close (smooth arrival)
+        const arrivalRadius = 60;  // Start slowing down at this distance
+        let desiredSpeed;
+        if (dist > arrivalRadius) {
+            desiredSpeed = maxApproachSpeed;
+        } else {
+            // Linear slowdown as we approach
+            desiredSpeed = Math.max(minSpeed, maxApproachSpeed * (dist / arrivalRadius));
+        }
+        
+        // Desired velocity toward target
+        const desiredVelX = (dx / dist) * desiredSpeed;
+        const desiredVelY = (dy / dist) * desiredSpeed;
+        
+        // Steering force: smoothly blend current velocity toward desired
+        // Higher values = snappier but can oscillate
+        // Lower values = smoother but sluggish
+        const steerStrength = isFreshJoin ? 4.0 : 2.5;
+        
+        const steerX = (desiredVelX - this.velocity.x) * steerStrength;
+        const steerY = (desiredVelY - this.velocity.y) * steerStrength;
+        
+        this.forceAccumulator.addForce('constellation', steerX * deltaTime * 50, steerY * deltaTime * 50);
 
-            // Catch-up pull if too far from constellation center
-            const maxConstellationRadius = 250;  // Matched to EmergentFormationDetector
-            const toCenterX = constellation.centerX - enemy.x;
-            const toCenterY = constellation.centerY - enemy.y;
-            const distToCenterSq = toCenterX * toCenterX + toCenterY * toCenterY;
-            const catchUpThresholdSq = maxConstellationRadius * maxConstellationRadius * 0.49;
-            
-            if (distToCenterSq > catchUpThresholdSq) {
-                const distToCenter = Math.sqrt(distToCenterSq);
-                const pullStrength = Math.min(distToCenter / maxConstellationRadius, 1.8);
-                const catchUpForce = (isFreshJoin ? 1600 : 1200) * pullStrength;  // Increased
-                this.forceAccumulator.addForce('constellation',
-                    (toCenterX / distToCenter) * catchUpForce * deltaTime,
-                    (toCenterY / distToCenter) * catchUpForce * deltaTime
-                );
-            }
+        // Catch-up pull if too far from constellation center (emergency only)
+        const maxConstellationRadius = 280;
+        const toCenterX = constellation.centerX - enemy.x;
+        const toCenterY = constellation.centerY - enemy.y;
+        const distToCenterSq = toCenterX * toCenterX + toCenterY * toCenterY;
+        const catchUpThresholdSq = maxConstellationRadius * maxConstellationRadius * 0.5;
+        
+        if (distToCenterSq > catchUpThresholdSq) {
+            const distToCenter = Math.sqrt(distToCenterSq);
+            const pullStrength = (distToCenter / maxConstellationRadius - 0.7) * 2;  // Ramps up past 70%
+            const catchUpForce = 600 * Math.max(0, pullStrength);
+            this.forceAccumulator.addForce('constellation',
+                (toCenterX / distToCenter) * catchUpForce * deltaTime,
+                (toCenterY / distToCenter) * catchUpForce * deltaTime
+            );
         }
     }
 
