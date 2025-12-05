@@ -192,6 +192,8 @@ class PlayerRenderer {
         const x = this.player.x;
         const y = this.player.y;
         const radius = this.player.radius;
+        const maxCapacity = abilities.shieldMaxCapacity;
+        if (!maxCapacity || maxCapacity <= 0) return;
         const shieldRadius = radius + 15;
 
         // Shield active - draw hexagonal barrier
@@ -199,7 +201,7 @@ class PlayerRenderer {
             ctx.save();
 
             // Calculate alpha based on shield strength (0.3 to 0.7)
-            const shieldStrength = abilities.shieldCurrent / abilities.shieldMaxCapacity;
+            const shieldStrength = abilities.shieldCurrent / maxCapacity;
             let alpha = 0.3 + (shieldStrength * 0.4);
 
             // Add hit flash pulse

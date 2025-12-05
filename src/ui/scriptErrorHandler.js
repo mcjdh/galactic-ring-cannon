@@ -74,7 +74,12 @@
     window.scriptErrors = errors;
 
     window.addEventListener('error', (e) => {
-        if (!e || !e.filename || (typeof e.filename.includes === 'function' && !e.filename.includes('.js'))) {
+        // Skip if no error event or no filename
+        if (!e || !e.filename) {
+            return;
+        }
+        // Only handle JavaScript file errors
+        if (typeof e.filename === 'string' && !e.filename.includes('.js')) {
             return;
         }
 
@@ -85,7 +90,11 @@
         };
 
         errors.push(errorInfo);
-        window.logger.error('Script error:', errorInfo.file, errorInfo.message, errorInfo.line);
+        // Safe logging with fallback (Logger might not be loaded yet)
+        const logError = (typeof window !== 'undefined' && window.logger?.error)
+            ? window.logger.error.bind(window.logger)
+            : console.error.bind(console);
+        logError('Script error:', errorInfo.file, errorInfo.message, errorInfo.line);
         updateBanner(errorInfo);
     });
 })();

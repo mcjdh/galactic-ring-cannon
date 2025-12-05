@@ -134,6 +134,22 @@ class Logger {
     }
 
     /**
+     * Programmatically enable or disable debug mode
+     * @param {boolean} enabled - Whether to enable debug mode
+     */
+    setDebug(enabled) {
+        this.debug = Boolean(enabled);
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('debug', this.debug ? 'true' : 'false');
+            }
+        } catch (e) {
+            // Ignore localStorage errors
+        }
+        console.log(`# Debug mode ${this.debug ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
      * Clear all category filters (show all debug logs when debug=true)
      */
     clearCategories() {
@@ -153,6 +169,14 @@ class Logger {
         }
     }
 
+    // Known debug categories for categorized logging
+    // Object lookup is slightly faster than Set.has() for small sets
+    static KNOWN_CATEGORIES = {
+        projectiles: true, enemies: true, systems: true, physics: true, audio: true,
+        particles: true, weapons: true, spawner: true, formations: true, ai: true,
+        input: true, render: true, collision: true, effects: true, ui: true, state: true
+    };
+
     log(...args) {
         // Support both:
         // logger.log('message')
@@ -160,8 +184,8 @@ class Logger {
 
         if (!this.debug) return;
 
-        // Check if first arg is a category
-        if (typeof args[0] === 'string' && args.length > 1 && !args[0].includes(' ')) {
+        // Check if first arg is a known category (not just any single word)
+        if (typeof args[0] === 'string' && args.length > 1 && Logger.KNOWN_CATEGORIES[args[0]]) {
             const category = args[0];
             const rest = args.slice(1);
 
@@ -172,7 +196,7 @@ class Logger {
                 return; // Category filtered out
             }
 
-            console.log(...rest);
+            console.log(`[${category}]`, ...rest);
         } else {
             // Regular log without category
             console.log(...args);

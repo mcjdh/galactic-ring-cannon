@@ -481,10 +481,20 @@ class EnemyMovement {
         // 1. Get Net Force
         const netForce = this.forceAccumulator.computeNetForce();
 
+        // [FIX] Validate net force to prevent NaN propagation
+        if (!Number.isFinite(netForce.x) || !Number.isFinite(netForce.y)) {
+            return;
+        }
+
         // 2. Apply Force to Velocity (F = ma, assume m=1 for now)
         // [FIX] Forces are already scaled by deltaTime in their producers, so apply directly
         this.velocity.x += netForce.x;
         this.velocity.y += netForce.y;
+
+        // [FIX] Clamp velocity to prevent extreme values that cause visual issues
+        const maxVelocityComponent = 2000;
+        this.velocity.x = Math.max(-maxVelocityComponent, Math.min(maxVelocityComponent, this.velocity.x));
+        this.velocity.y = Math.max(-maxVelocityComponent, Math.min(maxVelocityComponent, this.velocity.y));
 
         // 3. Apply Friction/Damping
         // [FIX] Frame-rate independent friction using exponential decay
@@ -522,9 +532,25 @@ class EnemyMovement {
         const totalVx = this.velocity.x + this.knockbackVelocity.x;
         const totalVy = this.velocity.y + this.knockbackVelocity.y;
 
+        // [FIX] NaN protection - prevent rendering issues in late game
+        if (!Number.isFinite(totalVx) || !Number.isFinite(totalVy)) {
+            // Reset corrupted velocity
+            this.velocity.x = 0;
+            this.velocity.y = 0;
+            this.knockbackVelocity.x = 0;
+            this.knockbackVelocity.y = 0;
+            return;
+        }
+
         // Apply to position
-        this.enemy.x += totalVx * deltaTime;
-        this.enemy.y += totalVy * deltaTime;
+        const newX = this.enemy.x + totalVx * deltaTime;
+        const newY = this.enemy.y + totalVy * deltaTime;
+
+        // [FIX] Only update if new position is valid
+        if (Number.isFinite(newX) && Number.isFinite(newY)) {
+            this.enemy.x = newX;
+            this.enemy.y = newY;
+        }
 
         // Update rotation to face movement direction (visual polish)
         // Only if moving significantly

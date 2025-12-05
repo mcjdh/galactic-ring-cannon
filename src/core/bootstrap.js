@@ -94,6 +94,10 @@
 
                 this.initGameManager();
                 this.initSystems();
+                
+                // [FIX] Pre-initialize CosmicBackground immediately to avoid pop-in delay
+                this.preInitBackground();
+                
                 this.setupUI();
                 this.checkSystemsReady();
             } catch (err) {
@@ -193,6 +197,46 @@
                 this.info('+ GameManager bridge created successfully');
             } else {
                 this.error('! GameManagerBridge class not available');
+            }
+        }
+
+        /**
+         * Pre-initialize CosmicBackground to avoid pop-in delay
+         * Creates the background immediately with proper dimensions
+         */
+        preInitBackground() {
+            try {
+                const CosmicBackground = window.Game?.CosmicBackground;
+                if (typeof CosmicBackground !== 'function') {
+                    this.warn('CosmicBackground not available for pre-init');
+                    return;
+                }
+
+                // Use menu background canvas or create temp canvas
+                const menuCanvas = document.getElementById('menu-background');
+                if (!menuCanvas) {
+                    return;
+                }
+
+                // Set canvas to window size immediately
+                menuCanvas.width = window.innerWidth;
+                menuCanvas.height = window.innerHeight;
+
+                // Fill with black to prevent flash
+                const ctx = menuCanvas.getContext('2d');
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, menuCanvas.width, menuCanvas.height);
+
+                // Create and initialize the cosmic background
+                if (!window.cosmicBackground) {
+                    window.cosmicBackground = new CosmicBackground(menuCanvas);
+                    this.info('+ CosmicBackground pre-initialized');
+                }
+
+                // Render first frame immediately
+                window.cosmicBackground.render(null);
+            } catch (e) {
+                this.warn('CosmicBackground pre-init failed:', e);
             }
         }
 

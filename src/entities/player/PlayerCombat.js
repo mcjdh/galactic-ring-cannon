@@ -162,7 +162,8 @@ class PlayerCombat {
         // Create AOE damage around player (optimized for loop)
         for (let i = 0; i < enemies.length; i++) {
             const enemy = enemies[i];
-            const isCrit = Math.random() < this.critChance;
+            const critChance = this.getEffectiveCritChance();
+            const isCrit = Math.random() < critChance;
             const baseDamage = this.attackDamage * this.aoeDamageMultiplier;
             const damage = isCrit ? baseDamage * this.critMultiplier : baseDamage;
 
@@ -289,7 +290,8 @@ class PlayerCombat {
             const vy = Math.sin(projectileAngle) * baseSpeed;
 
             // Calculate damage and crit for this projectile (each projectile can crit independently)
-            const isCrit = Math.random() < (this.critChance || 0);
+            const critChance = this.getEffectiveCritChance();
+            const isCrit = Math.random() < critChance;
 
             // Apply kill streak bonuses
             const streakBonuses = this.player.stats?.getKillStreakBonuses?.() || { damage: 1.0 };
@@ -446,6 +448,20 @@ class PlayerCombat {
         const offsetFromCenter = (projectileIndex - (totalProjectiles - 1) / 2) * spreadPerGap;
 
         return baseAngle + offsetFromCenter;
+    }
+
+    getEffectiveCritChance() {
+        const baseCrit = Math.max(0, this.critChance || 0);
+        const abilities = this.player?.abilities;
+        if (!abilities?.hasBerserker) {
+            return Math.min(baseCrit, this.BALANCE.CRIT_SOFT_CAP);
+        }
+
+        const healthPercent = this.player.health / Math.max(1, this.player.maxHealth || 100);
+        const missingHealth = Math.min(1, Math.max(0, 1 - healthPercent));
+        const berserkerCrit = Math.max(0, abilities.berserkerCritBonus || 0) * missingHealth;
+
+        return Math.min(this.BALANCE.CRIT_SOFT_CAP, baseCrit + berserkerCrit);
     }
 
     // NOTE: Legacy `_determineSpecialTypesForShot` and `_configureProjectileFromUpgrades`

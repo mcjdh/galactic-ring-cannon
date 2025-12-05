@@ -36,7 +36,11 @@ class TrigCache {
             this._buildAtan2Cache();
         }
         
-        window.logger.info(`[M] TrigCache initialized: ${this.resolution} samples, atan2=${this.useAtan2Cache}`);
+        // Safe logging with fallback
+        const log = (typeof window !== 'undefined' && window.logger?.info)
+            ? window.logger.info.bind(window.logger)
+            : console.info.bind(console);
+        log(`[M] TrigCache initialized: ${this.resolution} samples, atan2=${this.useAtan2Cache}`);
     }
     
     /**

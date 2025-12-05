@@ -58,26 +58,34 @@ class CollisionCache {
         // Validate non-negative radii (bitwise encoding requires non-negative values)
         if (min < 0 || max < 0) {
             const warnMsg = `[CollisionCache] getRadiusSum: negative radius detected (r1=${r1}, r2=${r2}), falling back to direct addition`;
-            window.logger.warn(warnMsg);
+            if (window.logger?.warn) {
+                window.logger.warn(warnMsg);
+            }
             return r1 + r2;
         }
 
         // Validate maximum radius limitation
         if (r1 > 65.535 || r2 > 65.535) {
             const warnMsg = `[CollisionCache] getRadiusSum: radius exceeds maximum supported value of 65.535 (got r1=${r1}, r2=${r2}), falling back to direct addition`;
-            window.logger.warn(warnMsg);
+            if (window.logger?.warn) {
+                window.logger.warn(warnMsg);
+            }
             return r1 + r2;
         }
         
         const key = (min << 16) | max;
 
         if (this._radiusSumCache.has(key)) {
-            return this._radiusSumCache.get(key);
+            // Move to end for LRU (delete and re-add maintains insertion order)
+            const cached = this._radiusSumCache.get(key);
+            this._radiusSumCache.delete(key);
+            this._radiusSumCache.set(key, cached);
+            return cached;
         }
 
         const sum = r1 + r2;
 
-        // LRU cache management
+        // LRU cache management - remove oldest (first) entry
         if (this._radiusSumCache.size >= this._radiusSumCacheSize) {
             const firstKey = this._radiusSumCache.keys().next().value;
             this._radiusSumCache.delete(firstKey);

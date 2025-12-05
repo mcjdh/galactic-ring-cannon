@@ -82,7 +82,17 @@ class Player {
     applyMetaUpgrades() {
         // Safe localStorage access using centralized StorageManager
         const getMetaLevel = (id) => {
-            return window.StorageManager.getInt(`meta_${id}`, 0);
+            const StorageManager = window.StorageManager;
+            if (!StorageManager || typeof StorageManager.getInt !== 'function') {
+                return 0;
+            }
+
+            try {
+                return StorageManager.getInt(`meta_${id}`, 0);
+            } catch (error) {
+                window.logger?.warn?.('[Player] Failed to read meta upgrade level', { id, error });
+                return 0;
+            }
         };
 
         // Enhanced Firepower - Starting damage boost
@@ -268,14 +278,7 @@ class Player {
 
                 // Grant starter shield
                 if (typeof shield.starterCapacity === 'number' && shield.starterCapacity > 0) {
-                    this.abilities.hasShield = true;
-                    this.abilities.shieldMaxCapacity = shield.starterCapacity;
-                    this.abilities.shieldCurrent = shield.starterCapacity; // Start at full capacity
-
-                    // Set shield base stats
-                    if (!this.abilities.shieldRechargeTime) {
-                        this.abilities.shieldRechargeTime = 6.0; // Base recharge time in seconds
-                    }
+                    this.abilities.initializeShield?.(shield.starterCapacity, shield.rechargeTime);
                 }
 
                 // Apply shield stat multipliers
@@ -315,6 +318,23 @@ class Player {
                 }
                 if (typeof explosive.radiusMultiplier === 'number' && this.abilities.explosionRadius) {
                     this.abilities.explosionRadius *= explosive.radiusMultiplier;
+                }
+            }
+
+            // NEW: Berserker ability modifiers (Cybernetic Berserker)
+            if (
+                abilityMods.hasBerserker ||
+                abilityMods.berserker ||
+                typeof abilityMods.berserkerScaling === 'number'
+            ) {
+                this.abilities.hasBerserker = true;
+                const berserker = abilityMods.berserker || {};
+                const scalingSource = berserker.scaling ?? abilityMods.berserkerScaling;
+                if (typeof scalingSource === 'number') {
+                    this.abilities.berserkerScaling = Math.max(this.abilities.berserkerScaling || 0, scalingSource);
+                }
+                if (typeof berserker.critBonus === 'number') {
+                    this.abilities.berserkerCritBonus = Math.max(this.abilities.berserkerCritBonus || 0, berserker.critBonus);
                 }
             }
 
@@ -737,6 +757,13 @@ class Player {
             case 'gravityWell':
             case 'burn':  // NEW: Route burn upgrades to abilities
             case 'burnDamage':  // NEW: Route burn damage upgrades to abilities
+            case 'shieldCapacity':
+            case 'shieldReflection':
+            case 'shieldAdaptive':
+            case 'shieldRecharge':
+            case 'shieldExplosion':
+            case 'berserkerScaling':
+            case 'berserkerCrit':
                 this.abilities.applyAbilityUpgrade(upgradeInstance);
                 break;
         }

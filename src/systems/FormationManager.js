@@ -147,14 +147,10 @@ class FormationManager {
 
         // Determine type key
         let type = 'default';
+        // Use cached marker if available, otherwise fall back to default
         if (this.markerCache.has(config.id)) {
             type = config.id;
-        } else if (config.id === 'cubic_swarm') type = 'cubic_swarm';
-        else if (config.id === 'pyramid_squadron') type = 'pyramid_squadron';
-        else if (config.id === 'octahedron_ring') type = 'octahedron_ring';
-        else if (config.id === 'bio_orb') type = 'bio_orb';
-        else if (config.id === 'interceptor_cross') type = 'interceptor_cross';
-        else if (config.id === 'chaos_cloud') type = 'chaos_cloud';
+        }
 
         const sprite = this.markerCache.get(type) || this.markerCache.get('default');
 

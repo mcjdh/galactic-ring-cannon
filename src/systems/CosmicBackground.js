@@ -7,7 +7,28 @@
  * - Floating 3D Wireframe Geometry
  * - Neon Vector Stars
  * - Retro Arcade Aesthetic
+ *
+ * Performance Optimizations:
+ * - Pre-rendered grid canvas with parallax offset
+ * - Layered star rendering with depth-based parallax
+ * - Shape sprite caching with rotation quantization (SHARED across instances)
+ * - FastMath integration for trig operations
+ * - LRU cache eviction to bound memory usage
  */
+
+// [PERF OPT-7] Shared sprite cache across all CosmicBackground instances
+// This prevents cache rebuilding when switching from menu to game
+const _sharedSpriteCache = new Map();
+const _sharedSpriteCacheAccessTime = new Map();
+let _sharedSpriteCacheAccessCounter = 0;
+
+// [PERF OPT-8] Shared grid canvas cache (keyed by gridSize)
+// Note: Star layers are NOT cached because they contain randomized star positions
+const _sharedGridCanvasCache = new Map(); // key: gridSize -> canvas
+
+// Track last initialized dimensions to avoid redundant re-initialization
+let _lastInitializedWidth = 0;
+let _lastInitializedHeight = 0;
 
 class CosmicBackground {
     constructor(canvas) {
@@ -30,6 +51,8 @@ class CosmicBackground {
 
         this.time = 0;
         this.lastTime = performance.now();
+        // [FIX] Start with full quality so shapes render immediately
+        // PerformanceManager will adjust if device is low-end after first frames
         this.lowQuality = false;
 
         // Grid settings
@@ -39,11 +62,11 @@ class CosmicBackground {
 
         // Floating Shapes
         this.shapes = [];
-        this.shapeCount = 25; // Increased for denser field
+        this.shapeCount = 25;
 
         // Vector Stars
         this.stars = [];
-        this.starCount = 100; // Unified count
+        this.starCount = 100;
 
         // World Dimensions for Infinite Scrolling
         this.worldPadding = 2000;
@@ -51,36 +74,80 @@ class CosmicBackground {
         this.worldH = this.canvas.height + this.worldPadding;
 
         // [PERF OPT-1] Shape Sprite Cache - Pre-rendered shapes at various rotations
-        this.shapeSpriteCache = new Map(); // key: "type_size_rotIndex"
-        this.rotationSteps = 36; // 36 angles = 10° increments (good balance)
-        this.cachedRotationAngles = [];
+        // [PERF OPT-7] Use shared cache across all instances to avoid rebuilding on scene switch
+        this.shapeSpriteCache = _sharedSpriteCache;
+        this._spriteCacheAccessTime = _sharedSpriteCacheAccessTime;
+        this.rotationSteps = 24; // 24 angles = 15° increments
+        this.twoPI = Math.PI * 2;
+        this._invRotationSteps = this.rotationSteps / this.twoPI; // Pre-compute for quantization
+        this.cachedRotationAngles = new Float32Array(this.rotationSteps);
         for (let i = 0; i < this.rotationSteps; i++) {
-            this.cachedRotationAngles.push((i / this.rotationSteps) * Math.PI * 2);
+            this.cachedRotationAngles[i] = (i / this.rotationSteps) * this.twoPI;
         }
-        this.enableShapeCache = true; // Feature flag
+        this.enableShapeCache = true;
+        this.spriteCacheMaxSize = 400;
+        this.spriteCacheEvictCount = 50;
 
-        // [PERF OPT-2] Star Layer Pre-Rendering - Layered canvases by depth
-        this.starLayers = null; // Initialized in initializeStarLayers()
+        // [PERF OPT-2] Star Layer Pre-Rendering
+        this.starLayers = null;
+        // FIX: Use <= for upper bound to ensure stars at boundaries get assigned
         this.starLayerDepths = [
-            { min: 0.5, max: 1.0, layer: 0 },  // Foreground
-            { min: 1.0, max: 1.5, layer: 1 },  // Midground
-            { min: 1.5, max: 2.5, layer: 2 }   // Background
+            { min: 0.5, max: 1.0, layer: 0 },   // Foreground (0.5 <= z < 1.0)
+            { min: 1.0, max: 1.5, layer: 1 },   // Midground (1.0 <= z < 1.5)
+            { min: 1.5, max: 2.5, layer: 2 }    // Background (1.5 <= z <= 2.5)
         ];
-        this.enableStarLayers = true; // Feature flag
+        this.enableStarLayers = true;
 
-        // [PERF OPT-3] Grid Pre-Computation - Pre-rendered grid
-        this.gridCanvas = null; // Initialized in initializeGridCanvas()
-        this.enableGridCache = true; // Feature flag
+        // [PERF OPT-3] Grid Pre-Computation
+        this.gridCanvas = null;
+        this.enableGridCache = true;
 
-        // [PERF OPT-4] Low-quality throttling to reduce CPU when enabled
+        // [PERF OPT-4] Low-quality throttling
         this._lastRenderTs = 0;
         this._lowQualityMinInterval = 50; // ms (~20fps cap)
-        this._lowQualityStarStride = 3; // Skip stars to lower fill calls
+
+        // [PERF OPT-5] Cache FastMath reference to avoid repeated lookups
+        this._fastMath = null;
+        this._updateFastMathRef();
 
         this.initialize();
     }
 
+    /**
+     * Cache FastMath reference for hot-path trig operations
+     */
+    _updateFastMathRef() {
+        this._fastMath = (typeof window !== 'undefined' && window.Game?.FastMath) || null;
+    }
+
     initialize() {
+        // Refresh FastMath reference (may not have been available at construction)
+        this._updateFastMathRef();
+
+        // Guard against invalid canvas dimensions
+        if (this.canvas.width <= 0 || this.canvas.height <= 0) {
+            return;
+        }
+
+        // [PERF OPT-9] Skip full re-initialization if dimensions match last init
+        // This prevents costly star/shape regeneration on scene switches
+        const sameSize = (this.canvas.width === _lastInitializedWidth && 
+                          this.canvas.height === _lastInitializedHeight);
+        if (sameSize && this.stars.length > 0 && this.shapes.length > 0) {
+            // Just ensure caches are valid
+            if (this.enableGridCache && !this.gridCanvas) {
+                this.initializeGridCanvas();
+            }
+            if (this.enableStarLayers && !this.starLayers) {
+                this.initializeStarLayers();
+            }
+            return;
+        }
+
+        // Track dimensions for future calls
+        _lastInitializedWidth = this.canvas.width;
+        _lastInitializedHeight = this.canvas.height;
+
         // Update world dimensions in case of resize
         this.worldW = this.canvas.width + this.worldPadding;
         this.worldH = this.canvas.height + this.worldPadding;
@@ -91,13 +158,15 @@ class CosmicBackground {
             this.shapes.push(this.createShape());
         }
 
-        // Initialize Stars
+        // Initialize Stars with depth capped to layer range
         this.stars = [];
+        const maxStarZ = this.starLayerDepths[this.starLayerDepths.length - 1].max;
+        const minStarZ = this.starLayerDepths[0].min;
         for (let i = 0; i < this.starCount; i++) {
             this.stars.push({
                 x: Math.random() * this.canvas.width,
                 y: Math.random() * this.canvas.height,
-                z: Math.random() * 2 + 0.5, // Depth factor
+                z: minStarZ + Math.random() * (maxStarZ - minStarZ), // Ensure within layer bounds
                 size: Math.random() * 2 + 1,
                 color: this.colors.stars[Math.floor(Math.random() * this.colors.stars.length)],
                 blinkSpeed: Math.random() * 2 + 1,
@@ -114,6 +183,24 @@ class CosmicBackground {
         // [PERF OPT-2] Initialize pre-rendered star layers
         if (this.enableStarLayers) {
             this.initializeStarLayers();
+        }
+
+        // [PERF OPT-6] Pre-warm shape sprite cache to avoid jank during gameplay
+        if (this.enableShapeCache) {
+            this.prewarmShapeCache();
+        }
+    }
+
+    /**
+     * [PERF OPT-6] Pre-warm shape sprite cache
+     * Creates sprites for all initial shapes to avoid canvas creation during gameplay
+     */
+    prewarmShapeCache() {
+        if (!this.enableShapeCache || typeof document === 'undefined') return;
+        
+        // Pre-render sprites for all current shapes
+        for (const shape of this.shapes) {
+            this.getShapeSprite(shape);
         }
     }
 
@@ -150,10 +237,7 @@ class CosmicBackground {
         this.lastPlayerX = playerX;
         this.lastPlayerY = playerY;
 
-        // [OPTIMIZATION] Skip shape updates in lowQuality mode (not rendered anyway)
-        if (this.lowQuality) return;
-
-        // Update Shapes
+        // Update Shapes (always update, even in lowQuality - content should be same for all modes)
         const shapes = this.shapes;
         for (let i = 0, len = shapes.length; i < len; i++) {
             const shape = shapes[i];
@@ -175,7 +259,8 @@ class CosmicBackground {
         let deltaTime = (now - this.lastTime) / 1000;
         this.lastTime = now;
 
-        // Throttle rendering when low quality is enabled to cut CPU/GPU work
+        // Throttle rendering when low quality is enabled to reduce CPU/GPU work
+        // (still renders same content, just at lower framerate)
         if (this.lowQuality && this._lastRenderTs) {
             const sinceLast = now - this._lastRenderTs;
             if (sinceLast < this._lowQualityMinInterval) {
@@ -189,7 +274,7 @@ class CosmicBackground {
             deltaTime = 0.016; // Fallback to ~60fps
         }
 
-        // Update state (skip shape updates in lowQuality since we don't render them)
+        // Update state
         if (player) {
             this.update(deltaTime, player.x, player.y);
         } else {
@@ -200,22 +285,14 @@ class CosmicBackground {
         this.ctx.fillStyle = this.colors.bg;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw Grid (skip in lowQuality to save more performance)
-        if (!this.lowQuality) {
-            this.drawGrid();
-        }
+        // Draw Grid (same for all quality modes)
+        this.drawGrid();
 
-        // Draw Stars
-        if (this.lowQuality) {
-            this.drawStarsLowQuality();
-        } else {
-            this.drawStars();
-        }
+        // Draw Stars (same for all quality modes)
+        this.drawStars();
 
-        // Draw Shapes
-        if (!this.lowQuality) {
-            this.drawShapes();
-        }
+        // Draw Shapes (same for all quality modes)
+        this.drawShapes();
     }
 
     drawGrid() {
@@ -406,11 +483,14 @@ class CosmicBackground {
                     }
 
                     // Menu Mode: Push shapes away from center
+                    // [PERF] Use distanceSquared to avoid sqrt
                     if (isMenu) {
                         const centerX = this.canvas.width / 2;
                         const centerY = this.canvas.height / 2;
-                        const dist = Math.hypot(screenX - centerX, screenY - centerY);
-                        if (dist < 300) continue;
+                        const dx = screenX - centerX;
+                        const dy = screenY - centerY;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < 90000) continue; // 300^2 = 90000
                     }
 
                     // Depth effects
@@ -468,11 +548,14 @@ class CosmicBackground {
             return;
         }
 
+        // [PERF] Use distanceSquared to avoid sqrt
         if (isMenu) {
             const centerX = this.canvas.width / 2;
             const centerY = this.canvas.height / 2;
-            const dist = Math.hypot(screenX - centerX, screenY - centerY);
-            if (dist < 300) return;
+            const dx = screenX - centerX;
+            const dy = screenY - centerY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < 90000) return; // 300^2 = 90000
         }
 
         const scale = 1.0 / shape.z;
@@ -518,26 +601,43 @@ class CosmicBackground {
     }
 
     project(v, rx, ry, rz) {
-        // Simplified rotation
+        // [PERF] Use cached FastMath reference for trig operations
+        const FM = this._fastMath;
+        let sinRx, cosRx, sinRy, cosRy, sinRz, cosRz;
+
+        if (FM && FM.sincos) {
+            // Use FastMath sincos for combined lookup (optimal path)
+            const scY = FM.sincos(ry);
+            const scX = FM.sincos(rx);
+            const scZ = FM.sincos(rz);
+            sinRy = scY.sin; cosRy = scY.cos;
+            sinRx = scX.sin; cosRx = scX.cos;
+            sinRz = scZ.sin; cosRz = scZ.cos;
+        } else {
+            // Fallback to native Math
+            sinRy = Math.sin(ry); cosRy = Math.cos(ry);
+            sinRx = Math.sin(rx); cosRx = Math.cos(rx);
+            sinRz = Math.sin(rz); cosRz = Math.cos(rz);
+        }
+
         let x = v.x, y = v.y, z = v.z;
 
         // Rotate Y
-        let x1 = x * Math.cos(ry) - z * Math.sin(ry);
-        let z1 = x * Math.sin(ry) + z * Math.cos(ry);
+        let x1 = x * cosRy - z * sinRy;
+        let z1 = x * sinRy + z * cosRy;
         x = x1; z = z1;
 
         // Rotate X
-        let y1 = y * Math.cos(rx) - z * Math.sin(rx);
-        let z2 = y * Math.sin(rx) + z * Math.cos(rx);
+        let y1 = y * cosRx - z * sinRx;
+        let z2 = y * sinRx + z * cosRx;
         y = y1; z = z2;
 
         // Rotate Z
-        let x2 = x * Math.cos(rz) - y * Math.sin(rz);
-        let y2 = x * Math.sin(rz) + y * Math.cos(rz);
+        let x2 = x * cosRz - y * sinRz;
+        let y2 = x * sinRz + y * cosRz;
         x = x2; y = y2;
 
         // Polybius Perspective Warp
-        // Simulate a slight fish-eye or curved CRT effect
         const fov = 300;
         const scale = fov / (fov + z);
         x = x * scale;
@@ -592,8 +692,23 @@ class CosmicBackground {
     }
 
     resize(width, height) {
-        this.canvas.width = width;
-        this.canvas.height = height;
+        // [PERF OPT-8] Skip reinitialization if size unchanged
+        const newWidth = width ?? this.canvas.width;
+        const newHeight = height ?? this.canvas.height;
+        
+        if (this.canvas.width === newWidth && this.canvas.height === newHeight) {
+            // Size unchanged - just ensure caches are valid
+            if (!this.gridCanvas && this.enableGridCache) {
+                this.initializeGridCanvas();
+            }
+            if (!this.starLayers && this.enableStarLayers) {
+                this.initializeStarLayers();
+            }
+            return;
+        }
+        
+        this.canvas.width = newWidth;
+        this.canvas.height = newHeight;
         // Update world dimensions
         this.worldW = this.canvas.width + this.worldPadding;
         this.worldH = this.canvas.height + this.worldPadding;
@@ -601,21 +716,40 @@ class CosmicBackground {
     }
 
     setLowQuality(enabled) {
+        // lowQuality now only affects frame throttling, not content visibility
+        // All quality modes render the same stars, grid, and shapes
         this.lowQuality = enabled;
-        // Unified background: Do not re-initialize or change counts.
-        // Just toggle the flag which can be used for rendering optimizations if needed.
     }
 
     /**
      * [PERF OPT-3] Initialize pre-rendered grid canvas
      * Pre-renders a large grid pattern to avoid recalculating lines every frame
+     * [PERF OPT-8] Uses shared cache to avoid rebuilding on scene switch
      */
     initializeGridCanvas() {
         if (typeof document === 'undefined') return;
 
+        // Guard against invalid dimensions
+        if (this.gridSize <= 0) return;
+
+        // [PERF OPT-8] Check shared cache first
+        const cacheKey = this.gridSize;
+        if (_sharedGridCanvasCache.has(cacheKey)) {
+            this.gridCanvas = _sharedGridCanvasCache.get(cacheKey);
+            return;
+        }
+
         // Create oversized grid (covers scrolling area)
         const gridWidth = this.gridSize * 15;
         const gridHeight = this.gridSize * 15;
+
+        // Limit max canvas size to avoid GPU memory issues
+        const maxDimension = 2048;
+        if (gridWidth > maxDimension || gridHeight > maxDimension) {
+            // Fall back to dynamic rendering for very large grids
+            this.gridCanvas = null;
+            return;
+        }
 
         this.gridCanvas = document.createElement('canvas');
         this.gridCanvas.width = gridWidth;
@@ -639,6 +773,9 @@ class CosmicBackground {
         }
 
         ctx.stroke();
+
+        // [PERF OPT-8] Cache for reuse across instances
+        _sharedGridCanvasCache.set(cacheKey, this.gridCanvas);
     }
 
     /**
@@ -647,6 +784,9 @@ class CosmicBackground {
      */
     initializeStarLayers() {
         if (typeof document === 'undefined') return;
+
+        // Guard against invalid canvas dimensions
+        if (this.canvas.width <= 0 || this.canvas.height <= 0) return;
 
         // Create 3 layer canvases (foreground, midground, background)
         this.starLayers = this.starLayerDepths.map(() => {
@@ -661,12 +801,26 @@ class CosmicBackground {
         });
 
         // Distribute stars to layers by depth
+        // FIX: Use >= min && < max for all but last layer, last layer uses <=
         for (const star of this.stars) {
-            for (const depthRange of this.starLayerDepths) {
-                if (star.z >= depthRange.min && star.z < depthRange.max) {
+            let assigned = false;
+            for (let i = 0; i < this.starLayerDepths.length; i++) {
+                const depthRange = this.starLayerDepths[i];
+                const isLastLayer = (i === this.starLayerDepths.length - 1);
+                // Last layer includes upper bound, others exclude it
+                const inRange = isLastLayer
+                    ? (star.z >= depthRange.min && star.z <= depthRange.max)
+                    : (star.z >= depthRange.min && star.z < depthRange.max);
+
+                if (inRange) {
                     this.starLayers[depthRange.layer].stars.push(star);
+                    assigned = true;
                     break;
                 }
+            }
+            // Fallback: assign to background layer if not matched (shouldn't happen)
+            if (!assigned && this.starLayers.length > 0) {
+                this.starLayers[this.starLayers.length - 1].stars.push(star);
             }
         }
 
@@ -707,37 +861,66 @@ class CosmicBackground {
     }
 
     /**
+     * Quantize angle to nearest cache bucket index
+     * Optimized: uses pre-computed inverse instead of division
+     */
+    quantizeAngle(angle) {
+        // Normalize angle to [0, 2π) using modulo
+        let normalized = angle % this.twoPI;
+        if (normalized < 0) normalized += this.twoPI;
+        // Use pre-computed inverse for fast quantization
+        return (normalized * this._invRotationSteps) | 0; // Bitwise OR for fast floor
+    }
+
+    /**
+     * Generate cache key for shape sprite
+     * Optimized: uses numeric encoding instead of string concatenation
+     */
+    _getSpriteCacheKey(type, sizeKey, rotXIdx, rotYIdx, rotZIdx) {
+        // Encode type as 0/1/2, pack into single number
+        // Format: type(2bits) + size(10bits) + rotX(5bits) + rotY(5bits) + rotZ(5bits) = 27 bits
+        const typeCode = type === 'cube' ? 0 : (type === 'pyramid' ? 1 : 2);
+        return (typeCode << 25) | (sizeKey << 15) | (rotXIdx << 10) | (rotYIdx << 5) | rotZIdx;
+    }
+
+    /**
      * [PERF OPT-1] Get or create cached shape sprite
      * Returns pre-rendered sprite for given shape at nearest rotation angle
+     * Uses LRU eviction with O(1) access tracking
      */
     getShapeSprite(shape) {
         if (!this.enableShapeCache || typeof document === 'undefined') {
-            return null; // Fall back to dynamic rendering
+            return null;
         }
 
-        // Find nearest rotation angle index
-        const rotIndex = Math.floor((Math.atan2(
-            Math.sin(shape.rotY),
-            Math.cos(shape.rotY)
-        ) + Math.PI) / (Math.PI * 2) * this.rotationSteps) % this.rotationSteps;
+        // Quantize all three rotation axes to cache indices
+        const rotXIdx = this.quantizeAngle(shape.rotX);
+        const rotYIdx = this.quantizeAngle(shape.rotY);
+        const rotZIdx = this.quantizeAngle(shape.rotZ);
 
-        const sizeKey = Math.round(shape.size / 5) * 5; // Round to nearest 5px for cache efficiency
-        const key = `${shape.type}_${sizeKey}_${rotIndex}`;
+        const sizeKey = ((shape.size / 5) | 0) * 5; // Fast floor division
+        const key = this._getSpriteCacheKey(shape.type, sizeKey, rotXIdx, rotYIdx, rotZIdx);
 
         // Check cache
         if (this.shapeSpriteCache.has(key)) {
+            // [PERF FIX] O(1) LRU update - just set new access time
+            this._spriteCacheAccessTime.set(key, ++_sharedSpriteCacheAccessCounter);
             return this.shapeSpriteCache.get(key);
         }
 
         // Create sprite
-        const spriteSize = Math.ceil(sizeKey * 3); // Enough room for rotation
+        const spriteSize = Math.ceil(sizeKey * 3);
         const canvas = document.createElement('canvas');
         canvas.width = spriteSize;
         canvas.height = spriteSize;
         const ctx = canvas.getContext('2d');
 
         const center = spriteSize / 2;
-        const angle = this.cachedRotationAngles[rotIndex];
+
+        // Use the actual quantized rotation angles for all axes
+        const angleX = this.cachedRotationAngles[rotXIdx];
+        const angleY = this.cachedRotationAngles[rotYIdx];
+        const angleZ = this.cachedRotationAngles[rotZIdx];
 
         // Render shape to sprite
         ctx.strokeStyle = shape.color;
@@ -746,21 +929,31 @@ class CosmicBackground {
         ctx.translate(center, center);
 
         const vertices = this.getVertices(shape.type, sizeKey);
-        const projected = vertices.map(v => this.project(v, angle, angle * 0.7, angle * 0.5));
+        const projected = vertices.map(v => this.project(v, angleX, angleY, angleZ));
 
         ctx.beginPath();
-        this.drawWireframe(shape.type, projected, ctx); // Pass sprite context
+        this.drawWireframe(shape.type, projected, ctx);
         ctx.stroke();
         ctx.restore();
 
         const sprite = { canvas, halfSize: spriteSize / 2 };
 
-        // Add to cache with LRU limit
-        if (this.shapeSpriteCache.size > 500) {
-            const firstKey = this.shapeSpriteCache.keys().next().value;
-            this.shapeSpriteCache.delete(firstKey);
+        // [PERF FIX] LRU eviction when cache is full - O(n) but only on eviction
+        if (this.shapeSpriteCache.size >= this.spriteCacheMaxSize) {
+            // Find oldest entries by access time
+            const entries = Array.from(this._spriteCacheAccessTime.entries());
+            entries.sort((a, b) => a[1] - b[1]); // Sort by access time (oldest first)
+            
+            // Remove oldest entries
+            for (let i = 0; i < this.spriteCacheEvictCount && i < entries.length; i++) {
+                const oldKey = entries[i][0];
+                this.shapeSpriteCache.delete(oldKey);
+                this._spriteCacheAccessTime.delete(oldKey);
+            }
         }
+
         this.shapeSpriteCache.set(key, sprite);
+        this._spriteCacheAccessTime.set(key, ++_sharedSpriteCacheAccessCounter);
 
         return sprite;
     }
@@ -768,8 +961,70 @@ class CosmicBackground {
     getDebugInfo() {
         return {
             shapes: this.shapes.length,
-            stars: this.stars.length
+            stars: this.stars.length,
+            spriteCacheSize: this.shapeSpriteCache.size,
+            spriteCacheMaxSize: this.spriteCacheMaxSize,
+            starLayerCounts: this.starLayers
+                ? this.starLayers.map(l => l.stars.length)
+                : [],
+            lowQuality: this.lowQuality,
+            enableShapeCache: this.enableShapeCache,
+            enableStarLayers: this.enableStarLayers,
+            enableGridCache: this.enableGridCache
         };
+    }
+
+    /**
+     * Clear all caches and release memory
+     * Call this when switching scenes or during memory pressure
+     * Note: Shared sprite cache is NOT cleared to allow reuse across instances
+     */
+    clearCaches() {
+        // [PERF OPT-7] Don't clear shared sprite cache - it persists across instances
+        // Only clear instance-specific caches
+
+        // Release star layer canvases
+        if (this.starLayers) {
+            for (const layer of this.starLayers) {
+                layer.canvas.width = 0;
+                layer.canvas.height = 0;
+            }
+            this.starLayers = null;
+        }
+
+        // Release grid canvas
+        if (this.gridCanvas) {
+            this.gridCanvas.width = 0;
+            this.gridCanvas.height = 0;
+            this.gridCanvas = null;
+        }
+
+        if (typeof window !== 'undefined' && window.logger?.debug) {
+            window.logger.debug('CosmicBackground instance caches cleared');
+        }
+    }
+
+    /**
+     * Clear the shared sprite cache (call during memory pressure)
+     * Static method - affects all instances
+     */
+    static clearSharedCache() {
+        _sharedSpriteCache.clear();
+        _sharedSpriteCacheAccessTime.clear();
+        _sharedSpriteCacheAccessCounter = 0;
+    }
+
+    /**
+     * Dispose of this background instance
+     * Call when completely done with this instance
+     */
+    dispose() {
+        this.clearCaches();
+        this.shapes = [];
+        this.stars = [];
+        this.canvas = null;
+        this.ctx = null;
+        this._fastMath = null;
     }
 }
 

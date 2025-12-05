@@ -138,7 +138,18 @@
     window.resultScreen = {
         show,
         hide,
-        isVisible: () => ensureElements()?.root?.classList?.contains('hidden') === false,
-        isDirty: () => _dirty
+        isVisible: () => {
+            const screen = ensureElements();
+            return screen?.root ? !screen.root.classList.contains('hidden') : false;
+        },
+        /**
+         * Check if result screen has unsaved changes (e.g., for preventing navigation)
+         * @returns {boolean} True if screen is visible and has been shown
+         */
+        isDirty: () => _dirty && ensureElements() !== null,
+        /**
+         * Reset dirty state (useful after explicit save or dismiss)
+         */
+        clearDirty: () => { _dirty = false; }
     };
 })();

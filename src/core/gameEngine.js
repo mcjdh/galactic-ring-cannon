@@ -311,11 +311,20 @@ class GameEngine {
                 ? window.Game?.CosmicBackground
                 : undefined;
             if (typeof CosmicBackground === 'function') {
-                this.cosmicBackground = new CosmicBackground(this.canvas);
-                if (typeof window !== 'undefined') {
+                // [PERF OPT] Reuse existing global instance to preserve caches
+                if (window.cosmicBackground) {
+                    this.cosmicBackground = window.cosmicBackground;
+                    // Update canvas reference for game canvas
+                    this.cosmicBackground.canvas = this.canvas;
+                    this.cosmicBackground.ctx = this.ctx;
+                    // Resize if needed (will skip if same size)
+                    this.cosmicBackground.resize(this.canvas.width, this.canvas.height);
+                    window.logger.info('Cosmic background reused from global instance');
+                } else {
+                    this.cosmicBackground = new CosmicBackground(this.canvas);
                     window.cosmicBackground = this.cosmicBackground;
+                    window.logger.info('Cosmic background initialized');
                 }
-                window.logger.info('Cosmic background initialized');
 
                 // [PERFORMANCE] Update quality settings via PerformanceManager
                 if (this.performanceManager) {
@@ -381,6 +390,10 @@ class GameEngine {
             // Release to pool
             window.projectilePool.release(entity);
             this._needsCleanup = true;
+            // Notify collision system that entities changed
+            if (this.collisionSystem?.markGridDirty) {
+                this.collisionSystem.markGridDirty();
+            }
             return true;
         }
 
@@ -402,6 +415,10 @@ class GameEngine {
                 if (removed) {
                     handleSideEffects(entity);
                     this._needsCleanup = true;
+                    // Notify collision system that entities changed
+                    if (this.collisionSystem?.markGridDirty) {
+                        this.collisionSystem.markGridDirty();
+                    }
                     return true;
                 }
             } catch (error) {
@@ -437,6 +454,10 @@ class GameEngine {
         if (removed) {
             handleSideEffects(entity);
             this._needsCleanup = true;
+            // Notify collision system that entities changed
+            if (this.collisionSystem?.markGridDirty) {
+                this.collisionSystem.markGridDirty();
+            }
         }
 
         return removed;
@@ -762,6 +783,11 @@ class GameEngine {
             this.spatialGridCache.clear();
         }
 
+        // Reset collision system state for new run
+        if (this.collisionSystem?.reset) {
+            this.collisionSystem.reset();
+        }
+
         // Reset auxiliary managers
         this.unifiedUI?.clearAllFloatingText?.();
         if (window.optimizedParticles?.clear) {
@@ -858,7 +884,7 @@ class GameEngine {
 
             // [C] Notify cosmic background of resize
             if (this.cosmicBackground && typeof this.cosmicBackground.resize === 'function') {
-                this.cosmicBackground.resize();
+                this.cosmicBackground.resize(this.canvas.width, this.canvas.height);
             }
         } catch (error) {
             window.logger.error('Error resizing canvas:', error);
@@ -987,16 +1013,18 @@ class GameEngine {
 
         // Smooth deltaTime to reduce movement jitter from frame rate fluctuations
         if (!this.deltaTimeHistory) {
-            this.deltaTimeHistory = [deltaTime, deltaTime, deltaTime]; // Initialize with current value
-        }
-
-        // Add current deltaTime and maintain history of last 3 frames
-        this.deltaTimeHistory.push(deltaTime);
-        if (this.deltaTimeHistory.length > 3) {
-            this.deltaTimeHistory.shift();
+            // Initialize with current value - use this frame's deltaTime for smoothing
+            this.deltaTimeHistory = [deltaTime, deltaTime, deltaTime];
+        } else {
+            // Add current deltaTime and maintain history of last 3 frames
+            this.deltaTimeHistory.push(deltaTime);
+            if (this.deltaTimeHistory.length > 3) {
+                this.deltaTimeHistory.shift();
+            }
         }
 
         // Use smoothed deltaTime (weighted average favoring recent frames)
+        // Array is guaranteed to have 3 elements after initialization above
         const smoothedDelta = (this.deltaTimeHistory[0] * 0.1 +
             this.deltaTimeHistory[1] * 0.3 +
             this.deltaTimeHistory[2] * 0.6);
@@ -1588,14 +1616,13 @@ class GameEngine {
         let piercingExhausted = false;
 
         // Handle piercing - projectile continues if it still has piercing charges
-        if (typeof projectile.piercing === 'number' && projectile.piercing > 0) {
+        if (typeof projectile.piercing === 'number' && projectile.piercing >= 0) {
             if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[Collision] Projectile ${projectile.id} piercing hit. Piercing: ${projectile.piercing} -> ${projectile.piercing - 1}`);
             }
             projectile.piercing--;
-            projectileShouldDie = false; // Projectile continues after piercing hit
-
-            // Check if piercing is now exhausted
+            
+            // Check if piercing is now exhausted (went negative)
             if (projectile.piercing < 0) {
                 piercingExhausted = true;
                 projectileShouldDie = true; // Now it should die unless ricochet saves it
@@ -1603,6 +1630,7 @@ class GameEngine {
                     window.logger.log(`[Collision] Projectile ${projectile.id} piercing exhausted, should die unless ricochet saves it`);
                 }
             } else {
+                projectileShouldDie = false; // Projectile continues after piercing hit
                 if (window.logger?.isDebugEnabled?.('projectiles')) {
                     window.logger.log(`[Collision] Projectile ${projectile.id} still has piercing charges: ${projectile.piercing}`);
                 }
@@ -1772,6 +1800,25 @@ class GameEngine {
         if (!entities || entities.length === 0) return;
 
         const ctx = this.ctx;
+        const PERF = GAME_CONSTANTS.PERFORMANCE;
+
+        // Ensure batch arrays are at full capacity before filling
+        // This handles cases where they were truncated in a previous frame
+        if (this._projectileBatch.length < PERF.PROJECTILE_BATCH_SIZE) {
+            this._projectileBatch.length = PERF.PROJECTILE_BATCH_SIZE;
+        }
+        if (this._enemyBatch.length < PERF.ENEMY_BATCH_SIZE) {
+            this._enemyBatch.length = PERF.ENEMY_BATCH_SIZE;
+        }
+        if (this._enemyProjectileBatch.length < PERF.ENEMY_PROJECTILE_BATCH_SIZE) {
+            this._enemyProjectileBatch.length = PERF.ENEMY_PROJECTILE_BATCH_SIZE;
+        }
+        if (this._xpOrbBatch.length < PERF.XP_ORB_BATCH_SIZE) {
+            this._xpOrbBatch.length = PERF.XP_ORB_BATCH_SIZE;
+        }
+        if (this._fallbackBatch.length < PERF.FALLBACK_BATCH_SIZE) {
+            this._fallbackBatch.length = PERF.FALLBACK_BATCH_SIZE;
+        }
 
         // Use pre-allocated arrays with index-based writes (eliminates 240 allocations/sec at 60fps)
         let projectileCount = 0;
@@ -1793,7 +1840,15 @@ class GameEngine {
             ? XPOrb
             : (typeof window !== 'undefined' ? window.Game?.XPOrb : undefined);
 
+        // Get batch sizes for bounds checking (PERF already declared at top of function)
+        const maxProjectiles = PERF.PROJECTILE_BATCH_SIZE;
+        const maxEnemies = PERF.ENEMY_BATCH_SIZE;
+        const maxEnemyProjectiles = PERF.ENEMY_PROJECTILE_BATCH_SIZE;
+        const maxXpOrbs = PERF.XP_ORB_BATCH_SIZE;
+        const maxFallback = PERF.FALLBACK_BATCH_SIZE;
+
         // Single pass to categorize entities (optimized for loop with index writes)
+        // Bounds checking prevents array overflow when entity counts exceed batch size
         for (let i = 0; i < entities.length; i++) {
             const entity = entities[i];
             if (!entity || entity.isDead || typeof entity.render !== 'function' || entity === this.player) {
@@ -1802,19 +1857,29 @@ class GameEngine {
 
             switch (entity.type) {
                 case 'projectile':
-                    this._projectileBatch[projectileCount++] = entity;
+                    if (projectileCount < maxProjectiles) {
+                        this._projectileBatch[projectileCount++] = entity;
+                    }
                     break;
                 case 'enemy':
-                    this._enemyBatch[enemyCount++] = entity;
+                    if (enemyCount < maxEnemies) {
+                        this._enemyBatch[enemyCount++] = entity;
+                    }
                     break;
                 case 'enemyProjectile':
-                    this._enemyProjectileBatch[enemyProjectileCount++] = entity;
+                    if (enemyProjectileCount < maxEnemyProjectiles) {
+                        this._enemyProjectileBatch[enemyProjectileCount++] = entity;
+                    }
                     break;
                 case 'xpOrb':
-                    this._xpOrbBatch[xpOrbCount++] = entity;
+                    if (xpOrbCount < maxXpOrbs) {
+                        this._xpOrbBatch[xpOrbCount++] = entity;
+                    }
                     break;
                 default:
-                    this._fallbackBatch[fallbackCount++] = entity;
+                    if (fallbackCount < maxFallback) {
+                        this._fallbackBatch[fallbackCount++] = entity;
+                    }
             }
         }
 
@@ -2355,6 +2420,10 @@ class GameEngine {
             }
 
             this._needsCleanup = true;
+            // Notify collision system that entities changed
+            if (this.collisionSystem?.markGridDirty) {
+                this.collisionSystem.markGridDirty();
+            }
             return entity;
         } catch (error) {
             window.logger.error('Error adding entity:', error, entity);
@@ -2844,6 +2913,23 @@ class GameEngine {
         // Clear pools
         this.enemyProjectilePool = [];
         this.particlePool = [];
+
+        // Clear collision system
+        if (this.collisionSystem) {
+            this.collisionSystem.reset?.();
+            this.collisionSystem = null;
+        }
+
+        // Clear spatial grid
+        if (this.spatialGrid) {
+            this.spatialGrid.clear();
+        }
+
+        // Clear entity manager
+        if (this.entityManager) {
+            this.entityManager.clear?.();
+            this.entityManager = null;
+        }
 
         if (typeof window !== 'undefined' && window.cosmicBackground === this.cosmicBackground) {
             window.cosmicBackground = null;

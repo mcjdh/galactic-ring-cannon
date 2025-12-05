@@ -209,12 +209,13 @@ class PerformanceManager {
     }
     
     checkMemoryUsage() {
+        // Note: performance.memory is only available in Chrome/Chromium browsers
         if (performance.memory) {
             this.memoryUsage = performance.memory.usedJSHeapSize / 1024 / 1024; // MB
             
-            // Trigger garbage collection hint if memory usage is high
-            if (this.memoryUsage > 100 && window.gc) {
-                window.gc();
+            // Log warning if memory usage is high (GC is automatic in browsers)
+            if (this.memoryUsage > 150) {
+                window.logger?.warn?.(`[Performance] High memory usage: ${this.memoryUsage.toFixed(1)} MB`);
             }
         }
     }

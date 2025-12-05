@@ -99,15 +99,17 @@ class ParticleHelpers {
     static createExplosion(x, y, radius = 60, color = '#ff6b35') {
         if (window.optimizedParticles) {
             const count = Math.min(20, Math.floor(radius / 3));
+            const FM = window.FastMath || window.Game?.FastMath;
             for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
                 const speed = 50 + Math.random() * 100;
+                const sc = FM ? FM.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
 
                 window.optimizedParticles.spawnParticle({
                     x: x + (Math.random() - 0.5) * 10,
                     y: y + (Math.random() - 0.5) * 10,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: sc.cos * speed,
+                    vy: sc.sin * speed,
                     size: 2 + Math.random() * 4,
                     color: color,
                     life: 0.5 + Math.random() * 0.5,
@@ -139,16 +141,18 @@ class ParticleHelpers {
      */
     static createLevelUpEffect(x, y) {
         if (window.optimizedParticles) {
+            const FM = window.FastMath || window.Game?.FastMath;
             // Create burst of particles
             for (let i = 0; i < 20; i++) {
                 const angle = (i / 20) * Math.PI * 2;
                 const speed = 60 + Math.random() * 80;
+                const sc = FM ? FM.sincos(angle) : { sin: Math.sin(angle), cos: Math.cos(angle) };
 
                 window.optimizedParticles.spawnParticle({
                     x: x,
                     y: y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
+                    vx: sc.cos * speed,
+                    vy: sc.sin * speed,
                     size: 3 + Math.random() * 3,
                     color: '#f39c12',
                     life: 1 + Math.random() * 0.5,
@@ -169,7 +173,8 @@ class ParticleHelpers {
         if (window.optimizedParticles) {
             const dx = toX - fromX;
             const dy = toY - fromY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const FM = window.FastMath || window.Game?.FastMath;
+            const distance = FM ? FM.distance(fromX, fromY, toX, toY) : Math.sqrt(dx * dx + dy * dy);
             const segments = Math.max(3, Math.floor(distance / 20));
 
             // Create lightning path

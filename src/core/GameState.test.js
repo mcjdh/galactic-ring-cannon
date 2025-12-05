@@ -219,10 +219,14 @@ function runNodeTests() {
 
     test('validate detects invalid states', () => {
         const state = new GameState();
+        // Test that game over + running + unpaused is invalid
+        // (game should not be actively running when game is over)
+        state.flow.isGameOver = true;
         state.runtime.isRunning = true;
-        state.runtime.isPaused = true;
+        state.runtime.isPaused = false;
         const result = state.validate();
-        if (result.valid) throw new Error('validate should fail on running && paused');
+        if (result.valid) throw new Error('validate should fail on gameOver && running && !paused');
+        // Note: isRunning && isPaused is VALID (game loop runs but updates are paused)
     });
 
     test('getSnapshot returns valid snapshot', () => {

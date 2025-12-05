@@ -1808,22 +1808,40 @@ class EmergentFormationDetector {
      * Reoptimize anchor assignments for all constellations
      * Fixes shapes that look glitchy because enemies are assigned to suboptimal positions
      * Uses greedy nearest-neighbor to minimize total movement needed
+     * [OPTIMIZED] Reduced allocations by reusing arrays and early-exit checks
      */
     reoptimizeAnchors() {
         for (const constellation of this.constellations) {
             if (!constellation || constellation.age < 1.0) continue;  // Let new constellations settle first
             
+            // [PERF] Filter once and reuse
             const aliveEnemies = constellation.enemies.filter(e => e && !e.isDead);
-            if (aliveEnemies.length < 2) continue;
+            const aliveCount = aliveEnemies.length;
+            if (aliveCount < 2) continue;
             
             const positions = this._getConstellationPositions(constellation);
-            if (!positions || positions.length === 0) continue;
+            const posCount = positions?.length || 0;
+            if (posCount === 0) continue;
+            
+            // [PERF] Early exit: if all anchors are already optimal (enemies close to targets), skip
+            let maxDeviation = 0;
+            for (const enemy of aliveEnemies) {
+                const anchor = enemy.constellationAnchor ?? 0;
+                const target = positions[anchor % posCount];
+                if (target) {
+                    const dx = enemy.x - target.x;
+                    const dy = enemy.y - target.y;
+                    maxDeviation = Math.max(maxDeviation, dx * dx + dy * dy);
+                }
+            }
+            // Skip if all enemies are within 30px of their targets (900 = 30²)
+            if (maxDeviation < 900) continue;
             
             // Calculate current total distance (sum of all enemy-to-target distances)
             let currentTotalDist = 0;
             for (const enemy of aliveEnemies) {
                 const anchor = enemy.constellationAnchor ?? 0;
-                const target = positions[anchor % positions.length];
+                const target = positions[anchor % posCount];
                 if (target) {
                     const dx = enemy.x - target.x;
                     const dy = enemy.y - target.y;
@@ -1836,16 +1854,21 @@ class EmergentFormationDetector {
             const newAssignments = [];
             
             // Sort enemies by distance from constellation center (inner first)
-            const sortedEnemies = [...aliveEnemies].map(e => ({
-                enemy: e,
-                distToCenter: Math.hypot(e.x - constellation.centerX, e.y - constellation.centerY)
-            })).sort((a, b) => a.distToCenter - b.distToCenter);
+            // [PERF] Cache center coordinates
+            const cx = constellation.centerX;
+            const cy = constellation.centerY;
+            const sortedEnemies = aliveEnemies
+                .map(e => ({
+                    enemy: e,
+                    distToCenter: (e.x - cx) * (e.x - cx) + (e.y - cy) * (e.y - cy) // squared, no sqrt needed
+                }))
+                .sort((a, b) => a.distToCenter - b.distToCenter);
             
             for (const { enemy } of sortedEnemies) {
                 let bestPos = -1;
                 let bestDistSq = Infinity;
                 
-                for (let p = 0; p < positions.length; p++) {
+                for (let p = 0; p < posCount; p++) {
                     if (assigned.has(p)) continue;
                     const dx = enemy.x - positions[p].x;
                     const dy = enemy.y - positions[p].y;
@@ -1873,6 +1896,8 @@ class EmergentFormationDetector {
                 for (const { enemy, anchor } of newAssignments) {
                     enemy.constellationAnchor = anchor;
                 }
+                // [FIX] Clear target cache since anchors changed, forces recalculation
+                delete constellation._targetCache;
             }
         }
     }
@@ -2252,12 +2277,9 @@ class EmergentFormationDetector {
         ctx.save();
 
         for (const constellation of this.constellations) {
-            const targetPositions = constellation.pattern.getTargetPositions(
-                constellation.centerX,
-                constellation.centerY,
-                constellation.enemies,
-                constellation.rotation
-            );
+            // [PERF] Use cached positions instead of recalculating every frame
+            const targetPositions = this._getConstellationPositions(constellation);
+            if (!targetPositions || targetPositions.length === 0) continue;
 
             // Draw constellation outline - ALWAYS visible now (not just debug)
             const patternColor = this.getPatternColor(constellation.pattern.name);

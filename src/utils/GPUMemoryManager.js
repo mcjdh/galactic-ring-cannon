@@ -41,7 +41,7 @@ class GPUMemoryManager {
         if (this.enabled) return;
 
         this.enabled = true;
-        window.logger.info('[Pi] GPU Memory Manager enabled');
+        window.logger?.info?.('[Pi] GPU Memory Manager enabled');
 
         // Start monitoring interval
         this.monitoringInterval = setInterval(() => {
@@ -60,7 +60,7 @@ class GPUMemoryManager {
             clearInterval(this.monitoringInterval);
             this.monitoringInterval = null;
         }
-        window.logger.info('[Pi] GPU Memory Manager disabled');
+        window.logger?.info?.('[Pi] GPU Memory Manager disabled');
     }
 
     /**
@@ -84,13 +84,13 @@ class GPUMemoryManager {
 
         // Take action based on pressure
         if (pressureLevel === 'critical') {
-            window.logger.warn(`!! GPU Memory CRITICAL: ${totalSprites} sprites cached`);
+            window.logger?.warn?.(`!! GPU Memory CRITICAL: ${totalSprites} sprites cached`);
             this.aggressiveCleanup();
         } else if (pressureLevel === 'high') {
-            window.logger.warn(`! GPU Memory HIGH: ${totalSprites} sprites cached`);
+            window.logger?.warn?.(`! GPU Memory HIGH: ${totalSprites} sprites cached`);
             this.moderateCleanup();
         } else if (pressureLevel === 'medium') {
-            window.logger.info(`🟡 GPU Memory MEDIUM: ${totalSprites} sprites cached`);
+            window.logger?.info?.(`🟡 GPU Memory MEDIUM: ${totalSprites} sprites cached`);
         }
 
         return { pressureLevel, stats };
@@ -116,13 +116,13 @@ class GPUMemoryManager {
             stats.projectileCrit = ProjectileRenderer._critGlowCache?.size || 0;
         }
 
-        // CosmicBackground nebula cache
+        // CosmicBackground shape sprite cache
         if (typeof window !== 'undefined' && window.cosmicBackground) {
-            stats.nebula = window.cosmicBackground._nebulaSpriteCache?.size || 0;
+            stats.cosmicShapes = window.cosmicBackground.shapeSpriteCache?.size || 0;
         }
 
         stats.totalSprites = stats.projectileBody + stats.projectileGlow +
-            stats.projectileCrit + stats.nebula;
+            stats.projectileCrit + (stats.cosmicShapes || 0);
 
         // Estimate memory usage (rough approximation)
         // Small sprites ~4KB, large sprites ~16KB, average ~8KB
@@ -172,7 +172,7 @@ class GPUMemoryManager {
         // [R] FIX: Don't clean nebula cache - only 8 sprites, essential for background consistency
         // Nebulae are pre-warmed and should never be cleaned to prevent pop-in
 
-        window.logger.info('🧹 Moderate GPU memory cleanup complete (nebulae protected)');
+        window.logger?.info?.('🧹 Moderate GPU memory cleanup complete (nebulae protected)');
     }
 
     /**
@@ -202,7 +202,7 @@ class GPUMemoryManager {
         // [R] FIX: Don't clean nebula cache even in aggressive mode
         // Only 8 nebula sprites total (~64KB), essential for smooth background
 
-        window.logger.info('🧹 Aggressive GPU memory cleanup complete (nebulae protected)');
+        window.logger?.info?.('🧹 Aggressive GPU memory cleanup complete (nebulae protected)');
     }
 
     /**
@@ -215,14 +215,18 @@ class GPUMemoryManager {
         }
 
         if (typeof window !== 'undefined' && window.cosmicBackground) {
-            window.cosmicBackground._nebulaSpriteCache?.clear();
-            window.logger.info('🧹 Cleared CosmicBackground sprite cache');
+            if (typeof window.cosmicBackground.clearCaches === 'function') {
+                window.cosmicBackground.clearCaches();
+            } else {
+                window.cosmicBackground.shapeSpriteCache?.clear();
+            }
+            window.logger?.info?.('🧹 Cleared CosmicBackground sprite cache');
         }
 
         this.lastCleanupTime = performance.now();
         this.totalCleanups++;
 
-        window.logger.info('🧹 All sprite caches cleared (emergency cleanup)');
+        window.logger?.info?.('🧹 All sprite caches cleared (emergency cleanup)');
     }
 
     /**
@@ -255,7 +259,7 @@ if (typeof window !== 'undefined') {
     // Add console commands for debugging
     window.gpuStatus = () => {
         const status = window.gpuMemoryManager.getStatus();
-        window.logger.log('[Pi] GPU Memory Status:', status);
+        window.logger?.log?.('[Pi] GPU Memory Status:', status);
         return status;
     };
 

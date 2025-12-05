@@ -172,12 +172,14 @@ class SystemPerformanceManager {
             // Other low-end indicators
             const hasLowMemory = navigator.deviceMemory && navigator.deviceMemory <= 4;
             const hasLowCores = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-            const hasIntegratedGPU = /intel.*hd|intel.*uhd|mesa|swiftshader/i.test(gpu);
+            // Note: 'mesa' is the standard Linux OpenGL stack, NOT a low-end indicator
+            // Only flag Intel integrated graphics as low-end when combined with low memory
+            const hasWeakIntegratedGPU = /intel.*hd|intel.*uhd|swiftshader/i.test(gpu) && hasLowMemory;
 
             result.isLowEnd = !result.isRaspberryPi && (
                 (hasLowMemory && hasLowCores) ||
                 /android/i.test(ua) ||
-                hasIntegratedGPU
+                hasWeakIntegratedGPU
             );
 
             result.deviceInfo = `Platform: ${platform}, GPU: ${gpu || 'unknown'}`;

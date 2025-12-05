@@ -542,25 +542,59 @@ class GameState {
      * Subscribe to state changes
      * @param {string} event - Event name ('kill', 'levelUp', 'pause', etc.) or '*' for all
      * @param {Function} callback - Function to call when event occurs
+     * @returns {boolean} True if callback was added, false if it was already registered
      */
     on(event, callback) {
+        if (typeof callback !== 'function') {
+            return false;
+        }
         if (!this._observers.has(event)) {
             this._observers.set(event, []);
         }
-        this._observers.get(event).push(callback);
+        const callbacks = this._observers.get(event);
+        // Prevent duplicate registrations of the same callback
+        if (callbacks.includes(callback)) {
+            return false;
+        }
+        callbacks.push(callback);
+        return true;
     }
 
     /**
      * Unsubscribe from state changes
+     * @param {string} event - Event name to unsubscribe from
+     * @param {Function} [callback] - Specific callback to remove. If omitted, removes all callbacks for event.
      */
     off(event, callback) {
-        if (this._observers.has(event)) {
-            const callbacks = this._observers.get(event);
-            const index = callbacks.indexOf(callback);
-            if (index > -1) {
-                callbacks.splice(index, 1);
+        if (!this._observers.has(event)) {
+            return;
+        }
+
+        // If no callback specified, clear all observers for this event
+        if (!callback) {
+            this._observers.delete(event);
+            return;
+        }
+
+        const callbacks = this._observers.get(event);
+        // Remove ALL occurrences of this callback (handles duplicate registrations)
+        for (let i = callbacks.length - 1; i >= 0; i--) {
+            if (callbacks[i] === callback) {
+                callbacks.splice(i, 1);
             }
         }
+
+        // Clean up empty observer arrays to prevent memory leaks
+        if (callbacks.length === 0) {
+            this._observers.delete(event);
+        }
+    }
+
+    /**
+     * Clear all observers (useful for cleanup/reset)
+     */
+    clearAllObservers() {
+        this._observers.clear();
     }
 
     /**
@@ -601,28 +635,35 @@ class GameState {
             return;
         }
 
+        // Defensive check for StorageManager
+        const StorageManager = window.StorageManager;
+        if (!StorageManager || typeof StorageManager.getInt !== 'function') {
+            window.logger?.warn?.('[GameState] StorageManager not available, skipping meta state load');
+            return;
+        }
+
         try {
-            const starTokens = window.StorageManager.getInt('starTokens', 0);
+            const starTokens = StorageManager.getInt('starTokens', 0);
             this.meta.starTokens = isNaN(starTokens) ? 0 : starTokens;
 
-            const gamesPlayed = window.StorageManager.getInt('gamesPlayed', 0);
+            const gamesPlayed = StorageManager.getInt('gamesPlayed', 0);
             this.meta.gamesPlayed = isNaN(gamesPlayed) ? 0 : gamesPlayed;
 
-            const totalKills = window.StorageManager.getInt('totalKills', 0);
+            const totalKills = StorageManager.getInt('totalKills', 0);
             this.meta.totalKills = isNaN(totalKills) ? 0 : totalKills;
 
-            const selectedWeapon = window.StorageManager.getItem('selectedWeapon');
+            const selectedWeapon = StorageManager.getItem('selectedWeapon');
             if (typeof selectedWeapon === 'string' && selectedWeapon.trim() !== '') {
                 this.meta.selectedWeapon = selectedWeapon.trim();
             }
 
-            const selectedCharacter = window.StorageManager.getItem('selectedCharacter');
+            const selectedCharacter = StorageManager.getItem('selectedCharacter');
             if (typeof selectedCharacter === 'string' && selectedCharacter.trim() !== '') {
                 this.meta.selectedCharacter = selectedCharacter.trim();
             }
 
             // Use separate key to avoid conflict with AchievementSystem
-            const achievements = window.StorageManager.getItem('gamestate_achievements');
+            const achievements = StorageManager.getItem('gamestate_achievements');
             if (achievements) {
                 try {
                     const parsed = JSON.parse(achievements);
@@ -639,7 +680,7 @@ class GameState {
                 }
             } else {
                 // Try to migrate from old AchievementSystem format (one-time migration)
-                const oldAchievements = window.StorageManager.getItem('achievements');
+                const oldAchievements = StorageManager.getItem('achievements');
                 if (oldAchievements) {
                     try {
                         const parsed = JSON.parse(oldAchievements);
@@ -802,23 +843,55 @@ class GameState {
 
     /**
      * Validate state integrity
+     * @returns {{ valid: boolean, issues: string[] }}
      */
     validate() {
         const issues = [];
 
-        // Check for negative values
+        // Check for negative values in runtime
         if (this.runtime.gameTime < 0) issues.push('Negative gameTime');
+        if (this.runtime.fps < 0) issues.push('Negative fps');
+        if (this.runtime.frameCount < 0) issues.push('Negative frameCount');
+
+        // Check for negative/invalid player values
         if (this.player.health < 0) issues.push('Negative health');
+        if (this.player.maxHealth <= 0) issues.push('Invalid maxHealth (must be positive)');
+        if (this.player.level < 1) issues.push('Invalid level (must be >= 1)');
+        if (this.player.xp < 0) issues.push('Negative xp');
+
+        // Check for negative progression values
         if (this.progression.killCount < 0) issues.push('Negative killCount');
+        if (this.progression.damageDealt < 0) issues.push('Negative damageDealt');
+        if (this.progression.damageTaken < 0) issues.push('Negative damageTaken');
+        if (this.progression.burnDamageDealt < 0) issues.push('Negative burnDamageDealt');
+
+        // Check for negative meta values
         if (this.meta.starTokens < 0) issues.push('Negative starTokens');
+        if (this.meta.gamesPlayed < 0) issues.push('Negative gamesPlayed');
+        if (this.meta.totalKills < 0) issues.push('Negative totalKills');
+
+        // Check for negative entity counts
+        if (this.entities.enemyCount < 0) issues.push('Negative enemyCount');
+        if (this.entities.projectileCount < 0) issues.push('Negative projectileCount');
+        if (this.entities.xpOrbCount < 0) issues.push('Negative xpOrbCount');
+        if (this.entities.particleCount < 0) issues.push('Negative particleCount');
+
+        // Check for invalid combo state
+        if (this.combo.count < 0) issues.push('Negative combo count');
+        if (this.combo.multiplier < 1.0) issues.push('Combo multiplier below 1.0');
+        if (this.combo.timer < 0) issues.push('Negative combo timer');
 
         // Check for invalid states
-        if (this.runtime.isRunning && this.runtime.isPaused) {
-            issues.push('Cannot be running and paused simultaneously');
+        // Note: isRunning and isPaused CAN coexist - game loop runs but updates are paused
+        // Only flag if game is over but still marked as running (inconsistent state)
+        if (this.flow.isGameOver && this.runtime.isRunning && !this.runtime.isPaused) {
+            issues.push('Game is over but loop is still running unpaused');
         }
 
-        if (this.flow.isGameOver && this.runtime.isRunning) {
-            issues.push('Cannot be running when game is over');
+        // Check for logically impossible states
+        // Note: isGameOver means player died, isGameWon means boss defeated - mutually exclusive
+        if (this.flow.isGameOver && this.flow.isGameWon) {
+            issues.push('Cannot be both game over and game won');
         }
 
         return {

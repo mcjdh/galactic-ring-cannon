@@ -9,6 +9,7 @@ class DebugManager {
     constructor() {
         this.enabled = false;
         this.overlay = null;
+        this.overlayInterval = null; // Track interval for cleanup
         this.stats = {
             entities: 0,
             particles: 0,
@@ -24,21 +25,26 @@ class DebugManager {
             maxLevel: false
         };
 
+        // Bind the handler to preserve 'this' context
+        this._boundKeyHandler = this.handleKeyDown.bind(this);
+        
         this.init();
     }
 
     init() {
         // Check if debug mode should be enabled
         const urlParams = new URLSearchParams(window.location.search);
+        const StorageManager = window.StorageManager;
         const debugMode = urlParams.get('debug') === 'true' ||
-            window.StorageManager.getBoolean('debugMode', false);
+            (StorageManager && typeof StorageManager.getBoolean === 'function' && StorageManager.getBoolean('debugMode', false)) ||
+            false;
 
         if (debugMode) {
             this.enable();
         }
 
         // Add hotkeys
-        window.addEventListener('keydown', this.handleKeyDown.bind(this));
+        window.addEventListener('keydown', this._boundKeyHandler);
     }
 
     handleKeyDown(e) {
@@ -118,6 +124,11 @@ class DebugManager {
         if (this.overlayInterval) {
             clearInterval(this.overlayInterval);
             this.overlayInterval = null;
+        }
+        // Remove keydown listener
+        if (this._boundKeyHandler) {
+            window.removeEventListener('keydown', this._boundKeyHandler);
+            this._boundKeyHandler = null;
         }
     }
 
@@ -225,11 +236,16 @@ Commands:
         const player = window.gameManager?.game?.player;
         if (player) {
             if (this.cheats.godMode) {
-                player.originalTakeDamage = player.takeDamage;
+                // Only save original if not already saved (prevents memory leak from repeated toggles)
+                if (!player._originalTakeDamage) {
+                    player._originalTakeDamage = player.takeDamage;
+                }
                 player.takeDamage = () => { }; // No damage
                 player.health = player.maxHealth;
-            } else {
-                player.takeDamage = player.originalTakeDamage;
+            } else if (player._originalTakeDamage) {
+                player.takeDamage = player._originalTakeDamage;
+                // Clean up the saved reference
+                delete player._originalTakeDamage;
             }
         }
     }
@@ -238,9 +254,9 @@ Commands:
         const player = window.gameManager?.game?.player;
         if (player && typeof player.addExperience === 'function') {
             player.addExperience(amount);
-            window.logger.log(`[*] Gave ${amount} XP to player`);
+            window.logger?.log?.(`[*] Gave ${amount} XP to player`);
         } else {
-            window.logger.warn('! Player not found or addExperience method not available');
+            window.logger?.warn?.('! Player not found or addExperience method not available');
         }
     }
 
@@ -248,9 +264,9 @@ Commands:
         const gameManager = window.gameManager;
         if (gameManager && typeof gameManager.earnStarTokens === 'function') {
             gameManager.earnStarTokens(amount);
-            window.logger.log(`[*] Gave ${amount} star tokens`);
+            window.logger?.log?.(`[*] Gave ${amount} star tokens`);
         } else {
-            window.logger.warn('! GameManager not found or earnStarTokens method not available');
+            window.logger?.warn?.('! GameManager not found or earnStarTokens method not available');
         }
     }
 
@@ -264,9 +280,9 @@ Commands:
                     killed++;
                 }
             });
-            window.logger.log(`[SWORD] Killed ${killed} enemies`);
+            window.logger?.log?.(`[SWORD] Killed ${killed} enemies`);
         } else {
-            window.logger.warn('! No enemies found or enemies array not available');
+            window.logger?.warn?.('! No enemies found or enemies array not available');
         }
     }
 
@@ -294,5 +310,5 @@ Commands:
     }
 }
 
-// Auto-initialize
-const debugManager = new DebugManager();
+// Auto-initialize via static init to avoid duplicate instances
+DebugManager.init();

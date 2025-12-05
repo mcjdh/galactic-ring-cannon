@@ -55,6 +55,8 @@ class EntityManager {
 
     /**
      * Add an entity to the canonical collections.
+     * @param {Object} entity - Entity to add
+     * @returns {Object|null} The added entity, or null if invalid
      */
     addEntity(entity) {
         if (!entity || typeof entity !== 'object') {
@@ -66,8 +68,15 @@ class EntityManager {
         }
 
         // Prevent duplicates if the same id is reused
-        if (this.entitiesById.has(entity.id)) {
-            this.removeEntity(entity.id);
+        // Important: We must fully remove the old entity including from type collections
+        const existingEntity = this.entitiesById.get(entity.id);
+        if (existingEntity) {
+            // Only remove if it's actually a different object instance
+            // (same object re-added should be a no-op, not cause duplicate entries)
+            if (existingEntity === entity) {
+                return entity; // Already added, nothing to do
+            }
+            this.removeEntity(existingEntity);
         }
 
         this.entitiesById.set(entity.id, entity);
@@ -99,6 +108,24 @@ class EntityManager {
             this._removeFromArray(typeCollection, entity);
         }
 
+        return true;
+    }
+
+    /**
+     * Helper to remove an entity from an array efficiently using swap-and-pop.
+     * @private
+     */
+    _removeFromArray(array, entity) {
+        if (!Array.isArray(array)) return false;
+        const index = array.indexOf(entity);
+        if (index === -1) return false;
+        
+        // Swap with last element and pop for O(1) removal
+        const lastIndex = array.length - 1;
+        if (index !== lastIndex) {
+            array[index] = array[lastIndex];
+        }
+        array.pop();
         return true;
     }
 
@@ -213,12 +240,7 @@ class EntityManager {
         });
     }
 
-    _removeFromArray(array, item) {
-        const index = array.indexOf(item);
-        if (index !== -1) {
-            array.splice(index, 1);
-        }
-    }
+    // Note: _removeFromArray is defined above using O(1) swap-and-pop
 }
 
 // Make globally available

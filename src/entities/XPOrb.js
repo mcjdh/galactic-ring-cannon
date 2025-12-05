@@ -49,8 +49,11 @@ class XPOrb {
     calculateValue(baseValue) {
         let finalValue = baseValue;
         
-        // Apply Jupiter XP gain bonus
-        const xpBonusTier = window.StorageManager.getInt('meta_jupiter_xp_gain', 0);
+        // Apply Jupiter XP gain bonus with defensive check
+        const StorageManager = window.StorageManager;
+        const xpBonusTier = (StorageManager && typeof StorageManager.getInt === 'function')
+            ? StorageManager.getInt('meta_jupiter_xp_gain', 0)
+            : 0;
         if (xpBonusTier > 0) {
             finalValue = Math.floor(finalValue * (1 + xpBonusTier * 0.05));
         }

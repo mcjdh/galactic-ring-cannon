@@ -54,7 +54,7 @@ class PerformanceProfiler {
     setEnabled(enabled) {
         this.enabled = enabled;
         if (enabled) {
-            window.logger.log('[I] Performance Profiler enabled');
+            window.logger?.log?.('[I] Performance Profiler enabled');
         }
     }
     
@@ -154,21 +154,23 @@ class PerformanceProfiler {
      */
     report() {
         if (!this.enabled) return;
+        
+        const log = window.logger?.log?.bind(window.logger) || console.log.bind(console);
 
-        window.logger.log('[S] ═══════════════════════════════════════════════════');
-        window.logger.log('[S] PERFORMANCE REPORT (Pi5 Optimization)');
-        window.logger.log('[S] ═══════════════════════════════════════════════════');
+        log('[S] ═══════════════════════════════════════════════════');
+        log('[S] PERFORMANCE REPORT (Pi5 Optimization)');
+        log('[S] ═══════════════════════════════════════════════════');
 
         // Overall stats
         const fps = 1000 / this.stats.avgFrameTime;
         const dropRate = (this.stats.droppedFrames / this.stats.totalFrames * 100).toFixed(1);
-        window.logger.log(`[S] Overall:`);
-        window.logger.log(`   FPS: ${fps.toFixed(1)} (avg: ${this.stats.avgFrameTime.toFixed(2)}ms)`);
-        window.logger.log(`   Min/Max: ${this.stats.minFrameTime.toFixed(2)}ms / ${this.stats.maxFrameTime.toFixed(2)}ms`);
-        window.logger.log(`   Dropped: ${this.stats.droppedFrames} / ${this.stats.totalFrames} (${dropRate}%)`);
+        log(`[S] Overall:`);
+        log(`   FPS: ${fps.toFixed(1)} (avg: ${this.stats.avgFrameTime.toFixed(2)}ms)`);
+        log(`   Min/Max: ${this.stats.minFrameTime.toFixed(2)}ms / ${this.stats.maxFrameTime.toFixed(2)}ms`);
+        log(`   Dropped: ${this.stats.droppedFrames} / ${this.stats.totalFrames} (${dropRate}%)`);
 
         // System timings
-        window.logger.log(`\n[S] System Timings (avg over last 60 frames):`);
+        log(`\n[S] System Timings (avg over last 60 frames):`);
 
         for (const [system, timings] of Object.entries(this.systemTimings)) {
             if (timings.length === 0) continue;
@@ -178,22 +180,22 @@ class PerformanceProfiler {
             const target = this.targets[system];
             const status = target && avg > target ? '!' : '+';
 
-            window.logger.log(`   ${status} ${system}: ${avg.toFixed(2)}ms (max: ${max.toFixed(2)}ms)${target ? ` [target: ${target}ms]` : ''}`);
+            log(`   ${status} ${system}: ${avg.toFixed(2)}ms (max: ${max.toFixed(2)}ms)${target ? ` [target: ${target}ms]` : ''}`);
         }
 
         // Performance grade
-        window.logger.log(`\n[S] Performance Grade:`);
+        log(`\n[S] Performance Grade:`);
         if (fps >= 55) {
-            window.logger.log(`   + EXCELLENT - Smooth 60fps gameplay!`);
+            log(`   + EXCELLENT - Smooth 60fps gameplay!`);
         } else if (fps >= 45) {
-            window.logger.log(`   🟡 GOOD - Minor frame drops, playable`);
+            log(`   🟡 GOOD - Minor frame drops, playable`);
         } else if (fps >= 30) {
-            window.logger.log(`   ! FAIR - Noticeable lag, needs optimization`);
+            log(`   ! FAIR - Noticeable lag, needs optimization`);
         } else {
-            window.logger.log(`   !! POOR - Severe lag, unplayable`);
+            log(`   !! POOR - Severe lag, unplayable`);
         }
 
-        window.logger.log('[S] ═══════════════════════════════════════════════════\n');
+        log('[S] ═══════════════════════════════════════════════════\n');
     }
     
     /**
@@ -229,7 +231,7 @@ class PerformanceProfiler {
             this.systemTimings[key] = [];
         }
 
-        window.logger.log('@ Performance profiler reset');
+        window.logger?.log?.('@ Performance profiler reset');
     }
 }
 
@@ -245,12 +247,12 @@ if (typeof window !== 'undefined') {
     window.profileOn = () => {
         window.performanceProfiler.setEnabled(true);
         window.performanceProfiler.setVerbose(true);
-        window.logger.log('[I] Performance profiling enabled (verbose mode)');
+        window.logger?.log?.('[I] Performance profiling enabled (verbose mode)');
     };
 
     window.profileOff = () => {
         window.performanceProfiler.setEnabled(false);
-        window.logger.log('[I] Performance profiling disabled');
+        window.logger?.log?.('[I] Performance profiling disabled)');
     };
     
     window.profileReport = () => {

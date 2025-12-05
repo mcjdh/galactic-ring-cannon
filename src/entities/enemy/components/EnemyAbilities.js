@@ -325,11 +325,16 @@ class EnemyAbilities {
     updateDash(deltaTime) {
         if (!this.isDashing) return;
         
-        this.dashDuration -= deltaTime;
+        // Track remaining dash time separately to preserve configured duration
+        if (this._dashTimeRemaining === undefined) {
+            this._dashTimeRemaining = this.dashDuration;
+        }
         
-        if (this.dashDuration <= 0) {
+        this._dashTimeRemaining -= deltaTime;
+        
+        if (this._dashTimeRemaining <= 0) {
             this.isDashing = false;
-            this.dashDuration = 0.5; // Reset for next dash
+            this._dashTimeRemaining = undefined; // Reset for next dash
         }
     }
     

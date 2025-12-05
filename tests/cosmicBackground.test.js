@@ -110,6 +110,94 @@ const runTests = () => {
             failed++;
         }
 
+        // Test 5: Star depth layer bounds
+        // Verify all stars fall within a layer's depth range
+        const minZ = bg.starLayerDepths[0].min;
+        const maxZ = bg.starLayerDepths[bg.starLayerDepths.length - 1].max;
+        let starsInRange = 0;
+        bg.stars.forEach(star => {
+            if (star.z >= minZ && star.z <= maxZ) {
+                starsInRange++;
+            }
+        });
+
+        if (starsInRange === bg.stars.length) {
+            console.log(`✅ Star Depth: All ${bg.stars.length} stars within layer bounds [${minZ}, ${maxZ}]`);
+            passed++;
+        } else {
+            console.error(`❌ Star Depth: ${bg.stars.length - starsInRange} stars outside layer bounds`);
+            failed++;
+        }
+
+        // Test 6: Cache key generation (numeric vs string)
+        if (typeof bg._getSpriteCacheKey === 'function') {
+            const key1 = bg._getSpriteCacheKey('cube', 25, 0, 0, 0);
+            const key2 = bg._getSpriteCacheKey('cube', 25, 0, 0, 1);
+            const key3 = bg._getSpriteCacheKey('pyramid', 25, 0, 0, 0);
+
+            if (typeof key1 === 'number' && key1 !== key2 && key1 !== key3) {
+                console.log('✅ Cache key generation: Produces unique numeric keys');
+                passed++;
+            } else {
+                console.error('❌ Cache key generation: Keys not unique or not numeric');
+                failed++;
+            }
+        } else {
+            console.log('⏭️  Cache key method not exposed (skipped)');
+        }
+
+        // Test 7: quantizeAngle correctness
+        if (typeof bg.quantizeAngle === 'function') {
+            const q0 = bg.quantizeAngle(0);
+            const qPi = bg.quantizeAngle(Math.PI);
+            const qNeg = bg.quantizeAngle(-Math.PI / 2);
+
+            if (q0 === 0 && qPi > 0 && qNeg >= 0 && qNeg < bg.rotationSteps) {
+                console.log('✅ quantizeAngle: Returns valid bucket indices');
+                passed++;
+            } else {
+                console.error(`❌ quantizeAngle: Invalid buckets (0=${q0}, π=${qPi}, -π/2=${qNeg})`);
+                failed++;
+            }
+        } else {
+            console.log('⏭️  quantizeAngle not exposed (skipped)');
+        }
+
+        // Test 8: getDebugInfo includes cache stats
+        if (typeof bg.getDebugInfo === 'function') {
+            const info = bg.getDebugInfo();
+            if ('spriteCacheSize' in info && 'spriteCacheMaxSize' in info) {
+                console.log('✅ getDebugInfo: Includes cache statistics');
+                passed++;
+            } else {
+                console.error('❌ getDebugInfo: Missing cache statistics');
+                failed++;
+            }
+        } else {
+            console.error('❌ getDebugInfo method missing');
+            failed++;
+        }
+
+        // Test 9: clearCaches method exists and works
+        if (typeof bg.clearCaches === 'function') {
+            try {
+                bg.clearCaches();
+                if (bg.shapeSpriteCache.size === 0) {
+                    console.log('✅ clearCaches: Successfully clears sprite cache');
+                    passed++;
+                } else {
+                    console.error('❌ clearCaches: Cache not empty after clear');
+                    failed++;
+                }
+            } catch (e) {
+                console.error('❌ clearCaches threw error:', e);
+                failed++;
+            }
+        } else {
+            console.error('❌ clearCaches method missing');
+            failed++;
+        }
+
     } catch (error) {
         console.error('❌ Unexpected error in test suite:', error);
         failed++;

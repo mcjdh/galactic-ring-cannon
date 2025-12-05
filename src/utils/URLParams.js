@@ -3,7 +3,18 @@
  */
 class URLParams {
     constructor() {
-        this.params = new URLSearchParams(window.location.search);
+        // Safe initialization for non-browser environments (e.g., testing)
+        const search = (typeof window !== 'undefined' && window.location?.search) || '';
+        this.params = new URLSearchParams(search);
+    }
+
+    /**
+     * Refresh params from current URL (useful after navigation or URL changes)
+     */
+    refresh() {
+        const search = (typeof window !== 'undefined' && window.location?.search) || '';
+        this.params = new URLSearchParams(search);
+        return this;
     }
 
     get(key, defaultValue = null) {

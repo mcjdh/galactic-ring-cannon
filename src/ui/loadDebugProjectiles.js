@@ -6,7 +6,11 @@
     }
 
     const script = document.createElement('script');
-    script.src = 'debug-projectiles.js';
+    // Script is in scripts/debug/ relative to project root
+    script.src = 'scripts/debug/debug-projectiles.js';
     script.defer = true;
+    script.onerror = () => {
+        window.logger?.warn?.('Failed to load debug-projectiles.js');
+    };
     document.head.appendChild(script);
 })();

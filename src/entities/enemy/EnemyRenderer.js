@@ -12,6 +12,11 @@ class EnemyRenderer {
             return;
         }
 
+        // [FIX] Skip rendering if enemy has invalid position (NaN protection)
+        if (!Number.isFinite(enemy.x) || !Number.isFinite(enemy.y) || !Number.isFinite(enemy.radius)) {
+            return;
+        }
+
         const previousAlpha = ctx.globalAlpha;
         const previousFill = ctx.fillStyle;
         const previousStroke = ctx.strokeStyle;
@@ -158,6 +163,8 @@ class EnemyRenderer {
             const enemy = enemies[i];
             if (!enemy || enemy.isDead) continue;
             if (enemy.abilities?.canPhase && !enemy.abilities.isVisible) continue;
+            // [FIX] Skip enemies with invalid positions (NaN protection for late game)
+            if (!Number.isFinite(enemy.x) || !Number.isFinite(enemy.y) || !Number.isFinite(enemy.radius)) continue;
 
             let combinedAlpha = originalAlpha;
             if (typeof enemy.opacity === 'number' && enemy.opacity < 1) {
@@ -535,6 +542,8 @@ class EnemyRenderer {
 
     static renderBurnOverlay(enemy, burnEffect, ctx) {
         if (!burnEffect) return;
+        // [FIX] Validate enemy position before rendering overlay
+        if (!Number.isFinite(enemy.x) || !Number.isFinite(enemy.y) || !Number.isFinite(enemy.radius)) return;
 
         const stacks = Math.max(1, burnEffect.stacks || 1);
         const elapsed = Math.max(0, burnEffect.elapsed || 0);
@@ -550,7 +559,9 @@ class EnemyRenderer {
 
         ctx.save();
         const prevAlpha = ctx.globalAlpha;
-        const radius = enemy.radius * (1.05 + 0.07 * Math.sin((elapsed * 6) + (enemy._burnSeed || 0)));
+        const radiusMultiplier = 1.05 + 0.07 * Math.sin((elapsed * 6) + (enemy._burnSeed || 0));
+        // [FIX] Ensure radius is valid
+        const radius = Math.max(1, enemy.radius * radiusMultiplier);
 
         ctx.globalAlpha = prevAlpha * Math.min(1, 0.9 * intensity);
         const gradient = ctx.createRadialGradient(
@@ -653,22 +664,31 @@ class EnemyRenderer {
             return Math.max(0, Math.min(255, Math.round(num)));
         };
 
+        // [FIX] Handle null/undefined colors gracefully
+        if (color == null || color === '') {
+            return { r: 255, g: 255, b: 255 };
+        }
+
         if (typeof color === 'string') {
             if (color.startsWith('#')) {
                 const hex = color.slice(1);
                 if (hex.length === 3) {
-                    return {
-                        r: parseInt(hex[0] + hex[0], 16),
-                        g: parseInt(hex[1] + hex[1], 16),
-                        b: parseInt(hex[2] + hex[2], 16)
-                    };
+                    const r = parseInt(hex[0] + hex[0], 16);
+                    const g = parseInt(hex[1] + hex[1], 16);
+                    const b = parseInt(hex[2] + hex[2], 16);
+                    // [FIX] Validate parsed values
+                    if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+                        return { r, g, b };
+                    }
                 }
                 if (hex.length >= 6) {
-                    return {
-                        r: parseInt(hex.slice(0, 2), 16),
-                        g: parseInt(hex.slice(2, 4), 16),
-                        b: parseInt(hex.slice(4, 6), 16)
-                    };
+                    const r = parseInt(hex.slice(0, 2), 16);
+                    const g = parseInt(hex.slice(2, 4), 16);
+                    const b = parseInt(hex.slice(4, 6), 16);
+                    // [FIX] Validate parsed values
+                    if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+                        return { r, g, b };
+                    }
                 }
             } else {
                 const rgbaMatch = color.match(/^rgba?\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)(?:\s*,\s*[0-9]+(?:\.[0-9]+)?)?\s*\)$/i);
@@ -682,10 +702,7 @@ class EnemyRenderer {
             }
         }
 
-        // [FIX] Log warning for invalid colors to help debug typos and errors
-        if (window.logger?.warn) {
-            window.logger.warn(`[EnemyRenderer] Invalid color format: "${color}" - using white fallback. Expected hex (#fff or #ffffff) or rgb/rgba format.`);
-        }
+        // Fallback to white - don't log every occurrence to avoid spam
         return { r: 255, g: 255, b: 255 };
     }
 }

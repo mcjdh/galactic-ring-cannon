@@ -64,6 +64,28 @@
             // Note: Cell pooling disabled due to correctness issues
         }
 
+        /**
+         * Mark the spatial grid as needing a rebuild.
+         * Call this when entities are added or removed externally.
+         */
+        markGridDirty() {
+            this._gridDirty = true;
+        }
+
+        /**
+         * Reset the collision system state (e.g., for new game)
+         */
+        reset() {
+            this._gridDirty = true;
+            this._lastEntityCount = 0;
+            this._entityGridPositions = new WeakMap();
+            this.stats.cellsProcessed = 0;
+            this.stats.collisionsChecked = 0;
+            this.stats.collisionsDetected = 0;
+            this.stats.avgEntitiesPerCell = 0;
+            this.stats.lastResetTime = performance.now();
+        }
+
         updateSpatialGrid() {
             const engine = this.engine;
             if (!engine.spatialGrid) engine.spatialGrid = new Map();
@@ -429,6 +451,8 @@
                 if (entity1.type === 'player' && entity2.type === 'enemy' && !entity1.isInvulnerable) {
                     if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
                         entity1.takeDamage(entity2.damage);
+                        if (window.gameManager) window.gameManager.createHitEffect(entity1.x, entity1.y, entity2.damage);
+                        if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
                     }
                 } else if (entity2.type === 'player' && entity1.type === 'enemy' && !entity2.isInvulnerable) {
                     if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
@@ -452,9 +476,14 @@
                     if (typeof entity1.hit === 'function') hitSuccessful = entity1.hit(entity2);
 
                     if (hitSuccessful) {
+                        // Track successful projectile hit for stats
+                        window.gameManager?.statsManager?.trackProjectileHit?.();
+
                         // Apply damage only on a valid hit
                         if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
                             entity2.takeDamage(entity1.damage);
+                            if (window.gameManager) window.gameManager.createHitEffect(entity2.x, entity2.y, entity1.damage);
+                            if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
                         }
                         if (entity1.hitEnemies) entity1.hitEnemies.add(entity2.id);
 
@@ -478,12 +507,11 @@
 
                         // Handle piercing and death - UPDATED to match gameEngine logic
                         let piercingExhausted = false;
-                        if (typeof entity1.piercing === 'number' && entity1.piercing > 0) {
+                        if (typeof entity1.piercing === 'number' && entity1.piercing >= 0) {
                             if (window.logger?.isDebugEnabled?.('projectiles')) {
                                 window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing hit. Piercing: ${entity1.piercing} -> ${entity1.piercing - 1}`);
                             }
                             entity1.piercing--;
-                            projectileShouldDie = false; // Continue after piercing
 
                             if (entity1.piercing < 0) {
                                 piercingExhausted = true;
@@ -492,6 +520,7 @@
                                     window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing exhausted, should die unless ricochet saves it`);
                                 }
                             } else {
+                                projectileShouldDie = false; // Continue after piercing
                                 if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity1.id} still has piercing charges: ${entity1.piercing}`);
                                 }
@@ -510,9 +539,9 @@
                                     if (window.logger?.isDebugEnabled?.('projectiles')) {
                                         window.logger.log(`[CollisionSystem] Projectile ${entity1.id} ricochet successful!`);
                                     }
-                                    // Reset piercing if projectile ricocheted
+                                    // Reset piercing if projectile ricocheted (restore half, minimum 0)
                                     if (piercingExhausted && entity1.originalPiercing > 0) {
-                                        entity1.piercing = Math.max(1, Math.floor(entity1.originalPiercing / 2));
+                                        entity1.piercing = Math.max(0, Math.floor(entity1.originalPiercing / 2));
                                         if (window.logger?.isDebugEnabled?.('projectiles')) {
                                             window.logger.log(`[CollisionSystem] Projectile ${entity1.id} piercing restored: ${entity1.piercing}`);
                                         }
@@ -551,6 +580,9 @@
                     if (typeof entity2.hit === 'function') hitSuccessful = entity2.hit(entity1);
 
                     if (hitSuccessful) {
+                        // Track successful projectile hit for stats
+                        window.gameManager?.statsManager?.trackProjectileHit?.();
+
                         if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
                             entity1.takeDamage(entity2.damage);
                             if (window.gameManager) window.gameManager.createHitEffect(entity1.x, entity1.y, entity2.damage);
@@ -586,12 +618,11 @@
                         // Handle piercing and death - UPDATED to match gameEngine logic
                         let projectileShouldDie2 = true;
                         let piercingExhausted2 = false;
-                        if (typeof entity2.piercing === 'number' && entity2.piercing > 0) {
+                        if (typeof entity2.piercing === 'number' && entity2.piercing >= 0) {
                             if (window.logger?.isDebugEnabled?.('projectiles')) {
                                 window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing hit. Piercing: ${entity2.piercing} -> ${entity2.piercing - 1}`);
                             }
                             entity2.piercing--;
-                            projectileShouldDie2 = false; // Continue after piercing
 
                             if (entity2.piercing < 0) {
                                 piercingExhausted2 = true;
@@ -600,6 +631,7 @@
                                     window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing exhausted, should die unless ricochet saves it`);
                                 }
                             } else {
+                                projectileShouldDie2 = false; // Continue after piercing
                                 if (window.logger?.isDebugEnabled?.('projectiles')) {
                                     window.logger.log(`[CollisionSystem] Projectile ${entity2.id} still has piercing charges: ${entity2.piercing}`);
                                 }
@@ -618,9 +650,9 @@
                                     if (window.logger?.isDebugEnabled?.('projectiles')) {
                                         window.logger.log(`[CollisionSystem] Projectile ${entity2.id} ricochet successful!`);
                                     }
-                                    // Reset piercing if projectile ricocheted
+                                    // Reset piercing if projectile ricocheted (restore half, minimum 0)
                                     if (piercingExhausted2 && entity2.originalPiercing > 0) {
-                                        entity2.piercing = Math.max(1, Math.floor(entity2.originalPiercing / 2));
+                                        entity2.piercing = Math.max(0, Math.floor(entity2.originalPiercing / 2));
                                         if (window.logger?.isDebugEnabled?.('projectiles')) {
                                             window.logger.log(`[CollisionSystem] Projectile ${entity2.id} piercing restored: ${entity2.piercing}`);
                                         }

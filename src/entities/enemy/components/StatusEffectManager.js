@@ -188,6 +188,9 @@ class StatusEffectManager {
         const burnEffect = this.effects?.get('burn');
         if (!burnEffect) return;
 
+        // [FIX] Skip visual updates if enemy position is invalid
+        if (!Number.isFinite(this.enemy.x) || !Number.isFinite(this.enemy.y)) return;
+
         if (typeof this.enemy._burnSeed !== 'number') {
             this.enemy._burnSeed = Math.random() * Math.PI * 2;
         }

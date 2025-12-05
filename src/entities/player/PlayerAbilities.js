@@ -59,6 +59,11 @@ class PlayerAbilities {
         this.homingTurnSpeed = 3.0;
         this.homingRange = 250;
 
+        // Berserker properties (Cybernetic Berserker specialty)
+        this.hasBerserker = false;
+        this.berserkerScaling = 0;      // Additional scaling applied as health is missing
+        this.berserkerCritBonus = 0;    // Extra crit chance at low health (scales with missing HP)
+
         // Gravity well properties (Void Reaver specialty)
         this.hasGravityWells = false;
         this.gravityWellRadius = 150;
@@ -88,6 +93,42 @@ class PlayerAbilities {
 
         // Chain recursion depth protection
         this._chainDepth = 0;
+    }
+
+    /**
+     * Initialize or rehydrate a shield while preserving the original base capacity.
+     * This keeps adaptive armor growth measuring only the capacity gained from blocking damage.
+     */
+    initializeShield(capacity = 0, rechargeTime) {
+        const safeCapacity = Math.max(0, Number(capacity) || 0);
+
+        // Only set the base capacity the first time a shield is granted
+        if (!this.shieldBaseCapacity && safeCapacity > 0) {
+            this.shieldBaseCapacity = safeCapacity;
+        }
+
+        const targetCapacity = Math.max(
+            safeCapacity,
+            this.shieldBaseCapacity || 0,
+            this.shieldMaxCapacity || 0
+        );
+
+        if (targetCapacity > 0) {
+            this.hasShield = true;
+            if (!this.shieldMaxCapacity || this.shieldMaxCapacity < targetCapacity) {
+                this.shieldMaxCapacity = targetCapacity;
+            }
+            this.shieldCurrent = this.shieldMaxCapacity;
+        }
+
+        if (typeof rechargeTime === 'number' && rechargeTime > 0) {
+            this.shieldRechargeTime = rechargeTime;
+        } else if (!this.shieldRechargeTime) {
+            this.shieldRechargeTime = 6.0;
+        }
+
+        this.shieldBroken = false;
+        this.shieldRechargeTimer = 0;
     }
 
     update(deltaTime, game) {
@@ -589,7 +630,8 @@ class PlayerAbilities {
                 if (distanceSquared < collisionRadius * collisionRadius) {
                     // Calculate damage
                     let damage = this.player.combat.attackDamage * this.orbitDamage;
-                    const isCrit = Math.random() < this.player.combat.critChance;
+                    const critChance = this.player.combat.getEffectiveCritChance?.() ?? this.player.combat.critChance;
+                    const isCrit = Math.random() < critChance;
                     if (isCrit) {
                         damage *= this.player.combat.critMultiplier;
                     }
@@ -684,12 +726,13 @@ class PlayerAbilities {
             }
         }
 
-        // If we found an enemy to chain to
-        if (closestEnemy && !hitEnemies.has(closestEnemy.id)) {
-            // Calculate damage for chain hit
-            const chainDamage = baseDamage * this.chainDamage;
-            const isCrit = Math.random() < this.player.combat.critChance;
-            const finalDamage = isCrit ? chainDamage * this.player.combat.critMultiplier : chainDamage;
+            // If we found an enemy to chain to
+            if (closestEnemy && !hitEnemies.has(closestEnemy.id)) {
+                // Calculate damage for chain hit
+                const chainDamage = baseDamage * this.chainDamage;
+                const critChance = this.player.combat.getEffectiveCritChance?.() ?? this.player.combat.critChance;
+                const isCrit = Math.random() < critChance;
+                const finalDamage = isCrit ? chainDamage * this.player.combat.critMultiplier : chainDamage;
 
             // Create lightning visual effect
             this.createLightningEffect(startEnemy, closestEnemy);
@@ -778,7 +821,7 @@ class PlayerAbilities {
 
         // If we found an enemy to ricochet to
         if (closestEnemy) {
-            const critChance = this.player.combat.critChance || 0;
+            const critChance = (this.player.combat.getEffectiveCritChance?.() ?? this.player.combat.critChance ?? 0);
             const critMultiplier = this.player.combat.critMultiplier || 1;
             const ricochetDamageMultiplier = this.ricochetDamage || 0.5;
 
@@ -1130,13 +1173,8 @@ class PlayerAbilities {
                     this.ricochetDamage = Math.max(this.ricochetDamage, upgrade.bounceDamage || 0.85);
                 } else if (upgrade.specialType === 'shield') {
                     // NEW: Shield ability (Aegis Vanguard specialty)
-                    this.hasShield = true;
-                    this.shieldBaseCapacity = upgrade.shieldCapacity || 75; // Track base for adaptive armor
-                    this.shieldMaxCapacity = this.shieldBaseCapacity;
-                    this.shieldCurrent = this.shieldMaxCapacity;
-                    this.shieldRechargeTime = upgrade.shieldRechargeTime || 6.0;
-                    this.shieldBroken = false;
-                    this.shieldRechargeTimer = 0;
+                    const capacity = upgrade.shieldCapacity || this.shieldBaseCapacity || 75;
+                    this.initializeShield(capacity, upgrade.shieldRechargeTime);
                     window.logger?.log(`[Shield] Initialized with base capacity: ${this.shieldBaseCapacity}`);
                 } else if (upgrade.specialType === 'aoe') {
                     // Validate combat module exists before modifying
@@ -1302,6 +1340,21 @@ class PlayerAbilities {
                 if (typeof upgrade.damageAdd === 'number') {
                     this.gravityWellDamageMultiplier = Math.max(0, this.gravityWellDamageMultiplier + upgrade.damageAdd);
                 }
+                break;
+            }
+
+            case 'berserkerScaling': {
+                this.hasBerserker = true;
+                const bonus = Math.max(0, upgrade.value || 0);
+                this.berserkerScaling = Math.max(0, this.berserkerScaling || 0) + bonus;
+                break;
+            }
+
+            case 'berserkerCrit': {
+                this.hasBerserker = true;
+                const bonusCrit = Math.max(0, upgrade.value || 0);
+                // Cap bonus crit to avoid exceeding soft cap when combined with base stats
+                this.berserkerCritBonus = Math.min(0.5, (this.berserkerCritBonus || 0) + bonusCrit);
                 break;
             }
 

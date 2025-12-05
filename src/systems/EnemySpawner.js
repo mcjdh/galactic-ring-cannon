@@ -748,20 +748,46 @@ class EnemySpawner {
                 enemy.explosionRadius *= 1.3;
                 enemy.explosionDamage *= 1.5;
                 break;
+            case 'splitter':
+                // Elite splitters spawn more fragments
+                enemy.health *= 1.2; // Extra tanky
+                break;
+            case 'healer':
+                // Elite healers heal more and faster
+                if (enemy.abilities) {
+                    enemy.abilities.healAmount *= 1.5;
+                    enemy.abilities.healCooldown *= 0.7;
+                }
+                break;
             case 'teleporter':
-                enemy.teleportCooldown *= 0.8;
+                // Elite teleporters teleport more frequently
+                if (enemy.abilities) {
+                    enemy.abilities.teleportCooldown *= 0.6;
+                }
                 break;
             case 'phantom':
-                enemy.phaseChance += 0.1;
+                // Elite phantoms stay invisible longer
+                if (enemy.abilities) {
+                    enemy.abilities.phaseInvisibleDuration *= 1.4;
+                }
                 break;
             case 'shielder':
-                enemy.shieldRechargeRate *= 1.5;
+                // Elite shielders have better shields
+                if (enemy.abilities) {
+                    enemy.abilities.shieldReflection += 0.2;
+                    enemy.abilities.shieldDuration *= 1.3;
+                }
                 break;
             case 'summoner':
-                enemy.minionCount += 1;
+                // Elite summoners spawn more minions
+                if (enemy.abilities) {
+                    enemy.abilities.minionCount += 1;
+                    enemy.abilities.spawnMinionCooldown *= 0.8;
+                }
                 break;
             case 'berserker':
-                enemy.berserkerThreshold += 0.1;
+                // Elite berserkers get angrier faster
+                enemy.damageReduction = 0.15;
                 break;
         }
     }

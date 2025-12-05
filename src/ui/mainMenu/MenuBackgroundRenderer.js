@@ -25,16 +25,31 @@
                 return;
             }
 
+            // [FIX] Immediately fill canvas with black to prevent flash/pop-in
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
             // Cancel any existing animation
             if (this.menuAnimationFrame) {
                 cancelAnimationFrame(this.menuAnimationFrame);
             }
 
-            // Initialize CosmicBackground
+            // [PERF OPT] Reuse existing CosmicBackground instance if available
+            // This preserves cached sprites, star layers, and grid from previous renders
             if (!this.cosmicBackground) {
-                // Ensure CosmicBackground is available
-                if (window.Game && window.Game.CosmicBackground) {
+                // First try to use the global instance (shared with GameEngine)
+                if (window.cosmicBackground) {
+                    this.cosmicBackground = window.cosmicBackground;
+                    // Update canvas reference
+                    this.cosmicBackground.canvas = canvas;
+                    this.cosmicBackground.ctx = canvas.getContext('2d');
+                } else if (window.Game && window.Game.CosmicBackground) {
+                    // Create new instance and store globally
                     this.cosmicBackground = new window.Game.CosmicBackground(canvas);
+                    window.cosmicBackground = this.cosmicBackground;
                 } else {
                     this.logger.error('CosmicBackground not found');
                     return;

@@ -675,6 +675,42 @@ class AchievementSystem {
     getTotalCount() {
         return Object.keys(this.achievements).length;
     }
+
+    /**
+     * Clean up resources and event listeners
+     * Call this when shutting down the game to prevent memory leaks
+     */
+    destroy() {
+        // Clear any pending save timeout
+        if (this.saveTimeoutId) {
+            clearTimeout(this.saveTimeoutId);
+            this.saveTimeoutId = null;
+        }
+
+        // Clear GameState subscription retry timer
+        if (this._gameStateSubscriptionTimer) {
+            clearTimeout(this._gameStateSubscriptionTimer);
+            this._gameStateSubscriptionTimer = null;
+        }
+
+        // Unsubscribe from GameState events
+        if (this._subscribedGameState && this._burnDamageListener) {
+            this._subscribedGameState.off?.('burnDamageDealt', this._burnDamageListener);
+        }
+        this._subscribedGameState = null;
+        this._burnDamageListener = null;
+
+        // Force save any pending progress
+        if (this.pendingSave) {
+            try {
+                this.saveAchievements();
+            } catch (e) {
+                window.logger?.warn?.('[AchievementSystem] Failed to save on destroy:', e);
+            }
+        }
+
+        window.logger?.log?.('[AchievementSystem] Destroyed and cleaned up');
+    }
 }
 
 // Export to window.Game namespace

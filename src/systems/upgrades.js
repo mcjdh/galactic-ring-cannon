@@ -16,8 +16,11 @@ class UpgradeSystem {
         this.levelUpKeyListener = null; // Store reference to listener for cleanup
         this.comboEffects = new Set();
 
-        // Auto-level feature: load from StorageManager
-        this.autoLevelEnabled = window.StorageManager.getBoolean('autoLevelEnabled', false);
+        // Auto-level feature: load from StorageManager with defensive check
+        const StorageManager = window.StorageManager;
+        this.autoLevelEnabled = (StorageManager && typeof StorageManager.getBoolean === 'function')
+            ? StorageManager.getBoolean('autoLevelEnabled', false)
+            : false;
     }
 
     resetForNewRun() {

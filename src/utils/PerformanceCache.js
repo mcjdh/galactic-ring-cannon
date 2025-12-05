@@ -45,7 +45,7 @@ class PerformanceCache {
         this._initNormalizedVectors();
         
         // Use logger if available, fallback to console
-        const log = window.logger.info;
+        const log = window.logger?.info?.bind(window.logger) || console.info.bind(console);
         log('[PerformanceCache] Initialized:', {
             sqrtCache: `${this._sqrtCacheSize} entries`,
             enabled: this.enabled
@@ -228,19 +228,22 @@ class PerformanceCache {
         const value = this._randomPool[this._randomIndex];
         this._randomIndex = (this._randomIndex + 1) % this._randomPool.length;
 
-        // OPTIMIZED: Gradual refill (spread over frames to prevent jank)
-        // When wrapping, immediately refill a larger batch to prevent stale values
+        // OPTIMIZED: Gradual refill with offset to avoid predictable sequences
+        // When wrapping, refill a batch starting at a random offset
         if (this._randomIndex === 0) {
-            // Refill at least 100 values immediately to prevent stale reuse
+            // Use current time for pseudo-random offset to avoid predictable patterns
+            const offset = (performance.now() | 0) % (this._randomPool.length - 100);
             const immediateRefillSize = 100;
             for (let i = 0; i < immediateRefillSize; i++) {
-                this._randomPool[i] = Math.random();
+                const idx = (offset + i) % this._randomPool.length;
+                this._randomPool[idx] = Math.random();
             }
-            this._randomRefillIndex = immediateRefillSize; // Start gradual refill from here
+            // Start gradual refill from a different position
+            this._randomRefillIndex = (offset + immediateRefillSize) % this._randomPool.length;
         }
 
         // Incrementally refill pool in small batches (20 values per call)
-        if (this._randomRefillIndex < this._randomPool.length) {
+        if (this._randomRefillIndex < this._randomPool.length && this._randomRefillIndex !== 0) {
             const batchEnd = Math.min(
                 this._randomRefillIndex + this._randomRefillBatchSize,
                 this._randomPool.length
@@ -248,7 +251,7 @@ class PerformanceCache {
             for (let i = this._randomRefillIndex; i < batchEnd; i++) {
                 this._randomPool[i] = Math.random();
             }
-            this._randomRefillIndex = batchEnd;
+            this._randomRefillIndex = batchEnd >= this._randomPool.length ? 0 : batchEnd;
         }
 
         return value;

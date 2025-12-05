@@ -377,25 +377,28 @@ class EnemyStats {
 
     /**
      * Update visual effects
+     * Note: deltaTime is in SECONDS, timers are in MILLISECONDS
      */
     static updateVisualEffects(enemy, deltaTime) {
+        const deltaMs = deltaTime * 1000; // Convert seconds to milliseconds
+
         // Update pulsing effect for elites and bosses
         if (enemy.isElite || enemy.isBoss) {
             enemy.pulseTimer += deltaTime;
             enemy.pulseIntensity = Math.sin(enemy.pulseTimer * 3) * 0.3 + 0.7;
         }
 
-        // Update damage flash effect
+        // Update damage flash effect (timer is in ms, set to 100ms in takeDamage)
         if (enemy.damageFlashTimer > 0) {
-            enemy.damageFlashTimer -= deltaTime;
+            enemy.damageFlashTimer -= deltaMs;
             if (enemy.damageFlashTimer <= 0) {
                 enemy.damageFlashTimer = 0;
             }
         }
 
-        // Update death animation
+        // Update death animation (timer is in ms, set to 500ms in die)
         if (enemy.isDead && enemy.deathTimer > 0) {
-            enemy.deathTimer -= deltaTime * 1000; // Convert deltaTime from seconds to milliseconds
+            enemy.deathTimer -= deltaMs;
             enemy.opacity = Math.max(0, enemy.deathTimer / 500); // 500ms fade out
         }
     }
