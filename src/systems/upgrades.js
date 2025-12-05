@@ -6,7 +6,7 @@ class UpgradeSystem {
 
         // Warn if config not loaded
         if (!window.UPGRADE_DEFINITIONS) {
-            window.logger.warn('! UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
+            window.logger?.warn?.('! UPGRADE_DEFINITIONS not loaded. Make sure upgrades.config.js is loaded before UpgradeSystem.');
         }
 
         this.selectedUpgrades = [];
@@ -161,7 +161,7 @@ class UpgradeSystem {
         // Validate player exists before applying upgrade
         const player = window.gameManager?.game?.player;
         if (!player) {
-            window.logger.warn('Cannot apply upgrade: player not found');
+            window.logger?.warn?.('Cannot apply upgrade: player not found');
             return;
         }
 
@@ -356,7 +356,7 @@ class UpgradeSystem {
     handleMissingUpgradeOptions() {
         const fallbackUpgrade = this.getFallbackUpgrade();
         if (!fallbackUpgrade) {
-            window.logger.error('No upgrade definitions available; unable to grant level-up reward.');
+            window.logger?.error?.('No upgrade definitions available; unable to grant level-up reward.');
             return;
         }
 
@@ -465,9 +465,11 @@ class UpgradeSystem {
         selectedPaths.forEach(path => {
             pathCounts[path] = (pathCounts[path] || 0) + 1;
         });
-        
-        return Object.entries(pathCounts)
-            .sort((a, b) => b[1] - a[1])[0][0];
+
+        const entries = Object.entries(pathCounts);
+        if (entries.length === 0) return null;
+
+        return entries.sort((a, b) => b[1] - a[1])[0][0];
     }
     
     isUpgradeSelected(upgradeId) {

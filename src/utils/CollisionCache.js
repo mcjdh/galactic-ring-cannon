@@ -29,12 +29,10 @@ class CollisionCache {
         this._radiusSumCache = new Map();
         this._radiusSumCacheSize = 200;
         
-        // Grid key cache (avoids string concatenation)
-        this._gridKeyCache = new Map();
-        this._gridKeyCacheSize = 1000;
-        
         // Use logger if available, fallback to console
-        const log = window.logger.info;
+        const log = (typeof window !== 'undefined' && window.logger?.info)
+            ? window.logger.info.bind(window.logger)
+            : console.info;
         log('[CollisionCache] Initialized');
     }
     
@@ -154,7 +152,6 @@ class CollisionCache {
      */
     clear() {
         this._radiusSumCache.clear();
-        this._gridKeyCache.clear();
     }
     
     /**
@@ -166,10 +163,6 @@ class CollisionCache {
             radiusSumCache: {
                 size: this._radiusSumCache.size,
                 maxSize: this._radiusSumCacheSize
-            },
-            gridKeyCache: {
-                size: this._gridKeyCache.size,
-                maxSize: this._gridKeyCacheSize
             }
         };
     }
@@ -178,11 +171,23 @@ class CollisionCache {
      * Static helper methods for safe global access
      */
     static safeGetRadiusSum(r1, r2) {
-        return window.collisionCache ? window.collisionCache.getRadiusSum(r1, r2) : (r1 + r2);
+        const cache = (typeof window !== 'undefined') ? window.collisionCache : null;
+        return cache ? cache.getRadiusSum(r1, r2) : (r1 + r2);
     }
     
     static safeCheckCollision(e1, e2) {
-        return window.collisionCache ? window.collisionCache.checkCollision(e1, e2) : false;
+        const cache = (typeof window !== 'undefined') ? window.collisionCache : null;
+        if (cache) {
+            return cache.checkCollision(e1, e2);
+        }
+
+        if (!e1 || !e2) return false;
+
+        const dx = (e1.x || 0) - (e2.x || 0);
+        const dy = (e1.y || 0) - (e2.y || 0);
+        const distSq = dx * dx + dy * dy;
+        const radiusSum = (e1.radius || 0) + (e2.radius || 0);
+        return distSq < radiusSum * radiusSum;
     }
 }
 

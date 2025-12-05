@@ -124,14 +124,17 @@ class PlayerMovement {
         }
 
         // Clamp velocity to max speed (optimized: use squared comparison)
-        const currentSpeedSq = this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y;
-        const maxSpeedSq = maxSpeed * maxSpeed;
-        if (currentSpeedSq > maxSpeedSq) {
-            // Only calculate sqrt when we need to clamp
-            const currentSpeed = Math.sqrt(currentSpeedSq);
-            const scale = maxSpeed / currentSpeed;
-            this.velocity.x *= scale;
-            this.velocity.y *= scale;
+        // Guard against division by zero if maxSpeed is somehow 0
+        if (maxSpeed > 0) {
+            const currentSpeedSq = this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y;
+            const maxSpeedSq = maxSpeed * maxSpeed;
+            if (currentSpeedSq > maxSpeedSq) {
+                // Only calculate sqrt when we need to clamp
+                const currentSpeed = Math.sqrt(currentSpeedSq);
+                const scale = maxSpeed / currentSpeed;
+                this.velocity.x *= scale;
+                this.velocity.y *= scale;
+            }
         }
 
         // Apply movement with improved responsiveness
@@ -164,8 +167,6 @@ class PlayerMovement {
                 const rotationSpeed = 30; 
                 this.player.rotation += diff * Math.min(1, rotationSpeed * deltaTime);
             }
-        } else if (this.player.rotation === undefined) {
-             this.player.rotation = 0;
         }
 
         // Create trail effect when moving

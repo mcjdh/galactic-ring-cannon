@@ -595,13 +595,17 @@ class EnemyAI {
      * Get attack range based on enemy type
      */
     getAttackRange() {
-        if (this.enemy.canRangeAttack) {
-            return 250; // Ranged enemies attack from distance
-        } else if (this.enemy.isBoss) {
-            return 200; // Bosses have longer reach
-        } else {
-            return 50; // Melee enemies need to get close
+        const hasRanged = (this.enemy.abilities && this.enemy.abilities.canRangeAttack) || this.enemy.canRangeAttack;
+
+        if (hasRanged) {
+            return this.enemy.attackRange || 250; // Ranged enemies attack from distance
         }
+
+        if (this.enemy.isBoss) {
+            return 200; // Bosses have longer reach
+        }
+
+        return this.enemy.attackRange || 50; // Melee enemies need to get close
     }
 
     /**

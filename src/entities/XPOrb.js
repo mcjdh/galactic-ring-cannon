@@ -432,12 +432,18 @@ if (typeof window !== 'undefined') {
 
 XPOrb._alphaColorCache = new Map();
 XPOrb._parsedColorCache = new Map();
+XPOrb._MAX_CACHE_SIZE = 500; // Prevent unbounded memory growth
 
 XPOrb._colorWithAlpha = function(color, alpha) {
     const key = `${color}|${alpha}`;
     const cache = XPOrb._alphaColorCache;
     if (cache.has(key)) {
         return cache.get(key);
+    }
+    // Evict oldest entries if cache is too large
+    if (cache.size >= XPOrb._MAX_CACHE_SIZE) {
+        const firstKey = cache.keys().next().value;
+        cache.delete(firstKey);
     }
     const parsed = XPOrb._parseColor(color);
     const value = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
@@ -449,6 +455,11 @@ XPOrb._parseColor = function(color) {
     const cache = XPOrb._parsedColorCache;
     if (cache.has(color)) {
         return cache.get(color);
+    }
+    // Evict oldest entries if cache is too large
+    if (cache.size >= XPOrb._MAX_CACHE_SIZE) {
+        const firstKey = cache.keys().next().value;
+        cache.delete(firstKey);
     }
     const parsed = XPOrb._extractRGBComponents(color);
     cache.set(color, parsed);

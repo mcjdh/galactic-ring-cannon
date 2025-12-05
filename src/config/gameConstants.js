@@ -87,17 +87,25 @@
             }
         },
 
-        // Performance Configuration
+        // Performance Configuration (consolidated - single source of truth)
         PERFORMANCE: {
-            MAX_PARTICLES: 1000,
-            PROJECTILE_BATCH_SIZE: 64,
-            ENEMY_BATCH_SIZE: 64,
-            ENEMY_PROJECTILE_BATCH_SIZE: 64,
-            XP_ORB_BATCH_SIZE: 64,
-            FALLBACK_BATCH_SIZE: 32,
+            MAX_ENTITIES: 2000,
+            MAX_PARTICLES: 300,              // Balanced for cross-device performance
+            SPATIAL_GRID_SIZE: 100,
             TARGET_FPS: 60,
-            CLEANUP_INTERVAL: 0.5,
-            MAX_FIXED_STEPS: 5
+            LOW_FPS_THRESHOLD: 30,
+
+            // Engine timing constants
+            MAX_FIXED_STEPS: 5,              // Maximum fixed update steps per frame
+            CLEANUP_INTERVAL: 0.2,           // Seconds between entity cleanup passes
+            GRID_RECALC_INTERVAL_MS: 250,    // Milliseconds between spatial grid recalculations
+
+            // Batch rendering pool sizes
+            PROJECTILE_BATCH_SIZE: 128,      // Balanced batch size
+            ENEMY_BATCH_SIZE: 100,           // Max enemies for batch rendering
+            ENEMY_PROJECTILE_BATCH_SIZE: 100,// Max enemy projectiles for batch rendering
+            XP_ORB_BATCH_SIZE: 128,          // Max XP orbs for batch rendering
+            FALLBACK_BATCH_SIZE: 50          // Max other entities for batch rendering
         },
 
         // Enemy Configuration
@@ -110,10 +118,6 @@
             EARLY_GAME_DURATION: 60, // Increased from 48 to cover full first minute
             EARLY_GAME_MAX_ENEMY_BONUS: 0, // Removed bonus (was 5) to keep early count low
             SPAWN_RAMP_DAMPENER: 0.7, // Increased from 0.58 to allow faster ramp-up AFTER early game
-            MID_GAME_SOFTENER_START: 45,
-            MID_GAME_SOFTENER_END: 110,
-            MID_GAME_SOFTENER_STRENGTH: 0.35,
-            BOSS_BASE_INTERVAL: 90,
             MID_GAME_SOFTENER_START: 45,
             MID_GAME_SOFTENER_END: 110,
             MID_GAME_SOFTENER_STRENGTH: 0.35,
@@ -214,26 +218,9 @@
             HOMING_CHANCE: 0.2
         },
 
-        // Performance
-        PERFORMANCE: {
-            MAX_ENTITIES: 2000,
-            MAX_PARTICLES: 150,
-            SPATIAL_GRID_SIZE: 100,
-            TARGET_FPS: 60,
-            LOW_FPS_THRESHOLD: 30,
-
-            // Engine timing constants
-            MAX_FIXED_STEPS: 5,              // Maximum fixed update steps per frame
-            CLEANUP_INTERVAL: 0.2,            // Seconds between entity cleanup passes
-            GRID_RECALC_INTERVAL_MS: 250,     // Milliseconds between spatial grid recalculations
-
-            // Batch rendering pool sizes
-            PROJECTILE_BATCH_SIZE: 200,       // Max projectiles for batch rendering
-            ENEMY_BATCH_SIZE: 100,            // Max enemies for batch rendering
-            ENEMY_PROJECTILE_BATCH_SIZE: 100, // Max enemy projectiles for batch rendering
-            XP_ORB_BATCH_SIZE: 200,           // Max XP orbs for batch rendering
-            FALLBACK_BATCH_SIZE: 50           // Max other entities for batch rendering
-        },
+        // NOTE: PERFORMANCE config is defined above (lines 91-101)
+        // This duplicate block was removed to prevent config inconsistency
+        // All performance settings should be in the single PERFORMANCE block above
 
         // Colors (for consistency)
         COLORS: {

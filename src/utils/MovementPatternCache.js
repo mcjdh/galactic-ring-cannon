@@ -66,9 +66,9 @@ const MovementPatternCache = (() => {
     const sampleUnitVector = () => {
         vectorIndex = (vectorIndex + 1) & TABLE_MASK;
         const base = vectorIndex << 1;
-        return {
-            x: vectorTable[base],
-            y: vectorTable[base + 1]
+        return { 
+            x: vectorTable[base], 
+            y: vectorTable[base + 1] 
         };
     };
 

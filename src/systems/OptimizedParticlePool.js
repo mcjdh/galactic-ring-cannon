@@ -6,8 +6,8 @@ class OptimizedParticlePool {
         this._lastReturnedIndex = -1;
         // Align with GAME_CONSTANTS.PERFORMANCE.MAX_PARTICLES for consistency
         const PERF_CONSTANTS = window?.GAME_CONSTANTS?.PERFORMANCE || {};
-        // INCREASED default for Universal Performance (was 150)
-        this.maxParticles = PERF_CONSTANTS.MAX_PARTICLES || 1000;
+        // Reasonable default that works well across devices (was 1000, too high for low-end)
+        this.maxParticles = PERF_CONSTANTS.MAX_PARTICLES || 300;
         this.poolSize = initialSize;
 
         // Pre-allocate particle objects to avoid GC pressure
@@ -25,6 +25,7 @@ class OptimizedParticlePool {
         this._alphaGroupsMap = new Map(); // Reused Map for alpha grouping (avoids Map allocation)
         this._alphaArrayPool = []; // Pool of arrays for alpha groups (avoids array allocation)
         this._maxAlphaGroups = 11; // 0.0 to 1.0 in 0.1 increments (max distinct alpha values)
+        this._maxAlphaArrayPoolSize = this._maxAlphaGroups * 4; // Cap pool size to prevent unbounded growth
 
         // Pre-allocate 2x arrays for double-buffering between different particle types
         // We may have up to 11 alpha groups per particle type (basic, spark, smoke, etc.)
@@ -245,20 +246,25 @@ class OptimizedParticlePool {
         ctx.restore();
     }
 
-    renderRingBatch(ctx, particles) {
-        if (!particles || particles.length === 0) return;
-
-        ctx.lineWidth = 2;
-
-        // > OPTIMIZATION: Reuse pre-allocated Map and arrays
+    /**
+     * [REFACTORED] Groups particles by alpha value using pre-allocated structures.
+     * Eliminates duplicate grouping code across render methods.
+     * @param {Array} particles - Particles to group
+     * @returns {Map} Map of alpha -> particle array
+     */
+    _groupParticlesByAlpha(particles) {
         const alphaGroups = this._alphaGroupsMap;
 
+        // Return existing arrays to pool and clear the map
         for (const [, group] of alphaGroups) {
             group.length = 0;
-            this._alphaArrayPool.push(group);
+            if (this._alphaArrayPool.length < this._maxAlphaArrayPoolSize) {
+                this._alphaArrayPool.push(group);
+            }
         }
         alphaGroups.clear();
 
+        // Group particles by alpha (rounded to 0.1)
         for (const particle of particles) {
             const alphaKey = Math.floor(particle.alpha * 10) / 10;
             let group = alphaGroups.get(alphaKey);
@@ -269,13 +275,20 @@ class OptimizedParticlePool {
             group.push(particle);
         }
 
+        return alphaGroups;
+    }
+
+    renderRingBatch(ctx, particles) {
+        if (!particles || particles.length === 0) return;
+
+        ctx.lineWidth = 2;
+        const alphaGroups = this._groupParticlesByAlpha(particles);
+
         for (const [alpha, group] of alphaGroups) {
             ctx.globalAlpha = alpha;
             ctx.beginPath();
 
             for (const particle of group) {
-                // Ring expands based on life (inverse) or just size
-                // Assuming size is the radius
                 ctx.moveTo(particle.x + particle.size, particle.y);
                 ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
             }
@@ -289,29 +302,8 @@ class OptimizedParticlePool {
     renderBasicBatch(ctx, particles) {
         if (!particles || particles.length === 0) return;
 
-        // > OPTIMIZATION: Reuse pre-allocated Map and arrays (avoids GC pressure)
-        const alphaGroups = this._alphaGroupsMap;
+        const alphaGroups = this._groupParticlesByAlpha(particles);
 
-        // Clear existing groups by returning arrays to pool
-        for (const [, group] of alphaGroups) {
-            group.length = 0; // Clear array but keep reference
-            this._alphaArrayPool.push(group); // Return to pool
-        }
-        alphaGroups.clear();
-
-        // Group particles by alpha (rounded to 0.1)
-        for (const particle of particles) {
-            const alphaKey = Math.floor(particle.alpha * 10) / 10; // Round to 0.1
-            let group = alphaGroups.get(alphaKey);
-            if (!group) {
-                // Reuse array from pool or create new if pool empty
-                group = this._alphaArrayPool.pop() || [];
-                alphaGroups.set(alphaKey, group);
-            }
-            group.push(particle);
-        }
-
-        // Render each alpha group in single path
         for (const [alpha, group] of alphaGroups) {
             ctx.globalAlpha = alpha;
             ctx.beginPath();
@@ -332,29 +324,8 @@ class OptimizedParticlePool {
         if (!particles || particles.length === 0) return;
 
         ctx.lineWidth = 1;
+        const alphaGroups = this._groupParticlesByAlpha(particles);
 
-        // > OPTIMIZATION: Reuse pre-allocated Map and arrays (avoids GC pressure)
-        const alphaGroups = this._alphaGroupsMap;
-
-        // Clear existing groups by returning arrays to pool
-        for (const [, group] of alphaGroups) {
-            group.length = 0;
-            this._alphaArrayPool.push(group);
-        }
-        alphaGroups.clear();
-
-        // Group particles by alpha
-        for (const particle of particles) {
-            const alphaKey = Math.floor(particle.alpha * 10) / 10;
-            let group = alphaGroups.get(alphaKey);
-            if (!group) {
-                group = this._alphaArrayPool.pop() || [];
-                alphaGroups.set(alphaKey, group);
-            }
-            group.push(particle);
-        }
-
-        // Render each alpha group with minimal state changes
         for (const [alpha, group] of alphaGroups) {
             ctx.globalAlpha = alpha;
             ctx.beginPath();
@@ -373,30 +344,10 @@ class OptimizedParticlePool {
     renderSmokeBatch(ctx, particles) {
         if (!particles || particles.length === 0) return;
 
-        // > OPTIMIZATION: Reuse pre-allocated Map and arrays (avoids GC pressure)
-        const alphaGroups = this._alphaGroupsMap;
+        const alphaGroups = this._groupParticlesByAlpha(particles);
 
-        // Clear existing groups by returning arrays to pool
-        for (const [, group] of alphaGroups) {
-            group.length = 0;
-            this._alphaArrayPool.push(group);
-        }
-        alphaGroups.clear();
-
-        // Group particles by alpha
-        for (const particle of particles) {
-            const alphaKey = Math.floor(particle.alpha * 10) / 10;
-            let group = alphaGroups.get(alphaKey);
-            if (!group) {
-                group = this._alphaArrayPool.pop() || [];
-                alphaGroups.set(alphaKey, group);
-            }
-            group.push(particle);
-        }
-
-        // Render each alpha group
         for (const [alpha, group] of alphaGroups) {
-            ctx.globalAlpha = alpha * 0.3;
+            ctx.globalAlpha = alpha * 0.3; // Smoke is more transparent
             ctx.beginPath();
 
             for (const particle of group) {

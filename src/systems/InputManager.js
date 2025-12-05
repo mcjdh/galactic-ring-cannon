@@ -172,7 +172,7 @@ class InputManager {
             try {
                 callbacks[i](e, key);
             } catch (error) {
-                window.logger.error('Input callback error:', error);
+                window.logger?.error?.('Input callback error:', error);
             }
         }
     }
@@ -194,7 +194,7 @@ class InputManager {
             try {
                 callbacks[i](e, key);
             } catch (error) {
-                window.logger.error('Input callback error:', error);
+                window.logger?.error?.('Input callback error:', error);
             }
         }
     }
@@ -293,7 +293,7 @@ class InputManager {
             try {
                 callbacks[i](e);
             } catch (error) {
-                window.logger.error('Mouse move callback error:', error);
+                window.logger?.error?.('Mouse move callback error:', error);
             }
         }
     }
@@ -314,7 +314,7 @@ class InputManager {
             try {
                 callbacks[i](e);
             } catch (error) {
-                window.logger.error('Mouse down callback error:', error);
+                window.logger?.error?.('Mouse down callback error:', error);
             }
         }
     }
@@ -335,7 +335,7 @@ class InputManager {
             try {
                 callbacks[i](e);
             } catch (error) {
-                window.logger.error('Mouse up callback error:', error);
+                window.logger?.error?.('Mouse up callback error:', error);
             }
         }
     }
@@ -366,7 +366,16 @@ class InputManager {
 
         // Get fresh gamepad state
         const gamepads = navigator.getGamepads();
-        const gamepad = gamepads[this.gamepadState.index];
+
+        // Validate gamepad index is within bounds before accessing
+        const gamepadIndex = this.gamepadState.index;
+        if (gamepadIndex < 0 || gamepadIndex >= gamepads.length) {
+            // Gamepad disconnected or index invalid
+            this.gamepadState = null;
+            return;
+        }
+
+        const gamepad = gamepads[gamepadIndex];
 
         if (gamepad) {
             this.gamepadState = gamepad;
@@ -380,7 +389,7 @@ class InputManager {
                 try {
                     callbacks[i](gamepad);
                 } catch (error) {
-                    window.logger.error('Gamepad callback error:', error);
+                    window.logger?.error?.('Gamepad callback error:', error);
                 }
             }
         }

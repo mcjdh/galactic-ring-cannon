@@ -71,7 +71,18 @@ class ProjectilePool {
                 projectile.y = y;
                 projectile.active = true;
                 projectile.isDead = false;
-                // We assume the caller might do more setup if reset is missing, 
+                projectile.distanceTraveled = 0;
+                projectile.age = 0;
+                // Reset hit tracking to prevent stale piercing data
+                if (projectile.hitEnemies) {
+                    projectile.hitEnemies.clear();
+                }
+                // Reset trail
+                if (projectile.trail) {
+                    projectile.trailIndex = 0;
+                    projectile.trailCount = 0;
+                }
+                // We assume the caller might do more setup if reset is missing,
                 // but reset() is the intended path.
             }
 
@@ -91,6 +102,7 @@ class ProjectilePool {
 
         // Prevent double-free
         if (projectile._poolStatus === 'free') {
+            window.logger?.warn('[ProjectilePool] Attempted double-free of projectile, ignoring');
             return;
         }
 

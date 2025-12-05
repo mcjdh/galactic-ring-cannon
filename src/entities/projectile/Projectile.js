@@ -51,15 +51,9 @@ class Projectile {
                 this.specialType = specialType;
             }
 
-            // Construct config object for future resets
-            this.config = {
-                vx: this.vx,
-                vy: this.vy,
-                damage: this.damage,
-                piercing: this.piercing,
-                isCrit: this.isCrit,
-                specialType: this.specialType
-            };
+            // Store config reference for reset - reuse existing object if passed
+            // This avoids creating a new object in the hot path when pooling
+            this.config = null; // Legacy projectiles don't need config for pooling
         }
 
         this.radius = this.isCrit ? 6.5 : 5;

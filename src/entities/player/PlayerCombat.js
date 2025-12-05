@@ -73,8 +73,9 @@ class PlayerCombat {
             // [FIX] Use Math.max to prevent division by zero if maxHealth is explicitly 0
             const healthPercent = this.player.health / Math.max(1, this.player.maxHealth || 100);
             const missingHealth = 1.0 - healthPercent;
-            // Up to +50% attack speed at 0% health
-            berserkerMultiplier = 1.0 + (missingHealth * (this.player.abilities.berserkerScaling || 0.5));
+            // Up to +50% attack speed at 0% health, capped at 2x to prevent extreme values
+            const scaling = this.player.abilities.berserkerScaling || 0.5;
+            berserkerMultiplier = Math.min(2.0, 1.0 + (missingHealth * scaling));
         }
 
         const effectiveAttackSpeed = this.attackSpeed * streakBonuses.attackSpeed * berserkerMultiplier;

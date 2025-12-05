@@ -49,10 +49,19 @@
             }
 
             const initialCharacterId = this.resolveInitialCharacterId(definitions);
-            const initialDefinition =
-                definitions.find(def => def.id === initialCharacterId) ||
+            let initialDefinition =
+                definitions.find(def => def.id === initialCharacterId && this.isCharacterUnlocked(def)) ||
                 definitions.find(def => this.isCharacterUnlocked(def)) ||
                 definitions[0];
+
+            // Validate final selection is unlocked, fallback to first if not
+            if (initialDefinition && !this.isCharacterUnlocked(initialDefinition)) {
+                const firstUnlocked = definitions.find(def => this.isCharacterUnlocked(def));
+                if (firstUnlocked) {
+                    initialDefinition = firstUnlocked;
+                }
+                // If no unlocked characters, keep initialDefinition as-is (edge case)
+            }
 
             this.selectedCharacterId = initialDefinition?.id || initialCharacterId;
             this.selectedWeaponId = initialDefinition?.weaponId || this.selectedWeaponId;

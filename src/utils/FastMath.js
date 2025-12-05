@@ -121,6 +121,9 @@ const FastMath = {
     },
 
     normalizeAngle(angle) {
+        // Guard against NaN/Infinity to prevent bug propagation
+        if (!Number.isFinite(angle)) return 0;
+        
         // OPTIMIZED: Use modulo instead of while loops (handles large angles efficiently)
         const twoPi = Math.PI * 2;
         // Normalize to [-π, π] range
@@ -158,6 +161,10 @@ const FastMath = {
         };
     },
 
+    // Pre-allocated TypedArrays for invSqrt (avoid allocation in hot path)
+    _invSqrtFloat: new Float32Array(1),
+    _invSqrtInt: null, // Lazy-init to share buffer with _invSqrtFloat
+    
     /**
      * Fast inverse square root using Quake III algorithm (ARM-optimized)
      * Useful for vector normalization: norm = v * invSqrt(v·v)
@@ -173,12 +180,16 @@ const FastMath = {
             return 1 / Math.sqrt(x);
         }
 
-        // Quake III fast inverse square root
+        // Lazy-init the Int32Array view (shares buffer with Float32Array)
+        if (!this._invSqrtInt) {
+            this._invSqrtInt = new Int32Array(this._invSqrtFloat.buffer);
+        }
+
+        // Quake III fast inverse square root (using pre-allocated buffers)
         const halfX = 0.5 * x;
-        const i = new Float32Array([x]);
-        const j = new Int32Array(i.buffer);
-        j[0] = 0x5f3759df - (j[0] >> 1); // Magic constant
-        const y = i[0];
+        this._invSqrtFloat[0] = x;
+        this._invSqrtInt[0] = 0x5f3759df - (this._invSqrtInt[0] >> 1); // Magic constant
+        const y = this._invSqrtFloat[0];
 
         // Newton-Raphson iteration for accuracy
         return y * (1.5 - halfX * y * y);

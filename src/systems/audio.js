@@ -35,14 +35,15 @@ class AudioSystem {
             };
             this.currentIntensity = 0; // 0-1 scale
             this.musicEnabled = false;
+            this._musicTimeouts = []; // Track setTimeout IDs for cleanup
 
             // Add fallback for browsers without Web Audio API
             if (!this.isWebAudioSupported) {
-                window.logger.warn('Web Audio API not supported, using fallback audio system');
+                window.logger?.warn?.('Web Audio API not supported, using fallback audio system');
                 this.initializeFallbackAudio();
             }
         } catch (error) {
-            window.logger.error('Error initializing audio system:', error);
+            window.logger?.error?.('Error initializing audio system:', error);
             this.isWebAudioSupported = false;
         }
     }
@@ -66,8 +67,49 @@ class AudioSystem {
         this.handleUserInteraction = () => {};
         this.initializeAudioContext = () => {};
         this.resumeAudioContext = () => {};
+        this.destroy = () => {};
         this.masterGain = { gain: { value: 0.5 } };
         this.masterGainNode = { gain: { value: 0.5 } };
+    }
+
+    /**
+     * Clean up audio system resources
+     * Call this when the game is shutting down to prevent memory leaks
+     */
+    destroy() {
+        // Clear all music timeouts
+        if (this._musicTimeouts) {
+            for (const timeoutId of this._musicTimeouts) {
+                clearTimeout(timeoutId);
+            }
+            this._musicTimeouts = [];
+        }
+
+        // Stop boss theme
+        this.stopBossTheme();
+
+        // Stop ambient music
+        this.stopAmbientMusic();
+
+        // Close audio context
+        if (this.audioContext && this.audioContext.state !== 'closed') {
+            try {
+                this.audioContext.close();
+            } catch (error) {
+                window.logger?.warn('Error closing audio context:', error);
+            }
+        }
+
+        // Clear references
+        this.audioContext = null;
+        this.masterGain = null;
+        this.compressor = null;
+        this.reverb = null;
+        this.musicGain = null;
+        this.sfxGain = null;
+        this.uiGain = null;
+        this.pendingSounds = [];
+        this.initialized = false;
     }
 
     // Initialize audio context with error handling
@@ -137,7 +179,7 @@ class AudioSystem {
             // Start ambient music after initialization
             this.startAmbientMusic();
         } catch (error) {
-            window.logger.error('Error initializing audio context:', error);
+            window.logger?.error?.('Error initializing audio context:', error);
             this.isWebAudioSupported = false;
         }
     }
@@ -168,7 +210,7 @@ class AudioSystem {
                 return this.audioContext.resume();
             }
         } catch (error) {
-            window.logger.error('Error resuming audio context:', error);
+            window.logger?.error?.('Error resuming audio context:', error);
         }
     }
 
@@ -239,7 +281,7 @@ class AudioSystem {
 
             this.playWithWebAudio(soundName, volume, position);
         } catch (error) {
-            window.logger.error("Error playing sound with Web Audio API:", error);
+            window.logger?.error?.("Error playing sound with Web Audio API:", error);
             this.isWebAudioSupported = false;
         }
     }
@@ -267,7 +309,7 @@ class AudioSystem {
             try {
                 this.playWithWebAudio(soundName, volume, position);
             } catch (error) {
-                window.logger.warn('Failed to flush queued sound:', error);
+                window.logger?.warn?.('Failed to flush queued sound:', error);
             }
         });
     }
@@ -276,8 +318,11 @@ class AudioSystem {
     calculatePan(position) {
         if (!position || !position.x) return 0;
 
-        // Assuming canvas width of 800 (adjust based on actual game dimensions)
-        const canvasWidth = 800;
+        // Get actual canvas width from game or fall back to reasonable default
+        const canvas = window.gameManager?.game?.canvas ||
+                       document.getElementById('game-canvas') ||
+                       document.querySelector('canvas');
+        const canvasWidth = canvas?.width || 800;
         const centerX = canvasWidth / 2;
 
         // Normalize position to -1 to 1 range
@@ -371,10 +416,10 @@ class AudioSystem {
                     this.playAchievementSound(adjustedVolume);
                     break;
                 default:
-                    window.logger.warn(`Unknown sound name: ${soundName}`);
+                    window.logger?.warn?.(`Unknown sound name: ${soundName}`);
             }
         } catch (error) {
-            window.logger.error(`Error playing sound ${soundName}:`, error);
+            window.logger?.error?.(`Error playing sound ${soundName}:`, error);
         }
     }
 
@@ -393,7 +438,7 @@ class AudioSystem {
                 this.masterGainNode.gain.value = target;
             }
         } catch (error) {
-            window.logger.error('Error setting audio enabled state:', error);
+            window.logger?.error?.('Error setting audio enabled state:', error);
         }
     }
 
@@ -415,7 +460,7 @@ class AudioSystem {
                 this.flushPendingSounds();
             }
         } catch (error) {
-            window.logger.error('Error handling user interaction:', error);
+            window.logger?.error?.('Error handling user interaction:', error);
         }
     }
 
@@ -432,7 +477,7 @@ class AudioSystem {
             }
             return this.isMuted;
         } catch (error) {
-            window.logger.error('Error toggling mute:', error);
+            window.logger?.error?.('Error toggling mute:', error);
             return this.isMuted;
         }
     }
@@ -1156,6 +1201,12 @@ class AudioSystem {
 
         this.musicEnabled = false;
 
+        // Clear all music-related timeouts to prevent memory leaks
+        if (this._musicTimeouts) {
+            this._musicTimeouts.forEach(id => clearTimeout(id));
+            this._musicTimeouts = [];
+        }
+
         // Stop all music layers
         Object.keys(this.musicLayers).forEach(key => {
             if (this.musicLayers[key]) {
@@ -1212,11 +1263,16 @@ class AudioSystem {
         this.musicLayers.ambient.push(pad1, pad2, pad3);
 
         // Schedule next ambient layer refresh (every 30 seconds for variety)
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
+            // Remove from tracking array
+            const idx = this._musicTimeouts.indexOf(timeoutId);
+            if (idx !== -1) this._musicTimeouts.splice(idx, 1);
+
             if (this.musicEnabled) {
                 this.refreshAmbientLayer();
             }
         }, 30000);
+        this._musicTimeouts.push(timeoutId);
     }
 
     // Refresh ambient layer for variety
@@ -1240,9 +1296,14 @@ class AudioSystem {
         }
 
         // Create new layer
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
+            // Remove from tracking array
+            const idx = this._musicTimeouts.indexOf(timeoutId);
+            if (idx !== -1) this._musicTimeouts.splice(idx, 1);
+
             this.createAmbientLayer();
         }, 3000);
+        this._musicTimeouts.push(timeoutId);
     }
 
     // Create bass layer (rhythmic foundation)
@@ -1284,8 +1345,11 @@ class AudioSystem {
 
             currentBeat++;
 
-            // Schedule next beat
-            setTimeout(playBassNote, beatInterval * 1000);
+            // Schedule next beat (track timeout for cleanup)
+            const nextTimeoutId = setTimeout(playBassNote, beatInterval * 1000);
+            if (this._musicTimeouts) {
+                this._musicTimeouts.push(nextTimeoutId);
+            }
         };
 
         // Start bass pattern
@@ -1361,7 +1425,11 @@ class AudioSystem {
 
             currentNote++;
 
-            setTimeout(playMelodyNote, noteDuration * 1000);
+            // Track timeout for cleanup to prevent memory leak
+            const timeoutId = setTimeout(playMelodyNote, noteDuration * 1000);
+            if (this._musicTimeouts) {
+                this._musicTimeouts.push(timeoutId);
+            }
         };
 
         playMelodyNote();
@@ -1407,7 +1475,11 @@ class AudioSystem {
             osc.start(pulseNow);
             osc.stop(pulseNow + pulseDuration);
 
-            setTimeout(playPulse, pulseDuration * 1000);
+            // Track timeout for cleanup to prevent memory leak
+            const timeoutId = setTimeout(playPulse, pulseDuration * 1000);
+            if (this._musicTimeouts) {
+                this._musicTimeouts.push(timeoutId);
+            }
         };
 
         playPulse();
@@ -1453,7 +1525,7 @@ try {
         });
     }
 } catch (error) {
-    window.logger.error('Error creating audio system:', error);
+    window.logger?.error?.('Error creating audio system:', error);
     // Create a dummy audio system
     audioSystem = {
         play: () => {},
@@ -1514,7 +1586,7 @@ AudioSystem.prototype.playBossBeat = function() {
             gainNode.disconnect();
         }, 450);
     } catch (error) {
-        window.logger.error('Error playing boss beat:', error);
+        window.logger?.error?.('Error playing boss beat:', error);
     }
 };
 

@@ -39,15 +39,19 @@ class BerserkerEnemy extends EnemyTypeBase {
             if (shouldEnrage) {
                 enemy.damage = Math.ceil(enemy._berserkerBaseDamage * 1.35);
                 enemy.baseSpeed = enemy._berserkerBaseSpeed * 1.25;
+                enemy.speed = enemy.baseSpeed;
                 enemy.color = '#ff6b35';
                 enemy.glowColor = '#ffa94d';
                 enemy.pulseIntensity = 1.4;
+                enemy.movement?.setSpeed?.(enemy.baseSpeed);
             } else {
                 enemy.damage = enemy._berserkerBaseDamage;
                 enemy.baseSpeed = enemy._berserkerBaseSpeed;
+                enemy.speed = enemy.baseSpeed;
                 enemy.color = enemy._berserkerBaseColor;
                 enemy.glowColor = '#f39c12';
                 enemy.pulseIntensity = 1.0;
+                enemy.movement?.setSpeed?.(enemy.baseSpeed);
             }
         };
 

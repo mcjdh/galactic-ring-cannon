@@ -172,13 +172,12 @@ class FormationManager {
             ctx.drawImage(sprite, -halfSize, -halfSize);
             ctx.restore();
         } else {
-            // Fallback to dynamic rendering
+            // Fallback to dynamic rendering (simple circle)
             ctx.save();
-            ctx.strokeStyle = 'rgba(0, 255, 153, 0.15)'; // Faint neon green
+            ctx.strokeStyle = 'rgba(0, 255, 153, 0.15)';
             ctx.lineWidth = 1;
 
             const size = 15;
-            // ... existing fallback code ...
             ctx.beginPath();
             ctx.arc(x, y, size, 0, Math.PI * 2);
             ctx.stroke();

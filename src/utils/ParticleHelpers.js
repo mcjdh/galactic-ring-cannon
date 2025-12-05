@@ -209,58 +209,28 @@ class ParticleHelpers {
     }
 
     // Fallback methods for compatibility (basic particle creation)
+    // NOTE: These are only called when window.optimizedParticles is unavailable
     static createBasicHitEffect(x, y, damage) {
         const gm = window.gameManager || window.gameManagerBridge;
-        if (!gm || !gm.addParticleViaEffectsManager) return;
+        if (!gm?.addParticleViaEffectsManager) return;
 
         const count = Math.min(8, Math.floor(damage / 5));
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 30 + Math.random() * 70;
-
-            // [A] RESONANT NOTE: Using pooled particles for better performance
-            if (window.optimizedParticles) {
-                window.optimizedParticles.spawnParticle({
-                    x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    size: 1 + Math.random() * 3,
-                    color: '#e74c3c',
-                    life: 0.3 + Math.random() * 0.3,
-                    type: 'blood'
-                });
-            } else if (gm?.addParticleViaEffectsManager) {
-                const particle = new Particle(
-                    x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
-                    1 + Math.random() * 3, '#e74c3c', 0.3 + Math.random() * 0.3
-                );
-                gm.addParticleViaEffectsManager(particle);
-            }
+            const particle = new Particle(
+                x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
+                1 + Math.random() * 3, '#e74c3c', 0.3 + Math.random() * 0.3
+            );
+            gm.addParticleViaEffectsManager(particle);
         }
     }
 
     static createBasicExplosion(x, y, radius, color) {
+        const gm = window.gameManager || window.gameManagerBridge;
+        if (!gm?.addParticleViaEffectsManager) return;
+
         const count = Math.min(15, Math.floor(radius / 4));
-
-        // [A] RESONANT NOTE: Prefer pooled particles for explosions
-        if (window.optimizedParticles) {
-            for (let i = 0; i < count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 50 + Math.random() * 100;
-                window.optimizedParticles.spawnParticle({
-                    x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    size: 2 + Math.random() * 4,
-                    color, life: 0.5 + Math.random() * 0.5,
-                    type: 'explosion'
-                });
-            }
-            return;
-        }
-
-        // Fallback to old system
-        if (!window.gameManager?.addParticleViaEffectsManager) return;
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 50 + Math.random() * 100;
@@ -268,31 +238,19 @@ class ParticleHelpers {
                 x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
                 2 + Math.random() * 4, color, 0.5 + Math.random() * 0.5
             );
-            window.gameManager.addParticleViaEffectsManager(particle);
+            gm.addParticleViaEffectsManager(particle);
         }
     }
 
     static createBasicTrail(x, y, vx, vy, color) {
-        // [A] RESONANT NOTE: Trail particles using pooled system
-        if (window.optimizedParticles) {
-            window.optimizedParticles.spawnParticle({
-                x: x + (Math.random() - 0.5) * 5,
-                y: y + (Math.random() - 0.5) * 5,
-                vx: vx * 0.3, vy: vy * 0.3,
-                size: 1 + Math.random() * 2,
-                color, life: 0.5, type: 'trail'
-            });
-            return;
-        }
+        const gm = window.gameManager || window.gameManagerBridge;
+        if (!gm?.addParticleViaEffectsManager) return;
 
-        // Fallback
-        if (!window.gameManager?.addParticleViaEffectsManager) return;
         const particle = new Particle(
             x + (Math.random() - 0.5) * 5, y + (Math.random() - 0.5) * 5,
             vx * 0.3, vy * 0.3, 1 + Math.random() * 2, color, 0.5
         );
-
-        window.gameManager.addParticleViaEffectsManager(particle);
+        gm.addParticleViaEffectsManager(particle);
     }
 
     static createBasicLevelUp(x, y) {

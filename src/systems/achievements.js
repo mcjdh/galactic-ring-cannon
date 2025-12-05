@@ -5,7 +5,7 @@ class AchievementSystem {
         if (window.ACHIEVEMENT_DEFINITIONS) {
             this.achievements = JSON.parse(JSON.stringify(window.ACHIEVEMENT_DEFINITIONS));
         } else {
-            window.logger.warn('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
+            window.logger?.warn?.('! ACHIEVEMENT_DEFINITIONS not loaded. Make sure achievements.config.js is loaded before AchievementSystem.');
             this.achievements = {};
         }
 
@@ -103,8 +103,7 @@ class AchievementSystem {
         // Track total lifesteal healing in current run
         this.runLifestealTotal = 0;
 
-        // Track ricochet bounces
-        this.totalRicochetBounces = 0;
+        // Note: totalRicochetBounces already initialized at line 87
 
         // Track time at low health for 'Edge Walker' achievement
         this.timeAtLowHealth = 0;
@@ -143,7 +142,7 @@ class AchievementSystem {
         this.timeAtLowHealth = 0;
         this.maxTimeAtLowHealth = 0;
 
-        window.logger.log('Achievement run tracking reset');
+        window.logger?.log?.('Achievement run tracking reset');
     }
 
     loadAchievements() {
@@ -164,7 +163,7 @@ class AchievementSystem {
             this.currentRicochetHits = this.achievements.ricochet_master?.progress || 0;
             this.maxStormSurgeHits = this.achievements.storm_surge?.progress || 0;
         } catch (error) {
-            window.logger.error('Error loading achievements:', error);
+            window.logger?.error?.('Error loading achievements:', error);
             // Clear corrupted data
             window.StorageManager.removeItem('achievements');
         }
@@ -184,7 +183,7 @@ class AchievementSystem {
             this.lastSaveTime = Date.now();
             this.pendingSave = false;
         } catch (error) {
-            window.logger.error('Error saving achievements:', error);
+            window.logger?.error?.('Error saving achievements:', error);
         }
     }
 
@@ -240,7 +239,7 @@ class AchievementSystem {
     updateAchievement(key, value) {
         if (!this.achievements[key]) {
             // Use logger instead of console.warn for better error handling
-            window.logger.warn(`Achievement '${key}' not found`);
+            window.logger?.warn?.(`Achievement '${key}' not found`);
             return;
         }
 
@@ -300,7 +299,7 @@ class AchievementSystem {
                 }
             });
         } catch (error) {
-            window.logger.warn('Failed to sync achievements with GameState:', error);
+            window.logger?.warn?.('Failed to sync achievements with GameState:', error);
         }
     }
 
@@ -313,7 +312,7 @@ class AchievementSystem {
             const state = window.gameManager?.game?.state || window.gameManager?.state || null;
             state?.unlockAchievement?.(key);
         } catch (error) {
-            window.logger.warn('Failed to persist achievement unlock with GameState:', error);
+            window.logger?.warn?.('Failed to persist achievement unlock with GameState:', error);
         }
 
         if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
@@ -325,7 +324,7 @@ class AchievementSystem {
                     });
                     window.dispatchEvent(event);
                 } catch (error) {
-                    window.logger.warn('Failed to dispatch achievementUnlocked event:', error);
+                    window.logger?.warn?.('Failed to dispatch achievementUnlocked event:', error);
                 }
             }
         }
@@ -665,7 +664,7 @@ class AchievementSystem {
                 }
             }
         } catch (error) {
-            window.logger.error('Error showing achievement notification:', error);
+            window.logger?.error?.('Error showing achievement notification:', error);
         }
     }
 

@@ -230,14 +230,16 @@ class GPUMemoryManager {
      */
     getStatus() {
         const stats = this.getSpriteStats();
-        const pressureCheck = this.checkMemoryPressure();
+        const pressureCheck = this.enabled ? this.checkMemoryPressure() : null;
 
         return {
             enabled: this.enabled,
-            pressureLevel: pressureCheck.pressureLevel,
+            pressureLevel: pressureCheck?.pressureLevel || (this.enabled ? 'low' : 'disabled'),
             ...stats,
             totalCleanups: this.totalCleanups,
-            timeSinceLastCleanup: performance.now() - this.lastCleanupTime
+            timeSinceLastCleanup: typeof performance !== 'undefined'
+                ? performance.now() - this.lastCleanupTime
+                : null
         };
     }
 }

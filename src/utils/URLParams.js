@@ -12,7 +12,38 @@ class URLParams {
 
     getBoolean(key, defaultValue = false) {
         const value = this.params.get(key);
-        return value === 'true' || (value !== null && value !== 'false' && defaultValue);
+        if (value === null) return defaultValue;
+        // Treat 'true', '1', or empty string (just ?key) as truthy
+        if (value === 'true' || value === '1' || value === '') return true;
+        // Treat 'false' or '0' as falsy
+        if (value === 'false' || value === '0') return false;
+        return defaultValue;
+    }
+
+    /**
+     * Get integer parameter value
+     * @param {string} key - Parameter name
+     * @param {number} defaultValue - Default if not found or invalid
+     * @returns {number} Parsed integer value
+     */
+    getInt(key, defaultValue = 0) {
+        const value = this.params.get(key);
+        if (value === null) return defaultValue;
+        const parsed = parseInt(value, 10);
+        return isNaN(parsed) ? defaultValue : parsed;
+    }
+
+    /**
+     * Get float parameter value
+     * @param {string} key - Parameter name
+     * @param {number} defaultValue - Default if not found or invalid
+     * @returns {number} Parsed float value
+     */
+    getFloat(key, defaultValue = 0) {
+        const value = this.params.get(key);
+        if (value === null) return defaultValue;
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? defaultValue : parsed;
     }
 
     has(key) {

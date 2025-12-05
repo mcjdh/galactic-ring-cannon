@@ -566,8 +566,10 @@ class EnemySpawner {
         const killReduction = killsSinceBaseline * this.dynamicBossKillReduction;
         const progressiveReduction = this.bossesKilled * this.dynamicBossProgressReduction;
 
+        // Ensure minimum interval is at least 1 second to prevent issues
+        const minInterval = Math.max(1, this.dynamicBossMinInterval || 8);
         const target = Math.max(
-            this.dynamicBossMinInterval,
+            minInterval,
             base - killReduction - progressiveReduction
         );
 
@@ -648,7 +650,7 @@ class EnemySpawner {
         // Final validation - ensure no NaN or Infinity values
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
             if (window.logger?.isDebugEnabled?.('systems')) {
-                window.logger.warn('[EnemySpawner] Calculated position is invalid:', { x, y, angle, distance });
+                window.logger.warn('[EnemySpawner] Calculated position is invalid:', { x, y, distance });
             }
             // Return player position as last resort
             return {
@@ -869,8 +871,11 @@ class EnemySpawner {
             
             for (let i = 0; i < clusterSize; i++) {
                 const timeoutId = setTimeout(() => {
-                    const index = this.waveTimeouts.indexOf(timeoutId);
-                    if (index !== -1) this.waveTimeouts.splice(index, 1);
+                    // [FIX] Use Set-based cleanup to avoid splice race conditions
+                    // The timeout ID is already captured in closure, so just delete it
+                    if (this.waveTimeoutSet) {
+                        this.waveTimeoutSet.delete(timeoutId);
+                    }
 
                     if (this.game && !this.game.isShuttingDown) {
                         // Spawn near cluster center with some spread
@@ -878,7 +883,9 @@ class EnemySpawner {
                     }
                 }, spawnIndex * spawnDelay);
 
-                this.waveTimeouts.push(timeoutId);
+                // Use Set for O(1) add/delete instead of array with splice
+                if (!this.waveTimeoutSet) this.waveTimeoutSet = new Set();
+                this.waveTimeoutSet.add(timeoutId);
                 spawnIndex++;
             }
         }
@@ -1073,9 +1080,16 @@ class EnemySpawner {
      */
     reset() {
         // Clear any pending wave timeouts to prevent memory leaks
+        // Support both legacy array and new Set-based approach
         if (this.waveTimeouts) {
             this.waveTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
             this.waveTimeouts = [];
+        }
+        if (this.waveTimeoutSet) {
+            for (const timeoutId of this.waveTimeoutSet) {
+                clearTimeout(timeoutId);
+            }
+            this.waveTimeoutSet.clear();
         }
 
         this._fallbackKillCount = 0;

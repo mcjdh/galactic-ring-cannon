@@ -80,7 +80,7 @@ class PerformanceProfiler {
         if (!this.enabled) return;
         
         const start = this.metrics.get(label);
-        if (!start) return;
+        if (start === undefined) return;
         
         const duration = performance.now() - start;
         this.metrics.delete(label);

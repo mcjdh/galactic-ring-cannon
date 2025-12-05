@@ -135,9 +135,11 @@ class PerformanceCache {
             return Math.floor(value);
         }
         
-        // Optimize: Round value to reduce cache misses
-        const roundedValue = Math.round(value * 10) / 10; // Round to 0.1
-        const cacheKey = `${roundedValue}/${divisor}`;
+        // OPTIMIZED: Use numeric key instead of string concatenation
+        // Encode rounded value and divisor into a single integer key
+        // With 1000 multiplier: handles values up to ~9M and divisors up to 999 safely
+        const roundedValue = Math.round(value);
+        const cacheKey = (roundedValue * 1000) + divisor;
         
         if (this._floorCache.has(cacheKey)) {
             this._floorCacheHits++;

@@ -1101,9 +1101,13 @@ class EmergentFormationDetector {
 
             window.logger?.log(`🔄 [Emergent] Expanded ${pattern.name} to ${newPattern.name} with ${finalEnemies.length} enemies`);
             
-            // Remove absorbed enemies from the free list
+            // Remove absorbed enemies from the free list (mutate in place)
             const absorbedSet = new Set(finalEnemies);
-            freeEnemies = freeEnemies.filter(e => !absorbedSet.has(e));
+            for (let j = freeEnemies.length - 1; j >= 0; j--) {
+                if (absorbedSet.has(freeEnemies[j])) {
+                    freeEnemies.splice(j, 1);
+                }
+            }
             
             if (freeEnemies.length === 0) break;
         }

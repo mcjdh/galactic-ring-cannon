@@ -51,7 +51,8 @@ class TrigCache {
         const normalized = angle >= 0
             ? (angle % twoPi)
             : ((angle % twoPi) + twoPi);
-        const index = Math.floor(normalized / this.angleStep) % this.resolution;
+        // Note: floor result is already in [0, resolution-1] range since normalized is in [0, 2π)
+        const index = Math.floor(normalized / this.angleStep);
         return this.sinTable[index];
     }
     
@@ -67,7 +68,8 @@ class TrigCache {
         const normalized = angle >= 0
             ? (angle % twoPi)
             : ((angle % twoPi) + twoPi);
-        const index = Math.floor(normalized / this.angleStep) % this.resolution;
+        // Note: floor result is already in [0, resolution-1] range since normalized is in [0, 2π)
+        const index = Math.floor(normalized / this.angleStep);
         return this.cosTable[index];
     }
     
@@ -145,8 +147,13 @@ class TrigCache {
      * @returns {{sin: number, cos: number}} Sin and cos values
      */
     sincos(angle) {
-        const normalized = ((angle % (Math.PI * 2)) + (Math.PI * 2)) % (Math.PI * 2);
-        const index = Math.floor(normalized / this.angleStep) % this.resolution;
+        // OPTIMIZED: Use same efficient normalization pattern as sin/cos methods
+        const twoPi = Math.PI * 2;
+        const normalized = angle >= 0
+            ? (angle % twoPi)
+            : ((angle % twoPi) + twoPi);
+        // Note: floor result is already in [0, resolution-1] range since normalized is in [0, 2π)
+        const index = Math.floor(normalized / this.angleStep);
         
         return {
             sin: this.sinTable[index],

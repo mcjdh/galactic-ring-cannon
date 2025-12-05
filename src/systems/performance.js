@@ -96,13 +96,16 @@ class PerformanceManager {
         
         let newMode = this.performanceMode;
         
-        // Simple threshold-based mode switching
-        if (avgFps < this.criticalFpsThreshold) {
+        // Simple threshold-based mode switching with symmetric hysteresis
+        // Use buffer zones to prevent mode thrashing at boundaries
+        if (avgFps < this.criticalFpsThreshold - 5) {
             newMode = 'critical';
-        } else if (avgFps < this.lowFpsThreshold) {
+        } else if (avgFps < this.lowFpsThreshold - 5) {
             newMode = 'low';
-        } else if (avgFps > this.lowFpsThreshold + 10) { // Add buffer for switching back
+        } else if (avgFps > this.lowFpsThreshold + 10) {
             newMode = 'normal';
+        } else if (avgFps > this.criticalFpsThreshold + 5 && this.performanceMode === 'critical') {
+            newMode = 'low'; // Step up from critical to low with buffer
         }
         
         if (newMode !== this.performanceMode) {

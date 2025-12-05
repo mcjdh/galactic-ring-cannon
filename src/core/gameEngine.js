@@ -2738,6 +2738,8 @@ class GameEngine {
     handleContextLoss(event) {
         event.preventDefault();
         this.contextLost = true;
+        // Track previous pause state so we can restore it correctly
+        this._wasPausedBeforeContextLoss = this.isPaused;
         window.logger.warn('Canvas context lost - game paused');
         this.isPaused = true;
     }
@@ -2753,7 +2755,8 @@ class GameEngine {
         });
 
         if (this.ctx) {
-            this.isPaused = false;
+            // Restore previous pause state instead of always unpausing
+            this.isPaused = this._wasPausedBeforeContextLoss || false;
             window.logger.log('Game context successfully restored');
         } else {
             window.logger.error('Failed to restore canvas context');

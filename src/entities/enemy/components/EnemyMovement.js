@@ -20,9 +20,11 @@ class EnemyMovement {
         this.velocity = { x: 0, y: 0 };
         // Configurable physics parameters (with defaults)
         // [TUNED] Reduced friction for better momentum, increased steering for responsiveness
-        this.friction = enemy.friction || 0.95;
-        this.steeringStrength = enemy.steeringStrength || 6.0;
-        this.maxSpeed = enemy.speed || 100;
+        this.friction = Number.isFinite(enemy.friction) ? enemy.friction : 0.95;
+        this.steeringStrength = Number.isFinite(enemy.steeringStrength) ? enemy.steeringStrength : 6.0;
+        this.maxSpeed = this._resolveSpeed(enemy);
+        // Keep enemy.speed in sync so external scalers (DifficultyManager) can adjust it
+        this.enemy.speed = this.maxSpeed;
 
         // Movement patterns
         this.currentPattern = 'direct';
@@ -337,7 +339,7 @@ class EnemyMovement {
         desiredVelocity.x = 0;
         desiredVelocity.y = 0;
 
-        const moveSpeed = this.enemy.speed || 100;
+        const moveSpeed = this.speed || this._resolveSpeed(this.enemy);
         let currentSteeringStrength = this.steeringStrength;
 
         // Priority: Dash > AI > Pattern
@@ -376,7 +378,7 @@ class EnemyMovement {
      */
     calculatePatternVelocity(deltaTime, _game, outVel) {
         this.patternTimer += deltaTime;
-        const speed = this.enemy.speed || 100;
+        const speed = this.speed || this._resolveSpeed(this.enemy);
         // Use provided output vector or create one (fallback)
         const vel = outVel || { x: 0, y: 0 };
 
@@ -488,7 +490,7 @@ class EnemyMovement {
         // [FIX] Frame-rate independent friction using exponential decay
         // At 60fps: frictionFactor ≈ 0.92 (same as before)
         // At 30fps: frictionFactor ≈ 0.85 (more friction per frame, same over time)
-        const baseFriction = 0.92;
+        const baseFriction = (typeof this.friction === 'number') ? Math.max(0, Math.min(0.999, this.friction)) : 0.92;
         const frictionFactor = Math.pow(baseFriction, deltaTime * 60);
         this.velocity.x *= frictionFactor;
         this.velocity.y *= frictionFactor;
@@ -576,9 +578,42 @@ class EnemyMovement {
         this.lastPosition.y = this.enemy.y;
         this.patternTimer = 0;
         this.patternState = {};
+        this.setSpeed(this._resolveSpeed(this.enemy));
         if (this.forceAccumulator) {
             this.forceAccumulator.reset();
         }
+    }
+
+    configureForEnemyType(configOrType) {
+        // configOrType may be a type string or a config object from EnemyTypeBase
+        const config = (configOrType && typeof configOrType === 'object') ? configOrType : null;
+        this.setSpeed(this._resolveSpeed(this.enemy, config));
+
+        if (config) {
+            if (Number.isFinite(config.friction)) {
+                this.friction = config.friction;
+            }
+            if (Number.isFinite(config.steeringStrength)) {
+                this.steeringStrength = config.steeringStrength;
+            }
+        }
+    }
+
+    get speed() {
+        return this.maxSpeed;
+    }
+
+    set speed(value) {
+        this.setSpeed(value);
+    }
+
+    setSpeed(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return;
+
+        const clamped = Math.max(10, numeric);
+        this.maxSpeed = clamped;
+        this.enemy.speed = clamped;
     }
 
     /**
@@ -660,6 +695,18 @@ class EnemyMovement {
             this.lastPosition.y = this.enemy.y;
             this.stuckTimer = 0;
         }
+    }
+
+    _resolveSpeed(enemy, config) {
+        if (config && typeof config === 'object') {
+            if (Number.isFinite(config.baseSpeed)) return config.baseSpeed;
+            if (Number.isFinite(config.speed)) return config.speed;
+        }
+
+        if (Number.isFinite(enemy?.baseSpeed)) return enemy.baseSpeed;
+        if (Number.isFinite(enemy?.speed)) return enemy.speed;
+
+        return 100;
     }
 }
 

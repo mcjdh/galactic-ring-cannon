@@ -42,6 +42,13 @@ class EnemyTypeBase {
         const config = this.getConfig();
         Object.assign(enemy, config);
         enemy.maxHealth = config.health;
+
+        // Normalize speed properties so movement components pick up the type's base speed
+        const configuredSpeed = Number.isFinite(config.baseSpeed) ? config.baseSpeed : config.speed;
+        if (Number.isFinite(configuredSpeed)) {
+            enemy.baseSpeed = configuredSpeed;
+            enemy.speed = configuredSpeed;
+        }
     }
 
     /**

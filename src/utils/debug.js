@@ -84,7 +84,7 @@ class DebugManager {
         window.StorageManager.setItem('debugMode', 'true');
 
         // Sync with Logger system
-        if (window.logger && !window.logger?.debug) {
+        if (window.logger && !window.logger.debug) {
             window.logger.setDebug(true);
         }
 
@@ -96,7 +96,7 @@ class DebugManager {
         window.StorageManager.setItem('debugMode', 'false');
 
         // Sync with Logger system
-        if (window.logger && window.logger?.debug) {
+        if (window.logger && window.logger.debug) {
             window.logger.setDebug(false);
         }
 
