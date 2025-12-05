@@ -344,11 +344,11 @@ const runTests = () => {
         const playerStats = new PlayerStats(createMockPlayer());
         playerStats.killStreak = 20;
         const bonuses = playerStats.getKillStreakBonuses();
-        if (bonuses.lifesteal === 0.05) {
-            console.log('✅ getKillStreakBonuses() adds lifesteal at 20 kills');
+        if (bonuses.lifesteal === 0) {
+            console.log('✅ getKillStreakBonuses() no longer grants lifesteal at 20 kills');
             passed++;
         } else {
-            throw new Error(`Got lifesteal=${bonuses.lifesteal}`);
+            throw new Error(`Got lifesteal=${bonuses.lifesteal}, expected 0`);
         }
     } catch (e) { console.error('❌ 20-kill bonuses failed:', e.message); failed++; }
 
@@ -359,8 +359,8 @@ const runTests = () => {
         // Use approximate comparison for floating point
         const approxEqual = (a, b) => Math.abs(a - b) < 0.001;
         if (approxEqual(bonuses.damage, 1.55) && approxEqual(bonuses.speed, 1.30) && 
-            approxEqual(bonuses.attackSpeed, 1.25) && approxEqual(bonuses.lifesteal, 0.10)) {
-            console.log('✅ getKillStreakBonuses() maxes at 30 kills');
+            approxEqual(bonuses.attackSpeed, 1.25) && bonuses.lifesteal === 0) {
+            console.log('✅ getKillStreakBonuses() maxes at 30 kills (no lifesteal)');
             passed++;
         } else {
             throw new Error('Max bonuses incorrect');

@@ -229,7 +229,21 @@ class EnemyAI {
             this.attackTimer = 0;
         }
 
-        // Movement while in attack state
+        // Check if this is a melee/contact damage enemy (no ranged attacks)
+        const hasRanged = (this.enemy.abilities && this.enemy.abilities.canRangeAttack) || this.enemy.canRangeAttack;
+        
+        if (!hasRanged) {
+            // MELEE ENEMIES: Press into player for contact damage
+            // They should always try to close distance, never back away
+            const closingSpeed = 0.6;  // Aggressive approach speed
+            this.enemy.targetDirection = {
+                x: direction.x * closingSpeed,
+                y: direction.y * closingSpeed
+            };
+            return;
+        }
+
+        // RANGED ENEMIES: Movement while in attack state - maintain optimal distance
         const C = EnemyAI.AI_CONSTANTS;
         const optimalDistance = this.getAttackRange() * C.OPTIMAL_ATTACK_DISTANCE_RATIO;
         const hysteresisRange = optimalDistance * C.ATTACK_HYSTERESIS_RATIO;

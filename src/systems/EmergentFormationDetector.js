@@ -23,7 +23,9 @@ class EmergentFormationDetector {
         this.maxConstellationRadius = 250;
         this.maxConstellationRadiusSq = this.maxConstellationRadius * this.maxConstellationRadius;
         this.integrityStrikeLimit = 25;
-        this.constellationStandoffDistance = 180;
+        // [TUNED] Reduced standoff so constellations actually reach the player for contact damage
+        // 50px = close enough that individual enemies can overlap with player hitbox
+        this.constellationStandoffDistance = 50;
         this.constellationChaseGain = 0.8;
         this.constellationOrbitGain = 0.35;
         this.constellationRotationAlign = 0.5;

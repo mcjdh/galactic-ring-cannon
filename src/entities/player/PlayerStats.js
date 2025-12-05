@@ -98,7 +98,7 @@ class PlayerStats {
 
     /**
      * Get kill streak bonuses as multipliers
-     * Returns object with damage, speed, attackSpeed, lifesteal bonuses
+     * Returns object with damage, speed, attackSpeed bonuses
      */
     getKillStreakBonuses() {
         if (this.killStreak < 5) {
@@ -108,9 +108,9 @@ class PlayerStats {
         let damageBonus = 1.0;
         let speedBonus = 1.0;
         let attackSpeedBonus = 1.0;
-        let lifestealBonus = 0;
 
         // Progressive bonuses based on streak tiers
+        // NO LIFESTEAL - sustain should come from upgrades only
         if (this.killStreak >= 5) {
             damageBonus += 0.10; // +10% damage
             speedBonus += 0.05;  // +5% speed
@@ -128,20 +128,18 @@ class PlayerStats {
             damageBonus += 0.10;      // +40% total
             speedBonus += 0.05;       // +20% total
             attackSpeedBonus += 0.05; // +15% total
-            lifestealBonus += 0.05;   // +5% lifesteal
         }
         if (this.killStreak >= 30) {
             damageBonus += 0.15;      // +55% total
             speedBonus += 0.10;       // +30% total
             attackSpeedBonus += 0.10; // +25% total
-            lifestealBonus += 0.05;   // +10% total lifesteal
         }
 
         return {
             damage: damageBonus,
             speed: speedBonus,
             attackSpeed: attackSpeedBonus,
-            lifesteal: lifestealBonus
+            lifesteal: 0  // Always 0 - no free sustain from streaks
         };
     }
 

@@ -1346,10 +1346,10 @@ class GameEngine {
         }
         grid.clear();
 
-        // Add entities to grid with bounds checking
-        for (const entity of this.entities) {
+        // Helper function to add entity to grid
+        const addEntityToGrid = (entity) => {
             if (!entity || entity.isDead || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
-                continue;
+                return;
             }
 
             // [OPTIMIZATION] Use PerformanceCache for grid coordinate calculations
@@ -1367,6 +1367,17 @@ class GameEngine {
                 grid.set(key, cellEntities);
             }
             cellEntities.push(entity);
+        };
+
+        // CRITICAL: Add player to spatial grid for collision detection
+        // Player is stored separately from this.entities, so we must add it explicitly
+        if (this.player) {
+            addEntityToGrid(this.player);
+        }
+
+        // Add entities to grid with bounds checking
+        for (const entity of this.entities) {
+            addEntityToGrid(entity);
         }
 
         // Keep the pool from growing without bound
@@ -1550,8 +1561,19 @@ class GameEngine {
     }
 
     _handlePlayerEnemyCollision(player, enemy) {
-        if (!player.isInvulnerable && typeof player.takeDamage === 'function' && typeof enemy.damage === 'number') {
+        // Check both player invulnerability AND enemy's contact cooldown
+        // This allows multiple enemies to hit rapidly while preventing spam from single enemy
+        if (player.isInvulnerable) return;
+        if (enemy.collisionCooldown > 0) return;
+        
+        if (typeof player.takeDamage === 'function' && typeof enemy.damage === 'number') {
             player.takeDamage(enemy.damage);
+            
+            // Set per-enemy contact cooldown (0.5 seconds)
+            // This prevents THIS enemy from hitting again immediately
+            // but other enemies can still deal damage
+            enemy.collisionCooldown = 0.5;
+            
             if (window.gameManager) {
                 window.gameManager.createHitEffect(player.x, player.y, enemy.damage);
             }

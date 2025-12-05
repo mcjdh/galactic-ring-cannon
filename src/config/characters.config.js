@@ -60,14 +60,13 @@ const CHARACTER_DEFINITIONS = [
         weaponId: 'pulse_cannon',
         highlights: [
             'Starts with 50HP barrier shield',
-            '+30% max hull & +12% armor',
+            '+30% max hull & +10% armor',
             'Passive shield recharges over time'
         ],
         modifiers: {
             stats: {
                 healthMultiplier: 1.3,
-                damageReduction: 0.12,
-                regeneration: 1.8
+                damageReduction: 0.10
             },
             combat: {
                 attackSpeedMultiplier: 0.96,
@@ -100,12 +99,12 @@ const CHARACTER_DEFINITIONS = [
         highlights: [
             '+18% attack tempo & +8% damage',
             '+15% thruster speed & faster dodge',
-            '8% lifesteal keeps raids going'  // Updated from 5%
+            '5% lifesteal keeps raids going'
         ],
         modifiers: {
             stats: {
                 healthMultiplier: 0.9,
-                lifesteal: 0.08  // Buffed from 0.05 - aggressive playstyle needs sustain
+                lifesteal: 0.05              // Reduced from 0.08 for balance
             },
             combat: {
                 attackSpeedMultiplier: 1.18,
@@ -137,12 +136,11 @@ const CHARACTER_DEFINITIONS = [
         highlights: [
             'Guaranteed chain lightning bursts',
             '+5% fire rate with bonus piercing',
-            'Moderate auto-recharge shielding'
+            'Chain damage clears crowds fast'
         ],
         modifiers: {
             stats: {
-                healthMultiplier: 1.05,
-                regeneration: 0.8
+                healthMultiplier: 1.05
             },
             combat: {
                 attackSpeedMultiplier: 1.05,
@@ -183,8 +181,7 @@ const CHARACTER_DEFINITIONS = [
         ],
         modifiers: {
             stats: {
-                healthMultiplier: 1.1,  // Slight tankiness
-                regeneration: 1.2       // Moderate regen
+                healthMultiplier: 1.1   // Slight tankiness
             },
             combat: {
                 attackSpeedMultiplier: 0.94,  // -6% attack speed (relies on orbitals)
@@ -221,15 +218,14 @@ const CHARACTER_DEFINITIONS = [
         weaponId: 'magma_launcher',
         highlights: [
             'Projectiles ignite enemies (Burn DoT)',
-            '+25% max health & +15% armor',
+            '+25% max health & +12% armor',
             'Explosive shots deal area damage',
             'Slow but unstoppable'
         ],
         modifiers: {
             stats: {
                 healthMultiplier: 1.25,   // +25% health (tanky)
-                damageReduction: 0.15,    // 15% armor
-                regeneration: 1.0         // Standard regen
+                damageReduction: 0.12     // 12% armor
             },
             combat: {
                 attackSpeedMultiplier: 0.9,   // -10% attack speed (heavy weapons)
@@ -271,7 +267,7 @@ const CHARACTER_DEFINITIONS = [
         difficulty: 'aggressive',
         weaponId: 'sanguine_lance',
         highlights: [
-            'Extreme lifesteal (20%) - damage is survival',
+            '12% lifesteal - damage is survival',
             '+15% attack tempo & +12% damage output',
             'Glass cannon: -30% max health',
             '+8% critical chance for devastating strikes'
@@ -279,7 +275,7 @@ const CHARACTER_DEFINITIONS = [
         modifiers: {
             stats: {
                 healthMultiplier: 0.7,      // Glass cannon - only 84 HP
-                lifesteal: 0.20,            // Core identity: 20% lifesteal
+                lifesteal: 0.12,            // Core identity: 12% lifesteal (reduced from 20%)
                 critChance: 0.08            // +8% base crit chance (18% total)
             },
             combat: {
@@ -317,8 +313,7 @@ const CHARACTER_DEFINITIONS = [
         ],
         modifiers: {
             stats: {
-                healthMultiplier: 1.08,  // Moderate survivability
-                regeneration: 1.0        // Standard regen
+                healthMultiplier: 1.08   // Moderate survivability
             },
             combat: {
                 attackSpeedMultiplier: 0.88,   // -12% attack speed (slow, deliberate)
@@ -365,7 +360,6 @@ const CHARACTER_DEFINITIONS = [
         modifiers: {
             stats: {
                 healthMultiplier: 0.95,     // Slightly fragile (tactical playstyle)
-                regeneration: 0.6,          // Modest regen
                 critChance: 0.08            // +8% crit chance bonus
             },
             combat: {
@@ -411,8 +405,7 @@ const CHARACTER_DEFINITIONS = [
         ],
         modifiers: {
             stats: {
-                healthMultiplier: 1.1,      // +10% health (needs buffer to play low HP)
-                regeneration: 0.2           // Very low regen (wants to stay low HP)
+                healthMultiplier: 1.1       // +10% health (needs buffer to play low HP)
             },
             combat: {
                 attackSpeedMultiplier: 1.1, // +10% base speed

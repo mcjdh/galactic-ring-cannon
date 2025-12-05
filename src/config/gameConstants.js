@@ -67,7 +67,7 @@
             DODGE_COOLDOWN: 2.0,
             DODGE_DURATION: 0.3,
             DODGE_SPEED: 600,
-            INVULNERABILITY_TIME: 0.5,
+            INVULNERABILITY_TIME: 0.15,  // Reduced from 0.5 - per-enemy cooldowns now handle spam prevention
 
             // Kill Streak
             KILL_STREAK_TIMEOUT: 5.0,

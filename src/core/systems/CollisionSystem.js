@@ -131,19 +131,31 @@
                 if (entityCount !== this._lastEntityCount) {
                     needsRebuild = true;
                 } else {
-                    // Same count - check if entities moved or died
-                    for (const entity of list) {
-                        if (!entity || entity.isDead) {
-                            needsRebuild = true; // Dead entity, need to rebuild
-                            break;
-                        }
-                        const gridX = Math.floor(entity.x / gridSize);
-                        const gridY = Math.floor(entity.y / gridSize);
-                        const lastPos = this._entityGridPositions.get(entity);
-
+                    // Check if player moved to a different grid cell
+                    if (engine.player && !engine.player.isDead) {
+                        const gridX = Math.floor(engine.player.x / gridSize);
+                        const gridY = Math.floor(engine.player.y / gridSize);
+                        const lastPos = this._entityGridPositions.get(engine.player);
                         if (!lastPos || lastPos.gridX !== gridX || lastPos.gridY !== gridY) {
                             needsRebuild = true;
-                            break;
+                        }
+                    }
+                    
+                    // Same count - check if entities moved or died
+                    if (!needsRebuild) {
+                        for (const entity of list) {
+                            if (!entity || entity.isDead) {
+                                needsRebuild = true; // Dead entity, need to rebuild
+                                break;
+                            }
+                            const gridX = Math.floor(entity.x / gridSize);
+                            const gridY = Math.floor(entity.y / gridSize);
+                            const lastPos = this._entityGridPositions.get(entity);
+
+                            if (!lastPos || lastPos.gridX !== gridX || lastPos.gridY !== gridY) {
+                                needsRebuild = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -171,9 +183,9 @@
             this.stats.cellsProcessed = 0;
             let totalEntitiesInCells = 0;
             
-            // + OBJECT POOLING for grid cells to reduce allocations
-            for (const entity of list) {
-                if (!entity || entity.isDead) continue;
+            // Helper function to add entity to grid
+            const addEntityToGrid = (entity) => {
+                if (!entity || entity.isDead) return;
 
                 const gridX = Math.floor(entity.x / gridSize);
                 const gridY = Math.floor(entity.y / gridSize);
@@ -191,6 +203,17 @@
 
                 // OPTIMIZATION: Track entity's current grid position for next frame's dirty check
                 this._entityGridPositions.set(entity, { gridX, gridY });
+            };
+            
+            // CRITICAL: Add player to spatial grid for collision detection
+            // Player is stored separately from engine.entities, so we must add it explicitly
+            if (engine.player && !engine.player.isDead) {
+                addEntityToGrid(engine.player);
+            }
+            
+            // + OBJECT POOLING for grid cells to reduce allocations
+            for (const entity of list) {
+                addEntityToGrid(entity);
             }
 
             // Reset dirty flag and update entity count
@@ -448,17 +471,24 @@
                 }
 
                 // Player <-> enemy
-                if (entity1.type === 'player' && entity2.type === 'enemy' && !entity1.isInvulnerable) {
-                    if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
-                        entity1.takeDamage(entity2.damage);
-                        if (window.gameManager) window.gameManager.createHitEffect(entity1.x, entity1.y, entity2.damage);
-                        if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
+                if (entity1.type === 'player' && entity2.type === 'enemy') {
+                    // Check both player invuln AND enemy contact cooldown
+                    if (!entity1.isInvulnerable && entity2.collisionCooldown <= 0) {
+                        if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
+                            entity1.takeDamage(entity2.damage);
+                            entity2.collisionCooldown = 0.5; // Per-enemy cooldown
+                            if (window.gameManager) window.gameManager.createHitEffect(entity1.x, entity1.y, entity2.damage);
+                            if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
+                        }
                     }
-                } else if (entity2.type === 'player' && entity1.type === 'enemy' && !entity2.isInvulnerable) {
-                    if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
-                        entity2.takeDamage(entity1.damage);
-                        if (window.gameManager) window.gameManager.createHitEffect(entity2.x, entity2.y, entity1.damage);
-                        if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
+                } else if (entity2.type === 'player' && entity1.type === 'enemy') {
+                    if (!entity2.isInvulnerable && entity1.collisionCooldown <= 0) {
+                        if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
+                            entity2.takeDamage(entity1.damage);
+                            entity1.collisionCooldown = 0.5; // Per-enemy cooldown
+                            if (window.gameManager) window.gameManager.createHitEffect(entity2.x, entity2.y, entity1.damage);
+                            if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
+                        }
                     }
                 }
 
