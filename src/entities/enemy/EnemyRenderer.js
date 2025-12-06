@@ -59,54 +59,54 @@ class EnemyRenderer {
             ? EnemyRenderer._getHitFlashColor(baseColor)
             : baseColor;
 
-        // POLYBIUS VIBE: Geometric Shapes
-        ctx.save();
-        ctx.translate(enemy.x, enemy.y);
-        
-        // Rotate based on ID to give some variation/spin
-        const spin = (Date.now() * 0.001) + (parseInt(enemy.id || '0', 36) % 10);
-        if (enemy.isBoss) ctx.rotate(spin * 0.5);
-        else if (enemy.isElite) ctx.rotate(-spin);
-        
-        ctx.fillStyle = '#000000'; // Void center
-        ctx.strokeStyle = fillColor;
-        ctx.lineWidth = enemy.isBoss ? 3 : 2;
+        // [POLYBIUS VIBE] 3D Wireframe Geometry using cached sprites
+        // Each enemy has unique rotation based on its ID and time
+        const shapeCache = window.Game?.enemyShapeCache;
 
-        ctx.beginPath();
-        if (enemy.isBoss) {
-            // Hexagon for Bosses
-            for (let i = 0; i < 6; i++) {
-                const angle = (i / 6) * Math.PI * 2;
-                const r = drawRadius;
-                if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
-                else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+        if (shapeCache) {
+            // Calculate rotation based on enemy ID (variation) + time (animation)
+            // Use a slower rotation speed for retro feel
+            const idHash = parseInt(enemy.id || '0', 36) % 100;
+            const rotSpeed = enemy.isBoss ? 0.3 : (enemy.isElite ? 0.5 : 0.7);
+            const timeBase = Date.now() * 0.001 * rotSpeed;
+
+            // Different rotation offsets per enemy for organic swarm look
+            const rotX = timeBase + idHash * 0.1;
+            const rotY = timeBase * 0.7 + idHash * 0.15;
+
+            // Get enemy type for shape selection
+            const enemyType = enemy.isBoss ? 'boss' : (enemy.enemyType || 'basic');
+
+            // Get cached sprite
+            const sprite = shapeCache.getSprite(enemyType, drawRadius, rotX, rotY, fillColor);
+
+            if (sprite) {
+                ctx.save();
+                ctx.globalAlpha = combinedAlpha;
+
+                // Draw the cached wireframe sprite
+                ctx.drawImage(
+                    sprite.canvas,
+                    enemy.x - sprite.halfSize,
+                    enemy.y - sprite.halfSize
+                );
+
+                // Inner core glow (smaller, central energy)
+                ctx.globalAlpha = combinedAlpha * 0.5;
+                ctx.fillStyle = fillColor;
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, drawRadius * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            } else {
+                // Fallback to simple shape if cache miss
+                this._renderFallbackShape(enemy, ctx, drawRadius, fillColor, combinedAlpha);
             }
-        } else if (enemy.isElite) {
-            // Diamond for Elites
-            ctx.moveTo(0, -drawRadius);
-            ctx.lineTo(drawRadius, 0);
-            ctx.lineTo(0, drawRadius);
-            ctx.lineTo(-drawRadius, 0);
         } else {
-            // Square/Diamond hybrid for basic enemies (rotated square)
-            // Or just a simple shape. Let's do a "Spiked Circle" or just a square for basic.
-            // Let's do a square for basic enemies to look "digital"
-            const r = drawRadius * 0.8;
-            ctx.rect(-r, -r, r * 2, r * 2);
+            // Fallback if shape cache not available
+            this._renderFallbackShape(enemy, ctx, drawRadius, fillColor, combinedAlpha);
         }
-        ctx.closePath();
-        
-        ctx.fill(); // Black fill
-        ctx.stroke(); // Neon outline
-
-        // Inner Core Glow
-        ctx.fillStyle = fillColor;
-        ctx.globalAlpha = combinedAlpha * 0.6;
-        ctx.beginPath();
-        ctx.arc(0, 0, drawRadius * 0.4, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
 
         // Draw boss crown if boss
         if (enemy.isBoss) {
@@ -230,65 +230,105 @@ class EnemyRenderer {
         for (const [key, batch] of bodyBatches) {
             const [fillColor, alphaStr] = key.split('|');
             const batchAlpha = parseFloat(alphaStr);
-            
-            // Pass 1: Main Body (Black Fill + Neon Stroke)
-            ctx.globalAlpha = batchAlpha;
-            ctx.fillStyle = '#000000';
-            ctx.strokeStyle = fillColor;
-            ctx.lineWidth = 2;
-            
-            ctx.beginPath();
-            for (let i = 0; i < batch.length; i++) {
-                const enemy = batch[i];
-                const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
-                const r = enemy.radius * pulseScale;
-                const x = enemy.x;
-                const y = enemy.y;
-                
-                // Rotation logic (simplified for batching)
-                const spin = (Date.now() * 0.001) + (parseInt(enemy.id || '0', 36) % 10);
-                let angleOffset = 0;
-                if (enemy.isBoss) angleOffset = spin * 0.5;
-                else if (enemy.isElite) angleOffset = -spin;
 
-                if (enemy.isBoss) {
-                    // Hexagon
-                    for (let j = 0; j < 6; j++) {
-                        const angle = angleOffset + (j / 6) * Math.PI * 2;
-                        const px = x + Math.cos(angle) * r;
-                        const py = y + Math.sin(angle) * r;
-                        if (j === 0) ctx.moveTo(px, py);
-                        else ctx.lineTo(px, py);
+            const shapeCache = window.Game?.enemyShapeCache;
+
+            if (shapeCache) {
+                // [3D WIREFRAME] Draw each enemy using cached sprites
+                ctx.globalAlpha = batchAlpha;
+
+                for (let i = 0; i < batch.length; i++) {
+                    const enemy = batch[i];
+                    const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
+                    const drawRadius = enemy.radius * pulseScale;
+
+                    // Calculate rotation (same logic as single render)
+                    const idHash = parseInt(enemy.id || '0', 36) % 100;
+                    const rotSpeed = enemy.isBoss ? 0.3 : (enemy.isElite ? 0.5 : 0.7);
+                    const timeBase = Date.now() * 0.001 * rotSpeed;
+                    const rotX = timeBase + idHash * 0.1;
+                    const rotY = timeBase * 0.7 + idHash * 0.15;
+
+                    const enemyType = enemy.isBoss ? 'boss' : (enemy.enemyType || 'basic');
+                    const sprite = shapeCache.getSprite(enemyType, drawRadius, rotX, rotY, fillColor);
+
+                    if (sprite) {
+                        ctx.drawImage(
+                            sprite.canvas,
+                            enemy.x - sprite.halfSize,
+                            enemy.y - sprite.halfSize
+                        );
                     }
-                    ctx.closePath();
-                } else if (enemy.isElite) {
-                    // Diamond
-                    ctx.moveTo(x + r * Math.sin(angleOffset), y - r * Math.cos(angleOffset));
-                    ctx.lineTo(x + r * Math.cos(angleOffset), y + r * Math.sin(angleOffset));
-                    ctx.lineTo(x - r * Math.sin(angleOffset), y + r * Math.cos(angleOffset));
-                    ctx.lineTo(x - r * Math.cos(angleOffset), y - r * Math.sin(angleOffset));
-                    ctx.closePath();
-                } else {
-                    // Square (Basic)
-                    const size = r * 0.8;
-                    ctx.rect(x - size, y - size, size * 2, size * 2);
                 }
-            }
-            ctx.fill();
-            ctx.stroke();
 
-            // Pass 2: Inner Glow (Color Fill)
-            ctx.globalAlpha = batchAlpha * 0.6;
-            ctx.fillStyle = fillColor;
-            ctx.beginPath();
-            for (let i = 0; i < batch.length; i++) {
-                const enemy = batch[i];
-                const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
-                const r = enemy.radius * pulseScale * 0.4;
-                ctx.moveTo(enemy.x + r, enemy.y);
-                ctx.arc(enemy.x, enemy.y, r, 0, Math.PI * 2);
+                // Pass 2: Inner cores (batched as circles)
+                ctx.globalAlpha = batchAlpha * 0.5;
+                ctx.fillStyle = fillColor;
+                ctx.beginPath();
+                for (let i = 0; i < batch.length; i++) {
+                    const enemy = batch[i];
+                    const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
+                    const r = enemy.radius * pulseScale * 0.25;
+                    ctx.moveTo(enemy.x + r, enemy.y);
+                    ctx.arc(enemy.x, enemy.y, r, 0, Math.PI * 2);
+                }
+                ctx.fill();
+            } else {
+                // Fallback: Original 2D batched shapes
+                ctx.globalAlpha = batchAlpha;
+                ctx.fillStyle = '#000000';
+                ctx.strokeStyle = fillColor;
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                for (let i = 0; i < batch.length; i++) {
+                    const enemy = batch[i];
+                    const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
+                    const r = enemy.radius * pulseScale;
+                    const x = enemy.x;
+                    const y = enemy.y;
+
+                    const spin = (Date.now() * 0.001) + (parseInt(enemy.id || '0', 36) % 10);
+                    let angleOffset = 0;
+                    if (enemy.isBoss) angleOffset = spin * 0.5;
+                    else if (enemy.isElite) angleOffset = -spin;
+
+                    if (enemy.isBoss) {
+                        for (let j = 0; j < 6; j++) {
+                            const angle = angleOffset + (j / 6) * Math.PI * 2;
+                            const px = x + Math.cos(angle) * r;
+                            const py = y + Math.sin(angle) * r;
+                            if (j === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.closePath();
+                    } else if (enemy.isElite) {
+                        ctx.moveTo(x + r * Math.sin(angleOffset), y - r * Math.cos(angleOffset));
+                        ctx.lineTo(x + r * Math.cos(angleOffset), y + r * Math.sin(angleOffset));
+                        ctx.lineTo(x - r * Math.sin(angleOffset), y + r * Math.cos(angleOffset));
+                        ctx.lineTo(x - r * Math.cos(angleOffset), y - r * Math.sin(angleOffset));
+                        ctx.closePath();
+                    } else {
+                        const size = r * 0.8;
+                        ctx.rect(x - size, y - size, size * 2, size * 2);
+                    }
+                }
+                ctx.fill();
+                ctx.stroke();
+
+                // Inner Glow (batched)
+                ctx.globalAlpha = batchAlpha * 0.6;
+                ctx.fillStyle = fillColor;
+                ctx.beginPath();
+                for (let i = 0; i < batch.length; i++) {
+                    const enemy = batch[i];
+                    const pulseScale = (enemy.isElite || enemy.isBoss) ? (enemy.pulseIntensity || 1.0) : 1.0;
+                    const r = enemy.radius * pulseScale * 0.4;
+                    ctx.moveTo(enemy.x + r, enemy.y);
+                    ctx.arc(enemy.x, enemy.y, r, 0, Math.PI * 2);
+                }
+                ctx.fill();
             }
-            ctx.fill();
 
             batch.length = 0;
         }
@@ -387,6 +427,56 @@ class EnemyRenderer {
         }
         ctx.font = originalFont;
         ctx.textAlign = originalTextAlign;
+    }
+
+    /**
+     * Fallback shape rendering when 3D cache isn't available
+     * Uses simple 2D shapes (original behavior)
+     */
+    static _renderFallbackShape(enemy, ctx, drawRadius, fillColor, combinedAlpha) {
+        ctx.save();
+        ctx.translate(enemy.x, enemy.y);
+
+        // Simple rotation for basic animation
+        const spin = (Date.now() * 0.001) + (parseInt(enemy.id || '0', 36) % 10);
+        if (enemy.isBoss) ctx.rotate(spin * 0.5);
+        else if (enemy.isElite) ctx.rotate(-spin);
+
+        ctx.fillStyle = '#000000';
+        ctx.strokeStyle = fillColor;
+        ctx.lineWidth = enemy.isBoss ? 3 : 2;
+
+        ctx.beginPath();
+        if (enemy.isBoss) {
+            // Hexagon
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                if (i === 0) ctx.moveTo(Math.cos(angle) * drawRadius, Math.sin(angle) * drawRadius);
+                else ctx.lineTo(Math.cos(angle) * drawRadius, Math.sin(angle) * drawRadius);
+            }
+        } else if (enemy.isElite) {
+            // Diamond
+            ctx.moveTo(0, -drawRadius);
+            ctx.lineTo(drawRadius, 0);
+            ctx.lineTo(0, drawRadius);
+            ctx.lineTo(-drawRadius, 0);
+        } else {
+            // Square
+            const r = drawRadius * 0.8;
+            ctx.rect(-r, -r, r * 2, r * 2);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner core
+        ctx.fillStyle = fillColor;
+        ctx.globalAlpha = combinedAlpha * 0.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, drawRadius * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
     }
 
     /**
