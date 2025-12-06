@@ -23,11 +23,17 @@ class PerformanceManager {
         this.lastMemoryCheck = 0;
         this.memoryCheckInterval = 5000;
 
+        // [STABILITY FIX] Extended warmup and cooldown to prevent startup jank
         // Mode change cooldown to prevent thrashing
         this.lastModeChange = 0;
-        this.modeChangeCooldown = 3000;
-        this.warmupDuration = 4000;
+        this.modeChangeCooldown = 5000;  // Increased from 3000ms - wait 5s between mode changes
+        this.warmupDuration = 8000;       // Increased from 4000ms - 8s warmup before any mode switching
         this.monitoringStart = this.lastTime;
+
+        // [STABILITY FIX] Require more samples before triggering mode changes
+        this.requiredSamplesForLow = 3;      // Need 3 consecutive low samples
+        this.requiredSamplesForCritical = 4; // Need 4 consecutive critical samples  
+        this.requiredSamplesForNormal = 2;   // Need 2 consecutive normal samples to upgrade
 
         // Store references for cleanup
         this.displayUpdateInterval = null;
@@ -116,7 +122,17 @@ class PerformanceManager {
                 this.pendingModeSamples = 1;
             }
 
-            const requiredSamples = newMode === 'critical' ? 2 : 1;
+            // [STABILITY FIX] Require more consecutive samples to confirm mode change
+            // This prevents visual flickering from momentary FPS fluctuations
+            let requiredSamples;
+            if (newMode === 'critical') {
+                requiredSamples = this.requiredSamplesForCritical;
+            } else if (newMode === 'low') {
+                requiredSamples = this.requiredSamplesForLow;
+            } else {
+                requiredSamples = this.requiredSamplesForNormal;
+            }
+
             if (this.pendingModeSamples >= requiredSamples) {
                 this.changePerformanceMode(newMode);
                 this.lastModeChange = currentTime;

@@ -8,26 +8,26 @@ class XPOrb {
         this.y = y;
         this.originalX = x;
         this.originalY = y;
-        
+
         // Base XP value with meta progression bonuses and early-game boost
         this.value = this.applyEarlyGameBoost(this.calculateValue(value));
         this.baseValue = value;
-        
+
         this.type = 'xpOrb';
         this.isDead = false;
         this.collected = false;
-        
+
         // Size based on value
         this.radius = this.calculateRadius(this.value);
-        
+
         // Visual properties
         this.color = this.calculateColor(this.value);
         this.glowColor = this.calculateGlowColor(this.value);
-        
+
         // Add random scatter when dropped
         this.x += (Math.random() - 0.5) * 40;
         this.y += (Math.random() - 0.5) * 40;
-        
+
         // Animation properties
         this.bobAmplitude = 3;
         this.bobSpeed = 3;
@@ -35,12 +35,12 @@ class XPOrb {
         this.rotation = 0;
         this.scale = 1;
         this.pulseSpeed = 2;
-        
+
         // Physics properties
         this.isBeingMagnetized = false;
         this.magnetSpeed = 300;
     }
-    
+
     /**
      * Calculate final XP value with meta progression bonuses
      * @param {number} baseValue - Base XP value
@@ -48,7 +48,7 @@ class XPOrb {
      */
     calculateValue(baseValue) {
         let finalValue = baseValue;
-        
+
         // Apply Jupiter XP gain bonus with defensive check
         const StorageManager = window.StorageManager;
         const xpBonusTier = (StorageManager && typeof StorageManager.getInt === 'function')
@@ -57,7 +57,7 @@ class XPOrb {
         if (xpBonusTier > 0) {
             finalValue = Math.floor(finalValue * (1 + xpBonusTier * 0.05));
         }
-        
+
         return finalValue;
     }
 
@@ -71,7 +71,7 @@ class XPOrb {
             return baseValue;
         }
     }
-    
+
     /**
      * Calculate orb radius based on value
      * @param {number} value - XP value
@@ -82,7 +82,7 @@ class XPOrb {
         if (value > 20) return 8;
         return 5;
     }
-    
+
     /**
      * Calculate orb color based on value
      * @param {number} value - XP value
@@ -93,7 +93,7 @@ class XPOrb {
         if (value > 20) return '#3498db'; // Blue for medium value
         return '#2ecc71'; // Green for standard
     }
-    
+
     /**
      * Calculate glow color based on value
      * @param {number} value - XP value
@@ -104,7 +104,7 @@ class XPOrb {
         if (value > 20) return 'rgba(52, 152, 219, 0.4)'; // Blue glow
         return 'rgba(46, 204, 113, 0.3)'; // Green glow
     }
-    
+
     /**
      * Update the XP orb (called by GameEngine)
      * @param {number} deltaTime - Time since last update
@@ -112,14 +112,14 @@ class XPOrb {
      */
     update(deltaTime, game) {
         if (this.collected || this.isDead) return;
-        
+
         // Update magnetism behavior
         this.updateMagnetism(deltaTime, game);
-        
+
         // Update animations
         this.updateAnimations(deltaTime);
     }
-    
+
     /**
      * Update magnetism behavior
      * @param {number} deltaTime - Time since last update
@@ -127,40 +127,40 @@ class XPOrb {
      */
     updateMagnetism(deltaTime, game) {
         if (!game.player) return;
-        
+
         const dx = game.player.x - this.x;
         const dy = game.player.y - this.y;
         const distSq = dx * dx + dy * dy;
-        
+
         // Check if within magnet range (using squared distance - 8x faster)
         const magnetRange = game.player.magnetRange || 100;
         const magnetRangeSq = magnetRange * magnetRange;
-        
+
         if (distSq < magnetRangeSq && distSq > 0) {
             this.isBeingMagnetized = true;
-            
+
             // Calculate pull strength (stronger when closer)
             // [OPTIMIZATION] Use PerformanceCache.sqrt for fast distance calculation
-            const distance = window.perfCache 
-                ? window.perfCache.sqrt(distSq) 
+            const distance = window.perfCache
+                ? window.perfCache.sqrt(distSq)
                 : (window.Game?.FastMath ? window.Game.FastMath.distanceFast(this.x, this.y, game.player.x, game.player.y) : Math.sqrt(distSq));
-            
+
             const pullFactor = 1 - (distance / magnetRange);
             const pullStrength = this.magnetSpeed * pullFactor;
             const speed = pullStrength * deltaTime;
-            
+
             // Move towards player (normalize with inverse sqrt)
             const invDist = 1 / distance;
             const vx = dx * invDist * speed;
             const vy = dy * invDist * speed;
-            
+
             this.x += vx;
             this.y += vy;
         } else {
             this.isBeingMagnetized = false;
         }
     }
-    
+
     /**
      * Update animations (bobbing, rotation, pulsing)
      * @param {number} deltaTime - Time since last update
@@ -168,31 +168,32 @@ class XPOrb {
     updateAnimations(deltaTime) {
         this.bobOffset += this.bobSpeed * deltaTime;
         this.rotation += deltaTime * 2;
-        
+
         // Pulsing scale effect with FastMath optimization
         const FastMath = window.Game?.FastMath;
         this.scale = 1 + (FastMath ? FastMath.sin(this.bobOffset * this.pulseSpeed) : Math.sin(this.bobOffset * this.pulseSpeed)) * 0.1;
     }
-    
+
     /**
      * Check if orb should be collected by player
      * @param {Game} game - Game instance
      */
     checkCollection(game) {
         if (!game.player || this.collected) return;
-        
+
         const dx = game.player.x - this.x;
         const dy = game.player.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Collection range
+        const distSq = dx * dx + dy * dy;
+
+        // Collection range (use squared distance to avoid sqrt - 8x faster)
         const collectionRange = this.radius + game.player.radius;
-        
-        if (distance < collectionRange) {
+        const collectionRangeSq = collectionRange * collectionRange;
+
+        if (distSq < collectionRangeSq) {
             this.collect(game);
         }
     }
-    
+
     /**
      * Collect the XP orb
      * @param {Game} game - Game instance
@@ -210,7 +211,7 @@ class XPOrb {
         // Optional: small collection effect without duplicating UI text
         this.createCollectionEffect();
     }
-    
+
     /**
      * Create visual effect when orb is collected
      */
@@ -223,7 +224,7 @@ class XPOrb {
 
             const particleCount = isHighLoad ? 4 : 8;
             const FastMath = window.Game?.FastMath;
-            
+
             for (let i = 0; i < particleCount; i++) {
                 const angle = (i / particleCount) * Math.PI * 2;
                 const speed = 50 + Math.random() * 50;
@@ -243,7 +244,7 @@ class XPOrb {
 
             // Add a ring effect for high value orbs
             if (this.value > 20 && !isHighLoad) {
-                 pool.spawnParticle({
+                pool.spawnParticle({
                     x: this.x,
                     y: this.y,
                     vx: 0,
@@ -259,45 +260,42 @@ class XPOrb {
             window.Game.ParticleHelpers.createHitEffect(this.x, this.y, 25);
         }
     }
-    
+
     /**
      * Render the XP orb
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      */
     render(ctx) {
         if (this.collected) return;
-        
+
         ctx.save();
-        
+
         // Use FastMath for bobbing effect (low overhead but consistent optimization)
         const FastMath = window.Game?.FastMath;
         const bobY = (FastMath ? FastMath.sin(this.bobOffset) : Math.sin(this.bobOffset)) * this.bobAmplitude;
         const renderY = this.y + bobY;
-        
+
         // Apply scaling
         ctx.translate(this.x, renderY);
         ctx.scale(this.scale, this.scale);
         ctx.translate(-this.x, -renderY);
-        
+
         // Draw glow effect
         if (!window.gameManager?.lowQuality) {
             this.renderGlow(ctx, renderY);
         }
-        
-        // Draw main orb
+
+        // Draw main orb (Polybius geometric style - no symbol needed)
         this.renderOrb(ctx, renderY);
-        
-        // Draw XP symbol
-        this.renderSymbol(ctx, renderY);
-        
+
         // Draw magnet indicator if being magnetized
         if (this.isBeingMagnetized) {
             this.renderMagnetEffect(ctx, renderY);
         }
-        
+
         ctx.restore();
     }
-    
+
     /**
      * Render glow effect
      * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -307,9 +305,9 @@ class XPOrb {
         // Polybius Style: Square Glow
         const size = this.radius * 2.5;
         ctx.fillStyle = XPOrb._colorWithAlpha(this.glowColor, 0.2);
-        ctx.fillRect(this.x - size/2, renderY - size/2, size, size);
+        ctx.fillRect(this.x - size / 2, renderY - size / 2, size, size);
     }
-    
+
     /**
      * Render main orb body
      * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -322,11 +320,11 @@ class XPOrb {
         ctx.rotate(this.rotation); // Already rotating from updateAnimations
 
         const size = this.radius * 1.2;
-        
+
         // Void center
         ctx.fillStyle = '#000000';
         ctx.fillRect(-size, -size, size * 2, size * 2);
-        
+
         // Neon Outline
         ctx.strokeStyle = this.color;
         ctx.lineWidth = 2;
@@ -340,7 +338,7 @@ class XPOrb {
 
         ctx.restore();
     }
-    
+
     /**
      * Render XP symbol inside orb
      * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -350,7 +348,7 @@ class XPOrb {
         // No symbol needed for the geometric style, the core is enough
         return;
     }
-    
+
     /**
      * Render magnetic attraction effect
      * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -362,10 +360,10 @@ class XPOrb {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 4]);
-        ctx.strokeRect(this.x - size/2, renderY - size/2, size, size);
+        ctx.strokeRect(this.x - size / 2, renderY - size / 2, size, size);
         ctx.setLineDash([]);
     }
-    
+
     /**
      * Get orb data for debugging
      * @returns {Object} Orb state
@@ -381,7 +379,7 @@ class XPOrb {
             isDead: this.isDead
         };
     }
-    
+
     /**
      * Static method to create XP orb from enemy death
      * @param {Enemy} enemy - Enemy that was killed
@@ -389,7 +387,7 @@ class XPOrb {
      */
     static fromEnemy(enemy) {
         let baseValue = 5;
-        
+
         // Scale XP based on enemy type
         if (enemy.isBoss) {
             baseValue = enemy.isMegaBoss ? 100 : 50;
@@ -410,10 +408,10 @@ class XPOrb {
                     baseValue = 5;
             }
         }
-        
+
         return new XPOrb(enemy.x, enemy.y, baseValue);
     }
-    
+
     /**
      * Static method to create bonus XP orb
      * @param {number} x - X position
@@ -437,7 +435,7 @@ XPOrb._alphaColorCache = new Map();
 XPOrb._parsedColorCache = new Map();
 XPOrb._MAX_CACHE_SIZE = 500; // Prevent unbounded memory growth
 
-XPOrb._colorWithAlpha = function(color, alpha) {
+XPOrb._colorWithAlpha = function (color, alpha) {
     const key = `${color}|${alpha}`;
     const cache = XPOrb._alphaColorCache;
     if (cache.has(key)) {
@@ -454,7 +452,7 @@ XPOrb._colorWithAlpha = function(color, alpha) {
     return value;
 };
 
-XPOrb._parseColor = function(color) {
+XPOrb._parseColor = function (color) {
     const cache = XPOrb._parsedColorCache;
     if (cache.has(color)) {
         return cache.get(color);
@@ -469,7 +467,7 @@ XPOrb._parseColor = function(color) {
     return parsed;
 };
 
-XPOrb._extractRGBComponents = function(color) {
+XPOrb._extractRGBComponents = function (color) {
     const clamp = (value) => {
         const num = parseFloat(value);
         if (!Number.isFinite(num)) return 255;
@@ -513,17 +511,16 @@ XPOrb._extractRGBComponents = function(color) {
  * @param {XPOrb[]} orbs - Array of XP orbs to render
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  */
-XPOrb.renderBatch = function(orbs, ctx) {
+XPOrb.renderBatch = function (orbs, ctx) {
     if (!orbs || orbs.length === 0) return;
 
     const FastMath = window.Game?.FastMath;
     const lowQuality = window.gameManager?.lowQuality;
-    const PI2 = Math.PI * 2;
 
     // Single save for entire batch
     ctx.save();
 
-    // Render all glows first (if not low quality) - single pass, no state changes
+    // Render all glows first (if not low quality)
     if (!lowQuality) {
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
@@ -531,15 +528,16 @@ XPOrb.renderBatch = function(orbs, ctx) {
 
             const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
             const renderY = orb.y + bobY;
+            const size = orb.radius * 2.5;
 
-            ctx.beginPath();
-            ctx.arc(orb.x, renderY, orb.radius * 2, 0, PI2);
-            ctx.fillStyle = XPOrb._colorWithAlpha(orb.glowColor, 0.3);
-            ctx.fill();
+            // Polybius Style: Square Glow
+            ctx.fillStyle = XPOrb._colorWithAlpha(orb.glowColor, 0.2);
+            ctx.fillRect(orb.x - size / 2, renderY - size / 2, size, size);
         }
     }
 
     // Render all orb bodies - single pass
+    // Polybius Style: Rotating Square/Diamond
     for (let i = 0; i < orbs.length; i++) {
         const orb = orbs[i];
         if (orb.collected) continue;
@@ -548,70 +546,46 @@ XPOrb.renderBatch = function(orbs, ctx) {
         const renderY = orb.y + bobY;
         const scaledRadius = orb.radius * orb.scale;
 
-        // Main orb body
-        ctx.beginPath();
-        ctx.arc(orb.x, renderY, scaledRadius, 0, PI2);
-        ctx.fillStyle = orb.color;
-        ctx.fill();
-
-        // Highlight (no separate beginPath needed, reuse arc)
-        ctx.beginPath();
-        ctx.arc(
-            orb.x - scaledRadius * 0.3,
-            renderY - scaledRadius * 0.3,
-            scaledRadius * 0.3,
-            0,
-            PI2
-        );
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.fill();
-    }
-
-    // Set stroke properties once for all symbols
-    ctx.strokeStyle = 'white';
-    ctx.lineCap = 'round';
-
-    // Render all XP symbols - minimal state changes
-    for (let i = 0; i < orbs.length; i++) {
-        const orb = orbs[i];
-        if (orb.collected) continue;
-
-        const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
-        const renderY = orb.y + bobY;
-        const symbolSize = orb.radius * orb.scale * 0.6;
-        const lineWidth = Math.max(1, orb.radius * orb.scale * 0.1);
-
-        // Only change lineWidth if different from previous
-        if (ctx.lineWidth !== lineWidth) {
-            ctx.lineWidth = lineWidth;
-        }
-
-        // Draw X symbol with rotation (using transform instead of save/restore)
         const cos = FastMath ? FastMath.cos(orb.rotation) : Math.cos(orb.rotation);
         const sin = FastMath ? FastMath.sin(orb.rotation) : Math.sin(orb.rotation);
+        const size = scaledRadius * 1.2;
 
-        // Transform coordinates manually (faster than ctx.rotate)
-        const x1 = orb.x + (-symbolSize * cos - (-symbolSize) * sin);
-        const y1 = renderY + (-symbolSize * sin + (-symbolSize) * cos);
-        const x2 = orb.x + (symbolSize * cos - symbolSize * sin);
-        const y2 = renderY + (symbolSize * sin + symbolSize * cos);
-        const x3 = orb.x + (-symbolSize * cos - symbolSize * sin);
-        const y3 = renderY + (-symbolSize * sin + symbolSize * cos);
-        const x4 = orb.x + (symbolSize * cos - (-symbolSize) * sin);
-        const y4 = renderY + (symbolSize * sin + (-symbolSize) * cos);
+        // Transform vertices manually to avoid ctx.translate/rotate overhead in loop
+        // Center: (orb.x, renderY)
 
+        // 1. Void Center (Black)
+        // Vertices for square of size 'size' centered at 0, rotated by 'rotation'
+        // (-size, -size), (size, -size), (size, size), (-size, size)
+
+        ctx.fillStyle = '#000000';
+        XPOrb._fillRotatedRect(ctx, orb.x, renderY, size, cos, sin);
+
+        // 2. Inner Core (Color)
+        const coreSize = size * 0.4;
+        ctx.fillStyle = XPOrb._colorWithAlpha(orb.color, 0.6);
+        XPOrb._fillRotatedRect(ctx, orb.x, renderY, coreSize, cos, sin);
+
+        // 3. Neon Outline (Stroke)
+        ctx.strokeStyle = orb.color;
+        ctx.lineWidth = 2;
+        XPOrb._strokeRotatedRect(ctx, orb.x, renderY, size, cos, sin);
+
+        // 4. Highlight (White dot)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        // Offset highlight slightly top-left relative to rotation
+        const hOff = -size * 0.3;
+        const hX = orb.x + (hOff * cos - hOff * sin);
+        const hY = renderY + (hOff * sin + hOff * cos);
+        const hSize = size * 0.2;
         ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.moveTo(x3, y3);
-        ctx.lineTo(x4, y4);
-        ctx.stroke();
+        ctx.arc(hX, hY, hSize, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     // Render magnet effects for magnetized orbs
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([2, 2]);
+    ctx.setLineDash([4, 4]); // Matched to single render
 
     for (let i = 0; i < orbs.length; i++) {
         const orb = orbs[i];
@@ -619,10 +593,10 @@ XPOrb.renderBatch = function(orbs, ctx) {
 
         const bobY = (FastMath ? FastMath.sin(orb.bobOffset) : Math.sin(orb.bobOffset)) * orb.bobAmplitude;
         const renderY = orb.y + bobY;
+        const size = orb.radius * 3.0;
 
-        ctx.beginPath();
-        ctx.arc(orb.x, renderY, orb.radius * 1.8, 0, PI2);
-        ctx.stroke();
+        // Polybius Style: Dashed Square
+        ctx.strokeRect(orb.x - size / 2, renderY - size / 2, size, size);
     }
 
     // Reset line dash
@@ -630,5 +604,50 @@ XPOrb.renderBatch = function(orbs, ctx) {
 
     // Single restore for entire batch
     ctx.restore();
+};
+
+// Helper for optimized rendering
+XPOrb._fillRotatedRect = function (ctx, cx, cy, imgSize, cos, sin) {
+    const x1 = cx + (-imgSize * cos - (-imgSize) * sin);
+    const y1 = cy + (-imgSize * sin + (-imgSize) * cos);
+
+    const x2 = cx + (imgSize * cos - (-imgSize) * sin);
+    const y2 = cy + (imgSize * sin + (-imgSize) * cos);
+
+    const x3 = cx + (imgSize * cos - imgSize * sin);
+    const y3 = cy + (imgSize * sin + imgSize * cos);
+
+    const x4 = cx + (-imgSize * cos - imgSize * sin);
+    const y4 = cy + (-imgSize * sin + imgSize * cos);
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.lineTo(x4, y4);
+    ctx.closePath();
+    ctx.fill();
+};
+
+XPOrb._strokeRotatedRect = function (ctx, cx, cy, imgSize, cos, sin) {
+    const x1 = cx + (-imgSize * cos - (-imgSize) * sin);
+    const y1 = cy + (-imgSize * sin + (-imgSize) * cos);
+
+    const x2 = cx + (imgSize * cos - (-imgSize) * sin);
+    const y2 = cy + (imgSize * sin + (-imgSize) * cos);
+
+    const x3 = cx + (imgSize * cos - imgSize * sin);
+    const y3 = cy + (imgSize * sin + imgSize * cos);
+
+    const x4 = cx + (-imgSize * cos - imgSize * sin);
+    const y4 = cy + (-imgSize * sin + imgSize * cos);
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.lineTo(x4, y4);
+    ctx.closePath();
+    ctx.stroke();
 };
 

@@ -229,14 +229,15 @@ class SystemPerformanceManager {
     }
 
     _applyBackgroundQuality() {
-        // Debounce check - enforce minimum 1 second between actual switches
+        // [STABILITY FIX] Increased debounce from 1s to 3s to prevent startup flickering
+        // This ensures background quality doesn't flip-flop during JIT warmup
         const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
             ? performance.now()
             : Date.now();
 
         // Initialize _lastApplyTime if needed
         if (!this._lastApplyTime) this._lastApplyTime = 0;
-        if (now - this._lastApplyTime < 1000) {
+        if (now - this._lastApplyTime < 3000) {
             return;
         } // Enforce hard debounce on applying settings
 

@@ -4,6 +4,9 @@
  * Handles all AI behaviors, targeting, attack patterns, and decision making
  */
 
+// [OPTIMIZATION] Cached FastMath reference to avoid repeated global lookups
+const _getEnemyAIFastMath = () => window.FastMath || window.Game?.FastMath;
+
 class EnemyAI {
     // AI behavior constants (extracted for clarity and maintainability)
     static AI_CONSTANTS = {
@@ -166,9 +169,9 @@ class EnemyAI {
             };
             this.stateTimer = 0;
         }
-        
+
         // [FIX] If no direction set, set one immediately
-        if (!this.enemy.targetDirection || 
+        if (!this.enemy.targetDirection ||
             (this.enemy.targetDirection.x === 0 && this.enemy.targetDirection.y === 0)) {
             const angle = Math.random() * Math.PI * 2;
             this.enemy.targetDirection = {
@@ -231,7 +234,7 @@ class EnemyAI {
 
         // Check if this is a melee/contact damage enemy (no ranged attacks)
         const hasRanged = (this.enemy.abilities && this.enemy.abilities.canRangeAttack) || this.enemy.canRangeAttack;
-        
+
         if (!hasRanged) {
             // MELEE ENEMIES: Press into player for contact damage
             // They should always try to close distance, never back away
@@ -265,7 +268,7 @@ class EnemyAI {
             // [IMPROVED] Consistent strafing that doesn't decay to zero
             const strafeSpeed = 0.4;  // Increased from 0.3
             const strafeDirection = Math.sin(this.stateTimer * 2) > 0 ? 1 : -1;  // Oscillate direction
-            
+
             // Perpendicular to target (strafe)
             this.enemy.targetDirection = {
                 x: -direction.y * strafeSpeed * strafeDirection,
@@ -555,7 +558,8 @@ class EnemyAI {
 
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
-        return Math.sqrt(dx * dx + dy * dy);
+        const FM = _getEnemyAIFastMath();
+        return FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
     }
 
     /**
@@ -566,7 +570,8 @@ class EnemyAI {
 
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const FM = _getEnemyAIFastMath();
+        const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
 
         if (distance === 0) return { x: 0, y: 0 };
 
@@ -589,7 +594,8 @@ class EnemyAI {
 
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const FM = _getEnemyAIFastMath();
+        const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
 
         if (distance === 0) return {
             distance: 0,

@@ -601,18 +601,34 @@
                     // Check both player invuln AND enemy contact cooldown
                     if (!entity1.isInvulnerable && entity2.collisionCooldown <= 0) {
                         if (typeof entity1.takeDamage === 'function' && typeof entity2.damage === 'number') {
-                            entity1.takeDamage(entity2.damage);
+                            // [NEW] Apply formation damage bonuses
+                            let damage = entity2.damage;
+                            const FormationBonusSystem = window.FormationBonusSystem || window.Game?.FormationBonusSystem;
+                            if (FormationBonusSystem && entity2._formationBonus) {
+                                const constellation = this._getEnemyConstellation(entity2);
+                                const damageMult = FormationBonusSystem.getDamageMultiplier(entity2, constellation, false);
+                                damage *= damageMult;
+                            }
+                            entity1.takeDamage(damage);
                             entity2.collisionCooldown = 0.5; // Per-enemy cooldown
-                            if (window.gameManager) window.gameManager.createHitEffect(entity1.x, entity1.y, entity2.damage);
+                            if (window.gameManager) window.gameManager.createHitEffect(entity1.x, entity1.y, damage);
                             if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
                         }
                     }
                 } else if (entity2.type === 'player' && entity1.type === 'enemy') {
                     if (!entity2.isInvulnerable && entity1.collisionCooldown <= 0) {
                         if (typeof entity2.takeDamage === 'function' && typeof entity1.damage === 'number') {
-                            entity2.takeDamage(entity1.damage);
+                            // [NEW] Apply formation damage bonuses
+                            let damage = entity1.damage;
+                            const FormationBonusSystem = window.FormationBonusSystem || window.Game?.FormationBonusSystem;
+                            if (FormationBonusSystem && entity1._formationBonus) {
+                                const constellation = this._getEnemyConstellation(entity1);
+                                const damageMult = FormationBonusSystem.getDamageMultiplier(entity1, constellation, false);
+                                damage *= damageMult;
+                            }
+                            entity2.takeDamage(damage);
                             entity1.collisionCooldown = 0.5; // Per-enemy cooldown
-                            if (window.gameManager) window.gameManager.createHitEffect(entity2.x, entity2.y, entity1.damage);
+                            if (window.gameManager) window.gameManager.createHitEffect(entity2.x, entity2.y, damage);
                             if (window.audioSystem && window.audioSystem.play) window.audioSystem.play('hit', 0.2);
                         }
                     }
@@ -845,6 +861,24 @@
                 window.logger.error('Error handling collision:', err, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
             }
         }
+
+        /**
+         * Helper to get the constellation object for an enemy
+         * @private
+         */
+        _getEnemyConstellation(enemy) {
+            if (!enemy?.constellation) return null;
+
+            const gm = window.gameManager || window.gameManagerBridge;
+            const detector = gm?.game?.emergentDetector || gm?.emergentDetector || window.gameEngine?.emergentDetector;
+
+            if (detector?.constellations) {
+                return detector.constellations.find(c => c?.id === enemy.constellation) || null;
+            }
+
+            return null;
+        }
+
 
         // + CELL POOL MANAGEMENT - prevent memory leaks
         cleanupCellPool() {

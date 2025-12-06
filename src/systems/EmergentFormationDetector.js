@@ -68,6 +68,11 @@ class EmergentFormationDetector {
 
         this.patterns = FORMATION_PATTERNS;
 
+        // Import FormationBonusSystem for gameplay bonuses
+        // (In browser, loaded via script tag; in Node.js, we require it)
+        this.FormationBonusSystem = (typeof require !== 'undefined')
+            ? require('./FormationBonusSystem')
+            : window.FormationBonusSystem;
 
         this.enabled = true;
 
@@ -133,6 +138,15 @@ class EmergentFormationDetector {
         // Apply attraction force to stray enemies near constellations
         if (this.strayAbsorptionEnabled) {
             this.applyStrayAttractionForces(deltaTime);
+        }
+
+        // Update formation bonus aura effects (healing, protection, etc.)
+        if (this.FormationBonusSystem) {
+            for (const constellation of this.constellations) {
+                if (constellation) {
+                    this.FormationBonusSystem.updateAuraEffects(constellation, deltaTime);
+                }
+            }
         }
 
         // Clean up broken constellations
@@ -1066,6 +1080,11 @@ class EmergentFormationDetector {
             this.effects.onConstellationFormed(constellation);
         }
 
+        // Apply formation bonuses
+        if (this.FormationBonusSystem) {
+            this.FormationBonusSystem.applyBonuses(constellation);
+        }
+
         return constellation;
     }
 
@@ -1285,6 +1304,12 @@ class EmergentFormationDetector {
 
             // Helper to dismantle
             const dismantle = () => {
+                // Apply break debuff (disorientation) before removing bonuses
+                if (this.FormationBonusSystem) {
+                    this.FormationBonusSystem.applyBreakDebuff(constellation.enemies);
+                    this.FormationBonusSystem.removeBonuses(constellation);
+                }
+
                 for (const enemy of constellation.enemies) {
                     if (enemy) {
                         delete enemy.constellation;

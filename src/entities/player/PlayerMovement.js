@@ -120,7 +120,7 @@ class PlayerMovement {
             this.velocity.x *= frictionFactor;
             this.velocity.y *= frictionFactor;
             this.isMoving = Math.abs(this.velocity.x) > C.MOVEMENT_THRESHOLD ||
-                          Math.abs(this.velocity.y) > C.MOVEMENT_THRESHOLD;
+                Math.abs(this.velocity.y) > C.MOVEMENT_THRESHOLD;
         }
 
         // Clamp velocity to max speed (optimized: use squared comparison)
@@ -130,7 +130,8 @@ class PlayerMovement {
             const maxSpeedSq = maxSpeed * maxSpeed;
             if (currentSpeedSq > maxSpeedSq) {
                 // Only calculate sqrt when we need to clamp
-                const currentSpeed = Math.sqrt(currentSpeedSq);
+                const FM = window.FastMath || window.Game?.FastMath;
+                const currentSpeed = FM ? FM.sqrt(currentSpeedSq) : Math.sqrt(currentSpeedSq);
                 const scale = maxSpeed / currentSpeed;
                 this.velocity.x *= scale;
                 this.velocity.y *= scale;
@@ -152,7 +153,7 @@ class PlayerMovement {
         // Update rotation based on movement direction
         if (this.isMoving) {
             const targetRotation = Math.atan2(this.velocity.y, this.velocity.x);
-            
+
             if (this.player.rotation === undefined || this.player.rotation === null) {
                 this.player.rotation = targetRotation;
             } else {
@@ -161,10 +162,10 @@ class PlayerMovement {
                 // Normalize angle to -PI to PI
                 while (diff < -Math.PI) diff += Math.PI * 2;
                 while (diff > Math.PI) diff -= Math.PI * 2;
-                
+
                 // Rotation speed (radians per second)
                 // Increased from 15 to 30 for snappier, more responsive turning
-                const rotationSpeed = 30; 
+                const rotationSpeed = 30;
                 this.player.rotation += diff * Math.min(1, rotationSpeed * deltaTime);
             }
         }
@@ -230,8 +231,8 @@ class PlayerMovement {
 
         // Only activate dodge if game is active (not paused or in level-up menu)
         const isMenuActive = window.upgradeSystem?.isLevelUpActive?.() ||
-                           window.gameManager?.isMenuActive?.() ||
-                           game.isPaused;
+            window.gameManager?.isMenuActive?.() ||
+            game.isPaused;
 
         if (keys[' '] && this.canDodge && !this.isDodging && !isMenuActive) {
             keys[' '] = false; // Prevent holding space
@@ -293,7 +294,7 @@ class PlayerMovement {
         const particleCount = stats?.lowQuality || fallbackLowQuality
             ? 0
             : helpers?.calculateSpawnCount?.(C.DODGE_PARTICLE_COUNT)
-                ?? Math.floor(C.DODGE_PARTICLE_COUNT * Math.min(gm?.particleReductionFactor || 1, 1));
+            ?? Math.floor(C.DODGE_PARTICLE_COUNT * Math.min(gm?.particleReductionFactor || 1, 1));
 
         for (let i = 0; i < particleCount; i++) {
             this.player.spawnParticle(

@@ -63,6 +63,13 @@ const FastMath = {
         };
     },
 
+    /**
+     * Fast square root - uses PerformanceCache on Pi5, native Math.sqrt otherwise.
+     */
+    sqrt(x) {
+        return window.perfCache ? window.perfCache.sqrt(x) : Math.sqrt(x);
+    },
+
     distance(x1, y1, x2, y2) {
         const dx = x2 - x1;
         const dy = y2 - y1;
@@ -123,7 +130,7 @@ const FastMath = {
     normalizeAngle(angle) {
         // Guard against NaN/Infinity to prevent bug propagation
         if (!Number.isFinite(angle)) return 0;
-        
+
         // OPTIMIZED: Use modulo instead of while loops (handles large angles efficiently)
         const twoPi = Math.PI * 2;
         // Normalize to [-π, π] range
@@ -164,7 +171,7 @@ const FastMath = {
     // Pre-allocated TypedArrays for invSqrt (avoid allocation in hot path)
     _invSqrtFloat: new Float32Array(1),
     _invSqrtInt: null, // Lazy-init to share buffer with _invSqrtFloat
-    
+
     /**
      * Fast inverse square root using Quake III algorithm (ARM-optimized)
      * Useful for vector normalization: norm = v * invSqrt(v·v)

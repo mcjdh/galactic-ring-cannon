@@ -7,6 +7,9 @@
 // Constants for damage zone abilities
 const TELEGRAPH_DURATION_MS = 700; // Match the 0.7 second telegraph duration
 
+// [OPTIMIZATION] Cached FastMath reference (unique name to avoid global collision)
+const _getEnemyAbilitiesFastMath = () => window.FastMath || window.Game?.FastMath;
+
 // Constants for visual effects
 const BOSS_DEATH_RING_COUNT = 3;
 const BOSS_DEATH_PARTICLES_PER_RING = 40;
@@ -16,14 +19,14 @@ const BOSS_DEATH_SOUND_DELAY_MS = 150;
 class EnemyAbilities {
     constructor(enemy) {
         this.enemy = enemy;
-        
+
         // Range attack system
         this.canRangeAttack = false;
         this.rangeAttackCooldown = 3.0;
         this.rangeAttackTimer = 0;
         this.projectileSpeed = 200;
         this.projectileDamage = 5;
-        
+
         // Dash ability
         this.canDash = false;
         this.dashCooldown = 5.0;
@@ -32,20 +35,20 @@ class EnemyAbilities {
         this.dashDuration = 0.5;
         this.isDashing = false;
         this.dashDirection = { x: 0, y: 0 };
-        
+
         // Teleport ability
         this.canTeleport = false;
         this.teleportCooldown = 4.0;
         this.teleportTimer = 0;
         this.teleportRange = 200;
-        
+
         // Phase ability (phantom enemies)
         this.canPhase = false;
         this.phaseTimer = 0;
         this.phaseDuration = 2.0;
         this.phaseInvisibleDuration = 1.5;
         this.isVisible = true;
-        
+
         // Shield ability
         this.hasShield = false;
         this.shieldActive = false;
@@ -53,18 +56,18 @@ class EnemyAbilities {
         this.shieldDuration = 3.0;
         this.shieldCooldown = 8.0;
         this.shieldReflection = 0.3;
-        
+
         // Boss-specific abilities
         this.canSpawnMinions = false;
         this.spawnMinionCooldown = 8.0;
         this.spawnMinionTimer = 0;
         this.minionCount = 2;
         this.minionTypes = ['basic', 'fast'];
-        
+
         this.canCreateDamageZones = false;
         this.damageZoneTimer = 0;
         this.damageZoneCooldown = 6.0;
-        
+
         // Death effects
         this.deathEffect = 'normal';
         this.explosionRadius = 80;
@@ -77,21 +80,21 @@ class EnemyAbilities {
         this.healAmount = 20;
         this.healRange = 150;
     }
-    
+
     /**
      * Update all abilities
      */
     update(deltaTime, game) {
         // Update cooldown timers
         this.updateCooldowns(deltaTime);
-        
+
         // Update active abilities
         this.updateActiveAbilities(deltaTime, game);
-        
+
         // Handle automatic ability usage
         this.handleAutomaticAbilities(deltaTime, game);
     }
-    
+
     /**
      * Update all cooldown timers
      */
@@ -99,19 +102,19 @@ class EnemyAbilities {
         if (this.rangeAttackTimer > 0) {
             this.rangeAttackTimer -= deltaTime;
         }
-        
+
         if (this.dashTimer > 0) {
             this.dashTimer -= deltaTime;
         }
-        
+
         if (this.teleportTimer > 0) {
             this.teleportTimer -= deltaTime;
         }
-        
+
         if (this.spawnMinionTimer > 0) {
             this.spawnMinionTimer -= deltaTime;
         }
-        
+
         if (this.damageZoneTimer > 0) {
             this.damageZoneTimer -= deltaTime;
         }
@@ -120,7 +123,7 @@ class EnemyAbilities {
             this.healTimer -= deltaTime;
         }
     }
-    
+
     /**
      * Update currently active abilities
      */
@@ -129,18 +132,18 @@ class EnemyAbilities {
         if (this.isDashing) {
             this.updateDash(deltaTime);
         }
-        
+
         // Handle phase ability
         if (this.canPhase) {
             this.updatePhase(deltaTime);
         }
-        
+
         // Handle active shield
         if (this.hasShield) {
             this.updateShield(deltaTime);
         }
     }
-    
+
     /**
      * Handle abilities that trigger automatically
      */
@@ -150,7 +153,7 @@ class EnemyAbilities {
             this.spawnMinions(game);
             this.spawnMinionTimer = this.spawnMinionCooldown;
         }
-        
+
         // Boss damage zones
         if (this.canCreateDamageZones && this.damageZoneTimer <= 0) {
             this.createDamageZone(game);
@@ -163,17 +166,17 @@ class EnemyAbilities {
             this.healTimer = this.healCooldown;
         }
     }
-    
+
     /**
      * Perform attack based on current pattern
      */
     performAttack(game, target, attackPattern = 0) {
         if (!target || !game) return;
-        
+
         // Boss enemies have special attack patterns
         if (this.enemy.isBoss && this.enemy.attackPatterns) {
             const pattern = this.enemy.attackPatterns[attackPattern] || this.enemy.attackPatterns[0];
-            
+
             switch (pattern.name) {
                 case 'spread':
                     this.performSpreadAttack(game, target, pattern.projectiles || 3);
@@ -194,17 +197,17 @@ class EnemyAbilities {
             this.rangeAttackTimer = this.rangeAttackCooldown;
         }
     }
-    
+
     /**
      * Basic ranged attack
      */
     performBasicRangeAttack(game, target) {
         if (!game.spawnEnemyProjectile) return;
-        
+
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
         const angle = Math.atan2(dy, dx);
-        
+
         game.spawnEnemyProjectile(
             this.enemy.x,
             this.enemy.y,
@@ -212,25 +215,25 @@ class EnemyAbilities {
             Math.sin(angle) * this.projectileSpeed,
             this.projectileDamage
         );
-        
+
         // Create muzzle flash effect
         this.createMuzzleFlash(angle);
     }
-    
+
     /**
      * Spread attack pattern (boss ability)
      */
     performSpreadAttack(game, target, projectileCount) {
         if (!game.spawnEnemyProjectile) return;
-        
+
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
         const baseAngle = Math.atan2(dy, dx);
         const spreadAngle = Math.PI / 4; // 45 degree spread
-        
+
         for (let i = 0; i < projectileCount; i++) {
             const angle = baseAngle - spreadAngle / 2 + (spreadAngle / (projectileCount - 1)) * i;
-            
+
             game.spawnEnemyProjectile(
                 this.enemy.x,
                 this.enemy.y,
@@ -239,22 +242,22 @@ class EnemyAbilities {
                 this.projectileDamage
             );
         }
-        
+
         // Create enhanced muzzle flash for spread attack
         this.createSpreadMuzzleFlash(baseAngle, spreadAngle);
     }
-    
+
     /**
      * Circle attack pattern (boss ability)
      */
     performCircleAttack(game, target, projectileCount) {
         if (!game.spawnEnemyProjectile) return;
-        
+
         const angleStep = (Math.PI * 2) / projectileCount;
-        
+
         for (let i = 0; i < projectileCount; i++) {
             const angle = angleStep * i;
-            
+
             game.spawnEnemyProjectile(
                 this.enemy.x,
                 this.enemy.y,
@@ -263,21 +266,21 @@ class EnemyAbilities {
                 this.projectileDamage
             );
         }
-        
+
         // Create circular muzzle flash effect
         this.createCircularMuzzleFlash();
     }
-    
+
     /**
      * Random attack pattern (boss ability)
      */
     performRandomAttack(game, target, projectileCount) {
         if (!game.spawnEnemyProjectile) return;
-        
+
         for (let i = 0; i < projectileCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = this.projectileSpeed * (0.8 + Math.random() * 0.4); // Vary speed
-            
+
             game.spawnEnemyProjectile(
                 this.enemy.x,
                 this.enemy.y,
@@ -286,22 +289,23 @@ class EnemyAbilities {
                 this.projectileDamage
             );
         }
-        
+
         // Create chaotic muzzle flash effect
         this.createChaoticMuzzleFlash();
     }
-    
+
     /**
      * Dash ability
      */
     startDash(target) {
         if (!this.canDash || this.dashTimer > 0 || this.isDashing) return false;
-        
+
         // Calculate dash direction towards target
         const dx = target.x - this.enemy.x;
         const dy = target.y - this.enemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
+        const FM = _getEnemyAbilitiesFastMath();
+        const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
+
         if (distance > 0) {
             this.dashDirection.x = dx / distance;
             this.dashDirection.y = dy / distance;
@@ -309,135 +313,135 @@ class EnemyAbilities {
             this.dashDirection.x = 1;
             this.dashDirection.y = 0;
         }
-        
+
         this.isDashing = true;
         this.dashTimer = this.dashCooldown;
-        
+
         // Create dash effect
         this.createDashEffect();
-        
+
         return true;
     }
-    
+
     /**
      * Update dash movement
      */
     updateDash(deltaTime) {
         if (!this.isDashing) return;
-        
+
         // Track remaining dash time separately to preserve configured duration
         if (this._dashTimeRemaining === undefined) {
             this._dashTimeRemaining = this.dashDuration;
         }
-        
+
         this._dashTimeRemaining -= deltaTime;
-        
+
         if (this._dashTimeRemaining <= 0) {
             this.isDashing = false;
             this._dashTimeRemaining = undefined; // Reset for next dash
         }
     }
-    
+
     /**
      * Teleport ability
      */
     performTeleport(target) {
         if (!this.canTeleport || this.teleportTimer > 0) return false;
-        
+
         // Teleport to a position near the target
         const angle = Math.random() * Math.PI * 2;
         const distance = 100 + Math.random() * this.teleportRange;
-        
+
         const newX = target.x + Math.cos(angle) * distance;
         const newY = target.y + Math.sin(angle) * distance;
-        
+
         // Create teleport out effect
         this.createTeleportEffect(this.enemy.x, this.enemy.y);
-        
+
         // Move enemy
         this.enemy.x = newX;
         this.enemy.y = newY;
-        
+
         // Create teleport in effect
         this.createTeleportEffect(newX, newY);
-        
+
         this.teleportTimer = this.teleportCooldown;
-        
+
         return true;
     }
-    
+
     /**
      * Update phase ability (phantom enemies)
      */
     updatePhase(deltaTime) {
         this.phaseTimer += deltaTime;
-        
+
         const cycleDuration = this.phaseDuration + this.phaseInvisibleDuration;
         const cycleTime = this.phaseTimer % cycleDuration;
-        
+
         if (cycleTime < this.phaseDuration) {
             this.isVisible = true;
         } else {
             this.isVisible = false;
         }
     }
-    
+
     /**
      * Update shield ability
      */
     updateShield(deltaTime) {
         if (this.shieldActive) {
             this.shieldTimer += deltaTime;
-            
+
             if (this.shieldTimer >= this.shieldDuration) {
                 this.shieldActive = false;
                 this.shieldTimer = 0;
             }
         } else {
             this.shieldTimer += deltaTime;
-            
+
             if (this.shieldTimer >= this.shieldCooldown) {
                 this.activateShield();
             }
         }
     }
-    
+
     /**
      * Activate shield
      */
     activateShield() {
         this.shieldActive = true;
         this.shieldTimer = 0;
-        
+
         // Create shield activation effect
         this.createShieldEffect();
     }
-    
+
     /**
      * Spawn minions (boss ability)
      */
     spawnMinions(game) {
         if (!this.canSpawnMinions || !game.addEntity) return;
-        
+
         // Check if we have a max minion limit and count current minions
         if (this.maxMinionsAlive > 0) {
             // Count how many minions from this summoner are still alive
             let currentMinions = 0;
             if (game.enemies && Array.isArray(game.enemies)) {
-                currentMinions = game.enemies.filter(e => 
+                currentMinions = game.enemies.filter(e =>
                     e.summonedBy === this.enemy && !e.isDead
                 ).length;
             }
-            
+
             // Don't spawn if we're at the limit
             if (currentMinions >= this.maxMinionsAlive) {
                 return;
             }
-            
+
             // Spawn fewer minions if we're close to the limit
             const spawnCount = Math.min(this.minionCount, this.maxMinionsAlive - currentMinions);
             if (spawnCount <= 0) return;
-            
+
             for (let i = 0; i < spawnCount; i++) {
                 this.spawnSingleMinion(game, i, spawnCount);
             }
@@ -447,18 +451,18 @@ class EnemyAbilities {
                 this.spawnSingleMinion(game, i, this.minionCount);
             }
         }
-        
+
         // Create minion spawn effect
         this.createMinionSpawnEffect();
-        
+
         // Show floating text with different styling for summoners
         if (window.gameManager) {
             const isSummoner = this.enemy.enemyType === 'summoner';
-            const textColor = isSummoner ? 
-                (window.GAME_CONSTANTS?.COLORS?.SUMMONER_TEXT || 'rgba(187, 107, 217, 0.9)') : 
+            const textColor = isSummoner ?
+                (window.GAME_CONSTANTS?.COLORS?.SUMMONER_TEXT || 'rgba(187, 107, 217, 0.9)') :
                 '#e74c3c';
             const message = isSummoner ? 'SUMMONING!' : 'MINIONS SUMMONED!';
-            
+
             window.gameManager.showFloatingText(
                 message,
                 this.enemy.x,
@@ -468,38 +472,38 @@ class EnemyAbilities {
             );
         }
     }
-    
+
     /**
      * Spawn a single minion
      */
     spawnSingleMinion(game, index, totalCount) {
         const angle = (index / totalCount) * Math.PI * 2;
         const distance = 80 + Math.random() * 40;
-        
+
         const x = this.enemy.x + Math.cos(angle) * distance;
         const y = this.enemy.y + Math.sin(angle) * distance;
-        
+
         // Pick random minion type
         const minionType = this.minionTypes[Math.floor(Math.random() * this.minionTypes.length)];
-        
+
         const minion = new Enemy(x, y, minionType);
-        
+
         // Track which summoner created this minion
         minion.summonedBy = this.enemy;
-        
+
         // Scale minion based on boss difficulty (or summoner difficulty for non-boss summoners)
         if (window.gameManager && window.gameManager.difficultyFactor) {
-            const scaling = this.enemy.isBoss 
+            const scaling = this.enemy.isBoss
                 ? window.gameManager.difficultyFactor * 0.7 // Boss minions are weaker
                 : window.gameManager.difficultyFactor * 0.5; // Summoner minions are even weaker
             minion.maxHealth = Math.ceil(minion.maxHealth * scaling);
             minion.health = minion.maxHealth;
             minion.damage = Math.ceil(minion.damage * scaling);
         }
-        
+
         game.addEntity(minion);
     }
-    
+
     /**
      * Create damage zone (boss ability) - ENHANCED VERSION
      */
@@ -717,7 +721,7 @@ class EnemyAbilities {
             }
         } catch (_) { /* no-op */ }
     }
-    
+
     /**
      * Handle death effects
      */
@@ -741,7 +745,7 @@ class EnemyAbilities {
                 break;
         }
     }
-    
+
     /**
      * Create death explosion
      */
@@ -753,11 +757,12 @@ class EnemyAbilities {
         const nearbyEntities = [];
 
         // Check player
+        const FM = _getEnemyAbilitiesFastMath();
         if (game.player) {
             const dx = game.player.x - this.enemy.x;
             const dy = game.player.y - this.enemy.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
+            const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
+
             if (distance <= this.explosionRadius) {
                 nearbyEntities.push({ entity: game.player, distance });
             }
@@ -777,21 +782,21 @@ class EnemyAbilities {
         enemies.forEach(enemy => {
             const dx = enemy.x - this.enemy.x;
             const dy = enemy.y - this.enemy.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
 
             nearbyEntities.push({ entity: enemy, distance });
         });
-        
+
         // Apply damage
         nearbyEntities.forEach(({ entity, distance }) => {
             const damageMultiplier = 1 - (distance / this.explosionRadius);
             const damage = this.explosionDamage * damageMultiplier;
-            
+
             if (entity.takeDamage) {
                 entity.takeDamage(damage);
             }
         });
-        
+
         // Create explosion effect
         const helpers = window.Game?.ParticleHelpers;
         if (helpers && typeof helpers.createExplosion === 'function') {
@@ -802,13 +807,13 @@ class EnemyAbilities {
                 '#ff6b35'
             );
         }
-        
+
         // Play explosion sound
         if (window.audioSystem) {
             window.audioSystem.play('explosion', 0.6);
         }
     }
-    
+
     /**
      * Create split effect - spawn smaller enemies
      */
@@ -871,7 +876,7 @@ class EnemyAbilities {
             // Store coordinates to avoid stale reference after delay
             const enemyX = this.enemy.x;
             const enemyY = this.enemy.y;
-            
+
             // Large outer ring
             for (let ring = 0; ring < BOSS_DEATH_RING_COUNT; ring++) {
                 const particlesInRing = BOSS_DEATH_PARTICLES_PER_RING;
@@ -1026,14 +1031,14 @@ class EnemyAbilities {
     createMinionSpawnEffect() {
         try {
             if (!window.optimizedParticles) return;
-            
+
             // Different effect for summoners vs bosses
             const isSummoner = this.enemy.enemyType === 'summoner';
-            const particleColor = isSummoner ? 
-                (window.GAME_CONSTANTS?.COLORS?.SUMMONER_TEXT || 'rgba(187, 107, 217, 0.9)') : 
+            const particleColor = isSummoner ?
+                (window.GAME_CONSTANTS?.COLORS?.SUMMONER_TEXT || 'rgba(187, 107, 217, 0.9)') :
                 '#e74c3c';
             const count = isSummoner ? 20 : 12; // More particles for summoners
-            
+
             // Burst effect
             for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
@@ -1049,7 +1054,7 @@ class EnemyAbilities {
                     type: 'spark'
                 });
             }
-            
+
             // Add a pulsing ring effect for summoners
             if (isSummoner) {
                 const ringSegments = 16;
@@ -1079,7 +1084,7 @@ class EnemyAbilities {
                 const spread = (Math.random() - 0.5) * 0.3;
                 const flashAngle = angle + spread;
                 const speed = 150 + Math.random() * 100;
-                
+
                 window.optimizedParticles.spawnParticle({
                     x: this.enemy.x + Math.cos(angle) * 20,
                     y: this.enemy.y + Math.sin(angle) * 20,
@@ -1093,13 +1098,13 @@ class EnemyAbilities {
             }
         }
     }
-    
+
     createDashEffect() {
         if (window.optimizedParticles) {
             for (let i = 0; i < 8; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 80 + Math.random() * 40;
-                
+
                 window.optimizedParticles.spawnParticle({
                     x: this.enemy.x,
                     y: this.enemy.y,
@@ -1172,13 +1177,13 @@ class EnemyAbilities {
             });
         }
     }
-    
+
     createTeleportEffect(x, y) {
         if (window.optimizedParticles) {
             for (let i = 0; i < 12; i++) {
                 const angle = (i / 12) * Math.PI * 2;
                 const speed = 120 + Math.random() * 60;
-                
+
                 window.optimizedParticles.spawnParticle({
                     x: x,
                     y: y,
@@ -1192,13 +1197,13 @@ class EnemyAbilities {
             }
         }
     }
-    
+
     createNormalDeathEffect() {
         if (window.optimizedParticles) {
             for (let i = 0; i < 6; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 60 + Math.random() * 80;
-                
+
                 window.optimizedParticles.spawnParticle({
                     x: this.enemy.x,
                     y: this.enemy.y,
@@ -1235,7 +1240,7 @@ class EnemyAbilities {
             }
         } catch (_) { /* no-op */ }
     }
-    
+
     /**
      * Configure abilities for specific enemy type
      */
@@ -1291,7 +1296,7 @@ class EnemyAbilities {
                 break;
         }
     }
-    
+
     /**
      * Get current abilities state
      */

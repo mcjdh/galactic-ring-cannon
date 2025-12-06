@@ -95,10 +95,10 @@ class ChainBehavior extends ProjectileBehaviorBase {
 
                 const dx = enemy.x - currentSource.x;
                 const dy = enemy.y - currentSource.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < minDist) {
-                    minDist = dist;
+                const distSq = dx * dx + dy * dy;
+                // Compare with squared distance to avoid sqrt in hot loop
+                if (distSq < minDist * minDist) {
+                    minDist = Math.sqrt(distSq); // Only calc sqrt when we find a closer target
                     nearest = enemy;
                 }
             }
@@ -170,8 +170,8 @@ class ChainBehavior extends ProjectileBehaviorBase {
 
         const dx = to.x - from.x;
         const dy = to.y - from.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
+        const dist = FastMath ? FastMath.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
+
         // Reduce segments under load
         const segmentLength = isHighLoad ? 25 : 10;
         const segments = Math.ceil(dist / segmentLength);
@@ -179,7 +179,7 @@ class ChainBehavior extends ProjectileBehaviorBase {
         // Determine colors based on combos
         let coreColor = '#ffffff';
         let glowColor = '#9b59b6'; // Purple default
-        
+
         // Check for Burn behavior (Fire combo)
         const hasBurn = this.projectile.behaviorManager?.hasBehavior('burn');
         if (hasBurn) {
@@ -206,14 +206,14 @@ class ChainBehavior extends ProjectileBehaviorBase {
         // ELECTRIC BRANCHES - jagged lightning effect
         // Skip branches if high load
         if (!isHighLoad) {
-            for (let i = 0; i < segments * 3; i++) { 
+            for (let i = 0; i < segments * 3; i++) {
                 const t = i / (segments * 3);
                 const x = from.x + dx * t;
                 const y = from.y + dy * t;
 
                 const perpX = -dy / dist;
                 const perpY = dx / dist;
-                const offset = (Math.random() - 0.5) * 35; 
+                const offset = (Math.random() - 0.5) * 35;
 
                 pool.spawnParticle({
                     x: x + perpX * offset,

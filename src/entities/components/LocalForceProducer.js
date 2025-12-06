@@ -11,6 +11,9 @@
  * Performance: ~50% reduction in neighbor queries by combining two passes into one.
  */
 
+// [OPTIMIZATION] Cached FastMath reference for hot-path sqrt operations
+const _getLocalForceFastMath = () => window.FastMath || window.Game?.FastMath;
+
 class LocalForceProducer {
     constructor(entity, game) {
         this.entity = entity;
@@ -60,6 +63,9 @@ class LocalForceProducer {
         // Skip entirely if performance mode is critical (rare)
         if (this.game.performanceManager?.performanceMode === 'critical') return;
 
+        // [OPTIMIZATION] Cache FastMath reference once per frame
+        const FM = _getLocalForceFastMath();
+
         // Calculate grid position
         const gridX = Math.floor(this.entity.x / this.game.gridSize);
         const gridY = Math.floor(this.entity.y / this.game.gridSize);
@@ -104,25 +110,25 @@ class LocalForceProducer {
                     const myRadius = this.entity.radius || 15;
                     const otherRadius = other.radius || 15;
                     const combinedRadii = myRadius + otherRadius;
-                    
+
                     // Pre-calculate group membership for collision and separation logic
                     const sameConstellation = this.entity.constellation &&
                         this.entity.constellation === other.constellation;
-                    const sameFormation = this.entity.formationId && 
+                    const sameFormation = this.entity.formationId &&
                         this.entity.formationId === other.formationId;
                     const bothInSameGroup = sameConstellation || sameFormation;
 
                     // === HARD COLLISION FORCE (actual overlap - emergency separation) ===
                     // [SIMPLIFIED] Apply to ALL overlapping enemies, but gentler for same-group
                     if (distSq < this.hardOverlapRadiusSq && distSq > 0.01) {
-                        const dist = Math.sqrt(distSq);
+                        const dist = FM ? FM.sqrt(distSq) : Math.sqrt(distSq);
                         const penetration = Math.max(0, combinedRadii * 0.9 - dist);
-                        
+
                         if (penetration > 0) {
                             // Gentler force for same-group to prevent jitter, stronger for different groups
                             const forceScale = bothInSameGroup ? 200 : 500;
                             const emergencyForce = forceScale * (penetration / combinedRadii);
-                            
+
                             collisionX += (deltaX / dist) * emergencyForce * deltaTime;
                             collisionY += (deltaY / dist) * emergencyForce * deltaTime;
                         }
@@ -131,7 +137,7 @@ class LocalForceProducer {
                     // === SEPARATION FORCE (close range) ===
                     // [FIX] Increased same-group separation to maintain geometric shape spacing
                     if (distSq < this.separationRadiusSq && distSq > 0.1) {
-                        const dist = Math.sqrt(distSq);
+                        const dist = FM ? FM.sqrt(distSq) : Math.sqrt(distSq);
                         const proximityRatio = 1 - (dist / this.separationRadius);  // 1.0 at center, 0.0 at edge
 
                         // Scale based on group membership
@@ -139,7 +145,7 @@ class LocalForceProducer {
                         // This helps enemies stay at their target positions in shapes
                         // Different group: full separation to avoid overlap
                         const scale = bothInSameGroup ? 0.55 : 1.0;
-                        
+
                         // Skip negligible forces
                         if (scale * proximityRatio < 0.05) continue;
 
@@ -185,7 +191,7 @@ class LocalForceProducer {
             alignmentX /= neighborCount;
             alignmentY /= neighborCount;
 
-            const alignMag = Math.sqrt(alignmentX * alignmentX + alignmentY * alignmentY);
+            const alignMag = FM ? FM.sqrt(alignmentX * alignmentX + alignmentY * alignmentY) : Math.sqrt(alignmentX * alignmentX + alignmentY * alignmentY);
             // [STABILITY] Use EPSILON for consistent guard threshold
             if (alignMag > this.EPSILON) {
                 totalFx += (alignmentX / alignMag) * this.alignmentStrength * deltaTime;
@@ -198,7 +204,7 @@ class LocalForceProducer {
 
             const toCenterX = cohesionX - this.entity.x;
             const toCenterY = cohesionY - this.entity.y;
-            const centerDist = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
+            const centerDist = FM ? FM.sqrt(toCenterX * toCenterX + toCenterY * toCenterY) : Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
 
             // [STABILITY] Use EPSILON for consistent guard threshold
             if (centerDist > this.EPSILON) {

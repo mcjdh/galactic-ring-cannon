@@ -752,7 +752,8 @@ class Player {
         }
         const dx = this.x - other.x;
         const dy = this.y - other.y;
-        return Math.sqrt(dx * dx + dy * dy);
+        const FM = window.FastMath || window.Game?.FastMath;
+        return FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
     }
 
     // Comprehensive debug information

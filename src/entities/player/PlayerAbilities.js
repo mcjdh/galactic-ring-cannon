@@ -1,3 +1,6 @@
+// [OPTIMIZATION] Cached FastMath reference
+const _getPlayerAbilitiesFastMath = () => window.FastMath || window.Game?.FastMath;
+
 class PlayerAbilities {
     constructor(player) {
         this.player = player;
@@ -313,7 +316,8 @@ class PlayerAbilities {
             if (enemy.isDead) return false;
             const dx = enemy.x - this.player.x;
             const dy = enemy.y - this.player.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const FM = _getPlayerAbilitiesFastMath();
+            const dist = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
             return dist <= reflectionRadius;
         });
 
@@ -346,7 +350,8 @@ class PlayerAbilities {
             if (enemy.isDead) return false;
             const dx = enemy.x - this.player.x;
             const dy = enemy.y - this.player.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const FM = _getPlayerAbilitiesFastMath();
+            const dist = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
             return dist <= this.shieldExplosionRadius;
         });
 
@@ -718,7 +723,8 @@ class PlayerAbilities {
 
             const dx = enemy.x - startEnemy.x;
             const dy = enemy.y - startEnemy.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const FM = _getPlayerAbilitiesFastMath();
+            const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
 
             if (distance < closestDistance && distance > 0) {
                 closestDistance = distance;
@@ -726,13 +732,13 @@ class PlayerAbilities {
             }
         }
 
-            // If we found an enemy to chain to
-            if (closestEnemy && !hitEnemies.has(closestEnemy.id)) {
-                // Calculate damage for chain hit
-                const chainDamage = baseDamage * this.chainDamage;
-                const critChance = this.player.combat.getEffectiveCritChance?.() ?? this.player.combat.critChance;
-                const isCrit = Math.random() < critChance;
-                const finalDamage = isCrit ? chainDamage * this.player.combat.critMultiplier : chainDamage;
+        // If we found an enemy to chain to
+        if (closestEnemy && !hitEnemies.has(closestEnemy.id)) {
+            // Calculate damage for chain hit
+            const chainDamage = baseDamage * this.chainDamage;
+            const critChance = this.player.combat.getEffectiveCritChance?.() ?? this.player.combat.critChance;
+            const isCrit = Math.random() < critChance;
+            const finalDamage = isCrit ? chainDamage * this.player.combat.critMultiplier : chainDamage;
 
             // Create lightning visual effect
             this.createLightningEffect(startEnemy, closestEnemy);
@@ -811,7 +817,8 @@ class PlayerAbilities {
 
             const dx = enemy.x - sourceX;
             const dy = enemy.y - sourceY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const FM = _getPlayerAbilitiesFastMath();
+            const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
 
             if (distance > 0 && distance < closestDistance) {
                 closestDistance = distance;
@@ -1090,7 +1097,8 @@ class PlayerAbilities {
     createRicochetEffect(fromX, fromY, toX, toY) {
         const dx = toX - fromX;
         const dy = toY - fromY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const FM = _getPlayerAbilitiesFastMath();
+        const distance = FM ? FM.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
 
         const gm = window.gameManager || window.gameManagerBridge;
         if (gm && gm.lowQuality) return;

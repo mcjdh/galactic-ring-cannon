@@ -50,7 +50,7 @@ class RicochetBehavior extends ProjectileBehaviorBase {
             chainBehavior.chainedEnemies.clear();
             // Add the new target to chained enemies so we don't immediately chain back to it
             chainBehavior.chainedEnemies.add(newTarget.id);
-            
+
             if (window.logger?.isDebugEnabled?.('projectiles')) {
                 window.logger.log(`[RicochetBehavior] Reset ChainBehavior for projectile ${this.projectile.id}`);
             }
@@ -96,10 +96,10 @@ class RicochetBehavior extends ProjectileBehaviorBase {
 
             const dx = enemy.x - this.projectile.x;
             const dy = enemy.y - this.projectile.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const distSq = dx * dx + dy * dy;
 
-            if (dist < bestDist) {
-                bestDist = dist;
+            if (distSq < bestDist * bestDist) {
+                bestDist = Math.sqrt(distSq); // Only calc sqrt when needed
                 bestTarget = enemy;
             }
         }
@@ -113,14 +113,12 @@ class RicochetBehavior extends ProjectileBehaviorBase {
     _bounceToTarget(target) {
         const dx = target.x - this.projectile.x;
         const dy = target.y - this.projectile.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = FastMath ? FastMath.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 0) {
             // Calculate current speed
-            const currentSpeed = Math.sqrt(
-                this.projectile.vx * this.projectile.vx +
-                this.projectile.vy * this.projectile.vy
-            );
+            const speedSq = this.projectile.vx * this.projectile.vx + this.projectile.vy * this.projectile.vy;
+            const currentSpeed = FastMath ? FastMath.sqrt(speedSq) : Math.sqrt(speedSq);
 
             // Redirect velocity toward new target
             this.projectile.vx = (dx / dist) * currentSpeed;

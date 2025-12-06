@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A 2D survival game">
+    <meta name="description"
+        content="Galactic Ring Cannon - A fast-paced 2D arcade survival game with auto-attacking weapons and roguelike upgrades. Survive waves of geometric enemies!">
     <meta name="author" content="mcjdh">
     <meta name="theme-color" content="#111111">
     <title>Galactic Ring Cannon</title>
     <link rel="preload" href="assets/css/styles.css" as="style">
     <link rel="stylesheet" href="assets/css/styles.css">
-    <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
 </head>
 
 <body>
@@ -247,6 +247,7 @@
     <!-- Systems -->
     <script defer src="src/systems/FormationManager.js"></script> <!-- NEW: Formation manager -->
     <script defer src="src/systems/FormationPatterns.js"></script> <!-- Formation pattern definitions -->
+    <script defer src="src/systems/FormationBonusSystem.js"></script> <!-- Formation gameplay bonuses -->
     <script defer src="src/systems/EmergentFormationDetector.js"></script> <!-- NEW: Emergent constellations -->
     <script defer src="src/effects/FormationEffects.js"></script> <!-- NEW: Formation visual effects -->
     <script defer src="src/systems/EnemySpawner.js"></script>
@@ -254,7 +255,6 @@
 
     <!-- Configuration and utilities - load in proper order -->
     <script defer src="src/utils/Logger.js"></script>
-    <!-- LoggerUtils.js REMOVED - Unified into Logger.js -->
     <script src="src/utils/StorageManager.js"></script>
     <script defer src="src/utils/URLParams.js"></script>
     <!-- Legacy MathUtils/CollisionUtils removed; FastMath/CollisionCache replace hot paths -->
@@ -273,7 +273,6 @@
     <script defer src="src/systems/CosmicBackground.js"></script>
     <script defer src="src/utils/debug.js"></script>
     <script defer src="src/ui/loadDebugProjectiles.js"></script>
-    <!-- Dev utilities moved to conditional loader above -->
 
     <!-- Add error detection for script loading -->
     <script defer src="src/ui/scriptErrorHandler.js"></script>
@@ -376,9 +375,6 @@
 
     <!-- Script loading validation -->
     <script defer src="src/core/setupGlobals.js"></script>
-
-    <!-- Load game constants first -->
-    <script defer src="src/config/gameConstants.js"></script>
 
     <!-- Initialize optimized particle pool -->
     <script defer src="src/core/initOptimizedParticles.js"></script>

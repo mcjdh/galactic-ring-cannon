@@ -1417,25 +1417,14 @@ class GameEngine {
         const ctx = this.ctx;
         const PERF = GAME_CONSTANTS.PERFORMANCE;
 
-        // Ensure batch arrays are at full capacity before filling
-        // This handles cases where they were truncated in a previous frame
-        if (this._projectileBatch.length < PERF.PROJECTILE_BATCH_SIZE) {
-            this._projectileBatch.length = PERF.PROJECTILE_BATCH_SIZE;
-        }
-        if (this._enemyBatch.length < PERF.ENEMY_BATCH_SIZE) {
-            this._enemyBatch.length = PERF.ENEMY_BATCH_SIZE;
-        }
-        if (this._enemyProjectileBatch.length < PERF.ENEMY_PROJECTILE_BATCH_SIZE) {
-            this._enemyProjectileBatch.length = PERF.ENEMY_PROJECTILE_BATCH_SIZE;
-        }
-        if (this._xpOrbBatch.length < PERF.XP_ORB_BATCH_SIZE) {
-            this._xpOrbBatch.length = PERF.XP_ORB_BATCH_SIZE;
-        }
-        if (this._fallbackBatch.length < PERF.FALLBACK_BATCH_SIZE) {
-            this._fallbackBatch.length = PERF.FALLBACK_BATCH_SIZE;
-        }
+        // Dynamic batch resizing to prevent visual popping
+        if (this._projectileBatch.length < entities.length) this._projectileBatch.length = entities.length;
+        if (this._enemyBatch.length < entities.length) this._enemyBatch.length = entities.length;
+        if (this._enemyProjectileBatch.length < entities.length) this._enemyProjectileBatch.length = entities.length;
+        if (this._xpOrbBatch.length < entities.length) this._xpOrbBatch.length = entities.length;
+        if (this._fallbackBatch.length < entities.length) this._fallbackBatch.length = entities.length;
 
-        // Use pre-allocated arrays with index-based writes (eliminates 240 allocations/sec at 60fps)
+        // Use pre-allocated arrays with index-based writes
         let projectileCount = 0;
         let enemyCount = 0;
         let enemyProjectileCount = 0;
@@ -1455,15 +1444,8 @@ class GameEngine {
             ? XPOrb
             : (typeof window !== 'undefined' ? window.Game?.XPOrb : undefined);
 
-        // Get batch sizes for bounds checking (PERF already declared at top of function)
-        const maxProjectiles = PERF.PROJECTILE_BATCH_SIZE;
-        const maxEnemies = PERF.ENEMY_BATCH_SIZE;
-        const maxEnemyProjectiles = PERF.ENEMY_PROJECTILE_BATCH_SIZE;
-        const maxXpOrbs = PERF.XP_ORB_BATCH_SIZE;
-        const maxFallback = PERF.FALLBACK_BATCH_SIZE;
-
-        // Single pass to categorize entities (optimized for loop with index writes)
-        // Bounds checking prevents array overflow when entity counts exceed batch size
+        // Single pass to categorize entities
+        // No upper bounds check needed as arrays are dynamically resized above
         for (let i = 0; i < entities.length; i++) {
             const entity = entities[i];
             if (!entity || entity.isDead || typeof entity.render !== 'function' || entity === this.player) {
@@ -1472,29 +1454,19 @@ class GameEngine {
 
             switch (entity.type) {
                 case 'projectile':
-                    if (projectileCount < maxProjectiles) {
-                        this._projectileBatch[projectileCount++] = entity;
-                    }
+                    this._projectileBatch[projectileCount++] = entity;
                     break;
                 case 'enemy':
-                    if (enemyCount < maxEnemies) {
-                        this._enemyBatch[enemyCount++] = entity;
-                    }
+                    this._enemyBatch[enemyCount++] = entity;
                     break;
                 case 'enemyProjectile':
-                    if (enemyProjectileCount < maxEnemyProjectiles) {
-                        this._enemyProjectileBatch[enemyProjectileCount++] = entity;
-                    }
+                    this._enemyProjectileBatch[enemyProjectileCount++] = entity;
                     break;
                 case 'xpOrb':
-                    if (xpOrbCount < maxXpOrbs) {
-                        this._xpOrbBatch[xpOrbCount++] = entity;
-                    }
+                    this._xpOrbBatch[xpOrbCount++] = entity;
                     break;
                 default:
-                    if (fallbackCount < maxFallback) {
-                        this._fallbackBatch[fallbackCount++] = entity;
-                    }
+                    this._fallbackBatch[fallbackCount++] = entity;
             }
         }
 

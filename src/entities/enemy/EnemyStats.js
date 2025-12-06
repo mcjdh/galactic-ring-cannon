@@ -27,6 +27,29 @@ class EnemyStats {
             amount *= (1 - enemy.damageResistance);
         }
 
+        // [NEW] Apply Formation Bonus damage reduction
+        const FormationBonusSystem = window.FormationBonusSystem || window.Game?.FormationBonusSystem;
+        if (FormationBonusSystem && enemy._formationBonus) {
+            // Get the constellation for age-based ramp-up
+            const constellation = this._getEnemyConstellation(enemy);
+
+            // Apply damage reduction from formation pattern
+            const formationDR = FormationBonusSystem.getDamageReduction(enemy, constellation);
+            if (formationDR > 0) {
+                amount *= (1 - formationDR);
+            }
+
+            // Apply ORBIT pattern core protection (outer ring absorbs damage for center)
+            if (constellation) {
+                amount = FormationBonusSystem.processOrbitProtection(enemy, amount, constellation);
+            }
+
+            // Apply damage sharing (TRIANGLE, PENTAGON, etc.)
+            if (constellation) {
+                amount = FormationBonusSystem.processDamageSharing(enemy, amount, constellation);
+            }
+        }
+
         // Check for projectile deflection (shielder enemies)
         if (enemy.deflectChance > 0 && Math.random() < enemy.deflectChance) {
             if (typeof enemy.deflectProjectile === 'function') {
@@ -78,6 +101,24 @@ class EnemyStats {
             }
         }
     }
+
+    /**
+     * Helper to get the constellation object for an enemy
+     * @private
+     */
+    static _getEnemyConstellation(enemy) {
+        if (!enemy?.constellation) return null;
+
+        const gm = window.gameManager || window.gameManagerBridge;
+        const detector = gm?.game?.emergentDetector || gm?.emergentDetector || window.gameEngine?.emergentDetector;
+
+        if (detector?.constellations) {
+            return detector.constellations.find(c => c?.id === enemy.constellation) || null;
+        }
+
+        return null;
+    }
+
 
     static _trackElementalDamageForAchievements(amount, damageType, damageTags) {
         if (!Number.isFinite(amount) || amount <= 0 || typeof window === 'undefined') {
@@ -172,7 +213,7 @@ class EnemyStats {
 
             try {
                 gm.enemySpawner?.onEnemyKilled?.(enemy);
-            } catch (_) {}
+            } catch (_) { }
         }
     }
 

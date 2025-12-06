@@ -52,7 +52,7 @@ const SpawnRingCache = (() => {
 class EnemySpawner {
     constructor(game) {
         this.game = game;
-        
+
         // Basic spawning parameters
         const GC = (window.GAME_CONSTANTS || {});
         const EN = GC.ENEMIES || {};
@@ -101,14 +101,18 @@ class EnemySpawner {
             lagThreshold: 33, // 30 FPS threshold
             isLagging: false,
             adaptiveMaxEnemies: this.maxEnemies,
-            lastFrameTime: 0
+            lastFrameTime: 0,
+            // [STABILITY FIX] Grace period before culling kicks in
+            // This prevents visual popping during startup while JIT compiles
+            startupGracePeriod: 5.0,  // 5 seconds of grace before culling
+            gameTimeElapsed: 0        // Track time since game start
         };
-        
+
         // [Pi] Apply Pi5 optimizations if detected
         if (window.isRaspberryPi) {
             this.enablePi5Mode();
         }
-        
+
         // Enemy types progression
         // NOTE: Enemy unlock times are hard-coded for game balance
         this.enemyTypes = ['basic'];
@@ -126,11 +130,11 @@ class EnemySpawner {
             'summoner': 4.0,   // 4 minutes
             'berserker': 4.4   // 4.4 minutes
         };
-        
+
         // Difficulty scaling
         this.difficultyTimer = 0;
         this.difficultyInterval = typeof DIFF.SCALING_INTERVAL === 'number' ? DIFF.SCALING_INTERVAL : 30; // Increase difficulty every interval
-        
+
         // Boss spawning
         this.bossTimer = 0;
         this.bossSpawnTimes = Array.isArray(MODES.BOSS_SPAWN_TIMES) && MODES.BOSS_SPAWN_TIMES.length > 0
@@ -146,28 +150,28 @@ class EnemySpawner {
 
         this.baseBossInterval = this.dynamicBossBaseInterval || this.bossInterval;
         this.activeBossId = null;
-        
+
         // Wave system
         this.wavesEnabled = true;
         this.waveTimer = 0;
         this.waveInterval = 30; // Wave every 30 seconds
         this.waveCount = 0;
-        
+
         // Elite enemies
         this.eliteChance = typeof EN.ELITE_CHANCE_BASE === 'number' ? EN.ELITE_CHANCE_BASE : 0.05; // base chance
         this.eliteTimer = 0;
         this.eliteInterval = 40; // Increase elite chance every 40 seconds
-        
+
         // Statistics
         this.totalEnemiesSpawned = 0;
         this.enemiesKilledThisWave = 0;
-        
+
         // Health scaling for sustained challenge
         this.enemyHealthMultiplier = 1.0;
-        
+
         // Enemy Spawner initialized
     }
-    
+
     /**
      * Update spawner logic
      * @param {number} deltaTime - Time since last update
@@ -191,6 +195,9 @@ class EnemySpawner {
         const monitor = this.performanceMonitor;
         const frameTime = deltaTime * 1000; // Convert to milliseconds
 
+        // [STABILITY FIX] Track elapsed time for grace period
+        monitor.gameTimeElapsed += deltaTime;
+
         // Track frame time history using circular buffer (O(1))
         monitor.frameTimeHistory[monitor.frameTimeIndex] = frameTime;
         monitor.frameTimeIndex = (monitor.frameTimeIndex + 1) % monitor.maxHistory;
@@ -206,8 +213,12 @@ class EnemySpawner {
             const wasLagging = monitor.isLagging;
             monitor.isLagging = avgFrameTime > monitor.lagThreshold;
 
-            // Adjust adaptive limits based on performance
-            if (monitor.isLagging && !wasLagging) {
+            // [STABILITY FIX] Skip aggressive culling during startup grace period
+            // This prevents visual popping while JIT compiles and systems stabilize
+            const inGracePeriod = monitor.gameTimeElapsed < monitor.startupGracePeriod;
+
+            // Adjust adaptive limits based on performance (only after grace period)
+            if (!inGracePeriod && monitor.isLagging && !wasLagging) {
                 // Performance degraded - reduce enemy count
                 monitor.adaptiveMaxEnemies = Math.max(25, Math.floor(this.maxEnemies * 0.6));
                 this.cullDistantEnemies();
@@ -272,14 +283,14 @@ class EnemySpawner {
      */
     updateSpawnRateFromDifficulty(deltaTime) {
         this.difficultyTimer += deltaTime;
-        
+
         if (this.difficultyTimer >= this.difficultyInterval) {
             this.difficultyTimer = 0;
 
             // Read spawn rate multiplier from DifficultyManager
             const gameManager = window.gameManager;
             const spawnRateMultiplier = gameManager?.difficultyManager?.enemySpawnRateMultiplier || 1.0;
-            
+
             // Performance-aware spawn rate scaling
             if (!this.performanceMonitor.isLagging) {
                 const dampener = Number.isFinite(this.spawnRampDampener) && this.spawnRampDampener > 0
@@ -291,18 +302,18 @@ class EnemySpawner {
                 const dampenedMaxBonus = (spawnRateMultiplier - 1.0) * dampener * 50; // Increased bonus scaling for late game
                 this.maxEnemies = Math.min(300, this.baseMaxEnemies + dampenedMaxBonus); // Increased hard cap to 300 for late game swarms
             }
-            
+
             // Unlock new enemy types
             this.unlockNewEnemyTypes();
         }
     }
-    
+
     /**
      * Unlock new enemy types based on game time
      */
     unlockNewEnemyTypes() {
         const gameTimeMinutes = (window.gameManager?.gameTime || 0) / 60;
-        
+
         for (const [enemyType, unlockTime] of Object.entries(this.enemyTypeUnlockTimes)) {
             if (!this.enemyTypes.includes(enemyType) && gameTimeMinutes >= unlockTime) {
                 this.enemyTypes.push(enemyType);
@@ -311,7 +322,7 @@ class EnemySpawner {
             }
         }
     }
-    
+
     /**
      * Get display name for enemy type
      * @param {string} enemyType - Enemy type
@@ -334,7 +345,7 @@ class EnemySpawner {
         };
         return displayNames[enemyType] || enemyType;
     }
-    
+
     /**
      * Update boss spawning
      * @param {number} deltaTime - Time since last update
@@ -404,22 +415,22 @@ class EnemySpawner {
             }
         }
     }
-    
+
     /**
      * Update wave spawning
      * @param {number} deltaTime - Time since last update
      */
     updateWaveSpawning(deltaTime) {
         if (!this.wavesEnabled) return;
-        
+
         this.waveTimer += deltaTime;
-        
+
         if (this.waveTimer >= this.waveInterval) {
             this.waveTimer = 0;
             this.spawnWave();
         }
     }
-    
+
     /**
      * Update regular enemy spawning
      * [IMPROVED] Sometimes spawns small clusters for constellation variety
@@ -443,17 +454,17 @@ class EnemySpawner {
 
         if (this.spawnTimer >= effectiveSpawnCooldown && enemies.length < effectiveMaxEnemies) {
             this.spawnTimer = 0;
-            
+
             // [IMPROVED] 30% chance to spawn a mini-cluster (2-4 enemies) instead of single
             // This creates more opportunities for varied constellation patterns
             const clusterChance = 0.3;
             const roomForCluster = effectiveMaxEnemies - enemies.length;
-            
+
             if (Math.random() < clusterChance && roomForCluster >= 3) {
                 // Spawn a mini-cluster
                 const clusterSize = Math.min(roomForCluster, 3 + Math.floor(Math.random() * 2)); // 3-4 enemies
                 const clusterCenter = this.getSpawnPosition();
-                
+
                 for (let i = 0; i < clusterSize; i++) {
                     this.spawnEnemyNear(clusterCenter.x, clusterCenter.y, 60);
                 }
@@ -463,14 +474,14 @@ class EnemySpawner {
             }
         }
     }
-    
+
     /**
      * Update elite enemy chance
      * @param {number} deltaTime - Time since last update
      */
     updateEliteChance(deltaTime) {
         this.eliteTimer += deltaTime;
-        
+
         if (this.eliteTimer >= this.eliteInterval) {
             this.eliteTimer = 0;
             // Gradually increase elite chance (cap at 25%)
@@ -478,7 +489,7 @@ class EnemySpawner {
             // Elite chance increased
         }
     }
-    
+
     getEarlyGameProgress(gameTime) {
         const duration = this.earlyGameConfig?.duration;
         if (!duration || duration <= 0) {
@@ -575,9 +586,9 @@ class EnemySpawner {
 
         return target;
     }
-    
+
     // Note: createEnemy consolidated below
-    
+
     /**
      * Spawn a regular enemy
      */
@@ -604,7 +615,7 @@ class EnemySpawner {
         }
         return enemy;
     }
-    
+
     /**
      * Get spawn position around player
      * @returns {Object} Position {x, y}
@@ -661,7 +672,7 @@ class EnemySpawner {
 
         return { x, y };
     }
-    
+
     /**
      * Get random enemy type from available types
      * @returns {string} Enemy type
@@ -670,7 +681,7 @@ class EnemySpawner {
         const idx = SpawnRingCache.nextEnemyIndex(this.enemyTypes.length);
         return this.enemyTypes[idx] || this.enemyTypes[0];
     }
-    
+
     /**
      * Apply difficulty scaling to enemy
      * Delegates to DifficultyManager for consistent scaling across the game.
@@ -681,46 +692,46 @@ class EnemySpawner {
         if (!gameManager?.difficultyManager) {
             // Fallback if DifficultyManager is not available
             if (!gameManager?.difficultyFactor) return;
-            
+
             const healthMultiplier = 1 + ((gameManager.difficultyFactor - 1) * 0.5);
             const damageScaling = 1 + ((gameManager.difficultyFactor - 1) * 0.4);
-            
+
             enemy.maxHealth = Math.ceil(enemy.maxHealth * healthMultiplier);
             enemy.health = enemy.maxHealth;
             enemy.damage = Math.ceil(enemy.damage * damageScaling);
-            
+
             const xpMultiplier = 1 + ((healthMultiplier - 1) * 0.7);
             enemy.xpValue = Math.ceil(enemy.xpValue * xpMultiplier);
             return;
         }
-        
+
         // Delegate to DifficultyManager for scaling
         gameManager.difficultyManager.scaleEnemy(enemy);
     }
-    
+
     /**
      * Make an enemy elite with boosted stats
      * @param {Enemy} enemy - Enemy to make elite
      */
     makeElite(enemy) {
         enemy.isElite = true;
-        
+
         // Boost stats
         enemy.maxHealth *= 2.5;
         enemy.health = enemy.maxHealth;
         enemy.damage *= 1.5;
         enemy.xpValue *= 3;
         enemy.radius *= 1.2;
-        
+
         // Visual indicator
         enemy.glowColor = '#f1c40f';
-        
+
         // Type-specific elite bonuses
         this.applyEliteBonuses(enemy);
-        
+
         // Elite enemy created
     }
-    
+
     /**
      * Apply type-specific elite bonuses
      * @param {Enemy} enemy - Elite enemy
@@ -791,7 +802,7 @@ class EnemySpawner {
                 break;
         }
     }
-    
+
     /**
      * Spawn a boss enemy
      */
@@ -818,11 +829,11 @@ class EnemySpawner {
             boss.maxHealth = Math.floor(boss.maxHealth * this.bossScaleFactor);
             boss.health = boss.maxHealth;
             boss.damage = Math.floor(boss.damage * this.bossScaleFactor);
-            
+
             // Update boss scaling for next boss
             this.bossScaleFactor += 0.2;
         }
-        
+
         this.game.addEntity(boss);
         this.activeBossId = boss.id;
 
@@ -836,7 +847,7 @@ class EnemySpawner {
             // Track last boss on bridge for cleanup
             window.gameManager._lastBossId = boss.id;
         }
-        
+
         this.showNewEnemyMessage("! BOSS INCOMING! !");
         // Boss spawned successfully
     }
@@ -863,7 +874,7 @@ class EnemySpawner {
 
         return false;
     }
-    
+
     /**
      * Spawn a wave of enemies
      * [IMPROVED] Now spawns enemies in clusters to encourage constellation variety
@@ -878,7 +889,7 @@ class EnemySpawner {
         // Performance-aware wave sizing
         const maxWaveSize = this.performanceMonitor.isLagging ? 24 : 40;
         const waveSize = Math.min(maxWaveSize, base + levelBonus);
-        
+
         // Wave spawning initiated
 
         // Store timeout IDs for cleanup if needed
@@ -894,7 +905,7 @@ class EnemySpawner {
 
         for (const clusterSize of clusterSizes) {
             const clusterCenter = this.getSpawnPosition();
-            
+
             for (let i = 0; i < clusterSize; i++) {
                 const timeoutId = setTimeout(() => {
                     // [FIX] Use Set-based cleanup to avoid splice race conditions
@@ -915,7 +926,7 @@ class EnemySpawner {
                 spawnIndex++;
             }
         }
-        
+
         this.showNewEnemyMessage(`Wave ${this.waveCount} incoming!`);
         this.enemiesKilledThisWave = 0;
     }
@@ -961,7 +972,7 @@ class EnemySpawner {
             // Weighted random selection
             let roll = Math.random() * totalWeight;
             let selectedSize = 3; // Default fallback
-            
+
             for (const sw of sizeWeights) {
                 roll -= sw.weight;
                 if (roll <= 0) {
@@ -1017,20 +1028,20 @@ class EnemySpawner {
      */
     spawnEnemyNear(centerX, centerY, spread) {
         if (!this.game.player) return;
-        
+
         // Random offset within spread
         const angle = Math.random() * Math.PI * 2;
         const distance = Math.random() * spread;
         const x = centerX + Math.cos(angle) * distance;
         const y = centerY + Math.sin(angle) * distance;
-        
+
         const enemyType = this.getRandomEnemyType();
         const enemy = this.createEnemy(enemyType, x, y);
         if (!enemy) return;
         this.game.addEntity(enemy);
         this.totalEnemiesSpawned++;
     }
-    
+
     /**
      * Show floating message about new enemies or events
      * @param {string} message - Message to display
@@ -1046,7 +1057,7 @@ class EnemySpawner {
             );
         }
     }
-    
+
     /**
      * Handle enemy death (called when enemy is killed)
      * @param {Enemy} enemy - Killed enemy
@@ -1057,7 +1068,7 @@ class EnemySpawner {
         if (typeof window === 'undefined' || !window.gameManager) {
             this._fallbackKillCount += 1;
         }
-        
+
         if (enemy.isBoss) {
             this.bossesKilled++;
             // Boss defeated - tracking for difficulty scaling
@@ -1079,7 +1090,7 @@ class EnemySpawner {
             window.gameManager._activeBossId = null;
         }
     }
-    
+
     /**
      * Get spawner statistics
      * @returns {Object} Statistics
@@ -1087,7 +1098,7 @@ class EnemySpawner {
     getStats() {
         const gameManager = window.gameManager;
         const difficultyManager = gameManager?.difficultyManager;
-        
+
         return {
             totalEnemiesSpawned: this.totalEnemiesSpawned,
             currentSpawnRate: this.spawnRate,
@@ -1100,7 +1111,7 @@ class EnemySpawner {
             enemyHealthMultiplier: difficultyManager?.enemyHealthMultiplier || this.enemyHealthMultiplier
         };
     }
-    
+
     /**
      * Reset spawner for new game
      */
@@ -1157,7 +1168,7 @@ class EnemySpawner {
         }
 
     }
-    
+
     /**
      * Set spawner configuration
      * @param {Object} config - Configuration options
@@ -1169,7 +1180,7 @@ class EnemySpawner {
         if (config.waveInterval) this.waveInterval = config.waveInterval;
         if (config.wavesEnabled !== undefined) this.wavesEnabled = config.wavesEnabled;
         if (config.eliteChance) this.eliteChance = config.eliteChance;
-        
+
         // Enemy spawner configured with new settings
     }
 
@@ -1212,7 +1223,7 @@ class EnemySpawner {
             this.eliteChance = Math.max(this.eliteChance, desiredElite);
         } catch (_) { /* no-op */ }
     }
-    
+
     /**
      * [Pi] RASPBERRY PI 5 OPTIMIZATION MODE
      * Applies conservative limits for smooth 60fps gameplay on Pi5
