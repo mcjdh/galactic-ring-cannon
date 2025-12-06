@@ -36,7 +36,7 @@ class PerformanceManager {
 
         this.init();
     }
-    
+
     init() {
         // Start monitoring
         this.startMonitoring();
@@ -53,49 +53,49 @@ class PerformanceManager {
         this.boundBeforeUnload = () => this.destroy();
         window.addEventListener('beforeunload', this.boundBeforeUnload);
     }
-    
+
     update(deltaTime) {
         this.frameCount++;
         const currentTime = performance.now();
-        
+
         if (currentTime - this.lastTime >= 1000) {
             this.fps = Math.round(this.frameCount / ((currentTime - this.lastTime) / 1000));
             this.fpsHistory.push(this.fps);
-            
+
             if (this.fpsHistory.length > this.maxHistorySize) {
                 this.fpsHistory.shift();
             }
-            
+
             this.frameCount = 0;
             this.lastTime = currentTime;
-            
+
             // Check and adjust performance automatically
             this.checkPerformance();
         }
-        
+
         // Simple memory monitoring
         if (currentTime - this.lastMemoryCheck > this.memoryCheckInterval) {
             this.checkMemoryUsage();
             this.lastMemoryCheck = currentTime;
         }
     }
-    
+
     checkPerformance() {
         const avgFps = this.getAverageFps();
-        const currentTime = Date.now();
-        const elapsedSinceStart = performance.now() - this.monitoringStart;
-        
+        const currentTime = performance.now(); // Use performance.now() consistently
+        const elapsedSinceStart = currentTime - this.monitoringStart;
+
         if (elapsedSinceStart < this.warmupDuration) {
             return;
         }
-        
+
         // Don't change modes too frequently
         if (currentTime - this.lastModeChange < this.modeChangeCooldown) {
             return;
         }
-        
+
         let newMode = this.performanceMode;
-        
+
         // Simple threshold-based mode switching with symmetric hysteresis
         // Use buffer zones to prevent mode thrashing at boundaries
         if (avgFps < this.criticalFpsThreshold - 5) {
@@ -107,7 +107,7 @@ class PerformanceManager {
         } else if (avgFps > this.criticalFpsThreshold + 5 && this.performanceMode === 'critical') {
             newMode = 'low'; // Step up from critical to low with buffer
         }
-        
+
         if (newMode !== this.performanceMode) {
             if (this.pendingMode === newMode) {
                 this.pendingModeSamples += 1;
@@ -128,19 +128,19 @@ class PerformanceManager {
             this.pendingModeSamples = 0;
         }
     }
-    
+
     getAverageFps() {
         if (this.fpsHistory.length === 0) return 60;
         return this.fpsHistory.reduce((sum, fps) => sum + fps, 0) / this.fpsHistory.length;
     }
-    
+
     changePerformanceMode(newMode) {
         const oldMode = this.performanceMode;
         this.performanceMode = newMode;
-        
+
         // Delegate to SystemPerformanceManager if available
         const systemPerfManager = window.gameEngine?.performanceManager;
-        
+
         switch (newMode) {
             case 'critical':
                 this.enableCriticalOptimizations(systemPerfManager);
@@ -152,13 +152,13 @@ class PerformanceManager {
                 this.disableOptimizations(systemPerfManager);
                 break;
         }
-        
+
         // Notify game manager of performance change
         if (window.gameManager && typeof window.gameManager.onPerformanceModeChange === 'function') {
             window.gameManager.onPerformanceModeChange(newMode);
         }
     }
-    
+
     enableCriticalOptimizations(systemPerfManager) {
         if (systemPerfManager) {
             systemPerfManager.setPerformanceOverride('on');
@@ -169,7 +169,7 @@ class PerformanceManager {
             window.gameManager.particleReductionFactor = 0.25;
         }
     }
-    
+
     enableLowOptimizations(systemPerfManager) {
         if (systemPerfManager) {
             systemPerfManager.setPerformanceOverride('on');
@@ -179,7 +179,7 @@ class PerformanceManager {
             window.gameManager.particleReductionFactor = 0.6;
         }
     }
-    
+
     disableOptimizations(systemPerfManager) {
         if (systemPerfManager) {
             systemPerfManager.setPerformanceOverride('off');
@@ -189,13 +189,13 @@ class PerformanceManager {
             window.gameManager.particleReductionFactor = 1.0;
         }
     }
-    
+
     togglePerformanceMode() {
         const modes = ['normal', 'low', 'critical'];
         const currentIndex = modes.indexOf(this.performanceMode);
         const nextMode = modes[(currentIndex + 1) % modes.length];
         this.changePerformanceMode(nextMode);
-        
+
         // Show notification
         if (window.gameManager && typeof window.gameManager.showFloatingText === 'function') {
             window.gameManager.showFloatingText(
@@ -207,26 +207,26 @@ class PerformanceManager {
             );
         }
     }
-    
+
     checkMemoryUsage() {
         // Note: performance.memory is only available in Chrome/Chromium browsers
         if (performance.memory) {
             this.memoryUsage = performance.memory.usedJSHeapSize / 1024 / 1024; // MB
-            
+
             // Log warning if memory usage is high (GC is automatic in browsers)
             if (this.memoryUsage > 150) {
                 window.logger?.warn?.(`[Performance] High memory usage: ${this.memoryUsage.toFixed(1)} MB`);
             }
         }
     }
-    
+
     startMonitoring() {
         // Create performance display if debug mode is enabled
         if (window.location.search.includes('debug') || window.StorageManager.getBoolean('debugMode', false)) {
             this.createPerformanceDisplay();
         }
     }
-    
+
     createPerformanceDisplay() {
         this.clearDisplayInterval();
 

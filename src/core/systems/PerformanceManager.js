@@ -229,6 +229,17 @@ class SystemPerformanceManager {
     }
 
     _applyBackgroundQuality() {
+        // Debounce check - enforce minimum 1 second between actual switches
+        const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+            ? performance.now()
+            : Date.now();
+
+        // Initialize _lastApplyTime if needed
+        if (!this._lastApplyTime) this._lastApplyTime = 0;
+        if (now - this._lastApplyTime < 1000) {
+            return;
+        } // Enforce hard debounce on applying settings
+
         // Access cosmic background from game engine or global
         const cosmicBackground = this.gameEngine?.cosmicBackground || (typeof window !== 'undefined' ? window.cosmicBackground : null);
 
@@ -259,12 +270,11 @@ class SystemPerformanceManager {
 
         // Detect rapid flipping between quality states for diagnostics
         if (shouldUseLowQuality !== this._lastBackgroundQuality) {
-            const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-                ? performance.now()
-                : Date.now();
             const timeSinceLastSwitch = now - this._lastBackgroundSwitchTime;
             if (timeSinceLastSwitch < 2000) {
                 this._backgroundSwitchBurst += 1;
+                // Only warn if we haven't warned recently? 
+                // With the new debounce above, this branch should be harder to hit unless updateQualitySettings is called repeatedly with DIFFERENT results
                 if (this._backgroundSwitchBurst >= 3 && window.logger?.warn) {
                     window.logger.warn(`[R] CosmicBackground quality flapped ${this._backgroundSwitchBurst} times in ${(timeSinceLastSwitch).toFixed(0)}ms`);
                 }
@@ -273,9 +283,15 @@ class SystemPerformanceManager {
             }
             this._lastBackgroundSwitchTime = now;
             this._lastBackgroundQuality = shouldUseLowQuality;
-        }
 
-        cosmicBackground.setLowQuality(shouldUseLowQuality);
+            // Apply change
+            cosmicBackground.setLowQuality(shouldUseLowQuality);
+            this._lastApplyTime = now;
+        } else {
+            // Re-apply to ensure consistency even if state matches (idempotent usually)
+            // But we respect debounce, so we skip if redundant? No, idempotent is safe.
+            cosmicBackground.setLowQuality(shouldUseLowQuality);
+        }
     }
 
     /**

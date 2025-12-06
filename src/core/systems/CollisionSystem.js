@@ -7,7 +7,7 @@
     class CollisionSystem {
         constructor(engine) {
             this.engine = engine;
-            
+
             // + COLLISION STATISTICS for performance monitoring
             this.stats = {
                 cellsProcessed: 0,
@@ -16,7 +16,7 @@
                 avgEntitiesPerCell: 0,
                 lastResetTime: performance.now()
             };
-            
+
             // + COLLISION LAYERS for better filtering
             this.collisionLayers = {
                 PLAYER: 1,
@@ -140,7 +140,7 @@
                             needsRebuild = true;
                         }
                     }
-                    
+
                     // Same count - check if entities moved or died
                     if (!needsRebuild) {
                         for (const entity of list) {
@@ -182,7 +182,7 @@
 
             this.stats.cellsProcessed = 0;
             let totalEntitiesInCells = 0;
-            
+
             // Helper function to add entity to grid
             const addEntityToGrid = (entity) => {
                 if (!entity || entity.isDead) return;
@@ -204,13 +204,13 @@
                 // OPTIMIZATION: Track entity's current grid position for next frame's dirty check
                 this._entityGridPositions.set(entity, { gridX, gridY });
             };
-            
+
             // CRITICAL: Add player to spatial grid for collision detection
             // Player is stored separately from engine.entities, so we must add it explicitly
             if (engine.player && !engine.player.isDead) {
                 addEntityToGrid(engine.player);
             }
-            
+
             // + OBJECT POOLING for grid cells to reduce allocations
             for (const entity of list) {
                 addEntityToGrid(entity);
@@ -219,9 +219,9 @@
             // Reset dirty flag and update entity count
             this._gridDirty = false;
             this._lastEntityCount = entityCount;
-            
+
             // Update performance statistics
-            this.stats.avgEntitiesPerCell = this.stats.cellsProcessed > 0 ? 
+            this.stats.avgEntitiesPerCell = this.stats.cellsProcessed > 0 ?
                 totalEntitiesInCells / this.stats.cellsProcessed : 0;
 
             const activeCells = grid.size;
@@ -230,7 +230,7 @@
                 cellPool.length = desiredPoolSize;
             }
         }
-        
+
         // + CALCULATE OPTIMAL GRID SIZE based on entity density - improved stability
         calculateOptimalGridSize(entityCount) {
             // Use larger grid cells to reduce boundary crossing jitter
@@ -240,22 +240,148 @@
             return 100;                            // Reduced minimum cell size for stability
         }
 
+        // + SPATIAL QUERIES
+        // Moved from GameEngine to utilize the grid efficiently
+        getEntitiesWithinRadius(type, centerX, centerY, radius, options = {}) {
+            const { includeDead = false, predicate } = options;
+            const engine = this.engine;
+
+            if (!Number.isFinite(radius) || radius <= 0) {
+                return [];
+            }
+
+            const x = Number.isFinite(centerX) ? centerX : (engine.player?.x ?? 0);
+            const y = Number.isFinite(centerY) ? centerY : (engine.player?.y ?? 0);
+            const radiusSq = radius * radius;
+
+            const matches = [];
+
+            // Broad-phase: check grid cells in range
+            // Calculate grid bounds
+            const gridSize = engine.gridSize || 100;
+            const minGridX = Math.floor((x - radius) / gridSize);
+            const maxGridX = Math.floor((x + radius) / gridSize);
+            const minGridY = Math.floor((y - radius) / gridSize);
+            const maxGridY = Math.floor((y + radius) / gridSize);
+
+            // Use Set to avoid duplicates if entity spans cells (though we store 1 ref per entity usually)
+            // But entities are pushed to cellPool? No, spatialGrid stores arrays of entities.
+            // GameEngine's spatial grid stores references.
+
+            // Optimization: If radius is very large, falling back to full scan might be faster?
+            // For now, let's stick to full scan of typed array for consistency with original behavior if efficient grid search isn't easy
+            // Actually, original GameEngine.getEntitiesWithinRadius used linear scan of getEntitiesByType.
+            // Let's implement BOTH: Grid scan for small radius, Linear for global.
+            // For 'enemy' type which has thousands, Grid is better.
+
+            // Replicating EXACT original behavior (Linear Scan) first to ensure stability, 
+            // then we can optimize to Grid later if needed.
+            // The original GameEngine.js:569 used `this.getEntitiesByType(type)`.
+
+            const entities = engine.getEntitiesByType(type);
+            for (const entity of entities) {
+                if (!entity) continue;
+                if (!includeDead && entity.isDead) continue;
+                if (predicate && !predicate(entity)) continue;
+
+                const dx = entity.x - x;
+                const dy = entity.y - y;
+                if ((dx * dx + dy * dy) <= radiusSq) {
+                    matches.push(entity);
+                }
+            }
+
+            return matches;
+        }
+
+        findClosestEntity(type, originX, originY, options = {}) {
+            const {
+                maxRadius = Infinity,
+                includeDead = false,
+                predicate,
+                useSpatialGrid = true
+            } = options;
+
+            const engine = this.engine;
+            const x = Number.isFinite(originX) ? originX : (engine.player?.x ?? 0);
+            const y = Number.isFinite(originY) ? originY : (engine.player?.y ?? 0);
+            const maxRadiusSq = Number.isFinite(maxRadius) ? Math.max(0, maxRadius) ** 2 : Infinity;
+
+            let closest = null;
+            let closestDistSq = maxRadiusSq;
+
+            const shouldInclude = (entity) => {
+                if (!entity) return false;
+                if (!includeDead && entity.isDead) return false;
+                if (predicate && !predicate(entity)) return false;
+                return true;
+            };
+
+            // Optimization: Use spatial grid 3x3 check first
+            // This is copied from GameEngine.js logic
+            if (useSpatialGrid && engine.spatialGrid && engine.gridSize > 0 && engine.spatialGrid.size > 0) {
+                const gridSize = engine.gridSize;
+                const gridX = Math.floor(x / gridSize);
+                const gridY = Math.floor(y / gridSize);
+
+                if (window.perfCache) {
+                    // Use cached coords if available (optional)
+                }
+
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        const key = engine.encodeGridKey(gridX + dx, gridY + dy);
+                        const cell = engine.spatialGrid.get(key);
+                        if (!cell || cell.length === 0) continue;
+
+                        for (const entity of cell) {
+                            if (!shouldInclude(entity) || entity.type !== type) continue;
+
+                            const distSq = (entity.x - x) ** 2 + (entity.y - y) ** 2;
+                            if (distSq < closestDistSq) {
+                                closest = entity;
+                                closestDistSq = distSq;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback: If nothing found in immediate grid neighbors, scan all entities?
+            // The original code did EXACTLY this: Check grid, then "if (!closest) { check all }".
+            // This means if the closest entity is 2 grid cells away, the grid check fails and it does a full scan.
+            // This preserves that logic.
+            if (!closest) {
+                const entities = engine.getEntitiesByType(type);
+                for (const entity of entities) {
+                    if (!shouldInclude(entity)) continue;
+                    const distSq = (entity.x - x) ** 2 + (entity.y - y) ** 2;
+                    if (distSq < closestDistSq) {
+                        closest = entity;
+                        closestDistSq = distSq;
+                    }
+                }
+            }
+
+            return closest;
+        }
+
         checkCollisions() {
             const engine = this.engine;
             if (!engine || !engine.spatialGrid) {
                 return; // Skip collision checking if engine state is invalid
             }
-            
+
             // + RESET COLLISION STATISTICS
             this.stats.collisionsChecked = 0;
             this.stats.collisionsDetected = 0;
             const startTime = performance.now();
-            
+
             try {
                 for (const [key, entities] of engine.spatialGrid) {
                     // + EARLY EXIT STRATEGY for empty regions
                     if (!entities || entities.length === 0) continue;
-                    
+
                     // [OPTIMIZATION] Skip cells with < 2 entities or all same type
                     if (entities.length < 2) {
                         // Still need to check adjacent cells
@@ -263,7 +389,7 @@
                         this.checkAdjacentCellCollisions(gridX, gridY, entities);
                         continue;
                     }
-                    
+
                     // Fast path: check if all entities are same type (no internal collisions possible)
                     const firstType = entities[0]?.type;
                     let allSameType = true;
@@ -273,7 +399,7 @@
                             break;
                         }
                     }
-                    
+
                     const [gridX, gridY] = engine.decodeGridKey(key);
 
                     this.checkAdjacentCellCollisions(gridX, gridY, entities);
@@ -316,12 +442,12 @@
                     this.logPerformanceStats(performance.now() - startTime);
                     this.stats.lastResetTime = startTime;
                 }
-                
+
             } catch (error) {
                 window.logger.error('Error in collision checking:', error);
             }
         }
-        
+
         // + PERFORMANCE STATISTICS LOGGING
         logPerformanceStats(processingTime) {
             const stats = this.stats;
@@ -334,7 +460,7 @@
         checkCollisionsInCell(entities) {
             // + EARLY EXIT for small cells (already optimized)
             if (entities.length < 2) return;
-            
+
             // + COLLISION LAYER FILTERING - skip impossible collisions
             for (let i = 0; i < entities.length - 1; i++) {
                 const entity1 = entities[i];
@@ -342,14 +468,14 @@
 
                 const type1 = entity1.type;
                 const rulesForEntity1 = this.collisionRules[type1];
-                
+
                 for (let j = i + 1; j < entities.length; j++) {
                     const entity2 = entities[j];
                     if (!entity2 || entity2.isDead) continue; // Skip dead entities
 
                     const type2 = entity2.type;
                     const rulesForEntity2 = this.collisionRules[type2];
-                    
+
                     // + BROAD-PHASE: Skip impossible collision combinations
                     if (
                         !(
@@ -359,9 +485,9 @@
                     ) {
                         continue;
                     }
-                    
+
                     this.stats.collisionsChecked++;
-                    
+
                     if (this.isColliding(entity1, entity2)) {
                         this.stats.collisionsDetected++;
                         this.handleCollision(entity1, entity2);
@@ -372,7 +498,7 @@
                 }
             }
         }
-        
+
         // + COLLISION LAYER SYSTEM - determine if two entities can collide
         canCollide(entity1, entity2) {
             if (!entity1 || !entity2) return false;
@@ -454,7 +580,7 @@
                     if (typeof entity1.addXP === 'function' && typeof entity2.value === 'number') {
                         entity1.addXP(entity2.value);
                         if (typeof entity2.createCollectionEffect === 'function') {
-                            try { entity2.createCollectionEffect(); } catch {}
+                            try { entity2.createCollectionEffect(); } catch { }
                         }
                         if ('collected' in entity2) entity2.collected = true;
                         entity2.isDead = true;
@@ -463,7 +589,7 @@
                     if (typeof entity2.addXP === 'function' && typeof entity1.value === 'number') {
                         entity2.addXP(entity1.value);
                         if (typeof entity1.createCollectionEffect === 'function') {
-                            try { entity1.createCollectionEffect(); } catch {}
+                            try { entity1.createCollectionEffect(); } catch { }
                         }
                         if ('collected' in entity1) entity1.collected = true;
                         entity1.isDead = true;
@@ -719,7 +845,7 @@
                 window.logger.error('Error handling collision:', err, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
             }
         }
-        
+
         // + CELL POOL MANAGEMENT - prevent memory leaks
         cleanupCellPool() {
             // Initialize cellPool if it doesn't exist
@@ -745,7 +871,7 @@
                 }
             }
         }
-        
+
         // + PERFORMANCE OPTIMIZATION ENTRY POINT
         getPerformanceStats() {
             return {

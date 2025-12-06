@@ -705,67 +705,11 @@ class Player {
         this.upgrades.push(upgradeInstance);
 
         // Route upgrade to appropriate system
-        switch (upgradeInstance.type) {
-            // Stats upgrades
-            case 'maxHealth':
-            case 'regeneration':
-            case 'damageReduction':
-            case 'lifesteal':
-            case 'lifestealCrit':
-            case 'lifestealAOE':
-                this.stats.applyStatsUpgrade(upgradeInstance);
-                break;
-
-            // Movement upgrades
-            case 'speed':
-            case 'magnet':
-            case 'dodgeCooldown':
-            case 'dodgeDuration':
-            case 'dodgeInvulnerability':
-                this.movement.applyMovementUpgrade(upgradeInstance);
-                break;
-
-            // Combat upgrades
-            case 'attackSpeed':
-            case 'attackDamage':
-            case 'attackRange':
-            case 'projectileCount':
-            case 'projectileSpread':
-            case 'piercing':
-            case 'projectileSpeed':
-            case 'critChance':
-            case 'critDamage':
-                this.combat.applyCombatUpgrade(upgradeInstance);
-                break;
-
-            // Ability upgrades
-            case 'special':
-            case 'orbit':
-            case 'orbitDamage':
-            case 'orbitSpeed':
-            case 'orbitSize':
-            case 'chain':
-            case 'chainDamage':
-            case 'chainRange':
-            case 'explosionSize':
-            case 'explosionDamage':
-            case 'explosionChain':
-            case 'ricochetBounces':
-            case 'ricochetDamage':
-            case 'bloodLash':
-            case 'bloodNova':
-            case 'gravityWell':
-            case 'burn':  // NEW: Route burn upgrades to abilities
-            case 'burnDamage':  // NEW: Route burn damage upgrades to abilities
-            case 'shieldCapacity':
-            case 'shieldReflection':
-            case 'shieldAdaptive':
-            case 'shieldRecharge':
-            case 'shieldExplosion':
-            case 'berserkerScaling':
-            case 'berserkerCrit':
-                this.abilities.applyAbilityUpgrade(upgradeInstance);
-                break;
+        // Route upgrade to appropriate system using centralized handlers
+        if (window.UpgradeHandlers) {
+            window.UpgradeHandlers.apply(this, upgradeInstance);
+        } else {
+            window.logger?.error('CRITICAL: UpgradeHandlers system not loaded!');
         }
 
         if (this.combat.weaponManager) {

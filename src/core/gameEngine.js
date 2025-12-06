@@ -367,94 +367,83 @@ class GameEngine {
         if (!entity && typeof target === 'string') {
             entity = this.entityManager?.getEntity?.(target) ?? null;
             if (!entity) {
+                // Fallback scan if EntityManager missing/doesn't have it
                 entity = this.entities.find(e => e && e.id === target);
             }
         }
 
         if (!entity) return false;
 
-        // 2. Handle Projectile Pooling
+        // 2. Handle Projectile Pooling (Special case: Pool manages lifecycle)
         if (entity.type === 'projectile' && window.projectilePool) {
-            // Remove from main entities list
-            const index = this.entities.indexOf(entity);
-            if (index > -1) {
-                this.entities.splice(index, 1);
+            // Remove from main entities list (EntityManager sync happens via shared array, but we must ensure it)
+            // If EntityManager is active, let it handle the array removal to keep indices in sync?
+            // Actually, EntityManager.removeEntity handles 'projectile' type collection.
+            // But Pooling adds complexity. Let's delegate to EntityManager if possible.
+            // If Pooling requires manual release logic that EntityManager doesn't know:
+            // "window.projectilePool.release(entity)"
+
+            // Current Plan: Use EntityManager for removal, then release to pool.
+            if (this.entityManager) {
+                this.entityManager.removeEntity(entity);
+            } else {
+                // Manual splice fallback
+                const index = this.entities.indexOf(entity);
+                if (index > -1) this.entities.splice(index, 1);
+                const pIndex = this.projectiles.indexOf(entity);
+                if (pIndex > -1) this.projectiles.splice(pIndex, 1);
             }
 
-            // Remove from projectiles list
-            const pIndex = this.projectiles.indexOf(entity);
-            if (pIndex > -1) {
-                this.projectiles.splice(pIndex, 1);
-            }
-
-            // Release to pool
             window.projectilePool.release(entity);
             this._needsCleanup = true;
-            // Notify collision system that entities changed
             if (this.collisionSystem?.markGridDirty) {
                 this.collisionSystem.markGridDirty();
             }
             return true;
         }
 
-        // 3. Handle other entities (Legacy + EntityManager)
-        const handleSideEffects = (removedEntity) => {
-            if (!removedEntity) return;
-            if (removedEntity.type === 'enemyProjectile') {
-                this._releaseEnemyProjectile(removedEntity);
-            }
-            if (removedEntity.type === 'player' && this.player === removedEntity) {
-                this.player = null;
-            }
-        };
+        // 3. Handle other entities via EntityManager
+        let removed = false;
 
-        // Try EntityManager first
         if (this.entityManager) {
             try {
-                const removed = this.entityManager.removeEntity(entity);
-                if (removed) {
-                    handleSideEffects(entity);
-                    this._needsCleanup = true;
-                    // Notify collision system that entities changed
-                    if (this.collisionSystem?.markGridDirty) {
-                        this.collisionSystem.markGridDirty();
-                    }
-                    return true;
-                }
+                removed = this.entityManager.removeEntity(entity);
             } catch (error) {
-                window.logger.warn('EntityManager.removeEntity failed, falling back to legacy removal:', error);
+                window.logger.warn('EntityManager.removeEntity failed:', error);
             }
         }
 
-        // Legacy fallback
-        const removeFromArray = (array) => {
-            if (!Array.isArray(array)) return false;
-            const index = array.indexOf(entity);
-            if (index !== -1) {
-                const lastIndex = array.length - 1;
-                if (index !== lastIndex) {
-                    array[index] = array[lastIndex];
+        // Legacy/Safety fallback if EntityManager failed or missing
+        if (!removed && !this.entityManager) {
+            const removeFromArray = (array, item) => {
+                if (!Array.isArray(array)) return false;
+                const idx = array.indexOf(item);
+                if (idx !== -1) {
+                    // Swap-pop
+                    const last = array.length - 1;
+                    if (idx !== last) array[idx] = array[last];
+                    array.pop();
+                    return true;
                 }
-                array.length = lastIndex;
-                return true;
-            }
-            return false;
-        };
+                return false;
+            };
 
-        let removed = removeFromArray(this.entities);
-
-        if (entity.type === 'enemy') {
-            removed = removeFromArray(this.enemies) || removed;
-        } else if (entity.type === 'xpOrb') {
-            removed = removeFromArray(this.xpOrbs) || removed;
-        } else if (entity.type === 'enemyProjectile') {
-            removed = removeFromArray(this.enemyProjectiles) || removed;
+            removed = removeFromArray(this.entities, entity);
+            if (entity.type === 'enemy') removeFromArray(this.enemies, entity);
+            else if (entity.type === 'xpOrb') removeFromArray(this.xpOrbs, entity);
+            else if (entity.type === 'enemyProjectile') removeFromArray(this.enemyProjectiles, entity);
         }
 
         if (removed) {
-            handleSideEffects(entity);
+            // Side effects
+            if (entity.type === 'enemyProjectile') {
+                this._releaseEnemyProjectile(entity);
+            }
+            if (entity.type === 'player' && this.player === entity) {
+                this.player = null;
+            }
+
             this._needsCleanup = true;
-            // Notify collision system that entities changed
             if (this.collisionSystem?.markGridDirty) {
                 this.collisionSystem.markGridDirty();
             }
@@ -556,6 +545,12 @@ class GameEngine {
     }
 
     getEntitiesWithinRadius(type, centerX, centerY, radius, options = {}) {
+        // Delegate to CollisionSystem if available
+        if (this.collisionSystem?.getEntitiesWithinRadius) {
+            return this.collisionSystem.getEntitiesWithinRadius(type, centerX, centerY, radius, options);
+        }
+
+        // Legacy fallback (should ideally not be reached if CollisionSystem is initialized)
         const { includeDead = false, predicate } = options;
 
         if (!Number.isFinite(radius) || radius <= 0) {
@@ -585,6 +580,12 @@ class GameEngine {
     }
 
     findClosestEntity(type, originX, originY, options = {}) {
+        // Delegate to CollisionSystem if available
+        if (this.collisionSystem?.findClosestEntity) {
+            return this.collisionSystem.findClosestEntity(type, originX, originY, options);
+        }
+
+        // Legacy fallback
         const {
             maxRadius = Infinity,
             includeDead = false,
@@ -606,43 +607,14 @@ class GameEngine {
             return true;
         };
 
-        if (useSpatialGrid && this.spatialGrid && this.gridSize > 0 && this.spatialGrid.size > 0) {
-            // [OPTIMIZATION] Use PerformanceCache for grid coordinate calculations
-            const gridX = window.perfCache
-                ? window.perfCache.gridCoord(x, this.gridSize)
-                : Math.floor(x / this.gridSize);
-            const gridY = window.perfCache
-                ? window.perfCache.gridCoord(y, this.gridSize)
-                : Math.floor(y / this.gridSize);
+        const entities = this.getEntitiesByType(type);
+        for (const entity of entities) {
+            if (!shouldInclude(entity)) continue;
 
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const cell = this.spatialGrid.get(this._encodeGridKey(gridX + dx, gridY + dy));
-                    if (!cell || cell.length === 0) continue;
-
-                    for (const entity of cell) {
-                        if (!shouldInclude(entity) || entity.type !== type) continue;
-
-                        const distSq = this._distanceSquared(entity.x, entity.y, x, y);
-                        if (distSq < closestDistSq) {
-                            closest = entity;
-                            closestDistSq = distSq;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!closest) {
-            const entities = this.getEntitiesByType(type);
-            for (const entity of entities) {
-                if (!shouldInclude(entity)) continue;
-
-                const distSq = this._distanceSquared(entity.x, entity.y, x, y);
-                if (distSq < closestDistSq) {
-                    closest = entity;
-                    closestDistSq = distSq;
-                }
+            const distSq = this._distanceSquared(entity.x, entity.y, x, y);
+            if (distSq < closestDistSq) {
+                closest = entity;
+                closestDistSq = distSq;
             }
         }
 
@@ -1207,30 +1179,9 @@ class GameEngine {
     }
 
     adjustPerformanceMode() {
-        // Defer to centralized performance manager if present
-        // [R] We are using PerformanceManager now, but GameEngine still drives FPS monitoring
-
-        const manualOverride = this.performanceManager?._manualPerformanceOverride;
-        if (manualOverride === 'on') {
-            if (!this.performanceMode) {
-                this.enablePerformanceMode();
-            }
-            return;
-        }
-        if (manualOverride === 'off') {
-            if (this.performanceMode) {
-                this.disablePerformanceMode();
-            }
-            return;
-        }
-        // Simple FPS-based performance adjustment
-        if (this.fps < 30 && !this.performanceMode) {
-            this.enablePerformanceMode();
-        } else if (this.fps > 55 && this.performanceMode) {
-            this.disablePerformanceMode();
-        }
-        // adjustPerformanceMode method removed as its logic is now fully handled by PerformanceManager
-
+        // [DEPRECATED] Performance monitoring is now handled by src/systems/performance.js
+        // and src/core/systems/PerformanceManager.js.
+        // This method is kept for API compatibility but performs no logic.
     }
 
     setPerformancePreference(level) {
@@ -1332,382 +1283,24 @@ class GameEngine {
     }
 
     updateSpatialGrid() {
-        if (!this.spatialGrid) {
-            this.spatialGrid = new Map();
-        }
-
-        const grid = this.spatialGrid;
-        const cellPool = this._spatialGridCellPool;
-
-        // Move existing cell arrays into a reusable pool
-        for (const [, entities] of grid) {
-            entities.length = 0;
-            cellPool.push(entities);
-        }
-        grid.clear();
-
-        // Helper function to add entity to grid
-        const addEntityToGrid = (entity) => {
-            if (!entity || entity.isDead || typeof entity.x !== 'number' || typeof entity.y !== 'number') {
-                return;
-            }
-
-            // [OPTIMIZATION] Use PerformanceCache for grid coordinate calculations
-            const gridX = window.perfCache
-                ? window.perfCache.gridCoord(entity.x, this.gridSize)
-                : Math.floor(entity.x / this.gridSize);
-            const gridY = window.perfCache
-                ? window.perfCache.gridCoord(entity.y, this.gridSize)
-                : Math.floor(entity.y / this.gridSize);
-            const key = this._encodeGridKey(gridX, gridY);
-
-            let cellEntities = grid.get(key);
-            if (!cellEntities) {
-                cellEntities = cellPool.pop() || [];
-                grid.set(key, cellEntities);
-            }
-            cellEntities.push(entity);
-        };
-
-        // CRITICAL: Add player to spatial grid for collision detection
-        // Player is stored separately from this.entities, so we must add it explicitly
-        if (this.player) {
-            addEntityToGrid(this.player);
-        }
-
-        // Add entities to grid with bounds checking
-        for (const entity of this.entities) {
-            addEntityToGrid(entity);
-        }
-
-        // Keep the pool from growing without bound
-        const activeCells = grid.size;
-        const desiredPoolSize = Math.max(
-            32,
-            Math.min(this._maxSpatialGridPoolSize, Math.ceil(activeCells * 1.5))
-        );
-        if (cellPool.length > desiredPoolSize) {
-            cellPool.length = desiredPoolSize;
+        // [DEPRECATED] Legacy spatial grid moved to CollisionSystem
+        if (!this.collisionSystem && window.logger?.warn) {
+            window.logger.warn('GameEngine.updateSpatialGrid called but CollisionSystem is missing!');
         }
     }
 
     checkCollisions() {
-        // Use spatial grid for collision checks
-        for (const [key, entities] of this.spatialGrid) {
-            // Check collisions within the same grid cell
-            this.checkCollisionsInCell(entities);
-
-            // Check collisions with adjacent cells
-            const [gridX, gridY] = this._decodeGridKey(key);
-            this.checkAdjacentCellCollisions(gridX, gridY, entities);
+        // [DEPRECATED] Legacy collision checking moved to CollisionSystem
+        if (!this.collisionSystem && window.logger?.warn) {
+            window.logger.warn('GameEngine.checkCollisions called but CollisionSystem is missing!');
         }
     }
 
-    checkCollisionsInCell(entities) {
-        // Early return if not enough entities to collide
-        if (entities.length < 2) return;
+    // (Legacy checkCollisionsInCell removed)
 
-        for (let i = 0; i < entities.length; i++) {
-            const entity1 = entities[i];
-            // Skip invalid or dead entities
-            if (!entity1 || entity1.isDead) continue;
-
-            for (let j = i + 1; j < entities.length; j++) {
-                const entity2 = entities[j];
-                // Skip invalid or dead entities
-                if (!entity2 || entity2.isDead) continue;
-
-                if (!this._canFallbackCollide(entity1, entity2)) {
-                    continue;
-                }
-
-                // Quick distance check before expensive collision test
-                const dx = entity1.x - entity2.x;
-                const dy = entity1.y - entity2.y;
-                const maxRadius = (entity1.radius || 0) + (entity2.radius || 0);
-
-                // Use squared distance to avoid sqrt
-                if (dx * dx + dy * dy < maxRadius * maxRadius) {
-                    if (this.isColliding(entity1, entity2)) {
-                        this.handleCollision(entity1, entity2);
-                    }
-                }
-            }
-        }
-    }
-
-    checkAdjacentCellCollisions(gridX, gridY, entities) {
-        const adjacentOffsets = [
-            [1, 0], [0, 1], [1, 1], [-1, 1]
-        ];
-
-        for (const [dx, dy] of adjacentOffsets) {
-            const adjacentKey = this._encodeGridKey(gridX + dx, gridY + dy);
-            const adjacentEntities = this.spatialGrid.get(adjacentKey);
-
-            if (adjacentEntities) {
-                for (let i = 0; i < entities.length; i++) {
-                    const entity = entities[i];
-                    if (!entity || entity.isDead) continue;
-
-                    for (let j = 0; j < adjacentEntities.length; j++) {
-                        const adjacentEntity = adjacentEntities[j];
-                        if (!adjacentEntity || adjacentEntity.isDead || adjacentEntity === entity) continue;
-
-                        if (!this._canFallbackCollide(entity, adjacentEntity)) {
-                            continue;
-                        }
-
-                        // [OPTIMIZATION] Use CollisionCache for fast collision detection
-                        const dxPos = entity.x - adjacentEntity.x;
-                        const dyPos = entity.y - adjacentEntity.y;
-                        const distSq = dxPos * dxPos + dyPos * dyPos;
-
-                        // Use cached radius sum to avoid repeated addition
-                        const radiusSum = window.collisionCache
-                            ? window.collisionCache.getRadiusSum(entity.radius || 0, adjacentEntity.radius || 0)
-                            : (entity.radius || 0) + (adjacentEntity.radius || 0);
-                        const radiusSumSq = radiusSum * radiusSum;
-
-                        // Squared distance comparison - NO sqrt needed!
-                        if (distSq < radiusSumSq) {
-                            if (this.isColliding(entity, adjacentEntity)) {
-                                this.handleCollision(entity, adjacentEntity);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    _canFallbackCollide(entity1, entity2) {
-        const type1 = entity1?.type;
-        const type2 = entity2?.type;
-        if (!type1 || !type2 || type1 === type2) {
-            if (type1 === 'enemy' && type2 === 'enemy') {
-                return false;
-            }
-            if (type1 === 'projectile' && type2 === 'projectile') {
-                return false;
-            }
-        }
-
-        const rules = this._collisionFallbackRules;
-
-        const set1 = rules[type1];
-        if (set1 && set1.has(type2)) {
-            return true;
-        }
-
-        const set2 = rules[type2];
-        if (set2 && set2.has(type1)) {
-            return true;
-        }
-
-        // Fallback: allow if either lacks type rules but objects are defined
-        return !set1 && !set2;
-    }
-    handleCollision(entity1, entity2) {
-        // Comprehensive validation to prevent invalid collisions
-        if (!entity1 || !entity2 || entity1.isDead || entity2.isDead || entity1 === entity2) {
-            return;
-        }
-
-        // Additional ID check only if both entities have IDs and they match
-        if (entity1.id && entity2.id && entity1.id === entity2.id) {
-            return;
-        }
-
-        const type1 = entity1.type;
-        const type2 = entity2.type;
-
-        try {
-            if ((type1 === 'player' && type2 === 'xpOrb') || (type1 === 'xpOrb' && type2 === 'player')) {
-                this._handlePlayerXpOrbCollision(
-                    type1 === 'player' ? entity1 : entity2,
-                    type1 === 'xpOrb' ? entity1 : entity2
-                );
-            } else if ((type1 === 'player' && type2 === 'enemy') || (type1 === 'enemy' && type2 === 'player')) {
-                this._handlePlayerEnemyCollision(
-                    type1 === 'player' ? entity1 : entity2,
-                    type1 === 'enemy' ? entity1 : entity2
-                );
-            } else if ((type1 === 'projectile' && type2 === 'enemy') || (type1 === 'enemy' && type2 === 'projectile')) {
-                this._handleProjectileEnemyCollision(
-                    type1 === 'projectile' ? entity1 : entity2,
-                    type1 === 'enemy' ? entity1 : entity2
-                );
-            } else if ((type1 === 'enemyProjectile' && type2 === 'player') || (type1 === 'player' && type2 === 'enemyProjectile')) {
-                this._handleEnemyProjectilePlayerCollision(
-                    type1 === 'enemyProjectile' ? entity1 : entity2,
-                    type1 === 'player' ? entity1 : entity2
-                );
-            }
-        } catch (error) {
-            window.logger.error('Error handling collision:', error, 'Entity1:', entity1?.type, 'Entity2:', entity2?.type);
-        }
-    }
-
-    _handlePlayerXpOrbCollision(player, xpOrb) {
-        if (typeof player.addXP === 'function' && typeof xpOrb.value === 'number') {
-            player.addXP(xpOrb.value);
-            if (typeof xpOrb.createCollectionEffect === 'function') {
-                try { xpOrb.createCollectionEffect(); } catch (e) { window.logger.error('Error creating collection effect', e); }
-            }
-            if ('collected' in xpOrb) xpOrb.collected = true;
-            xpOrb.isDead = true;
-        }
-    }
-
-    _handlePlayerEnemyCollision(player, enemy) {
-        // Check both player invulnerability AND enemy's contact cooldown
-        // This allows multiple enemies to hit rapidly while preventing spam from single enemy
-        if (player.isInvulnerable) return;
-        if (enemy.collisionCooldown > 0) return;
-        
-        if (typeof player.takeDamage === 'function' && typeof enemy.damage === 'number') {
-            player.takeDamage(enemy.damage);
-            
-            // Set per-enemy contact cooldown (0.5 seconds)
-            // This prevents THIS enemy from hitting again immediately
-            // but other enemies can still deal damage
-            enemy.collisionCooldown = 0.5;
-            
-            if (window.gameManager) {
-                window.gameManager.createHitEffect(player.x, player.y, enemy.damage);
-            }
-            if (window.audioSystem && window.audioSystem.play) {
-                window.audioSystem.play('hit', 0.2);
-            }
-        }
-    }
-
-    _handleProjectileEnemyCollision(projectile, enemy) {
-        if (window.logger?.isDebugEnabled?.('projectiles')) {
-            window.logger.log(`[GameEngine] _handleProjectileEnemyCollision: Projectile ${projectile.id} hitting enemy ${enemy.id}. Projectile piercing: ${projectile.piercing}`);
-        }
-
-        if (enemy.isDead || (projectile.hitEnemies && projectile.hitEnemies.has(enemy.id))) {
-            if (window.logger?.isDebugEnabled?.('projectiles')) {
-                window.logger.log(`[GameEngine] Collision skipped - enemy dead: ${enemy.isDead}, already hit: ${projectile.hitEnemies && projectile.hitEnemies.has(enemy.id)}`);
-            }
-            return;
-        }
-
-        let hitSuccessful = typeof projectile.hit === 'function' ? projectile.hit(enemy) : true;
-        if (!hitSuccessful) return;
-
-        // Track successful projectile hit
-        window.gameManager?.statsManager?.trackProjectileHit?.();
-
-        if (typeof enemy.takeDamage === 'function' && typeof projectile.damage === 'number') {
-            const wasCritical = !!(projectile.isCrit);
-            const preHealth = typeof enemy.health === 'number' ? enemy.health : null;
-
-            enemy.takeDamage(projectile.damage);
-
-            const currentHealth = typeof enemy.health === 'number' ? enemy.health : preHealth;
-            const wasKilled = enemy.isDead || (typeof currentHealth === 'number' && currentHealth <= 0);
-            const actualDamage = preHealth !== null && currentHealth !== null
-                ? Math.max(0, preHealth - currentHealth)
-                : projectile.damage;
-            if (window.gameManager) window.gameManager.createHitEffect(enemy.x, enemy.y, actualDamage ?? projectile.damage);
-            if (window.audioSystem?.play) window.audioSystem.play('hit', 0.2);
-        }
-
-        // Don't add to hitEnemies here - the projectile.hit() method already handles this for piercing projectiles
-
-        // Trigger chain lightning if projectile has this ability
-        // [BEHAVIOR] Check behavior manager for chain capability
-        if (projectile.behaviorManager && projectile.behaviorManager.hasBehavior('chain') &&
-            typeof projectile.triggerChain === 'function') {
-            projectile.triggerChain(this, enemy);
-        }
-
-        if (this.player && projectile.lifesteal) {
-            const healAmount = projectile.damage * projectile.lifesteal;
-            this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
-            window.gameManager?.showFloatingText?.(`+${Math.round(healAmount)}`, this.player.x, this.player.y - 30, '#2ecc71', 14);
-            // Track lifesteal healing for achievements
-            if (window.achievementSystem) window.achievementSystem.onLifestealHeal(healAmount);
-        }
-
-        // Align projectile termination with CollisionSystem behavior
-        let projectileShouldDie = true;
-        let piercingExhausted = false;
-
-        // Handle piercing - projectile continues if it still has piercing charges
-        if (typeof projectile.piercing === 'number' && projectile.piercing >= 0) {
-            if (window.logger?.isDebugEnabled?.('projectiles')) {
-                window.logger.log(`[Collision] Projectile ${projectile.id} piercing hit. Piercing: ${projectile.piercing} -> ${projectile.piercing - 1}`);
-            }
-            projectile.piercing--;
-            
-            // Check if piercing is now exhausted (went negative)
-            if (projectile.piercing < 0) {
-                piercingExhausted = true;
-                projectileShouldDie = true; // Now it should die unless ricochet saves it
-                if (window.logger?.isDebugEnabled?.('projectiles')) {
-                    window.logger.log(`[Collision] Projectile ${projectile.id} piercing exhausted, should die unless ricochet saves it`);
-                }
-            } else {
-                projectileShouldDie = false; // Projectile continues after piercing hit
-                if (window.logger?.isDebugEnabled?.('projectiles')) {
-                    window.logger.log(`[Collision] Projectile ${projectile.id} still has piercing charges: ${projectile.piercing}`);
-                }
-            }
-        }
-
-        // Check for ricochet only when projectile would normally die
-        // This allows ricochet to work after piercing is exhausted OR for non-piercing projectiles
-        if (projectileShouldDie && projectile.behaviorManager && projectile.behaviorManager.hasBehavior('ricochet')) {
-            if (window.logger?.isDebugEnabled?.('projectiles')) {
-                window.logger.log(`[Collision] Projectile ${projectile.id} attempting ricochet. hasRicochet: ${projectile.behaviorManager.hasBehavior('ricochet')}`);
-            }
-            if (projectile.type === 'projectile') {
-                try {
-                    const ok = Projectile.prototype.ricochet.call(projectile, this);
-                    if (ok) {
-                        projectileShouldDie = false; // Ricochet successful, projectile continues
-                        if (window.logger?.isDebugEnabled?.('projectiles')) {
-                            window.logger.log(`[Collision] Projectile ${projectile.id} ricochet successful!`);
-                        }
-                        // Reset piercing if projectile ricocheted (balanced gameplay choice)
-                        if (piercingExhausted && projectile.originalPiercing > 0) {
-                            projectile.piercing = Math.max(0, Math.floor(projectile.originalPiercing / 2));
-                            if (window.logger?.isDebugEnabled?.('projectiles')) {
-                                window.logger.log(`[Collision] Projectile ${projectile.id} piercing restored: ${projectile.piercing}`);
-                            }
-                        }
-                    } else {
-                        if (window.logger?.isDebugEnabled?.('projectiles')) {
-                            window.logger.log(`[Collision] Projectile ${projectile.id} ricochet failed`);
-                        }
-                    }
-                } catch (e) {
-                    if (window.logger?.isDebugEnabled?.('projectiles')) {
-                        window.logger.log(`[Collision] Projectile ${projectile.id} ricochet error:`, e);
-                    }
-                }
-            }
-        }
-        // Trigger explosion if projectile should die or has exhausted piercing
-        if (projectile.behaviorManager && projectile.behaviorManager.hasBehavior('explosive') &&
-            (projectileShouldDie || (typeof projectile.piercing === 'number' && projectile.piercing < 0)) &&
-            typeof projectile.explode === 'function') {
-            projectile.explode(this);
-            projectileShouldDie = true;
-        }
-        if (projectileShouldDie) projectile.isDead = true;
-    }
-
-    _handleEnemyProjectilePlayerCollision(enemyProjectile, player) {
-        if (!player.isInvulnerable && typeof player.takeDamage === 'function' && typeof enemyProjectile.damage === 'number') {
-            player.takeDamage(enemyProjectile.damage);
-            enemyProjectile.isDead = true;
-        }
-    }
+    // (Legacy checkAdjacentCellCollisions and _canFallbackCollide removed)
+    // (Legacy handleCollision and _handle* methods removed)
+    // See CollisionSystem.js for current collision logic.
 
     render() {
         // Check for context loss before rendering
@@ -2625,11 +2218,15 @@ class GameEngine {
         const margin = 200;
 
         if (!viewportWidth || !viewportHeight) {
+            // If viewport invalid, fallback to simplified distance check on all entities
+            // but respect a reasonable safety cap to prevent freeze
             const fallback = [];
+            const safetyCap = 2000;
             for (let i = 0; i < this.entities.length; i++) {
                 const entity = this.entities[i];
                 if (!entity || entity.isDead) continue;
                 fallback.push(entity);
+                if (fallback.length >= safetyCap) break;
             }
             return fallback;
         }
@@ -2645,11 +2242,38 @@ class GameEngine {
 
         const halfW = viewportWidth / 2 + margin;
         const halfH = viewportHeight / 2 + margin;
-        const maxVisible = (this.performanceMode || this.lowPerformanceMode || this.lowGpuMode) ? 350 : 600;
-        const minVisible = Math.min(10, maxVisible);
+
+        // [FIX] Increased render limits to prevent late-game popping
+        // Previous limits (350/600) were too low for bullet hell density
+        const isLowPerf = (this.performanceMode || this.lowPerformanceMode || this.lowGpuMode);
+        const maxVisible = isLowPerf ? 800 : 2000;
+        const minVisible = Math.min(20, maxVisible);
 
         const grid = this.spatialGrid;
         let anyCellFound = false;
+
+        // Helper to check visibility and add
+        const checkAndAdd = (entity) => {
+            if (!entity || entity.isDead || entity.__visibleGeneration === generation) return false;
+
+            // Allow essential entities to bypass the cap if we're close to it
+            // This ensures Enemies and Player are never culled for "performance" visually
+            const isEssential = entity.type === 'player' || entity.type === 'enemy' || entity.type === 'boss';
+
+            if (!isEssential && visibleEntities.length >= maxVisible) {
+                return false; // Cap reached, skip non-essential
+            }
+
+            const dx = Math.abs(entity.x - this.player.x);
+            const dy = Math.abs(entity.y - this.player.y);
+
+            if (dx < halfW && dy < halfH) {
+                entity.__visibleGeneration = generation;
+                visibleEntities.push(entity);
+                return true;
+            }
+            return false;
+        };
 
         if (grid && grid.size > 0) {
             // [OPTIMIZATION] Use PerformanceCache for viewport grid calculations
@@ -2662,7 +2286,10 @@ class GameEngine {
             const endX = Math.ceil((this.player.x + halfW) / this.gridSize);
             const endY = Math.ceil((this.player.y + halfH) / this.gridSize);
 
-            outer: for (let x = startX; x <= endX; x++) {
+            // Iterate grid cells
+            // We do NOT break the outer loop anymore to ensure we scan the whole viewport
+            // The checkAndAdd function handles the capping gracefully
+            for (let x = startX; x <= endX; x++) {
                 for (let y = startY; y <= endY; y++) {
                     const cellEntities = grid.get(this._encodeGridKey(x, y));
                     if (!cellEntities || cellEntities.length === 0) {
@@ -2671,42 +2298,29 @@ class GameEngine {
 
                     anyCellFound = true;
                     for (let i = 0; i < cellEntities.length; i++) {
-                        const entity = cellEntities[i];
-                        if (!entity || entity.isDead || entity.__visibleGeneration === generation) continue;
-
-                        const dx = Math.abs(entity.x - this.player.x);
-                        const dy = Math.abs(entity.y - this.player.y);
-
-                        if (dx < halfW && dy < halfH) {
-                            entity.__visibleGeneration = generation;
-                            visibleEntities.push(entity);
-
-                            if (visibleEntities.length >= maxVisible) {
-                                break outer;
-                            }
-                        }
+                        checkAndAdd(cellEntities[i]);
                     }
                 }
             }
         }
 
+        // Fallback if grid failed or empty (e.g. entities not in grid yet)
         const needFallback = (!anyCellFound || visibleEntities.length < minVisible) && Array.isArray(this.entities);
         if (needFallback) {
-            const targetCount = Math.min(maxVisible, Math.max(minVisible, visibleEntities.length));
-            for (let i = 0; i < this.entities.length && visibleEntities.length < targetCount; i++) {
-                const entity = this.entities[i];
-                if (!entity || entity.isDead || entity.__visibleGeneration === generation) continue;
-
-                const dx = Math.abs(entity.x - this.player.x);
-                const dy = Math.abs(entity.y - this.player.y);
-                if (dx < halfW && dy < halfH) {
-                    entity.__visibleGeneration = generation;
-                    visibleEntities.push(entity);
+            for (let i = 0; i < this.entities.length; i++) {
+                // If we have enough and not scanning for essentials specifically, we could stop?
+                // But simplified fallback just scans all.
+                if (visibleEntities.length >= maxVisible) {
+                    // Just do a quick check for players/bosses if overflowing?
+                    // For fallback, simple cap is safer to avoid O(N) lag
+                    break;
                 }
+                checkAndAdd(this.entities[i]);
             }
         }
 
-        if (this.player && this.player.__visibleGeneration !== generation && visibleEntities.length < maxVisible) {
+        // Always ensure player is visible
+        if (this.player && this.player.__visibleGeneration !== generation) {
             this.player.__visibleGeneration = generation;
             visibleEntities.push(this.player);
         }
