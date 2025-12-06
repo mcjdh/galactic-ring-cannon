@@ -234,13 +234,22 @@ class EnemyMovement {
         const desiredVelY = dirY * desiredSpeed;
 
         // [TUNED] Increased base steering to help enemies reach shape positions
+        // Fast enemies get extra steering to compensate for their speed
         // Reduces when many constellations to prevent chaos
         const constellationCount = game?.emergentDetector?.constellations?.length || 1;
-        let steerStrength = 6.5;  // Increased from 5.0 for stronger shape adherence
+        let steerStrength = 8.0;  // Increased from 6.5 for stronger shape adherence
+
+        // Fast enemies need more steering to stay in formation
+        const enemySpeed = this.maxSpeed || 100;
+        if (enemySpeed > 140) {
+            steerStrength *= 1.3;  // 30% more steering for fast enemies
+        }
+
+        // Reduce when many constellations active
         if (constellationCount >= 8) {
-            steerStrength = 4.0;  // Still gentler when many constellations
+            steerStrength *= 0.6;
         } else if (constellationCount >= 5) {
-            steerStrength = 5.0;  // Slightly gentler
+            steerStrength *= 0.75;
         }
 
         const steerX = (desiredVelX - this.velocity.x) * steerStrength * deltaTime * 50;

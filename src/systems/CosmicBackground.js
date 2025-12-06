@@ -131,8 +131,8 @@ class CosmicBackground {
 
         // [PERF OPT-9] Skip full re-initialization if dimensions match last init
         // This prevents costly star/shape regeneration on scene switches
-        const sameSize = (this.canvas.width === _lastInitializedWidth && 
-                          this.canvas.height === _lastInitializedHeight);
+        const sameSize = (this.canvas.width === _lastInitializedWidth &&
+            this.canvas.height === _lastInitializedHeight);
         if (sameSize && this.stars.length > 0 && this.shapes.length > 0) {
             // Just ensure caches are valid
             if (this.enableGridCache && !this.gridCanvas) {
@@ -197,7 +197,7 @@ class CosmicBackground {
      */
     prewarmShapeCache() {
         if (!this.enableShapeCache || typeof document === 'undefined') return;
-        
+
         // Pre-render sprites for all current shapes
         for (const shape of this.shapes) {
             this.getShapeSprite(shape);
@@ -260,13 +260,19 @@ class CosmicBackground {
         this.lastTime = now;
 
         // Throttle rendering when low quality is enabled to reduce CPU/GPU work
-        // (still renders same content, just at lower framerate)
+        // [FIX] REMOVED EARLY RETURN for throttling.
+        // Returning early means the canvas is NOT cleared, causing "liquifying" trails
+        // because GameEngine draws entities on top of the uncleared previous frame.
+        // To properly throttle, we would need to render to an offscreen buffer and draw that.
+        // For now, correctness > minor perf gain.
+        /*
         if (this.lowQuality && this._lastRenderTs) {
             const sinceLast = now - this._lastRenderTs;
             if (sinceLast < this._lowQualityMinInterval) {
                 return;
             }
         }
+        */
         this._lastRenderTs = now;
 
         // Safety check for NaN or huge time jumps (lag spikes)
@@ -695,7 +701,7 @@ class CosmicBackground {
         // [PERF OPT-8] Skip reinitialization if size unchanged
         const newWidth = width ?? this.canvas.width;
         const newHeight = height ?? this.canvas.height;
-        
+
         if (this.canvas.width === newWidth && this.canvas.height === newHeight) {
             // Size unchanged - just ensure caches are valid
             if (!this.gridCanvas && this.enableGridCache) {
@@ -706,7 +712,7 @@ class CosmicBackground {
             }
             return;
         }
-        
+
         this.canvas.width = newWidth;
         this.canvas.height = newHeight;
         // Update world dimensions
@@ -943,7 +949,7 @@ class CosmicBackground {
             // Find oldest entries by access time
             const entries = Array.from(this._spriteCacheAccessTime.entries());
             entries.sort((a, b) => a[1] - b[1]); // Sort by access time (oldest first)
-            
+
             // Remove oldest entries
             for (let i = 0; i < this.spriteCacheEvictCount && i < entries.length; i++) {
                 const oldKey = entries[i][0];

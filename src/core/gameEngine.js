@@ -55,11 +55,23 @@ let __GameStateRef;
 
 class GameEngine {
     constructor() {
-        if (typeof window !== 'undefined' && window.__activeGameEngine && typeof window.__activeGameEngine.cleanupEventListeners === 'function') {
-            try {
-                window.__activeGameEngine.cleanupEventListeners();
-            } catch (e) {
-                window.logger.warn('Previous GameEngine cleanup failed:', e);
+        if (typeof window !== 'undefined' && window.__activeGameEngine) {
+            // [CRITICAL] Stop the previous engine loop to prevent "double loop"
+            // This fixes the issue where restarting leaves the old loop running in background
+            if (typeof window.__activeGameEngine.stop === 'function') {
+                try {
+                    window.__activeGameEngine.stop();
+                } catch (e) {
+                    window.logger.warn('Failed to stop previous GameEngine:', e);
+                }
+            }
+            // Cleanup listeners
+            if (typeof window.__activeGameEngine.cleanupEventListeners === 'function') {
+                try {
+                    window.__activeGameEngine.cleanupEventListeners();
+                } catch (e) {
+                    window.logger.warn('Previous GameEngine cleanup failed:', e);
+                }
             }
         }
 
@@ -866,6 +878,21 @@ class GameEngine {
     start() {
         window.logger.log('> GameEngine starting...');
 
+        // CRITICAL FIX: Ensure any previous loop is fully stopped and cancelled
+        // This prevents "double loop" issues where a pending RAF fires after we set isRunning=true
+        this._cancelNextFrame();
+        this.isRunning = false;
+
+        // CRITICAL FIX: Force hard canvas reset.
+        // This clears pixels AND resets all context state (transforms, composite ops, etc)
+        // This is the only way to guarantee a truly clean slate if the context stack is corrupted.
+        if (this.canvas) {
+            this.canvas.width = this.canvas.width;
+        }
+
+        // Generate a unique ID for this run session
+        this._currentLoopId = Date.now() + Math.random();
+
         // 🌊 START GAME STATE
         this.state.start();
 
@@ -881,16 +908,21 @@ class GameEngine {
         this._accumulatorMs = 0;
         this._renderAccumulatorMs = 0;
 
-        if (!this._loopInitialized) {
-            this._loopInitialized = true;
-            this.gameLoop(now);
-            window.logger.log('+ Game loop started');
-        } else {
-            window.logger.log('@ Game loop already active - refreshed run state');
-        }
+        this._loopInitialized = true;
+
+        // Bind the loop to this specific run ID to prevent zombie loops
+        this.gameLoop(now, this._currentLoopId);
+        window.logger.log(`+ Game loop started (ID: ${this._currentLoopId})`);
     }
 
-    gameLoop(timestamp) {
+    gameLoop(timestamp, loopId) {
+        // [STRICT LOOP CHECK]
+        // If this loop iteration belongs to an old session, KILL IT IMMEDIATELY
+        if (loopId && loopId !== this._currentLoopId) {
+            // window.logger.warn(`Zombie loop detected and killed (ID: ${loopId} vs ${this._currentLoopId})`);
+            return;
+        }
+
         if (!this.isRunning) {
             this._loopHandle = null;
             this._loopInitialized = false;
@@ -955,7 +987,7 @@ class GameEngine {
             window.performanceProfiler.frameEnd();
         }
 
-        this._scheduleNextFrame();
+        this._scheduleNextFrame(loopId);
     }
 
     stop() {
@@ -1325,15 +1357,34 @@ class GameEngine {
             }
 
             // [C] Render cosmic background (replaces canvas clear)
+            let bgRendered = false;
+
+            // CRITICAL FIX: Always reset transform and context state before rendering background
+            // This prevents "liquifying" if a previous frame crashed before ctx.restore()
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            this.ctx.globalCompositeOperation = 'source-over';
+            this.ctx.globalAlpha = 1.0;
+            this.ctx.filter = 'none';
+            this.ctx.shadowBlur = 0;
+
             if (this.cosmicBackground && typeof this.cosmicBackground.render === 'function') {
-                if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBgRender');
-                this.cosmicBackground.render(this.player);
-                if (window.performanceProfiler?.enabled) window.performanceProfiler.end('cosmicBgRender', 'cosmicBackground');
-            } else {
+                try {
+                    if (window.performanceProfiler?.enabled) window.performanceProfiler.start('cosmicBgRender');
+                    this.cosmicBackground.render(this.player);
+                    if (window.performanceProfiler?.enabled) window.performanceProfiler.end('cosmicBgRender', 'cosmicBackground');
+                    bgRendered = true;
+                } catch (bgError) {
+                    window.logger.error('CosmicBackground render failed:', bgError);
+                    bgRendered = false;
+                }
+            }
+
+            // Fallback clear if background system missing or failed
+            if (!bgRendered) {
                 const ctx = this.ctx;
                 const previousFill = ctx.fillStyle;
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.fillStyle = '#0a0a1f';
+                ctx.fillStyle = '#0a0a1f'; // Deep space blue fallback
                 ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 ctx.fillStyle = previousFill;
             }
@@ -2122,7 +2173,7 @@ class GameEngine {
         return true;
     }
 
-    _scheduleNextFrame() {
+    _scheduleNextFrame(loopId) {
         if (!this.isRunning) {
             this._loopHandle = null;
             return;
@@ -2130,13 +2181,15 @@ class GameEngine {
 
         if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
             this._useSetTimeoutLoop = false;
-            this._loopHandle = window.requestAnimationFrame(this._boundGameLoop);
+            // Use arrow function to capture loopId in closure
+            this._loopHandle = window.requestAnimationFrame((timestamp) => this.gameLoop(timestamp, loopId));
         } else if (typeof requestAnimationFrame === 'function') {
             this._useSetTimeoutLoop = false;
-            this._loopHandle = requestAnimationFrame(this._boundGameLoop);
+            this._loopHandle = requestAnimationFrame((timestamp) => this.gameLoop(timestamp, loopId));
         } else {
             this._useSetTimeoutLoop = true;
-            this._loopHandle = setTimeout(this._boundGameLoop, 16);
+            // For setTimeout, we wrap it similarly
+            this._loopHandle = setTimeout(() => this.gameLoop(performance.now(), loopId), 16);
         }
     }
 

@@ -317,12 +317,11 @@ class GameManagerBridge {
                 window.logger.warn('! EffectsManager not available');
             }
 
-            const StatsManagerClass = this.resolveNamespace('StatsManager');
             if (typeof StatsManagerClass === 'function') {
                 this.statsManager = new StatsManagerClass(this);
-                if (!window.statsManager) {
-                    window.statsManager = this.statsManager;
-                }
+                // [FIX] Always update global reference on hard restart
+                window.statsManager = this.statsManager;
+
                 // StatsManager now loads from GameState, so they should already be in sync
                 // Keep this sync for defensive programming and backward compatibility
                 this.metaStars = this.statsManager.starTokens;
@@ -336,9 +335,8 @@ class GameManagerBridge {
             const DifficultyManagerClass = this.resolveNamespace('DifficultyManager');
             if (typeof DifficultyManagerClass === 'function') {
                 this.difficultyManager = new DifficultyManagerClass(this);
-                if (!window.gameManager) {
-                    window.gameManager = this;
-                }
+                // [FIX] Always update global reference on hard restart
+                window.gameManager = this;
                 window.gameManager.difficultyManager = this.difficultyManager;
                 window.logger.log('+ DifficultyManager initialized');
             } else {
@@ -371,13 +369,23 @@ class GameManagerBridge {
         }
 
         // Initialize engine if not done
-        if (!this.game) {
-            window.logger.log('> Game engine not initialized, creating...');
-            if (!this.initGameEngine()) {
-                window.logger.error('! Cannot start game - engine initialization failed');
-                alert('Failed to initialize game engine. Please refresh the page.');
-                return;
+        // OR if restarting: Destroy old instance and create a fresh one ("Hard Restart")
+        if (this.game) {
+            window.logger.log('> Stopping and destroying previous game engine...');
+            try {
+                this.game.stop(); // Stops loop, cleans listeners
+                this.game.shutdown(); // Full resource cleanup
+            } catch (e) {
+                window.logger.warn('Error stopping previous engine:', e);
             }
+            this.game = null;
+        }
+
+        window.logger.log('> Initializing fresh game engine instance...');
+        if (!this.initGameEngine()) {
+            window.logger.error('! Cannot start game - engine initialization failed');
+            alert('Failed to initialize game engine. Please refresh the page.');
+            return;
         }
 
         // Reset game state
@@ -387,11 +395,7 @@ class GameManagerBridge {
         if (this.game && typeof this.game.start === 'function') {
             window.logger.log('> Starting game engine...');
             this.game.start();
-            if (typeof this.game.resumeGame === 'function') {
-                this.game.resumeGame();
-            } else {
-                this.game.isPaused = false;
-            }
+            // ... strict checks removed, new engine is fresh ...
             this.running = true;
             this.setupMinimap();
             this.renderMinimap();
@@ -448,6 +452,16 @@ class GameManagerBridge {
             this.emergentDetector.reset();
         }
 
+        // Clear 3D wireframe sprite caches to prevent stale sprites between character swaps
+        if (window.Game?.playerShapeCache?.clearCache) {
+            window.Game.playerShapeCache.clearCache();
+            window.logger.log('+ PlayerShapeCache cleared');
+        }
+        if (window.Game?.enemyShapeCache?.clearCache) {
+            window.Game.enemyShapeCache.clearCache();
+            window.logger.log('+ EnemyShapeCache cleared');
+        }
+
         // Reset game over flags
         this.gameOver = false;
         this.gameWon = false;
@@ -455,6 +469,7 @@ class GameManagerBridge {
 
         window.logger.log('@ Game state reset');
     }
+
 
     setupMinimap() {
         const MinimapSystemClass = this.resolveNamespace('MinimapSystem');
@@ -904,13 +919,22 @@ class GameManagerBridge {
         this.endScreenShown = false;
 
         if (this.game) {
-            if (typeof this.game.resumeGame === 'function') {
-                this.game.resumeGame();
-            }
+            // CRITICAL: Stop the game loop properly to prevent broken rendering state
+            this.game.isRunning = false;
+            this.game.isPaused = true;
+
+            // Clear entities and prepare for next run
             if (typeof this.game.prepareNewRun === 'function') {
                 this.game.prepareNewRun();
             }
-            this.game.isPaused = true;
+        }
+
+        // Clear sprite caches to ensure fresh state for next character
+        if (window.Game?.playerShapeCache?.clearCache) {
+            window.Game.playerShapeCache.clearCache();
+        }
+        if (window.Game?.enemyShapeCache?.clearCache) {
+            window.Game.enemyShapeCache.clearCache();
         }
 
         this.updateStarDisplay();

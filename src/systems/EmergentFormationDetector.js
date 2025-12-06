@@ -29,7 +29,7 @@ class EmergentFormationDetector {
         this.constellationChaseGain = 0.8;
         this.constellationOrbitGain = 0.35;
         this.constellationRotationAlign = 0.5;
-        this.constellationReformCooldownMs = 350;  // Reduced from 600 - enemies rejoin shapes faster
+        this.constellationReformCooldownMs = 150;  // Reduced from 350 - enemies rejoin shapes very quickly
         this.mergeInterval = 3.5;  // Slightly less frequent merges to let shapes stabilize
         this.mergeTimer = 0;
         this.mergeMinAge = 2.5;  // Reduced from 3.0 - allow merging sooner for dynamic gameplay
@@ -171,7 +171,7 @@ class EmergentFormationDetector {
 
         // [TUNED] Increased base attraction to help free enemies join shapes faster
         // Still reduces with constellation count to prevent chaos
-        const baseStrength = 45;  // Increased from 30
+        const baseStrength = 65;  // Increased from 45
         const constellationCount = this.constellations.length;
         let attractStrength = baseStrength;
         if (constellationCount >= 10) {

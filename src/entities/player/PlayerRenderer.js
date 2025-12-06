@@ -31,47 +31,110 @@ class PlayerRenderer {
         const rotation = this.player.rotation || 0;
         const color = this.player.color || '#00ffff';
         const glowColor = this.player.glowColor || '#00ffff';
+        const characterId = this.player.characterId || 'aegis_vanguard';
 
-        // POLYBIUS VIBE: Vector-style ship
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(rotation + Math.PI / 2); // Point upwards by default
 
-        // Engine Glow (Pulsing)
+        // Engine Glow (Pulsing) - draws behind the ship, follows movement direction
         const pulse = 1 + Math.sin(Date.now() * 0.01) * 0.1;
+        ctx.save();
+        ctx.rotate(rotation + Math.PI / 2);
         ctx.fillStyle = PlayerRenderer._colorWithAlpha(glowColor, 0.3);
         ctx.beginPath();
         ctx.moveTo(-radius * 0.5, radius * 0.5);
         ctx.lineTo(0, radius * 1.5 * pulse);
         ctx.lineTo(radius * 0.5, radius * 0.5);
         ctx.fill();
+        ctx.restore();
 
+        // Try to use 3D wireframe cache
+        const shapeCache = window.Game?.playerShapeCache;
+
+        if (shapeCache) {
+            // Get class-specific rotation speed for subtle animation
+            let animSpeed = shapeCache.getRotationSpeed(characterId);
+
+            // Special: Berserker animation scales with low HP
+            if (characterId === 'cybernetic_berserker') {
+                const healthPercent = this.player.stats?.health / this.player.stats?.maxHealth || 1;
+                animSpeed = shapeCache.getBerserkerRotationSpeed(healthPercent);
+            }
+
+            // Subtle 3D depth animation - NOT full rotation, just a gentle wobble
+            // This creates depth effect without overriding the player's facing direction
+            const now = Date.now() / 1000;
+            const depthWobbleX = Math.sin(now * animSpeed * 2) * 0.3; // ±0.3 radians (~17°)
+            const depthWobbleY = Math.cos(now * animSpeed * 1.5) * 0.4; // ±0.4 radians (~23°)
+
+            // Get color override for invulnerability
+            let wireColor = null;
+            if (this.player.stats?.isInvulnerable) {
+                wireColor = '#ffffff';
+            }
+
+            // Get cached sprite with subtle wobble
+            const sprite = shapeCache.getSprite(characterId, radius, depthWobbleX, depthWobbleY, wireColor);
+
+            if (sprite) {
+                // Apply player's facing rotation FIRST
+                ctx.rotate(rotation + Math.PI / 2);
+
+                // Apply invulnerability visual effect
+                if (this.player.stats?.isInvulnerable) {
+                    ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.02) * 0.3;
+                }
+
+                // Draw the 3D wireframe sprite (centered)
+                ctx.drawImage(
+                    sprite.canvas,
+                    -sprite.halfSize,
+                    -sprite.halfSize
+                );
+
+                ctx.globalAlpha = 1.0;
+                ctx.restore();
+                return;
+            }
+        }
+
+        // FALLBACK: Original 2D rendering if 3D cache unavailable
+        ctx.rotate(rotation + Math.PI / 2);
+        this._renderFallback2DBody(ctx, radius, color, glowColor, characterId);
+        ctx.restore();
+    }
+
+    /**
+     * Fallback 2D rendering (original implementation)
+     * Used when PlayerShapeCache is unavailable
+     */
+    _renderFallback2DBody(ctx, radius, color, glowColor, characterId) {
         // Main Ship Body
-        ctx.fillStyle = '#000000'; // Black void center
-        ctx.strokeStyle = color;   // Neon outline
+        ctx.fillStyle = '#000000';
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
-        
-        if (this.player.stats.isInvulnerable) {
-            ctx.strokeStyle = '#ffffff'; // White flash when invuln
+
+        if (this.player.stats?.isInvulnerable) {
+            ctx.strokeStyle = '#ffffff';
             ctx.setLineDash([2, 2]);
         }
 
         ctx.beginPath();
-        
-        // Unique Geometry per Class
-        switch (this.player.characterId) {
-            case 'nova_corsair': // Speed/Aggressive - Forward Swept Wing / Trident
-                ctx.moveTo(0, -radius * 1.6); // Long nose
+
+        // Unique Geometry per Class (original 2D shapes)
+        switch (characterId) {
+            case 'nova_corsair':
+                ctx.moveTo(0, -radius * 1.6);
                 ctx.lineTo(radius * 0.4, -radius * 0.4);
-                ctx.lineTo(radius * 1.2, 0); // Wing tip
-                ctx.lineTo(radius * 0.6, radius); // Engine
-                ctx.lineTo(0, radius * 0.6); // Rear
+                ctx.lineTo(radius * 1.2, 0);
+                ctx.lineTo(radius * 0.6, radius);
+                ctx.lineTo(0, radius * 0.6);
                 ctx.lineTo(-radius * 0.6, radius);
                 ctx.lineTo(-radius * 1.2, 0);
                 ctx.lineTo(-radius * 0.4, -radius * 0.4);
                 break;
 
-            case 'stormcaller': // Lightning - 4-Point Star / Bolt
+            case 'stormcaller':
                 ctx.moveTo(0, -radius * 1.5);
                 ctx.lineTo(radius * 0.4, -radius * 0.4);
                 ctx.lineTo(radius * 1.2, 0);
@@ -82,7 +145,7 @@ class PlayerRenderer {
                 ctx.lineTo(-radius * 0.4, -radius * 0.4);
                 break;
 
-            case 'nexus_architect': // Orbital/Structure - Hexagon
+            case 'nexus_architect':
                 for (let i = 0; i < 6; i++) {
                     const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
                     const r = radius * 1.1;
@@ -93,8 +156,7 @@ class PlayerRenderer {
                 }
                 break;
 
-            case 'inferno_juggernaut': // Tank - Heavy Block / Fortress
-                // Octagon-ish block
+            case 'inferno_juggernaut':
                 const s = radius * 0.9;
                 const c = radius * 0.4;
                 ctx.moveTo(-c, -s);
@@ -107,7 +169,7 @@ class PlayerRenderer {
                 ctx.lineTo(-s, -c);
                 break;
 
-            case 'crimson_reaver': // Vampire - Spiked Crescent
+            case 'crimson_reaver':
                 ctx.moveTo(0, -radius * 1.2);
                 ctx.quadraticCurveTo(radius, -radius * 0.5, radius * 1.2, radius * 0.8);
                 ctx.lineTo(0, radius * 0.2);
@@ -115,24 +177,22 @@ class PlayerRenderer {
                 ctx.quadraticCurveTo(-radius, -radius * 0.5, 0, -radius * 1.2);
                 break;
 
-            case 'void_warden': // Gravity - Ring/Torus
+            case 'void_warden':
                 ctx.arc(0, 0, radius, 0, Math.PI * 2);
                 ctx.moveTo(radius * 0.5, 0);
-                ctx.arc(0, 0, radius * 0.5, 0, Math.PI * 2, true); // Hole
+                ctx.arc(0, 0, radius * 0.5, 0, Math.PI * 2, true);
                 break;
 
-            case 'phantom_striker': // Ghost - Split/Phasing
-                // Left half
+            case 'phantom_striker':
                 ctx.moveTo(-radius * 0.2, -radius * 1.2);
                 ctx.lineTo(-radius, radius);
                 ctx.lineTo(-radius * 0.2, radius * 0.5);
-                // Right half
                 ctx.moveTo(radius * 0.2, -radius * 1.2);
                 ctx.lineTo(radius, radius);
                 ctx.lineTo(radius * 0.2, radius * 0.5);
                 break;
 
-            case 'cybernetic_berserker': // Glitch - Asymmetrical
+            case 'cybernetic_berserker':
                 ctx.moveTo(0, -radius * 1.4);
                 ctx.lineTo(radius * 1.1, radius * 0.8);
                 ctx.lineTo(radius * 0.2, radius * 0.6);
@@ -140,38 +200,36 @@ class PlayerRenderer {
                 ctx.lineTo(-radius * 0.5, -radius * 0.2);
                 break;
 
-            case 'aegis_vanguard': // Shield - Heavy Chevron / Bulwark
+            case 'aegis_vanguard':
             default:
-                // Wide Shield Shape
-                ctx.moveTo(0, -radius * 1.1); // Top point
-                ctx.lineTo(radius * 1.1, -radius * 0.3); // Top right corner
-                ctx.lineTo(radius * 0.7, radius * 1.0); // Bottom right
-                ctx.lineTo(0, radius * 0.6); // Bottom center indent
-                ctx.lineTo(-radius * 0.7, radius * 1.0); // Bottom left
-                ctx.lineTo(-radius * 1.1, -radius * 0.3); // Top left corner
+                ctx.moveTo(0, -radius * 1.1);
+                ctx.lineTo(radius * 1.1, -radius * 0.3);
+                ctx.lineTo(radius * 0.7, radius * 1.0);
+                ctx.lineTo(0, radius * 0.6);
+                ctx.lineTo(-radius * 0.7, radius * 1.0);
+                ctx.lineTo(-radius * 1.1, -radius * 0.3);
                 break;
         }
-        
+
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        // Cockpit / Core (Unique per class)
+        // Cockpit / Core
+        ctx.setLineDash([]);
         ctx.fillStyle = glowColor;
         ctx.beginPath();
-        
-        if (this.player.characterId === 'void_warden') {
-             ctx.arc(0, 0, radius * 0.3, 0, Math.PI * 2);
-        } else if (this.player.characterId === 'nexus_architect') {
-             ctx.rect(-radius * 0.3, -radius * 0.3, radius * 0.6, radius * 0.6);
+
+        if (characterId === 'void_warden') {
+            ctx.arc(0, 0, radius * 0.3, 0, Math.PI * 2);
+        } else if (characterId === 'nexus_architect') {
+            ctx.rect(-radius * 0.3, -radius * 0.3, radius * 0.6, radius * 0.6);
         } else {
-             ctx.moveTo(0, -radius * 0.2);
-             ctx.lineTo(radius * 0.2, radius * 0.4);
-             ctx.lineTo(-radius * 0.2, radius * 0.4);
+            ctx.moveTo(0, -radius * 0.2);
+            ctx.lineTo(radius * 0.2, radius * 0.4);
+            ctx.lineTo(-radius * 0.2, radius * 0.4);
         }
         ctx.fill();
-
-        ctx.restore();
     }
 
     static _colorWithAlpha(color, alpha) {

@@ -105,6 +105,8 @@ class GPUMemoryManager {
             projectileGlow: 0,
             projectileCrit: 0,
             nebula: 0,
+            playerShapes: 0,
+            enemyShapes: 0,
             totalSprites: 0,
             estimatedMemoryKB: 0
         };
@@ -121,8 +123,17 @@ class GPUMemoryManager {
             stats.cosmicShapes = window.cosmicBackground.shapeSpriteCache?.size || 0;
         }
 
+        // Player and Enemy 3D wireframe shape caches
+        if (window.Game?.playerShapeCache?.spriteCache) {
+            stats.playerShapes = window.Game.playerShapeCache.spriteCache.size || 0;
+        }
+        if (window.Game?.enemyShapeCache?.spriteCache) {
+            stats.enemyShapes = window.Game.enemyShapeCache.spriteCache.size || 0;
+        }
+
         stats.totalSprites = stats.projectileBody + stats.projectileGlow +
-            stats.projectileCrit + (stats.cosmicShapes || 0);
+            stats.projectileCrit + (stats.cosmicShapes || 0) +
+            stats.playerShapes + stats.enemyShapes;
 
         // Estimate memory usage (rough approximation)
         // Small sprites ~4KB, large sprites ~16KB, average ~8KB
@@ -221,6 +232,16 @@ class GPUMemoryManager {
                 window.cosmicBackground.shapeSpriteCache?.clear();
             }
             window.logger?.info?.('🧹 Cleared CosmicBackground sprite cache');
+        }
+
+        // Clear 3D wireframe shape caches for player and enemies
+        if (window.Game?.playerShapeCache?.clearCache) {
+            window.Game.playerShapeCache.clearCache();
+            window.logger?.info?.('🧹 Cleared PlayerShapeCache');
+        }
+        if (window.Game?.enemyShapeCache?.clearCache) {
+            window.Game.enemyShapeCache.clearCache();
+            window.logger?.info?.('🧹 Cleared EnemyShapeCache');
         }
 
         this.lastCleanupTime = performance.now();

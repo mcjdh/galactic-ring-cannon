@@ -557,7 +557,9 @@ class EnemyShapeCache {
         const shapeDef = this.getShapeForType(enemyType);
         const edges = this.getEdgesForShape(shapeDef.type);
 
-        const spriteSize = Math.ceil(sizeKey * 3.5);
+        // Visual scale: reduce size to ~75% so wireframes don't clip in formations
+        const visualScale = 0.75;
+        const spriteSize = Math.ceil(sizeKey * 3.0); // Canvas size for projected wireframes
         const canvas = document.createElement('canvas');
         canvas.width = spriteSize;
         canvas.height = spriteSize;
@@ -567,10 +569,11 @@ class EnemyShapeCache {
         const angleX = this.cachedRotationAngles[rotXIdx] || 0;
         const angleY = this.cachedRotationAngles[rotYIdx] || 0;
 
-        // Scale vertices and project
+        // Scale vertices with visual scale factor and project
         const vertices = shapeDef.vertices;
+        const scaledSize = sizeKey * visualScale;
         const projected = vertices.map(v => {
-            const scaled = { x: v.x * sizeKey, y: v.y * sizeKey, z: v.z * sizeKey };
+            const scaled = { x: v.x * scaledSize, y: v.y * scaledSize, z: v.z * scaledSize };
             return this.project(scaled, angleX, angleY, 0);
         });
 
