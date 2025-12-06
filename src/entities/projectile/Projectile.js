@@ -450,6 +450,25 @@ class Projectile {
             ? player.abilities.gravityWellDamageMultiplier
             : 0.15;
 
+        // Extract burn data from projectile config or behavior
+        let burnData = null;
+        if (this.config?.burnData) {
+            burnData = this.config.burnData;
+        } else if (this._burnData) {
+            burnData = this._burnData;
+        } else if (this.behaviorManager?.hasBehavior?.('burn')) {
+            // Try to extract from behavior if direct config is missing
+            const behaviors = this.behaviorManager.behaviors || [];
+            const burnBehavior = behaviors.find(b => b.constructor.name === 'BurnBehavior' || b.name === 'burn');
+            if (burnBehavior) {
+                burnData = {
+                    damage: burnBehavior.damage,
+                    duration: burnBehavior.duration,
+                    chance: burnBehavior.chance
+                };
+            }
+        }
+
         try {
             const well = new GravityWellClass({
                 x: this.x,
@@ -460,7 +479,8 @@ class Projectile {
                 pullStrength,
                 damageMultiplier,
                 baseDamage: this.damage,
-                sourcePlayer: player
+                sourcePlayer: player,
+                burnData: burnData // Pass burn data to Gravity Well
             });
             engine.addEntity(well);
             this._createGravityWellSpawnFx();

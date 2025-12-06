@@ -245,6 +245,10 @@ class EnemyAbilities {
 
         // Create enhanced muzzle flash for spread attack
         this.createSpreadMuzzleFlash(baseAngle, spreadAngle);
+
+        if (window.audioSystem?.playBossAttackSound) {
+            window.audioSystem.playBossAttackSound(0.5, 0);
+        }
     }
 
     /**
@@ -269,6 +273,10 @@ class EnemyAbilities {
 
         // Create circular muzzle flash effect
         this.createCircularMuzzleFlash();
+
+        if (window.audioSystem?.playBossChargeSound) {
+            window.audioSystem.playBossChargeSound(0.6, 0);
+        }
     }
 
     /**
@@ -602,6 +610,10 @@ class EnemyAbilities {
                 zoneType === 'corrupted' ? '#8e44ad' : '#e74c3c',
                 20
             );
+        }
+
+        if (window.audioSystem?.playBossChargeSound) {
+            window.audioSystem.playBossChargeSound(0.7, 0);
         }
     }
 

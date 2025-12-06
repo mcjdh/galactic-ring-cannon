@@ -2,7 +2,7 @@ class AudioSystem {
     constructor() {
         // Check for Web Audio API support
         this.isWebAudioSupported = typeof window.AudioContext !== 'undefined' ||
-                                  typeof window.webkitAudioContext !== 'undefined';
+            typeof window.webkitAudioContext !== 'undefined';
 
         // Initialize audio context with error handling
         try {
@@ -50,7 +50,7 @@ class AudioSystem {
 
     // Provide simple HTMLAudioElement-based fallback so callers don't crash
     initializeFallbackAudio() {
-        this.play = (/* soundName, volume, position */) => {};
+        this.play = (/* soundName, volume, position */) => { };
         this.toggleMute = () => {
             this.isMuted = !this.isMuted;
             return this.isMuted;
@@ -58,16 +58,16 @@ class AudioSystem {
         this.setEnabled = (enabled) => {
             this.isMuted = !enabled;
         };
-        this.playBossBeat = () => {};
-        this.playBossTheme = () => {};
-        this.stopBossTheme = () => {};
-        this.startAmbientMusic = () => {};
-        this.stopAmbientMusic = () => {};
-        this.setMusicIntensity = () => {};
-        this.handleUserInteraction = () => {};
-        this.initializeAudioContext = () => {};
-        this.resumeAudioContext = () => {};
-        this.destroy = () => {};
+        this.playBossBeat = () => { };
+        this.playBossTheme = () => { };
+        this.stopBossTheme = () => { };
+        this.startAmbientMusic = () => { };
+        this.stopAmbientMusic = () => { };
+        this.setMusicIntensity = () => { };
+        this.handleUserInteraction = () => { };
+        this.initializeAudioContext = () => { };
+        this.resumeAudioContext = () => { };
+        this.destroy = () => { };
         this.masterGain = { gain: { value: 0.5 } };
         this.masterGainNode = { gain: { value: 0.5 } };
     }
@@ -223,7 +223,7 @@ class AudioSystem {
 
         const now = this.audioContext.currentTime;
 
-        switch(category) {
+        switch (category) {
             case 'master':
                 if (this.masterGain) {
                     this.masterGain.gain.setValueAtTime(value, now);
@@ -271,7 +271,7 @@ class AudioSystem {
 
             const resumeResult = this.resumeAudioContext();
             if (resumeResult && typeof resumeResult.then === 'function') {
-                resumeResult.then(() => this.flushPendingSounds()).catch(() => {});
+                resumeResult.then(() => this.flushPendingSounds()).catch(() => { });
             }
 
             if (this.audioContext?.state === 'suspended') {
@@ -320,8 +320,8 @@ class AudioSystem {
 
         // Get actual canvas width from game or fall back to reasonable default
         const canvas = window.gameManager?.game?.canvas ||
-                       document.getElementById('game-canvas') ||
-                       document.querySelector('canvas');
+            document.getElementById('game-canvas') ||
+            document.querySelector('canvas');
         const canvasWidth = canvas?.width || 800;
         const centerX = canvasWidth / 2;
 
@@ -377,7 +377,14 @@ class AudioSystem {
                     this.playBossSound(adjustedVolume);
                     break;
                 case 'bossMode':
+                case 'boss_spawn':
                     this.playBossSound(adjustedVolume);
+                    break;
+                case 'boss_attack':
+                    this.playBossAttackSound(adjustedVolume, pan);
+                    break;
+                case 'boss_charge':
+                    this.playBossChargeSound(adjustedVolume, pan);
                     break;
                 case 'playerHit':
                     this.playPlayerHitSound(adjustedVolume);
@@ -452,7 +459,7 @@ class AudioSystem {
             if (this.audioContext?.state === 'suspended') {
                 const resumeResult = this.audioContext.resume();
                 if (resumeResult?.then) {
-                    resumeResult.then(() => this.flushPendingSounds()).catch(() => {});
+                    resumeResult.then(() => this.flushPendingSounds()).catch(() => { });
                 } else {
                     this.flushPendingSounds();
                 }
@@ -802,9 +809,76 @@ class AudioSystem {
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(this.sfxGain);
+
         noise.start(now);
         noise.stop(now + 0.7);
     }
+
+    // Boss attack - sharp, aggressive mechanical sound
+    playBossAttackSound(volume, pan = 0) {
+        const now = this.audioContext.currentTime;
+        const panner = this.audioContext.createStereoPanner();
+        panner.pan.value = pan;
+
+        // Metallic impact
+        const osc = this.audioContext.createOscillator();
+        const oscGain = this.audioContext.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+        oscGain.gain.setValueAtTime(volume * 0.3, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        // Zap/Laser element
+        const lazer = this.audioContext.createOscillator();
+        const lazerGain = this.audioContext.createGain();
+        lazer.type = 'square';
+        lazer.frequency.setValueAtTime(800, now);
+        lazer.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+        lazerGain.gain.setValueAtTime(volume * 0.2, now);
+        lazerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        // Connect
+        osc.connect(oscGain);
+        oscGain.connect(panner);
+
+        lazer.connect(lazerGain);
+        lazerGain.connect(panner);
+
+        panner.connect(this.sfxGain);
+
+        osc.start(now);
+        osc.stop(now + 0.2);
+        lazer.start(now);
+        lazer.stop(now + 0.2);
+    }
+
+    // Boss charge - rising energy sound
+    playBossChargeSound(volume, pan = 0) {
+        const now = this.audioContext.currentTime;
+        const panner = this.audioContext.createStereoPanner();
+        panner.pan.value = pan;
+
+        const osc = this.audioContext.createOscillator();
+        const oscGain = this.audioContext.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.8);
+
+        oscGain.gain.setValueAtTime(0.001, now);
+        oscGain.gain.linearRampToValueAtTime(volume * 0.3, now + 0.7);
+        oscGain.gain.linearRampToValueAtTime(0.001, now + 0.8);
+
+        osc.connect(oscGain);
+        oscGain.connect(panner);
+        panner.connect(this.sfxGain);
+
+        osc.start(now);
+        osc.stop(now + 0.8);
+    }
+
+
 
     // Player hit sound - painful impact
     playPlayerHitSound(volume) {
@@ -1290,7 +1364,7 @@ class AudioSystem {
                 if (osc && osc.stop) {
                     try {
                         osc.stop(now + 3.5);
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             });
         }
@@ -1528,19 +1602,19 @@ try {
     window.logger?.error?.('Error creating audio system:', error);
     // Create a dummy audio system
     audioSystem = {
-        play: () => {},
-        playBossBeat: () => {},
-        playBossTheme: () => {},
-        stopBossTheme: () => {},
-        startAmbientMusic: () => {},
-        stopAmbientMusic: () => {},
-        setMusicIntensity: () => {},
+        play: () => { },
+        playBossBeat: () => { },
+        playBossTheme: () => { },
+        stopBossTheme: () => { },
+        startAmbientMusic: () => { },
+        stopAmbientMusic: () => { },
+        setMusicIntensity: () => { },
         toggleMute: () => false,
-        setEnabled: () => {},
-        setVolume: () => {},
-        handleUserInteraction: () => {},
-        resumeAudioContext: () => {},
-        initializeAudioContext: () => {},
+        setEnabled: () => { },
+        setVolume: () => { },
+        handleUserInteraction: () => { },
+        resumeAudioContext: () => { },
+        initializeAudioContext: () => { },
         isMuted: false,
         masterGain: { gain: { value: 0.5 } }
     };
@@ -1550,18 +1624,18 @@ try {
 }
 
 // Boss theme: play bass beat in sync with player shots
-AudioSystem.prototype.playBossTheme = function(volume = 0.4) {
+AudioSystem.prototype.playBossTheme = function (volume = 0.4) {
     this.isBossThemePlaying = true;
     this._bossBeat = { notes: [82.41, 98.00, 61.74, 65.41], idx: 0, volume };
 };
 
-AudioSystem.prototype.stopBossTheme = function() {
+AudioSystem.prototype.stopBossTheme = function () {
     this.isBossThemePlaying = false;
     delete this._bossBeat;
 };
 
 // Play a single boss beat note (invoke on each player shot)
-AudioSystem.prototype.playBossBeat = function() {
+AudioSystem.prototype.playBossBeat = function () {
     if (!this.isBossThemePlaying || !this._bossBeat || !this.audioContext || !this.masterGain || this.isMuted) return;
 
     try {

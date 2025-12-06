@@ -12,7 +12,9 @@ class GravityWell {
         pullStrength = 0.3,
         damageMultiplier = 0.15,
         baseDamage = 0,
-        sourcePlayer = null
+
+        sourcePlayer = null,
+        burnData = null // { damage, duration, chance }
     } = {}) {
         this.type = 'gravityWell';
         this.x = x;
@@ -26,7 +28,9 @@ class GravityWell {
         this.pullStrength = Math.max(0, pullStrength);
         this.damageMultiplier = Math.max(0, damageMultiplier);
         this.baseDamage = Math.max(0, baseDamage);
+
         this.sourcePlayer = sourcePlayer;
+        this.burnData = burnData;
 
         this.damageInterval = 0.25;
         this.damageTimer = 0;
@@ -126,8 +130,24 @@ class GravityWell {
             }
 
             const intensity = 1 - (distance / this.radius);
+
+
             const damage = Math.max(1, tickDamage * intensity);
             enemy.takeDamage(damage);
+
+            // Apply burn effect if configured (chance checked per tick to avoid guaranteed burn on first frame)
+            if (this.burnData && enemy.statusEffects) {
+                // Throttle burn application to avoid applying every frame
+                // Use a random check against delta time to approximate 'chance per second' or just use flat chance
+                // Since this runs every 0.25s (damageInterval), we can use the chance directly
+                if (Math.random() < (this.burnData.chance || 0.3)) {
+                    enemy.statusEffects.applyEffect('burn', {
+                        damage: this.burnData.damage || 5,
+                        explosionDamage: 0,
+                        explosionRadius: 0
+                    }, this.burnData.duration || 3.0);
+                }
+            }
 
             if (window.gameEngine?.unifiedUI?.addDamageNumber) {
                 window.gameEngine.unifiedUI.addDamageNumber(
@@ -155,8 +175,10 @@ class GravityWell {
         }
 
         this.particleAccumulator += deltaTime * spawnRate;
-        while (this.particleAccumulator >= 1) {
+        let loops = 0;
+        while (this.particleAccumulator >= 1 && loops < 100) {
             this.particleAccumulator -= 1;
+            loops++;
 
             const angle = Math.random() * Math.PI * 2;
             const distance = Math.random() * this.radius;

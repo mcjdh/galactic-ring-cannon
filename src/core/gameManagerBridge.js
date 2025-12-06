@@ -317,6 +317,12 @@ class GameManagerBridge {
                 window.logger.warn('! EffectsManager not available');
             }
 
+            let StatsManagerClass = this.resolveNamespace('StatsManager');
+            // [FIX] Explicit fallback to global window object if namespace resolution fails
+            if (typeof StatsManagerClass !== 'function' && typeof window.StatsManager === 'function') {
+                StatsManagerClass = window.StatsManager;
+            }
+
             if (typeof StatsManagerClass === 'function') {
                 this.statsManager = new StatsManagerClass(this);
                 // [FIX] Always update global reference on hard restart

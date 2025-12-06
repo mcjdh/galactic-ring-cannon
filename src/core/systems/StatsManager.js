@@ -945,4 +945,5 @@ class StatsManager {
 if (typeof window !== 'undefined') {
     window.Game = window.Game || {};
     window.Game.StatsManager = StatsManager;
+    window.StatsManager = StatsManager; // Explicit global registration for GameManagerBridge resolving
 }
