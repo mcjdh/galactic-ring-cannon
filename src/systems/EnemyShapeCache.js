@@ -54,7 +54,7 @@ class EnemyShapeCache {
     }
 
     _updateFastMathRef() {
-        this._fastMath = (typeof window !== 'undefined' && window.Game?.FastMath) || null;
+        this._fastMath = (typeof window !== 'undefined' && (window.FastMath || window.Game?.FastMath)) || null;
     }
 
     /**

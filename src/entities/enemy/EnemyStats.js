@@ -103,6 +103,27 @@ class EnemyStats {
     }
 
     /**
+     * Apply raw damage without defensive calculations or visual effects
+     * Used for damage sharing and redirected damage from formations
+     * @param {Enemy} enemy - Enemy to damage
+     * @param {number} amount - Raw damage amount
+     */
+    static takeDamageRaw(enemy, amount) {
+        if (enemy.isDead || !Number.isFinite(amount) || amount <= 0) return;
+
+        const damage = Math.max(1, Math.floor(amount));
+        enemy.health = Math.max(0, enemy.health - damage);
+
+        // Brief damage flash for visual feedback (shorter than normal hit)
+        enemy.damageFlashTimer = 50;
+
+        // Check for death
+        if (enemy.health <= 0) {
+            this.die(enemy);
+        }
+    }
+
+    /**
      * Helper to get the constellation object for an enemy
      * @private
      */

@@ -27,6 +27,9 @@ class PlayerRenderer {
     renderPlayerBody(ctx) {
         const x = this.player.x;
         const y = this.player.y;
+
+        // [SAFETY] Do not attempt to render if position is invalid
+        if (isNaN(x) || isNaN(y)) return;
         const radius = this.player.radius;
         const rotation = this.player.rotation || 0;
         const color = this.player.color || '#00ffff';

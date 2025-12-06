@@ -770,6 +770,14 @@ class GameEngine {
         // Reset collision system state for new run
         if (this.collisionSystem?.reset) {
             this.collisionSystem.reset();
+        } else {
+            // Re-create collision system if it was nulled during shutdown
+            try {
+                const CollisionSystem = window.Game?.CollisionSystem;
+                if (typeof CollisionSystem === 'function') {
+                    this.collisionSystem = new CollisionSystem(this);
+                }
+            } catch (_) { }
         }
 
         // Reset auxiliary managers
@@ -1316,15 +1324,32 @@ class GameEngine {
 
     updateSpatialGrid() {
         // [DEPRECATED] Legacy spatial grid moved to CollisionSystem
-        if (!this.collisionSystem && window.logger?.warn) {
-            window.logger.warn('GameEngine.updateSpatialGrid called but CollisionSystem is missing!');
+        // Attempt late-bind creation if class is now available
+        if (!this.collisionSystem) {
+            try {
+                const CollisionSystem = window.Game?.CollisionSystem;
+                if (typeof CollisionSystem === 'function') {
+                    this.collisionSystem = new CollisionSystem(this);
+                    if (this.collisionSystem?.updateSpatialGrid) {
+                        this.collisionSystem.updateSpatialGrid();
+                        return;
+                    }
+                }
+            } catch (_) { }
+            // Only warn once per session to avoid log spam
+            if (!this._spatialGridWarned) {
+                this._spatialGridWarned = true;
+                window.logger?.warn?.('GameEngine.updateSpatialGrid: CollisionSystem not available');
+            }
         }
     }
 
     checkCollisions() {
         // [DEPRECATED] Legacy collision checking moved to CollisionSystem
-        if (!this.collisionSystem && window.logger?.warn) {
-            window.logger.warn('GameEngine.checkCollisions called but CollisionSystem is missing!');
+        // Only warn once per session to avoid log spam
+        if (!this.collisionSystem && !this._collisionWarned) {
+            this._collisionWarned = true;
+            window.logger?.warn?.('GameEngine.checkCollisions: CollisionSystem not available');
         }
     }
 

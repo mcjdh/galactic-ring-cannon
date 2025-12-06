@@ -31,7 +31,7 @@ class MockEnemy {
             velocity: { x: 0, y: 0 },
             speed: 100,
             forceAccumulator: {
-                addForce: () => {}
+                addForce: () => { }
             }
         };
     }
@@ -53,7 +53,7 @@ class MockGame {
         this.spatialGrid = new Map();
         this.gridSize = 100;
     }
-    
+
     encodeGridKey(x, y) {
         return `${x},${y}`;
     }
@@ -90,17 +90,17 @@ const runTests = () => {
                 // Test at minEnemies
                 const minEnemies = createEnemies(pattern.minEnemies);
                 const minPositions = pattern.getTargetPositions(400, 300, minEnemies, 0);
-                
+
                 if (minPositions.length !== pattern.minEnemies) {
                     allCorrect = false;
                     errors.push(`${name}: minEnemies=${pattern.minEnemies}, got ${minPositions.length} positions`);
                 }
-                
+
                 // Test at maxEnemies
                 if (pattern.maxEnemies !== pattern.minEnemies) {
                     const maxEnemies = createEnemies(pattern.maxEnemies);
                     const maxPositions = pattern.getTargetPositions(400, 300, maxEnemies, 0);
-                    
+
                     if (maxPositions.length !== pattern.maxEnemies) {
                         allCorrect = false;
                         errors.push(`${name}: maxEnemies=${pattern.maxEnemies}, got ${maxPositions.length} positions`);
@@ -128,11 +128,11 @@ const runTests = () => {
 
             for (const [name, pattern] of Object.entries(detector.patterns)) {
                 const enemies = createEnemies(pattern.maxEnemies);
-                
+
                 // Test at various rotations
                 for (const rotation of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]) {
                     const positions = pattern.getTargetPositions(400, 300, enemies, rotation);
-                    
+
                     for (let i = 0; i < positions.length; i++) {
                         const pos = positions[i];
                         if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y)) {
@@ -166,7 +166,7 @@ const runTests = () => {
                 const enemies = createEnemies(pattern.maxEnemies);
                 const centerX = 400, centerY = 300;
                 const positions = pattern.getTargetPositions(centerX, centerY, enemies, 0);
-                
+
                 for (let i = 0; i < positions.length; i++) {
                     const pos = positions[i];
                     const dist = Math.hypot(pos.x - centerX, pos.y - centerY);
@@ -199,7 +199,7 @@ const runTests = () => {
             for (const [name, pattern] of Object.entries(detector.patterns)) {
                 const enemies = createEnemies(pattern.maxEnemies);
                 const positions = pattern.getTargetPositions(400, 300, enemies, 0);
-                
+
                 for (let i = 0; i < positions.length; i++) {
                     for (let j = i + 1; j < positions.length; j++) {
                         const dist = Math.hypot(
@@ -231,28 +231,28 @@ const runTests = () => {
             const detector = new EmergentFormationDetector(game);
             let rotationPreserved = true;
             const errors = [];
-            
+
             // Some patterns are intentionally asymmetric (DOUBLE_CRESCENT, V_FORMATION, etc.)
             // so we only test symmetric patterns
-            const symmetricPatterns = ['TRIANGLE', 'DIAMOND', 'PENTAGON', 'HEXAGON', 'OCTAGON', 
-                                        'CIRCLE', 'STAR', 'CROSS', 'ORBIT'];
+            const symmetricPatterns = ['TRIANGLE', 'DIAMOND', 'PENTAGON', 'HEXAGON', 'OCTAGON',
+                'CIRCLE', 'STAR', 'CROSS', 'ORBIT'];
 
             for (const name of symmetricPatterns) {
                 const pattern = detector.patterns[name];
                 if (!pattern) continue;
-                
+
                 const enemies = createEnemies(pattern.maxEnemies);
                 const pos0 = pattern.getTargetPositions(400, 300, enemies, 0);
                 const posRotated = pattern.getTargetPositions(400, 300, enemies, Math.PI / 2);
-                
+
                 // Calculate distances from center for both
                 const dists0 = pos0.map(p => Math.hypot(p.x - 400, p.y - 300));
                 const distsRotated = posRotated.map(p => Math.hypot(p.x - 400, p.y - 300));
-                
+
                 // Sort and compare - distances should be preserved
                 dists0.sort((a, b) => a - b);
                 distsRotated.sort((a, b) => a - b);
-                
+
                 for (let i = 0; i < dists0.length; i++) {
                     if (Math.abs(dists0[i] - distsRotated[i]) > 1) {
                         rotationPreserved = false;
@@ -281,8 +281,8 @@ const runTests = () => {
             const errors = [];
 
             for (const [name, pattern] of Object.entries(detector.patterns)) {
-                if (typeof pattern.strength !== 'number' || 
-                    pattern.strength <= 0 || 
+                if (typeof pattern.strength !== 'number' ||
+                    pattern.strength <= 0 ||
                     pattern.strength > 1) {
                     strengthsValid = false;
                     errors.push(`${name}: strength=${pattern.strength}`);
@@ -299,7 +299,7 @@ const runTests = () => {
         }
 
         // =====================================================
-        // TEST 7: getPatternColor returns valid colors for all patterns
+        // TEST 7: Pattern colors are valid for all patterns
         // =====================================================
         {
             const game = new MockGame();
@@ -308,9 +308,9 @@ const runTests = () => {
             const errors = [];
 
             for (const name of Object.keys(detector.patterns)) {
-                const color = detector.getPatternColor(name);
-                
-                if (!color || 
+                const color = detector.patterns[name].color;
+
+                if (!color ||
                     typeof color.r !== 'number' || color.r < 0 || color.r > 255 ||
                     typeof color.g !== 'number' || color.g < 0 || color.g > 255 ||
                     typeof color.b !== 'number' || color.b < 0 || color.b > 255) {
@@ -329,7 +329,7 @@ const runTests = () => {
         }
 
         // =====================================================
-        // TEST 8: getPatternMaxEdgeLength returns valid lengths for all patterns
+        // TEST 8: maxEdgeLength returns valid lengths for all patterns
         // =====================================================
         {
             const game = new MockGame();
@@ -338,8 +338,8 @@ const runTests = () => {
             const errors = [];
 
             for (const name of Object.keys(detector.patterns)) {
-                const length = detector.getPatternMaxEdgeLength(name);
-                
+                const length = detector.patterns[name].maxEdgeLength;
+
                 if (typeof length !== 'number' || length <= 0 || length > 200) {
                     edgesValid = false;
                     errors.push(`${name}: edge length=${length}`);
@@ -387,23 +387,23 @@ const runTests = () => {
         {
             const game = new MockGame();
             const detector = new EmergentFormationDetector(game);
-            
+
             // For 5 enemies, multiple patterns are available
             const counts = {};
             const iterations = 1000;
-            
+
             for (let i = 0; i < iterations; i++) {
                 const pattern = detector.selectPattern(5);
                 if (pattern) {
                     counts[pattern.name] = (counts[pattern.name] || 0) + 1;
                 }
             }
-            
+
             // Check that no single pattern dominates (>80%) and all eligible patterns appear
             const total = Object.values(counts).reduce((a, b) => a + b, 0);
             const maxRatio = Math.max(...Object.values(counts)) / total;
             const patternCount = Object.keys(counts).length;
-            
+
             if (maxRatio < 0.8 && patternCount >= 2) {
                 console.log(`✅ Test 10: Pattern selection well-distributed (${patternCount} patterns, max ${(maxRatio * 100).toFixed(1)}%)`);
                 passed++;
@@ -420,18 +420,18 @@ const runTests = () => {
             const game = new MockGame();
             game.enemies = createEnemies(5, 30);
             const detector = new EmergentFormationDetector(game);
-            
+
             const pattern = detector.patterns.PENTAGON;
             const constellation = detector.createConstellation(game.enemies, pattern);
-            
+
             if (!constellation) {
                 console.error('❌ Test 11: Failed to create constellation');
                 failed++;
             } else {
                 const anchors = constellation.enemies.map(e => e.constellationAnchor);
                 const uniqueAnchors = new Set(anchors);
-                
-                if (uniqueAnchors.size === anchors.length && 
+
+                if (uniqueAnchors.size === anchors.length &&
                     anchors.every(a => typeof a === 'number' && a >= 0)) {
                     console.log('✅ Test 11: Constellation assigns unique non-negative anchors');
                     passed++;
@@ -449,7 +449,7 @@ const runTests = () => {
             const game = new MockGame();
             game.enemies = createEnemies(15, 30);
             const detector = new EmergentFormationDetector(game);
-            
+
             // Create multiple constellations
             const ids = [];
             for (let i = 0; i < 5; i++) {
@@ -459,7 +459,7 @@ const runTests = () => {
                     ids.push(constellation.id);
                 }
             }
-            
+
             const uniqueIds = new Set(ids);
             if (uniqueIds.size === ids.length) {
                 console.log('✅ Test 12: Constellation IDs are unique');
@@ -478,14 +478,14 @@ const runTests = () => {
             game.enemies = createEnemies(5, 30);
             game.enemies[2].isDead = true;
             const detector = new EmergentFormationDetector(game);
-            
+
             detector.detectAndUpdateConstellations();
-            
+
             // Check that dead enemy is not in any constellation
-            const deadInConstellation = detector.constellations.some(c => 
+            const deadInConstellation = detector.constellations.some(c =>
                 c.enemies.some(e => e.isDead)
             );
-            
+
             if (!deadInConstellation) {
                 console.log('✅ Test 13: Dead enemies excluded from constellations');
                 passed++;
@@ -504,14 +504,14 @@ const runTests = () => {
             game.enemies[0].formationId = 'test_formation';
             game.enemies[1].formationId = 'test_formation';
             const detector = new EmergentFormationDetector(game);
-            
+
             detector.detectAndUpdateConstellations();
-            
+
             // Check that formation enemies are not in constellations
-            const formationEnemiesInConstellation = detector.constellations.some(c => 
+            const formationEnemiesInConstellation = detector.constellations.some(c =>
                 c.enemies.some(e => e.formationId)
             );
-            
+
             if (!formationEnemiesInConstellation) {
                 console.log('✅ Test 14: Formation enemies excluded from constellations');
                 passed++;
@@ -528,12 +528,12 @@ const runTests = () => {
             const game = new MockGame();
             const detector = new EmergentFormationDetector(game);
             let deterministic = true;
-            
+
             for (const [name, pattern] of Object.entries(detector.patterns)) {
                 const enemies = createEnemies(pattern.maxEnemies);
                 const pos1 = pattern.getTargetPositions(400, 300, enemies, Math.PI / 4);
                 const pos2 = pattern.getTargetPositions(400, 300, enemies, Math.PI / 4);
-                
+
                 for (let i = 0; i < pos1.length; i++) {
                     if (pos1[i].x !== pos2[i].x || pos1[i].y !== pos2[i].y) {
                         deterministic = false;
@@ -558,16 +558,16 @@ const runTests = () => {
             const game = new MockGame();
             const detector = new EmergentFormationDetector(game);
             let handlesEmpty = true;
-            
+
             try {
                 // Test with empty arrays - should not crash
                 for (const [name, pattern] of Object.entries(detector.patterns)) {
                     const positions = pattern.getTargetPositions(400, 300, [], 0);
                     // Empty array should return empty or handle gracefully
                 }
-                
+
                 detector.detectAndUpdateConstellations(); // Should handle empty enemies
-                
+
             } catch (e) {
                 handlesEmpty = false;
             }
@@ -588,16 +588,16 @@ const runTests = () => {
             const game = new MockGame();
             const detector = new EmergentFormationDetector(game);
             let handlesExtreme = true;
-            
+
             const extremeRotations = [0, 1000 * Math.PI, -1000 * Math.PI, Infinity, -Infinity, NaN];
-            
+
             for (const [name, pattern] of Object.entries(detector.patterns)) {
                 const enemies = createEnemies(pattern.minEnemies);
-                
+
                 for (const rot of extremeRotations) {
                     try {
                         const positions = pattern.getTargetPositions(400, 300, enemies, rot);
-                        
+
                         // Check for NaN contamination
                         for (const pos of positions) {
                             if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y)) {
@@ -657,19 +657,19 @@ const runTests = () => {
             const game = new MockGame();
             game.enemies = createEnemies(5, 30);
             const detector = new EmergentFormationDetector(game);
-            
+
             // Create constellation
             detector.detectAndUpdateConstellations();
             const initialCount = detector.constellations.length;
-            
+
             // Kill all enemies
             for (const enemy of game.enemies) {
                 enemy.isDead = true;
             }
-            
+
             // Cleanup should remove constellation
             detector.cleanupConstellations();
-            
+
             // Verify constellation removed
             if (detector.constellations.length === 0) {
                 console.log('✅ Test 19: Constellation cleanup removes dead constellations');
@@ -678,7 +678,7 @@ const runTests = () => {
                 console.error('❌ Test 19: Dead constellation not cleaned up');
                 failed++;
             }
-            
+
             // Verify enemy tags cleared
             const tagsCleared = game.enemies.every(e => !e.constellation && !e.constellationAnchor);
             if (!tagsCleared) {
@@ -693,17 +693,17 @@ const runTests = () => {
             const game = new MockGame();
             game.enemies = createEnemies(5, 30);
             const detector = new EmergentFormationDetector(game);
-            
+
             detector.detectAndUpdateConstellations();
-            
+
             if (detector.constellations.length > 0) {
                 const initialAge = detector.constellations[0].age;
-                
+
                 // Simulate time passing
                 detector.update(1.0); // 1 second
-                
+
                 const newAge = detector.constellations[0].age;
-                
+
                 if (newAge > initialAge) {
                     console.log('✅ Test 20: Constellation age increases over time');
                     passed++;

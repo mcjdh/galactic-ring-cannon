@@ -108,7 +108,7 @@ class GravityWell {
         for (const enemy of enemies) {
             // [FIX] Add coordinate validation to prevent crashes with NaN values
             if (!enemy || enemy.isDead || typeof enemy.takeDamage !== 'function' ||
-                isNaN(enemy.x) || isNaN(enemy.y)) {
+                !Number.isFinite(enemy.x) || !Number.isFinite(enemy.y)) {
                 continue;
             }
 

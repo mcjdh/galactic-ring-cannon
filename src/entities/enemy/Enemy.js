@@ -204,6 +204,14 @@ class Enemy {
     }
 
     /**
+     * Take raw damage without defensive calculations - delegates to EnemyStats
+     * Used by FormationBonusSystem for damage sharing/redistribution
+     */
+    takeDamageRaw(amount) {
+        EnemyStats.takeDamageRaw(this, amount);
+    }
+
+    /**
      * Handle enemy death - delegates to EnemyStats
      */
     die() {
@@ -282,7 +290,7 @@ class Enemy {
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count;
                 const speed = (50 + Math.random() * 50) * (this.isBoss ? 2 : 1);
-                
+
                 pool.spawnParticle({
                     x: this.x,
                     y: this.y,
@@ -313,13 +321,13 @@ class Enemy {
                     // Or just let it be a static ring that fades.
                     // Actually, let's use 'basic' with high transparency for a "flash"
                 });
-                
+
                 // Since 'ring' type is just a stroked circle, it won't expand unless we modify update logic.
                 // But for now, a static fading ring is better than nothing.
                 // To make it expand, we'd need to change size in update.
                 // OptimizedParticlePool.updateParticle doesn't change size.
                 // Let's stick to sparks for now, maybe a 'glow' (large basic particle)
-                 pool.spawnParticle({
+                pool.spawnParticle({
                     x: this.x,
                     y: this.y,
                     vx: 0,
@@ -339,6 +347,20 @@ class Enemy {
      */
     render(ctx) {
         EnemyRenderer.render(this, ctx);
+    }
+
+    /**
+     * Stats accessor for FormationBonusSystem compatibility
+     * Provides takeDamageRaw and heal methods on enemy.stats
+     */
+    get stats() {
+        const self = this;
+        return {
+            takeDamageRaw: (amount) => EnemyStats.takeDamageRaw(self, amount),
+            heal: (amount) => {
+                self.health = Math.min(self.maxHealth, self.health + amount);
+            }
+        };
     }
 
     /**

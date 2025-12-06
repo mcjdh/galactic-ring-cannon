@@ -207,7 +207,15 @@ class EmergentFormationDetector {
             if (nearestConstellation && enemy.movement?.forceAccumulator) {
                 const dx = nearestConstellation.centerX - enemy.x;
                 const dy = nearestConstellation.centerY - enemy.y;
-                const dist = Math.sqrt(nearestDist);
+                // Use FastMath if available
+                const FM = window.FastMath || window.Game?.FastMath;
+                let dist;
+
+                if (FM) {
+                    dist = FM.sqrt(nearestDist);
+                } else {
+                    dist = Math.sqrt(nearestDist);
+                }
 
                 // Strength falls off with distance
                 const falloff = 1 - (dist / attractRadius);
@@ -923,7 +931,6 @@ class EmergentFormationDetector {
         centerY /= enemies.length;
 
         // 2. Sort enemies by distance to centroid to find the most compact group
-        // This prevents "stringy" clusters from forming constellations across vast distances
         enemies.sort((a, b) => {
             const distA = (a.x - centerX) ** 2 + (a.y - centerY) ** 2;
             const distB = (b.x - centerX) ** 2 + (b.y - centerY) ** 2;
@@ -945,16 +952,14 @@ class EmergentFormationDetector {
         centerY /= targetEnemies.length;
 
         // 5. Sort selected enemies by angle around the new center
-        // This ensures that the visual "loop" (i -> i+1) connects adjacent enemies
-        // preventing crossing lines and visual distortions
-        const allowedRadiusSq = this.maxConstellationRadiusSq * 1.1; // Slightly lenient to avoid over-culling
+        const allowedRadiusSq = this.maxConstellationRadiusSq * 1.1;
         targetEnemies = targetEnemies.filter(enemy => {
             const dx = enemy.x - centerX;
             const dy = enemy.y - centerY;
             return (dx * dx + dy * dy) <= allowedRadiusSq;
         });
 
-        // Recenter after culling distant outliers to avoid string-like shapes
+        // Recenter after culling distant outliers
         if (targetEnemies.length >= this.minEnemiesForConstellation) {
             centerX = 0;
             centerY = 0;
@@ -966,7 +971,7 @@ class EmergentFormationDetector {
             centerY /= targetEnemies.length;
         }
 
-        // If the remaining group no longer fits the selected pattern, gracefully downgrade to best-fit
+        // Check if group still fits pattern
         if (targetEnemies.length < pattern.minEnemies || targetEnemies.length > pattern.maxEnemies) {
             const fallback = this.selectPattern(targetEnemies.length, { allowSubset: true });
             if (!fallback) {
@@ -976,7 +981,7 @@ class EmergentFormationDetector {
             pattern = fallback;
             targetEnemies = targetEnemies.slice(0, pattern.maxEnemies);
 
-            // Recenter after trimming to fallback size
+            // Recenter after trimming
             centerX = 0;
             centerY = 0;
             for (const enemy of targetEnemies) {
@@ -987,24 +992,22 @@ class EmergentFormationDetector {
             centerY /= targetEnemies.length;
         }
 
-        // [IMPROVED] Smart anchor assignment - assign enemies to nearest target positions
-        // This minimizes crossing lines and reduces initial movement needed
+        // Smart anchor assignment
         const initialRotation = Math.random() * Math.PI * 2;
         const tempPositions = pattern.getTargetPositions(centerX, centerY, targetEnemies, initialRotation);
 
         if (tempPositions && tempPositions.length === targetEnemies.length) {
-            // Use Hungarian-style greedy assignment: each enemy gets nearest unassigned position
             const assigned = new Set();
             const assignments = [];
 
-            // Sort enemies by distance to center (assign inner enemies first for stability)
+            // Sort enemies by distance to center
             const sortedByDist = [...targetEnemies].map((e, origIdx) => ({
                 enemy: e,
                 origIdx,
-                distToCenter: Math.hypot(e.x - centerX, e.y - centerY)
+                distToCenter: (e.x - centerX) ** 2 + (e.y - centerY) ** 2
             })).sort((a, b) => a.distToCenter - b.distToCenter);
 
-            for (const { enemy, origIdx } of sortedByDist) {
+            for (const { enemy } of sortedByDist) {
                 let bestPos = -1;
                 let bestDistSq = Infinity;
 
@@ -1025,12 +1028,16 @@ class EmergentFormationDetector {
                 }
             }
 
-            // Apply assignments
             for (const { enemy, anchor } of assignments) {
                 enemy.constellationAnchor = anchor;
             }
         } else {
-            // Fallback: sort by angle and assign sequentially
+            // Mismatch detected - log warning
+            if (window.logger?.warn && tempPositions) {
+                window.logger.warn(`[Emergent] Pattern ${pattern.name} size mismatch: generated ${tempPositions.length} positions for ${targetEnemies.length} enemies`);
+            }
+
+            // Fallback: sort by angle
             targetEnemies.sort((a, b) => {
                 const angleA = Math.atan2(a.y - centerY, a.x - centerX);
                 const angleB = Math.atan2(b.y - centerY, b.x - centerX);
@@ -1051,11 +1058,10 @@ class EmergentFormationDetector {
             createdAt: Date.now(),
             age: 0,
             rotation: initialRotation,
-            rotationSpeed: (Math.random() - 0.5) * 0.4 + (Math.random() > 0.5 ? 0.1 : -0.1), // Slower rotation
+            rotationSpeed: (Math.random() - 0.5) * 0.4 + (Math.random() > 0.5 ? 0.1 : -0.1),
             integrityStrikes: 0
         };
 
-        // Mark enemies as part of this constellation
         const joinTimestamp = (this.game?.timeMs) ??
             (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 
@@ -1064,7 +1070,6 @@ class EmergentFormationDetector {
             enemy.constellationJoinedAt = joinTimestamp;
             enemy.constellationCooldown = 0;
             if (enemy.movement && enemy.movement.velocity) {
-                // Clear residual momentum from prior behavior to let formation forces take over
                 enemy.movement.velocity.x *= 0.2;
                 enemy.movement.velocity.y *= 0.2;
             }
@@ -1072,15 +1077,12 @@ class EmergentFormationDetector {
 
         this.constellations.push(constellation);
 
-        // ALWAYS LOG constellation creation for visibility
-        window.logger?.log(`✨ [Emergent] Created ${pattern.name} constellation with ${targetEnemies.length} enemies at (${Math.round(centerX)}, ${Math.round(centerY)})`);
+        window.logger?.log(`✨ [Emergent] Created ${pattern.name} constellation with ${targetEnemies.length} enemies`);
 
-        // Trigger visual effects
         if (this.effects) {
             this.effects.onConstellationFormed(constellation);
         }
 
-        // Apply formation bonuses
         if (this.FormationBonusSystem) {
             this.FormationBonusSystem.applyBonuses(constellation);
         }
@@ -1090,24 +1092,18 @@ class EmergentFormationDetector {
 
     /**
      * Reoptimize anchor assignments for all constellations
-     * Fixes shapes that look glitchy because enemies are assigned to suboptimal positions
-     * Uses greedy nearest-neighbor to minimize total movement needed
-     * [OPTIMIZED] Reduced allocations by reusing arrays and early-exit checks
      */
     reoptimizeAnchors() {
         for (const constellation of this.constellations) {
-            if (!constellation || constellation.age < 1.0) continue;  // Let new constellations settle first
+            if (!constellation || constellation.age < 1.0) continue;
 
-            // [PERF] Filter once and reuse
             const aliveEnemies = constellation.enemies.filter(e => e && !e.isDead);
-            const aliveCount = aliveEnemies.length;
-            if (aliveCount < 2) continue;
+            if (aliveEnemies.length < 2) continue;
 
             const positions = this._getConstellationPositions(constellation);
             const posCount = positions?.length || 0;
             if (posCount === 0) continue;
 
-            // [PERF] Early exit: if all anchors are already optimal (enemies close to targets), skip
             let maxDeviation = 0;
             for (const enemy of aliveEnemies) {
                 const anchor = enemy.constellationAnchor ?? 0;
@@ -1118,10 +1114,10 @@ class EmergentFormationDetector {
                     maxDeviation = Math.max(maxDeviation, dx * dx + dy * dy);
                 }
             }
-            // Skip if all enemies are within 30px of their targets (900 = 30²)
             if (maxDeviation < 900) continue;
 
-            // Calculate current total distance (sum of all enemy-to-target distances)
+            const FM = window.FastMath || window.Game?.FastMath;
+
             let currentTotalDist = 0;
             for (const enemy of aliveEnemies) {
                 const anchor = enemy.constellationAnchor ?? 0;
@@ -1129,24 +1125,23 @@ class EmergentFormationDetector {
                 if (target) {
                     const dx = enemy.x - target.x;
                     const dy = enemy.y - target.y;
-                    currentTotalDist += Math.sqrt(dx * dx + dy * dy);
+                    if (FM) {
+                        currentTotalDist += FM.sqrt(dx * dx + dy * dy);
+                    } else {
+                        currentTotalDist += Math.sqrt(dx * dx + dy * dy);
+                    }
                 }
             }
 
-            // Try greedy reassignment to minimize crossing
             const assigned = new Set();
             const newAssignments = [];
-
-            // Sort enemies by distance from constellation center (inner first)
-            // [PERF] Cache center coordinates
             const cx = constellation.centerX;
             const cy = constellation.centerY;
-            const sortedEnemies = aliveEnemies
-                .map(e => ({
-                    enemy: e,
-                    distToCenter: (e.x - cx) * (e.x - cx) + (e.y - cy) * (e.y - cy) // squared, no sqrt needed
-                }))
-                .sort((a, b) => a.distToCenter - b.distToCenter);
+
+            const sortedEnemies = aliveEnemies.map(e => ({
+                enemy: e,
+                distToCenter: (e.x - cx) ** 2 + (e.y - cy) ** 2
+            })).sort((a, b) => a.distToCenter - b.distToCenter);
 
             for (const { enemy } of sortedEnemies) {
                 let bestPos = -1;
@@ -1165,22 +1160,20 @@ class EmergentFormationDetector {
 
                 if (bestPos >= 0) {
                     assigned.add(bestPos);
-                    newAssignments.push({ enemy, anchor: bestPos, dist: Math.sqrt(bestDistSq) });
+                    const dist = FM ? FM.sqrt(bestDistSq) : Math.sqrt(bestDistSq);
+                    newAssignments.push({ enemy, anchor: bestPos, dist });
                 }
             }
 
-            // Calculate new total distance
             let newTotalDist = 0;
             for (const { dist } of newAssignments) {
                 newTotalDist += dist;
             }
 
-            // Only apply if it's an improvement (reduces total distance by at least 10%)
             if (newTotalDist < currentTotalDist * 0.9) {
                 for (const { enemy, anchor } of newAssignments) {
                     enemy.constellationAnchor = anchor;
                 }
-                // [FIX] Clear target cache since anchors changed, forces recalculation
                 delete constellation._targetCache;
             }
         }
@@ -1188,13 +1181,11 @@ class EmergentFormationDetector {
 
     /**
      * Update constellation state (center, rotation) and detect stuck enemies
-     * [SIMPLIFIED] Removed complex calculations that caused lag and oscillation
      */
     applyConstellationForces(deltaTime) {
         for (const constellation of this.constellations) {
             constellation.age += deltaTime;
 
-            // Update center position (follow enemies' mass center)
             let centerX = 0, centerY = 0;
             let validEnemies = 0;
             for (const enemy of constellation.enemies) {
@@ -1210,31 +1201,25 @@ class EmergentFormationDetector {
             centerX /= validEnemies;
             centerY /= validEnemies;
 
-            // [SIMPLIFIED] Smooth center tracking with fixed blend factor
-            // No complex age-based calculations that vary per frame
             const blendFactor = 0.4;
             constellation.centerX = constellation.centerX * (1 - blendFactor) + centerX * blendFactor;
             constellation.centerY = constellation.centerY * (1 - blendFactor) + centerY * blendFactor;
 
-            // Group-level steering toward player with standoff
             const player = this.game?.player;
             if (player) {
                 const dxp = player.x - constellation.centerX;
                 const dyp = player.y - constellation.centerY;
-                const dist = Math.sqrt(dxp * dxp + dyp * dyp) || 1;
 
-                // Simple distance error calculation
+                const FM = window.FastMath || window.Game?.FastMath;
+                const dist = (FM ? FM.sqrt(dxp * dxp + dyp * dyp) : Math.sqrt(dxp * dxp + dyp * dyp)) || 1;
+
                 const standoff = this.constellationStandoffDistance;
                 const distError = dist - standoff;
 
-                // [IMPROVED] Scale movement based on constellation count to prevent chaos
                 const constellationCount = this.constellations.length;
                 let moveScale = 1.0;
-                if (constellationCount >= 8) {
-                    moveScale = 0.6;  // Much slower when many constellations
-                } else if (constellationCount >= 5) {
-                    moveScale = 0.8;  // Slightly slower
-                }
+                if (constellationCount >= 8) moveScale = 0.6;
+                else if (constellationCount >= 5) moveScale = 0.8;
 
                 const moveSpeed = 120 * moveScale;
                 const errorSign = distError > 0 ? 1 : -1;
@@ -1244,47 +1229,34 @@ class EmergentFormationDetector {
                 constellation.centerX += (dxp / dist) * moveAmount;
                 constellation.centerY += (dyp / dist) * moveAmount;
 
-                // [IMPROVED] Reduce orbit motion when many constellations to prevent chaos
                 const orbitSpeed = 35 * moveScale * deltaTime;
                 constellation.centerX += (-dyp / dist) * orbitSpeed;
                 constellation.centerY += (dxp / dist) * orbitSpeed;
 
-                // [NEW] Blend rotation toward player for aggressive patterns
-                // Arrow-type patterns face the player, circular patterns spin freely
                 const facingPatterns = ['ARROW', 'ARROW_FLIGHT', 'V_FORMATION', 'DOUBLE_V', 'LINE'];
                 if (facingPatterns.includes(constellation.pattern?.name)) {
                     const targetRotation = Math.atan2(dyp, dxp);
-                    // Smooth rotation toward player (blend factor 0.03 = slow turn)
                     let rotDiff = targetRotation - constellation.rotation;
-                    // Normalize to -PI to PI
                     while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
                     while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
                     constellation.rotation += rotDiff * 0.03;
                 }
             }
 
-            // Update rotation - maintain rotation longer for more dynamic feel
-            // Slower decay rate so shapes keep spinning
             const rotationRate = constellation.rotationSpeed * Math.max(0.5, 1.0 - constellation.age * 0.01);
             constellation.rotation += rotationRate * deltaTime;
 
-            // Normalize rotation to prevent floating point issues over time
             if (constellation.rotation > Math.PI * 2) {
                 constellation.rotation -= Math.PI * 2;
             } else if (constellation.rotation < 0) {
                 constellation.rotation += Math.PI * 2;
             }
 
-            // Periodically clean dead enemies from the array (every ~1 second based on age)
             if (Math.floor(constellation.age) !== Math.floor(constellation.age - deltaTime)) {
                 const before = constellation.enemies.length;
                 constellation.enemies = constellation.enemies.filter(e => e && !e.isDead);
                 if (constellation.enemies.length < before) {
-                    // Clear target cache since enemy count changed
                     delete constellation._targetCache;
-                    // [FIX] Reassign anchors sequentially to prevent stacking
-                    // Without this, enemies with high anchor indices would map to
-                    // the same positions as low indices via modulo (e.g., anchor 6 % 6 = 0)
                     for (let i = 0; i < constellation.enemies.length; i++) {
                         constellation.enemies[i].constellationAnchor = i;
                     }
@@ -1304,7 +1276,6 @@ class EmergentFormationDetector {
 
             // Helper to dismantle
             const dismantle = () => {
-                // Apply break debuff (disorientation) before removing bonuses
                 if (this.FormationBonusSystem) {
                     this.FormationBonusSystem.applyBreakDebuff(constellation.enemies);
                     this.FormationBonusSystem.removeBonuses(constellation);
@@ -1322,7 +1293,6 @@ class EmergentFormationDetector {
                     }
                 }
                 this.effects?.removeConstellationBeams?.(constellation.id);
-                // Trigger break effects if available
                 if (this.effects) {
                     this.effects.onFormationBroken({
                         center: { x: constellation.centerX, y: constellation.centerY },
@@ -1332,36 +1302,30 @@ class EmergentFormationDetector {
                 }
             };
 
-            // Remove if too many enemies died
             const aliveEnemies = constellation.enemies.filter(e => e && !e.isDead);
             if (aliveEnemies.length < (constellation.pattern.minEnemies || 2)) {
                 dismantle();
                 return false;
             }
 
-            // Remove if too old (45 seconds max - increased from 30)
             if (constellation.age > 45) {
                 dismantle();
                 return false;
             }
 
-            // Allow grace period after creation to settle into shape
-            // [TUNED] Extended grace period - scales with pattern complexity
-            const patternComplexity = (constellation.pattern.maxEnemies || 3) / 3; // 1.0 for triangle, 2.0 for hexagon
-            const gracePeriod = 4.0 + patternComplexity * 1.5; // 5.5s for triangle, 7s for hexagon
+            const patternComplexity = (constellation.pattern.maxEnemies || 3) / 3;
+            const gracePeriod = 4.0 + patternComplexity * 1.5;
             if (constellation.age < gracePeriod) {
                 return true;
             }
 
-            // Cache target positions - we use them for multiple checks
             const targetPositions = this._getConstellationPositions(constellation);
-
             if (!targetPositions || targetPositions.length === 0) {
                 dismantle();
                 return false;
             }
 
-            // 0. Bounding radius check - if anyone wandered far from the centroid
+            // Checks (Radius, Edge, Deviation)
             let radiusBreached = false;
             for (const enemy of aliveEnemies) {
                 const dx = enemy.x - constellation.centerX;
@@ -1372,42 +1336,31 @@ class EmergentFormationDetector {
                 }
             }
 
-            // 1. Edge Length Check (Visual Connection Lines)
-            // [IMPROVED] Pattern-specific thresholds for better stability
-            const patternMaxEdge = this.getPatternMaxEdgeLength(constellation.pattern.name);
+            const patternMaxEdge = constellation.pattern.maxEdgeLength || 120;
             const maxEdgeLengthSq = patternMaxEdge * patternMaxEdge;
             let edgeTooLong = false;
             let worstEdgeRatio = 0;
 
-            // Only check edges between alive enemies
             for (let i = 0; i < aliveEnemies.length; i++) {
                 const e1 = aliveEnemies[i];
                 const e2 = aliveEnemies[(i + 1) % aliveEnemies.length];
-
                 if (e1 && e2) {
                     const distSq = (e1.x - e2.x) ** 2 + (e1.y - e2.y) ** 2;
                     const ratio = distSq / maxEdgeLengthSq;
                     if (ratio > worstEdgeRatio) worstEdgeRatio = ratio;
-                    if (distSq > maxEdgeLengthSq * 1.5) {  // 50% over limit = too long
+                    if (distSq > maxEdgeLengthSq * 1.5) {
                         edgeTooLong = true;
                         break;
                     }
                 }
             }
 
-            // 2. Target Deviation Check using cached positions
-            // [TUNED] More lenient deviation threshold - enemies need time to reach targets
             const maxDeviationSq = 300 * 300;
             let deviationTooHigh = false;
             for (let i = 0; i < aliveEnemies.length; i++) {
                 const enemy = aliveEnemies[i];
-
                 const anchorIndex = enemy.constellationAnchor ?? i;
-                // [FIX] Safety check for empty targetPositions array
-                const target = targetPositions.length > 0
-                    ? targetPositions[anchorIndex % targetPositions.length]
-                    : null;
-
+                const target = targetPositions[anchorIndex % targetPositions.length];
                 if (target) {
                     const distSq = (enemy.x - target.x) ** 2 + (enemy.y - target.y) ** 2;
                     if (distSq > maxDeviationSq) {
@@ -1419,28 +1372,24 @@ class EmergentFormationDetector {
 
             const violated = edgeTooLong || deviationTooHigh || radiusBreached;
             if (violated) {
-                // [IMPROVED] Graduated strike system - minor violations add less
                 let strikeAmount = 1;
-                if (edgeTooLong) strikeAmount = 2;  // Edge violations are more serious
+                if (edgeTooLong) strikeAmount = 2;
                 if (radiusBreached) strikeAmount = 2;
-                if (deviationTooHigh && !edgeTooLong) strikeAmount = 0.5;  // Minor if just deviation
+                if (deviationTooHigh && !edgeTooLong) strikeAmount = 0.5;
 
                 constellation.integrityStrikes = (constellation.integrityStrikes || 0) + strikeAmount;
                 if (constellation.integrityStrikes >= this.integrityStrikeLimit) {
                     dismantle();
                     return false;
                 }
-                return true; // Grace period before dismantling
+                return true;
             }
 
-            // Healthy constellation - faster recovery
-            // [IMPROVED] Decay rate proportional to how well-formed it is
-            const decayRate = worstEdgeRatio < 0.5 ? 1.0 : 0.3;  // Faster decay when stable
+            const decayRate = worstEdgeRatio < 0.5 ? 1.0 : 0.3;
             constellation.integrityStrikes = Math.max(0, (constellation.integrityStrikes || 0) - decayRate);
             return true;
         });
     }
-
     /**
      * Get cached constellation target positions to avoid recomputing per enemy
      * Uses the same cache fields as EnemyMovement so both systems share results.
@@ -1483,78 +1432,7 @@ class EmergentFormationDetector {
         return !!enemy.constellation;
     }
 
-    /**
-     * Get color for constellation pattern type
-     * [UPDATED] Added all patterns including new tactical formations
-     */
-    getPatternColor(patternName) {
-        const colors = {
-            'LINE': { r: 50, g: 200, b: 255 },       // Cyan-blue
-            'ARROW': { r: 255, g: 80, b: 80 },       // Red
-            'TRIANGLE': { r: 0, g: 255, b: 153 },    // Neon green
-            'CROSS': { r: 255, g: 200, b: 50 },      // Gold
-            'DIAMOND': { r: 153, g: 50, b: 255 },    // Purple
-            'STAR': { r: 255, g: 255, b: 50 },       // Bright yellow
-            'PENTAGON': { r: 255, g: 153, b: 0 },    // Orange
-            'V_FORMATION': { r: 255, g: 120, b: 80 }, // Orange-red
-            'HEXAGON': { r: 255, g: 50, b: 180 },    // Magenta
-            'CIRCLE': { r: 50, g: 180, b: 255 },     // Sky blue
-            'DOUBLE_TRIANGLE': { r: 0, g: 220, b: 180 },   // Teal
-            'DUAL_DIAMOND': { r: 180, g: 80, b: 255 },     // Bright purple
-            'OCTAGON': { r: 255, g: 100, b: 150 },         // Pink
-            'ARROW_FLIGHT': { r: 255, g: 60, b: 60 },      // Bright red
-            'CRESCENT': { r: 200, g: 200, b: 255 },        // Pale blue
-            'DOUBLE_V': { r: 255, g: 180, b: 50 },         // Gold-orange
-            'SPIRAL': { r: 100, g: 255, b: 200 },          // Mint green
-            'DOUBLE_CRESCENT': { r: 255, g: 150, b: 200 }, // Light pink
-            // New tactical patterns
-            'PINCER': { r: 220, g: 50, b: 100 },           // Crimson - aggressive flanking
-            'TRIDENT': { r: 100, g: 150, b: 255 },         // Steel blue - piercing attack
-            'SHIELD_WALL': { r: 180, g: 180, b: 200 },     // Silver - defensive
-            'HOURGLASS': { r: 255, g: 100, b: 255 },       // Fuchsia - unique shape
-            'ORBIT': { r: 150, g: 220, b: 255 },           // Light cyan - planetary
-            'CROWN': { r: 255, g: 215, b: 0 },             // Gold - royal formation
-            'CLAW': { r: 200, g: 80, b: 80 }               // Dark red - predatory
-        };
-        return colors[patternName] || { r: 0, g: 255, b: 153 };
-    }
 
-    /**
-     * Get max edge length for pattern integrity checks
-     * Different patterns have different natural spacing
-     * [UPDATED] Values tuned to match tighter pattern radii
-     */
-    getPatternMaxEdgeLength(patternName) {
-        const lengths = {
-            'LINE': 100,           // Lines: 60px spacing, allow some stretch
-            'ARROW': 140,          // Arrow: ~55px tip, ~50px wings
-            'TRIANGLE': 130,       // Triangle: 65px radius = ~113px edges
-            'DIAMOND': 110,        // Diamond: 70px radius = ~99px edges
-            'CROSS': 100,          // Cross: 65px arms from center
-            'STAR': 120,           // Star: 70px radius = ~82px edges (pentagon)
-            'PENTAGON': 130,       // Pentagon: medium edges
-            'V_FORMATION': 120,    // V formation: 50px spacing
-            'HEXAGON': 140,        // Hexagon: slightly larger
-            'DOUBLE_TRIANGLE': 140, // Two triangles
-            'DUAL_DIAMOND': 120,   // Two diamonds (inner smaller)
-            'OCTAGON': 100,        // Octagon: 105px radius, many edges
-            'ARROW_FLIGHT': 120,   // Flying arrow wings
-            'CRESCENT': 80,        // Crescent arc: closer spacing
-            'DOUBLE_V': 130,       // Double V formation
-            'SPIRAL': 100,         // Spiral: varies with position
-            'DOUBLE_CRESCENT': 90, // Two crescents
-            'CIRCLE': 150,         // Circle: dynamic radius based on count
-            // New tactical patterns
-            'PINCER': 100,         // Pincer arms: 70px base + 20px per enemy
-            'TRIDENT': 90,         // Trident prongs: 50px spacing
-            'SHIELD_WALL': 80,     // Shield wall: tight formation
-            'HOURGLASS': 100,      // Hourglass: triangle edges
-            'ORBIT': 80,           // Orbit: tight circle around center
-            'CROWN': 110,          // Crown: peaks and base spacing
-            'CLAW': 100            // Claw: prong spacing
-        };
-        return lengths[patternName] || 120;
-    }
 
     /**
      * Render constellation visualizations
@@ -1572,7 +1450,7 @@ class EmergentFormationDetector {
             if (!targetPositions || targetPositions.length === 0) continue;
 
             // Draw constellation outline - ALWAYS visible now (not just debug)
-            const patternColor = this.getPatternColor(constellation.pattern.name);
+            const patternColor = constellation.pattern.color || { r: 0, g: 255, b: 153 };
             const outlineAlpha = isDebugMode ? 0.4 : 0.2;
 
             ctx.strokeStyle = `rgba(${patternColor.r}, ${patternColor.g}, ${patternColor.b}, ${outlineAlpha})`;

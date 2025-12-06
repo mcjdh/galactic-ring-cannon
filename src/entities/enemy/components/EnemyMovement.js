@@ -138,7 +138,8 @@ class EnemyMovement {
 
         const dx = targetPos.x - enemy.x;
         const dy = targetPos.y - enemy.y;
-        const dist = Math.hypot(dx, dy);
+        // [OPTIMIZATION] Replace Math.hypot with direct calculation
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
         // Always apply force toward target (no dead zone that causes freezing)
         if (dist < 1) return;  // Only skip if essentially at target

@@ -5,12 +5,22 @@
  */
 class SteeringUtils {
     /**
+     * Internal helper to get FastMath instance safely
+     * @private
+     */
+    static get _fastMath() {
+        return window.FastMath || window.Game?.FastMath || Math;
+    }
+
+    /**
      * Internal helper for fast sqrt with perfCache fallback
      * @private
      */
     static _sqrt(value) {
-        if (typeof window !== 'undefined' && window.perfCache) {
-            return window.perfCache.sqrt(value);
+        // Prefer FastMath.sqrt if available
+        const fm = this._fastMath;
+        if (fm && typeof fm.sqrt === 'function') {
+            return fm.sqrt(value);
         }
         return Math.sqrt(value);
     }
@@ -28,9 +38,9 @@ class SteeringUtils {
         const dx = targetPos.x - currentPos.x;
         const dy = targetPos.y - currentPos.y;
         const distSq = dx * dx + dy * dy;
-        
+
         if (distSq === 0) return { x: 0, y: 0 };
-        
+
         const distance = this._sqrt(distSq);
 
         let targetSpeed = maxSpeed;
@@ -95,10 +105,11 @@ class SteeringUtils {
      */
     static wander(currentVel, wanderState, params) {
         // Use cached random if available for better perf on Pi5
-        const rand = (typeof window !== 'undefined' && window.perfCache)
+        const fm = this._fastMath;
+        const rand = (window.perfCache)
             ? window.perfCache.random()
             : Math.random();
-        
+
         // Add random jitter to the wander angle
         wanderState.angle += (rand * 2 - 1) * params.wanderJitter;
 
@@ -115,9 +126,13 @@ class SteeringUtils {
         const circleCenterX = headingX * params.wanderDistance;
         const circleCenterY = headingY * params.wanderDistance;
 
-        // Use cached sin/cos if available
+        // Use cached sin/cos if available via FastMath or TrigCache
         let displacementX, displacementY;
-        if (typeof window !== 'undefined' && window.trigCache) {
+        if (fm && typeof fm.sincos === 'function') {
+            const sc = fm.sincos(wanderState.angle);
+            displacementX = sc.cos * params.wanderRadius;
+            displacementY = sc.sin * params.wanderRadius;
+        } else if (window.trigCache) {
             const sc = window.trigCache.sincos(wanderState.angle);
             displacementX = sc.cos * params.wanderRadius;
             displacementY = sc.sin * params.wanderRadius;

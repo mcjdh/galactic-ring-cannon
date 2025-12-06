@@ -369,8 +369,19 @@ class FormationManager {
         // Update rotation - speed up when close to player for dramatic effect
         const dx = this.game.player.x - formation.center.x;
         const dy = this.game.player.y - formation.center.y;
-        const distance = Math.hypot(dx, dy);
-        
+
+        // [OPTIMIZATION] Replace Math.hypot with direct calculation
+        // Math.hypot handles more arguments and overflow edge cases, which is slower
+        // For simple 2D game distances, direct sqrt is significantly faster
+        const FM = window.FastMath || window.Game?.FastMath;
+        let distance;
+
+        if (FM && typeof FM.sqrt === 'function') {
+            distance = FM.sqrt(dx * dx + dy * dy);
+        } else {
+            distance = Math.sqrt(dx * dx + dy * dy);
+        }
+
         // Rotation speeds up as formation approaches break distance
         const proximityRatio = Math.max(0, 1 - distance / (config.breakDistance * 2));
         const rotationBoost = 1 + proximityRatio * 1.5; // Up to 2.5x rotation when close
@@ -413,7 +424,7 @@ class FormationManager {
         // This method only updates formation state (center, rotation, time) and validates enemies
         // The actual force application happens during each enemy's movement update to avoid
         // the timing issue where forces were reset before being applied.
-        
+
         // Validate enemies are still alive
         for (let i = formation.enemies.length - 1; i >= 0; i--) {
             const enemy = formation.enemies[i];

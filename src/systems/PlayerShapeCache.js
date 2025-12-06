@@ -78,7 +78,7 @@ class PlayerShapeCache {
     }
 
     _updateFastMathRef() {
-        this._fastMath = (typeof window !== 'undefined' && window.Game?.FastMath) || null;
+        this._fastMath = (typeof window !== 'undefined' && (window.FastMath || window.Game?.FastMath)) || null;
     }
 
     /**
@@ -522,19 +522,14 @@ class PlayerShapeCache {
 
     /**
      * Generate cache key for player sprite
+     * [FIXED] Changed from bit-packing to string key to eliminate collision risk
      */
     _getSpriteCacheKey(characterId, sizeKey, rotXIdx, rotYIdx) {
-        const typeHash = this._hashType(characterId);
-        return (typeHash << 16) | (sizeKey << 8) | (rotXIdx << 4) | rotYIdx;
+        // String key is slightly slower but 100% collision-proof and easier to debug
+        return `${characterId}:${sizeKey}:${rotXIdx}:${rotYIdx}`;
     }
 
-    _hashType(type) {
-        let hash = 0;
-        for (let i = 0; i < type.length; i++) {
-            hash = ((hash << 5) - hash + type.charCodeAt(i)) | 0;
-        }
-        return Math.abs(hash) % 256;
-    }
+
 
     /**
      * Get or create cached sprite for player
@@ -547,6 +542,11 @@ class PlayerShapeCache {
      */
     getSprite(characterId, size, rotX, rotY, overrideColor = null) {
         if (typeof document === 'undefined') return null;
+
+        // [SAFETY] Guard against NaN/undefined inputs
+        if (isNaN(size) || isNaN(rotX) || isNaN(rotY)) {
+            return null;
+        }
 
         // Quantize rotations for cache hit
         const rotXIdx = this.quantizeAngle(rotX);

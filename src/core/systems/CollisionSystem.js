@@ -278,6 +278,9 @@
             // then we can optimize to Grid later if needed.
             // The original GameEngine.js:569 used `this.getEntitiesByType(type)`.
 
+            // [OPTIMIZATION] Use FastMath.distanceSquared if available via global access or local calculation
+            // Since we just need distance check, dx*dy is fine.
+
             const entities = engine.getEntitiesByType(type);
             for (const entity of entities) {
                 if (!entity) continue;
@@ -286,6 +289,7 @@
 
                 const dx = entity.x - x;
                 const dy = entity.y - y;
+                // Simple squared distance check is already optimal
                 if ((dx * dx + dy * dy) <= radiusSq) {
                     matches.push(entity);
                 }
@@ -457,47 +461,7 @@
                 Processing Time: ${processingTime.toFixed(2)}ms`);
         }
 
-        checkCollisionsInCell(entities) {
-            // + EARLY EXIT for small cells (already optimized)
-            if (entities.length < 2) return;
 
-            // + COLLISION LAYER FILTERING - skip impossible collisions
-            for (let i = 0; i < entities.length - 1; i++) {
-                const entity1 = entities[i];
-                if (!entity1 || entity1.isDead) continue; // Skip dead entities
-
-                const type1 = entity1.type;
-                const rulesForEntity1 = this.collisionRules[type1];
-
-                for (let j = i + 1; j < entities.length; j++) {
-                    const entity2 = entities[j];
-                    if (!entity2 || entity2.isDead) continue; // Skip dead entities
-
-                    const type2 = entity2.type;
-                    const rulesForEntity2 = this.collisionRules[type2];
-
-                    // + BROAD-PHASE: Skip impossible collision combinations
-                    if (
-                        !(
-                            (rulesForEntity1 && rulesForEntity1.has(type2)) ||
-                            (rulesForEntity2 && rulesForEntity2.has(type1))
-                        )
-                    ) {
-                        continue;
-                    }
-
-                    this.stats.collisionsChecked++;
-
-                    if (this.isColliding(entity1, entity2)) {
-                        this.stats.collisionsDetected++;
-                        this.handleCollision(entity1, entity2);
-                        if (entity1.isDead) {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
 
         // + COLLISION LAYER SYSTEM - determine if two entities can collide
         canCollide(entity1, entity2) {
@@ -554,15 +518,21 @@
 
         isColliding(a, b) {
             if (!a || !b) return false;
-            if (typeof a.x !== 'number' || typeof a.y !== 'number' ||
-                typeof b.x !== 'number' || typeof b.y !== 'number' ||
-                typeof a.radius !== 'number' || typeof b.radius !== 'number') {
+            // [FIX] Strict coordinate validation to preventing crash on NaN
+            // Use Number.isFinite instead of typeof === 'number' to catch NaN/Infinity
+            if (!Number.isFinite(a.x) || !Number.isFinite(a.y) ||
+                !Number.isFinite(b.x) || !Number.isFinite(b.y) ||
+                !Number.isFinite(a.radius) || !Number.isFinite(b.radius)) {
                 return false;
             }
+
             const dx = a.x - b.x;
             const dy = a.y - b.y;
             const r = a.radius + b.radius;
             if (r <= 0) return false;
+
+            // Optimization: Collision usually happens at close range
+            // Standard Euclidean distance squared check is efficient
             return (dx * dx + dy * dy) < (r * r);
         }
 

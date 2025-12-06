@@ -388,10 +388,13 @@ class FormationEffects {
     update(deltaTime) {
         if (!this.enabled) return;
 
+        // [OPTIMIZATION] Cache FastMath reference for this frame
+        const FM = window.FastMath || window.Game?.FastMath;
+
         // [OPTIMIZATION] Use indexed loop instead of for-of for hot path
         const particles = this.particlePool;
         const particleCount = particles.length;
-        
+
         for (let i = 0; i < particleCount; i++) {
             const particle = particles[i];
             if (!particle.active) continue;
@@ -529,7 +532,7 @@ class FormationEffects {
 
                 // [FIX] Track stretch ratio using linear distance, not squared
                 // This ensures fadeFactor calculation below works correctly
-                const dist = Math.sqrt(distSq);
+                const dist = FM ? FM.sqrt(distSq) : Math.sqrt(distSq);
                 const ratio = dist / patternMaxEdge;
                 if (ratio > stretchRatio) stretchRatio = ratio;
             }
@@ -636,12 +639,12 @@ class FormationEffects {
     drawBeamPath(ctx, beam) {
         const enemies = beam.enemies;
         const patternName = beam.patternName;
-        
+
         // Sort by anchor for consistent ordering
-        const sorted = [...enemies].sort((a, b) => 
+        const sorted = [...enemies].sort((a, b) =>
             (a.constellationAnchor || 0) - (b.constellationAnchor || 0)
         );
-        
+
         // STAR pattern: draw as a star (connect every other vertex)
         if (patternName === 'STAR' && sorted.length === 5) {
             // Star order: 0->2->4->1->3->0
@@ -656,7 +659,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // CROSS pattern: draw as cross (center to each arm)
         if (patternName === 'CROSS' && sorted.length === 5) {
             const center = sorted[0];  // First position is center
@@ -671,7 +674,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // V_FORMATION: draw as V (tip to each wing)
         if (patternName === 'V_FORMATION' && sorted.length >= 3) {
             const tip = sorted[0];  // First is the tip
@@ -684,7 +687,7 @@ class FormationEffects {
                 for (let i = 1; i < sorted.length; i++) {
                     const curr = sorted[i];
                     if (!curr || curr.isDead) continue;
-                    
+
                     if (i % 2 === 1) {  // Left wing
                         ctx.moveTo(prevLeft.x, prevLeft.y);
                         ctx.lineTo(curr.x, curr.y);
@@ -698,7 +701,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // LINE pattern: draw as a line (don't close the loop)
         if (patternName === 'LINE') {
             for (let i = 0; i < sorted.length - 1; i++) {
@@ -711,7 +714,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // DOUBLE_TRIANGLE: draw two triangles
         if (patternName === 'DOUBLE_TRIANGLE' && sorted.length === 6) {
             // First triangle: 0, 1, 2
@@ -736,7 +739,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // DUAL_DIAMOND: draw two diamonds
         if (patternName === 'DUAL_DIAMOND' && sorted.length === 8) {
             // Outer diamond: 0, 1, 2, 3
@@ -761,7 +764,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // ARROW_FLIGHT: draw as flying arrow (tip + two wings)
         if (patternName === 'ARROW_FLIGHT' && sorted.length === 7) {
             const tip = sorted[0];
@@ -788,10 +791,10 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // CRESCENT, DOUBLE_V, SPIRAL, DOUBLE_CRESCENT: draw as open arc (don't close)
         // These patterns work well with any enemy count within their range
-        if (patternName === 'CRESCENT' || patternName === 'DOUBLE_V' || 
+        if (patternName === 'CRESCENT' || patternName === 'DOUBLE_V' ||
             patternName === 'SPIRAL' || patternName === 'DOUBLE_CRESCENT') {
             for (let i = 0; i < sorted.length - 1; i++) {
                 const e1 = sorted[i];
@@ -803,7 +806,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // PINCER: draw two curved arms (don't connect tips)
         if (patternName === 'PINCER') {
             const armLength = Math.ceil(sorted.length / 2);
@@ -827,7 +830,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // TRIDENT: draw three prongs from center
         if (patternName === 'TRIDENT' && sorted.length === 9) {
             // Center prong: 0, 1, 2
@@ -871,7 +874,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // SHIELD_WALL: draw curved front row and support row
         if (patternName === 'SHIELD_WALL') {
             const frontCount = Math.ceil(sorted.length * 0.6);
@@ -898,14 +901,14 @@ class FormationEffects {
                 ctx.moveTo(sorted[0].x, sorted[0].y);
                 ctx.lineTo(sorted[frontCount].x, sorted[frontCount].y);
             }
-            if (sorted[frontCount - 1] && sorted[sorted.length - 1] && 
+            if (sorted[frontCount - 1] && sorted[sorted.length - 1] &&
                 !sorted[frontCount - 1].isDead && !sorted[sorted.length - 1].isDead) {
                 ctx.moveTo(sorted[frontCount - 1].x, sorted[frontCount - 1].y);
                 ctx.lineTo(sorted[sorted.length - 1].x, sorted[sorted.length - 1].y);
             }
             return;
         }
-        
+
         // HOURGLASS: draw two triangles meeting at center
         if (patternName === 'HOURGLASS' && sorted.length === 8) {
             // Top triangle: 0 (tip), 1, 2, 3 (base)
@@ -950,7 +953,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // ORBIT: draw center to all satellites, and satellite ring
         if (patternName === 'ORBIT' && sorted.length === 7) {
             const center = sorted[0];
@@ -976,7 +979,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // CROWN: draw base line and three peaks
         if (patternName === 'CROWN' && sorted.length === 10) {
             // Base: 0, 1, 2, 3
@@ -1010,7 +1013,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // CLAW: draw three curved prongs
         if (patternName === 'CLAW' && sorted.length === 11) {
             // Center prong: 0, 1, 2, 3
@@ -1054,7 +1057,7 @@ class FormationEffects {
             }
             return;
         }
-        
+
         // Default: connect adjacent enemies in a loop (polygon)
         // Used for: TRIANGLE, DIAMOND, PENTAGON, HEXAGON, OCTAGON, CIRCLE
         // Also fallback for patterns when enemy count doesn't match expected

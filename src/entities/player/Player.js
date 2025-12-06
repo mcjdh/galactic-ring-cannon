@@ -452,6 +452,9 @@ class Player {
         // Don't update anything if player is dead
         if (this.isDead) return;
 
+        // [SAFETY] Validate state to prevent NaN crashes
+        this._validateState();
+
         this.stats.update(deltaTime);
         this.movement.update(deltaTime, game);
         this.combat.update(deltaTime, game);
@@ -766,6 +769,28 @@ class Player {
             abilities: this.abilities.getDebugInfo(),
             renderer: this.renderer.getDebugInfo()
         };
+    }
+
+    /**
+     * [SAFETY] Validate player state to catch NaN propagation early
+     */
+    _validateState() {
+        if (isNaN(this.x) || isNaN(this.y)) {
+            // Log once per frame if needed, but throttle? For now just silent fix or warn
+            if (window.logger?.warn && Math.random() < 0.01) {
+                window.logger.warn('[Player] NaN position detected, resetting');
+            }
+            this.x = 0;
+            this.y = 0;
+        }
+
+        if (isNaN(this.radius) || this.radius <= 0) {
+            this.radius = 20;
+        }
+
+        if (isNaN(this.stats.health)) {
+            this.stats.health = this.stats.maxHealth || 100;
+        }
     }
 }
 

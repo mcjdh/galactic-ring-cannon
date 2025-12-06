@@ -18,6 +18,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 4,
         maxEnemies: 5,
         strength: 0.4,
+        color: { r: 50, g: 200, b: 255 },
+        maxEdgeLength: 100,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const spacing = 50;  // Reduced from 60 for tighter line
             const count = enemies.length;
@@ -43,6 +45,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 3,
         maxEnemies: 3,
         strength: 0.35,
+        color: { r: 255, g: 80, b: 80 },
+        maxEdgeLength: 140,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             // Arrow pointing in rotation direction with clear V shape behind
             const tipDist = 55;  // Reduced for tighter formation
@@ -70,6 +74,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 3,
         maxEnemies: 3,
         strength: 0.35,
+        color: { r: 0, g: 255, b: 153 },
+        maxEdgeLength: 130,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             // Equilateral triangle - positions equally spaced
             const radius = 65;  // Reduced for tighter formation
@@ -90,6 +96,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 4,
         maxEnemies: 4,
         strength: 0.5,
+        color: { r: 153, g: 50, b: 255 },
+        maxEdgeLength: 110,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const radius = 70;  // Reduced for tighter formation
             const positions = [];
@@ -109,6 +117,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 5,
         maxEnemies: 5,
         strength: 0.45,
+        color: { r: 255, g: 200, b: 50 },
+        maxEdgeLength: 100,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             // Cross with center enemy and 4 arms
             const armLength = 65;  // Reduced for tighter formation
@@ -133,6 +143,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 5,
         maxEnemies: 5,
         strength: 0.45,
+        color: { r: 255, g: 255, b: 50 },
+        maxEdgeLength: 120,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const radius = 70;  // Reduced for tighter formation
             const positions = [];
@@ -152,6 +164,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 5,
         maxEnemies: 5,
         strength: 0.35,
+        color: { r: 255, g: 153, b: 0 },
+        maxEdgeLength: 130,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const radius = 70;  // Reduced from 95 to match other shapes
             const positions = [];
@@ -171,6 +185,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 5,
         maxEnemies: 7,
         strength: 0.4,
+        color: { r: 255, g: 120, b: 80 },
+        maxEdgeLength: 120,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const count = enemies.length;
             const armSpacing = 45;  // Reduced from 55 for tighter formation
@@ -215,6 +231,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 6,
         maxEnemies: 6,
         strength: 0.5,
+        color: { r: 255, g: 50, b: 180 },
+        maxEdgeLength: 140,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const radius = 80;  // Reduced from 110 for tighter formation
             const positions = [];
@@ -234,6 +252,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 6,
         maxEnemies: 6,
         strength: 0.45,
+        color: { r: 0, g: 220, b: 180 },
+        maxEdgeLength: 140,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const radius = 75;  // Reduced from 100 for tighter formation
             const positions = [];
@@ -262,6 +282,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 8,
         maxEnemies: 8,
         strength: 0.5,  // High chance for exactly 8 enemies
+        color: { r: 180, g: 80, b: 255 },
+        maxEdgeLength: 120,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             // Outer diamond
@@ -289,6 +311,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 8,
         maxEnemies: 8,
         strength: 0.45,  // Good chance for 8 enemies
+        color: { r: 255, g: 100, b: 150 },
+        maxEdgeLength: 100,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const radius = 105;
             const positions = [];
@@ -308,6 +332,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 7,
         maxEnemies: 7,
         strength: 0.5,  // High chance for exactly 7 enemies
+        color: { r: 255, g: 60, b: 60 },
+        maxEdgeLength: 120,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             const tipSize = 60;
@@ -338,6 +364,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 9,
         maxEnemies: 11,
         strength: 0.5,
+        color: { r: 200, g: 200, b: 255 },
+        maxEdgeLength: 80,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const count = enemies.length;
             const radius = 95;
@@ -363,6 +391,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 8,
         maxEnemies: 9,
         strength: 0.55,
+        color: { r: 220, g: 50, b: 100 },
+        maxEdgeLength: 100,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const count = enemies.length;
             const positions = [];
@@ -402,6 +432,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 9,
         maxEnemies: 9,
         strength: 0.5,
+        color: { r: 100, g: 150, b: 255 },
+        maxEdgeLength: 90,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             const prongSpacing = 55;
@@ -446,6 +478,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 7,
         maxEnemies: 8,
         strength: 0.45,
+        color: { r: 180, g: 180, b: 200 },
+        maxEdgeLength: 80,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const count = enemies.length;
             const positions = [];
@@ -487,6 +521,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 8,
         maxEnemies: 8,
         strength: 0.5,
+        color: { r: 255, g: 100, b: 255 },
+        maxEdgeLength: 100,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             const height = 70;
@@ -530,6 +566,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 7,
         maxEnemies: 7,
         strength: 0.45,
+        color: { r: 150, g: 220, b: 255 },
+        maxEdgeLength: 80,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             const orbitRadius = 65;
@@ -554,6 +592,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 10,
         maxEnemies: 10,
         strength: 0.5,  // High chance for exactly 10 enemies
+        color: { r: 255, g: 180, b: 50 },
+        maxEdgeLength: 130,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             const spacing = 50;
@@ -599,6 +639,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 10,
         maxEnemies: 10,
         strength: 0.45,
+        color: { r: 255, g: 215, b: 0 },
+        maxEdgeLength: 110,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             const baseWidth = 120;
@@ -651,6 +693,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 11,
         maxEnemies: 11,
         strength: 0.5,
+        color: { r: 200, g: 80, b: 80 },
+        maxEdgeLength: 100,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const positions = [];
             const prongLength = 90;
@@ -700,6 +744,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 11,
         maxEnemies: 12,
         strength: 0.55,
+        color: { r: 100, g: 255, b: 200 },
+        maxEdgeLength: 100,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const count = enemies.length;
             const positions = [];
@@ -725,6 +771,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 13,
         maxEnemies: 14,
         strength: 0.55,
+        color: { r: 255, g: 150, b: 200 },
+        maxEdgeLength: 90,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const count = enemies.length;
             const positions = [];
@@ -763,6 +811,8 @@ const FORMATION_PATTERNS = {
         minEnemies: 12,  // Increased from 10 - let other patterns handle smaller groups
         maxEnemies: 15,
         strength: 0.25,  // Further reduced from 0.3 - less dominant
+        color: { r: 50, g: 180, b: 255 },
+        maxEdgeLength: 150,
         getTargetPositions: (centerX, centerY, enemies, rotation = 0) => {
             const count = enemies.length;
             // Dynamic radius scales with enemy count for proper spacing

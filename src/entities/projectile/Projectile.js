@@ -63,7 +63,12 @@ class Projectile {
         this.distanceTraveled = 0;
 
         // Lifetime management
-        this.initialSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        const FM = window.FastMath || window.Game?.FastMath;
+        if (FM && typeof FM.sqrt === 'function') {
+            this.initialSpeed = FM.sqrt(this.vx * this.vx + this.vy * this.vy);
+        } else {
+            this.initialSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        }
         this.calculateLifetime();
         this.age = 0;
 
@@ -133,7 +138,6 @@ class Projectile {
         this.sourcePlayer = null;
         this.createsGravityWell = false;
     }
-
     /**
      * Create a minimal fallback behavior manager if the real one fails to instantiate
      * This ensures projectiles can still function even if behavior system is broken
@@ -306,7 +310,6 @@ class Projectile {
         // Behaviors may extend lifetime (handled by behaviors themselves if needed)
         this.lifetime = Math.max(2.0, Math.min(8.0, baseLifetime));
     }
-
     /**
      * Main update loop
      */
@@ -324,7 +327,17 @@ class Projectile {
         this.y += this.vy * deltaTime;
 
         if (Number.isFinite(this.rangeLimit) && this.rangeLimit > 0) {
-            const deltaDistance = Math.hypot(this.vx * deltaTime, this.vy * deltaTime);
+            let deltaDistance;
+            const FM = window.FastMath || window.Game?.FastMath;
+
+            if (FM && typeof FM.sqrt === 'function') {
+                // Using manual calculation instead of hypot for better RPi performance
+                const vSq = (this.vx * deltaTime) ** 2 + (this.vy * deltaTime) ** 2;
+                deltaDistance = FM.sqrt(vSq);
+            } else {
+                deltaDistance = Math.hypot(this.vx * deltaTime, this.vy * deltaTime);
+            }
+
             this.distanceTraveled += deltaDistance;
             if (this.distanceTraveled >= this.rangeLimit) {
                 this._destroy(game, { cause: 'rangeLimit' });
