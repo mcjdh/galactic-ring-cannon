@@ -1160,6 +1160,8 @@ class EnemySpawner {
         this.performanceMonitor.isLagging = false;
         this.performanceMonitor.adaptiveMaxEnemies = this.maxEnemies;
         this.performanceMonitor.lastFrameTime = 0;
+        // [STABILITY FIX] Reset grace period timer so each new run gets the full protection
+        this.performanceMonitor.gameTimeElapsed = 0;
 
         // Enemy spawner reset for new game
         if (window.gameManager) {
