@@ -2172,6 +2172,15 @@ class GameEngine {
             return;
         }
 
+        // [STABILITY] Reset timing variables on resume to prevent delta spikes
+        // This is critical after browser throttling (tab switch) where RAF paused
+        const now = performance.now();
+        this.lastTime = now;
+        this.lastFrameTime = now;
+        this.lastRenderTime = now;
+        this._accumulatorMs = 0;
+        this._renderAccumulatorMs = 0;
+
         this.isPaused = false;
 
         if (reason === 'manual') {
