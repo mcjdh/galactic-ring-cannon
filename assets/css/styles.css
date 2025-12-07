@@ -342,7 +342,7 @@ body::after {
     width: clamp(260px, 50vw, 500px);
     max-width: calc(100vw - 280px);
     /* Leave room for HP bar + minimap */
-    z-index: 15;
+    z-index: 60;
     background: transparent;
     padding: 0;
 
@@ -1685,7 +1685,7 @@ body::after {
     bottom: 20px;
     right: 20px;
     background: var(--bg-panel);
-    padding: 10px;
+    padding: 5px;
     border-radius: 50%;
     box-shadow: 0 0 15px rgba(0, 255, 100, 0.2);
     transition: all 0.3s ease;
@@ -1774,8 +1774,9 @@ body::after {
 #skill-container {
     position: absolute;
     bottom: 20px;
-    right: 180px;
-    /* Moved left of minimap */
+    left: 380px;
+    right: auto;
+    /* Moved to left side next to health bars */
     display: flex;
     gap: 15px;
     z-index: 50;
@@ -4244,7 +4245,8 @@ body::after {
 
     /* Position skill container to avoid minimap */
     #skill-container {
-        right: 160px;
+        left: 380px;
+        right: auto;
         bottom: 15px;
     }
 }

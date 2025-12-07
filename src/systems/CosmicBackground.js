@@ -60,9 +60,9 @@ class CosmicBackground {
         this.lastPlayerX = 0;
         this.lastPlayerY = 0;
 
-        // Floating Shapes
+        // Floating Shapes - Sacred Geometry for hyperdimensional Polybius vibes
         this.shapes = [];
-        this.shapeCount = 25;
+        this.shapeCount = 33;
 
         // Vector Stars
         this.stars = [];
@@ -154,7 +154,50 @@ class CosmicBackground {
 
         // Initialize Shapes
         this.shapes = [];
-        for (let i = 0; i < this.shapeCount; i++) {
+
+        // ✦ Origin Nexus: A special Metatron's Cube at the player spawn point
+        // Player spawns at (canvas.width/2, canvas.height/2)
+        // 
+        // Rendering formula for shapes:
+        //   parallaxFactor = min(0.8, 1.0/z) = 0.8 for z=1.0
+        //   relX = (shape.x - player.x * parallaxFactor) % worldW
+        //   screenX = relX - offset
+        //
+        // For screenX = canvas.width/2 when player.x = canvas.width/2:
+        //   relX = canvas.width/2 + offset
+        //   shape.x = relX + player.x * 0.8
+        //   shape.x = (canvas.width/2 + offset) + (canvas.width/2) * 0.8
+        //   shape.x = canvas.width * 0.9 + offset
+        const offset = this.worldPadding / 2;
+
+        // Calculate position so shape appears at screen center when player is at spawn
+        const originNexusX = this.canvas.width * 0.9 + offset;
+        const originNexusY = this.canvas.height * 0.9 + offset;
+
+        // Store origin nexus world position for minimap indicator (player spawn = canvas center)
+        this.originNexusWorldX = this.canvas.width / 2;
+        this.originNexusWorldY = this.canvas.height / 2;
+
+        this.shapes.push({
+            type: 'origin_nexus',  // Enhanced shape: Metatron's Cube + orbital rings
+            x: originNexusX,
+            y: originNexusY,
+            z: 1.0,  // z=1.0, parallax capped at 0.8 (moves with player at 80% rate)
+            size: 65, // Larger for the orbital rings to be visible
+            color: 'rgba(100, 180, 255, 0.5)', // Bright cyan-blue for nexus
+            rotX: 0,
+            rotY: 0,
+            rotZ: 0,
+            rotSpeedX: 0.05,  // Very slow, contemplative rotation
+            rotSpeedY: 0.08,
+            rotSpeedZ: 0.03,
+            driftX: 0,  // Stationary - anchors the origin
+            driftY: 0,
+            isOriginNexus: true  // Flag for special handling
+        });
+
+        // Regular shapes (one less since we added the Origin Nexus)
+        for (let i = 1; i < this.shapeCount; i++) {
             this.shapes.push(this.createShape());
         }
 
@@ -205,13 +248,29 @@ class CosmicBackground {
     }
 
     createShape() {
-        const types = ['cube', 'pyramid', 'octahedron'];
+        // Sacred geometry shapes for hyperdimensional Polybius vibes
+        // Weighted distribution: basic shapes slightly more common, complex shapes rarer
+        const types = [
+            'cube', 'cube',           // Classic - 2x weight
+            'pyramid', 'pyramid',     // Classic - 2x weight  
+            'octahedron',             // Platonic solid
+            'tesseract',              // 4D hypercube projection ★
+            'merkaba',                // Star tetrahedron - sacred geometry
+            'icosahedron',            // 20-faced Platonic solid
+            'stellated_octahedron',   // Spiky cosmic
+            'dodecahedron',           // 12 pentagonal faces - ultimate Platonic
+            'metatrons_cube'          // Sacred geometry master pattern ✦
+        ];
         const type = types[Math.floor(Math.random() * types.length)];
         const size = 15 + Math.random() * 35;
 
         // Z-Depth: 1.0 is standard plane. Higher is further away.
         // Range 0.8 (slightly foreground) to 4.0 (deep background)
         const z = 0.8 + Math.random() * 3.2;
+
+        // Complex shapes get slightly slower rotation for visual clarity
+        const isComplex = ['tesseract', 'icosahedron', 'dodecahedron'].includes(type);
+        const rotSpeedMult = isComplex ? 0.6 : 1.0;
 
         return {
             type: type,
@@ -224,9 +283,9 @@ class CosmicBackground {
             rotX: Math.random() * Math.PI * 2,
             rotY: Math.random() * Math.PI * 2,
             rotZ: Math.random() * Math.PI * 2,
-            rotSpeedX: (Math.random() - 0.5) * 0.5,
-            rotSpeedY: (Math.random() - 0.5) * 0.5,
-            rotSpeedZ: (Math.random() - 0.5) * 0.5,
+            rotSpeedX: (Math.random() - 0.5) * 0.5 * rotSpeedMult,
+            rotSpeedY: (Math.random() - 0.5) * 0.5 * rotSpeedMult,
+            rotSpeedZ: (Math.random() - 0.5) * 0.5 * rotSpeedMult,
             driftX: (Math.random() - 0.5) * 10,
             driftY: (Math.random() - 0.5) * 10
         };
@@ -588,21 +647,221 @@ class CosmicBackground {
 
     getVertices(type, size) {
         const s = size;
-        if (type === 'cube') {
-            return [
-                { x: -s, y: -s, z: -s }, { x: s, y: -s, z: -s }, { x: s, y: s, z: -s }, { x: -s, y: s, z: -s },
-                { x: -s, y: -s, z: s }, { x: s, y: -s, z: s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s }
-            ];
-        } else if (type === 'pyramid') {
-            return [
-                { x: 0, y: -s, z: 0 }, // Top
-                { x: -s, y: s, z: -s }, { x: s, y: s, z: -s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s } // Base
-            ];
-        } else { // Octahedron
-            return [
-                { x: 0, y: -s, z: 0 }, { x: 0, y: s, z: 0 }, // Top/Bottom
-                { x: -s, y: 0, z: 0 }, { x: s, y: 0, z: 0 }, { x: 0, y: 0, z: -s }, { x: 0, y: 0, z: s } // Middle ring
-            ];
+
+        // Golden ratio for Platonic solids
+        const phi = 1.618033988749895;
+        const invPhi = 0.618033988749895; // 1/phi
+
+        switch (type) {
+            case 'cube':
+                return [
+                    { x: -s, y: -s, z: -s }, { x: s, y: -s, z: -s }, { x: s, y: s, z: -s }, { x: -s, y: s, z: -s },
+                    { x: -s, y: -s, z: s }, { x: s, y: -s, z: s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s }
+                ];
+
+            case 'pyramid':
+                return [
+                    { x: 0, y: -s, z: 0 }, // Top
+                    { x: -s, y: s, z: -s }, { x: s, y: s, z: -s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s } // Base
+                ];
+
+            case 'octahedron':
+                return [
+                    { x: 0, y: -s, z: 0 }, { x: 0, y: s, z: 0 }, // Top/Bottom
+                    { x: -s, y: 0, z: 0 }, { x: s, y: 0, z: 0 }, { x: 0, y: 0, z: -s }, { x: 0, y: 0, z: s } // Middle ring
+                ];
+
+            case 'tesseract':
+                // 4D Hypercube projected to 3D - inner and outer cubes
+                const innerS = s * 0.5;
+                return [
+                    // Inner cube (0-7)
+                    { x: -innerS, y: -innerS, z: -innerS }, { x: innerS, y: -innerS, z: -innerS },
+                    { x: innerS, y: innerS, z: -innerS }, { x: -innerS, y: innerS, z: -innerS },
+                    { x: -innerS, y: -innerS, z: innerS }, { x: innerS, y: -innerS, z: innerS },
+                    { x: innerS, y: innerS, z: innerS }, { x: -innerS, y: innerS, z: innerS },
+                    // Outer cube (8-15)
+                    { x: -s, y: -s, z: -s }, { x: s, y: -s, z: -s },
+                    { x: s, y: s, z: -s }, { x: -s, y: s, z: -s },
+                    { x: -s, y: -s, z: s }, { x: s, y: -s, z: s },
+                    { x: s, y: s, z: s }, { x: -s, y: s, z: s }
+                ];
+
+            case 'merkaba':
+                // Star Tetrahedron - two interlocking tetrahedra
+                const h = s * 0.816; // Height factor for regular tetrahedron
+                return [
+                    // Upward tetrahedron (0-3)
+                    { x: 0, y: -s, z: 0 },           // Top
+                    { x: -s, y: h, z: -s * 0.577 },  // Base vertices
+                    { x: s, y: h, z: -s * 0.577 },
+                    { x: 0, y: h, z: s * 0.816 },
+                    // Downward tetrahedron (4-7)
+                    { x: 0, y: s, z: 0 },            // Bottom
+                    { x: -s, y: -h, z: s * 0.577 },  // Inverted base
+                    { x: s, y: -h, z: s * 0.577 },
+                    { x: 0, y: -h, z: -s * 0.816 }
+                ];
+
+            case 'icosahedron':
+                // 20-faced Platonic solid - vertices based on golden ratio
+                const a = s * 0.5;
+                const b = s * 0.5 * phi;
+                return [
+                    // Rectangle 1 (XY plane)
+                    { x: 0, y: a, z: b }, { x: 0, y: a, z: -b },
+                    { x: 0, y: -a, z: b }, { x: 0, y: -a, z: -b },
+                    // Rectangle 2 (YZ plane)
+                    { x: a, y: b, z: 0 }, { x: a, y: -b, z: 0 },
+                    { x: -a, y: b, z: 0 }, { x: -a, y: -b, z: 0 },
+                    // Rectangle 3 (XZ plane)
+                    { x: b, y: 0, z: a }, { x: -b, y: 0, z: a },
+                    { x: b, y: 0, z: -a }, { x: -b, y: 0, z: -a }
+                ];
+
+            case 'stellated_octahedron':
+                // Octahedron with extended points (Stella Octangula)
+                const ext = s * 1.5; // Extended spike length
+                return [
+                    // Core octahedron vertices (0-5)
+                    { x: 0, y: -s, z: 0 }, { x: 0, y: s, z: 0 },
+                    { x: -s, y: 0, z: 0 }, { x: s, y: 0, z: 0 },
+                    { x: 0, y: 0, z: -s }, { x: 0, y: 0, z: s },
+                    // Stellated points - tetrahedral corners (6-13)
+                    { x: ext, y: ext, z: ext },
+                    { x: -ext, y: ext, z: -ext },
+                    { x: ext, y: -ext, z: -ext },
+                    { x: -ext, y: -ext, z: ext },
+                    { x: -ext, y: ext, z: ext },
+                    { x: ext, y: ext, z: -ext },
+                    { x: -ext, y: -ext, z: -ext },
+                    { x: ext, y: -ext, z: ext }
+                ];
+
+            case 'dodecahedron':
+                // 12 pentagonal faces - vertices based on golden ratio
+                const d = s * 0.6;
+                const dp = d * phi;
+                const di = d * invPhi;
+                return [
+                    // Cube vertices (0-7)
+                    { x: d, y: d, z: d }, { x: d, y: d, z: -d },
+                    { x: d, y: -d, z: d }, { x: d, y: -d, z: -d },
+                    { x: -d, y: d, z: d }, { x: -d, y: d, z: -d },
+                    { x: -d, y: -d, z: d }, { x: -d, y: -d, z: -d },
+                    // Face centers extended (8-19)
+                    { x: 0, y: di, z: dp }, { x: 0, y: di, z: -dp },
+                    { x: 0, y: -di, z: dp }, { x: 0, y: -di, z: -dp },
+                    { x: di, y: dp, z: 0 }, { x: di, y: -dp, z: 0 },
+                    { x: -di, y: dp, z: 0 }, { x: -di, y: -dp, z: 0 },
+                    { x: dp, y: 0, z: di }, { x: -dp, y: 0, z: di },
+                    { x: dp, y: 0, z: -di }, { x: -dp, y: 0, z: -di }
+                ];
+
+            case 'metatrons_cube':
+                // Sacred geometry master pattern - 13 circles with all centers connected
+                // Structure: 1 center + 6 inner hexagon + 6 outer hexagon vertices
+                // Layered in 3D for depth
+                const r1 = s * 0.5;  // Inner hexagon radius
+                const r2 = s;        // Outer hexagon radius
+                const z1 = s * 0.3;  // Z-depth for layering
+                const vertices = [
+                    // Center (0)
+                    { x: 0, y: 0, z: 0 }
+                ];
+                // Inner hexagon (1-6)
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    vertices.push({
+                        x: Math.cos(angle) * r1,
+                        y: Math.sin(angle) * r1,
+                        z: (i % 2 === 0) ? z1 : -z1  // Alternating depth
+                    });
+                }
+                // Outer hexagon (7-12)
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + Math.PI / 6; // Offset by 30°
+                    vertices.push({
+                        x: Math.cos(angle) * r2,
+                        y: Math.sin(angle) * r2,
+                        z: (i % 2 === 0) ? -z1 : z1  // Opposite alternating depth
+                    });
+                }
+                return vertices;
+
+            case 'origin_nexus':
+                // ✦ ENHANCED NEXUS SHAPE - Metatron's Cube Core + Orbital Rings
+                // A celestial hyperdimensional structure combining sacred geometry
+                // with planetary ring systems (Saturn/Dyson sphere vibes)
+                const nexusVerts = [];
+
+                // === CORE: Metatron's Cube (vertices 0-12) ===
+                const nr1 = s * 0.35;  // Inner hexagon radius (smaller for core)
+                const nr2 = s * 0.7;   // Outer hexagon radius
+                const nz1 = s * 0.25;  // Z-depth for layering
+
+                // Center point (0)
+                nexusVerts.push({ x: 0, y: 0, z: 0 });
+
+                // Inner hexagon (1-6)
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    nexusVerts.push({
+                        x: Math.cos(angle) * nr1,
+                        y: Math.sin(angle) * nr1,
+                        z: (i % 2 === 0) ? nz1 : -nz1
+                    });
+                }
+
+                // Outer hexagon (7-12)
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + Math.PI / 6;
+                    nexusVerts.push({
+                        x: Math.cos(angle) * nr2,
+                        y: Math.sin(angle) * nr2,
+                        z: (i % 2 === 0) ? -nz1 : nz1
+                    });
+                }
+
+                // === ORBITAL RINGS (vertices 13-36) ===
+                // Ring 1: Equatorial ring (XY plane) - 8 points (13-20)
+                const ringRadius = s * 1.1;
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    nexusVerts.push({
+                        x: Math.cos(angle) * ringRadius,
+                        y: Math.sin(angle) * ringRadius,
+                        z: 0
+                    });
+                }
+
+                // Ring 2: Tilted ring (XZ plane, 45° tilt) - 8 points (21-28)
+                const tilt = Math.PI * 0.35;
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const rx = Math.cos(angle) * ringRadius;
+                    const ry = Math.sin(angle) * ringRadius * Math.cos(tilt);
+                    const rz = Math.sin(angle) * ringRadius * Math.sin(tilt);
+                    nexusVerts.push({ x: rx, y: ry, z: rz });
+                }
+
+                // Ring 3: Opposite tilt ring (-45°) - 8 points (29-36)
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const rx = Math.cos(angle) * ringRadius;
+                    const ry = Math.sin(angle) * ringRadius * Math.cos(-tilt);
+                    const rz = Math.sin(angle) * ringRadius * Math.sin(-tilt);
+                    nexusVerts.push({ x: rx, y: ry, z: rz });
+                }
+
+                return nexusVerts;
+
+            default:
+                // Fallback to octahedron
+                return [
+                    { x: 0, y: -s, z: 0 }, { x: 0, y: s, z: 0 },
+                    { x: -s, y: 0, z: 0 }, { x: s, y: 0, z: 0 }, { x: 0, y: 0, z: -s }, { x: 0, y: 0, z: s }
+                ];
         }
     }
 
@@ -655,45 +914,266 @@ class CosmicBackground {
     drawWireframe(type, v, ctx = null) {
         const c = ctx || this.ctx; // Use provided context or default to this.ctx
 
-        if (type === 'cube') {
-            // Front face
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
-            c.lineTo(v[2].x, v[2].y); c.lineTo(v[3].x, v[3].y);
-            c.lineTo(v[0].x, v[0].y);
-            // Back face
-            c.moveTo(v[4].x, v[4].y); c.lineTo(v[5].x, v[5].y);
-            c.lineTo(v[6].x, v[6].y); c.lineTo(v[7].x, v[7].y);
-            c.lineTo(v[4].x, v[4].y);
-            // Connecting lines
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
-            c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
-            c.moveTo(v[2].x, v[2].y); c.lineTo(v[6].x, v[6].y);
-            c.moveTo(v[3].x, v[3].y); c.lineTo(v[7].x, v[7].y);
-        } else if (type === 'pyramid') {
-            // Base
-            c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
-            c.lineTo(v[3].x, v[3].y); c.lineTo(v[4].x, v[4].y);
-            c.lineTo(v[1].x, v[1].y);
-            // Sides
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
-        } else { // Octahedron
-            // Top pyramid
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
-            c.moveTo(v[0].x, v[0].y); c.lineTo(v[5].x, v[5].y);
-            // Bottom pyramid
-            c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
-            c.moveTo(v[1].x, v[1].y); c.lineTo(v[3].x, v[3].y);
-            c.moveTo(v[1].x, v[1].y); c.lineTo(v[4].x, v[4].y);
-            c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
-            // Middle ring
-            c.moveTo(v[2].x, v[2].y); c.lineTo(v[4].x, v[4].y);
-            c.lineTo(v[3].x, v[3].y); c.lineTo(v[5].x, v[5].y);
-            c.lineTo(v[2].x, v[2].y);
+        switch (type) {
+            case 'cube':
+                // Front face
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
+                c.lineTo(v[2].x, v[2].y); c.lineTo(v[3].x, v[3].y);
+                c.lineTo(v[0].x, v[0].y);
+                // Back face
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[5].x, v[5].y);
+                c.lineTo(v[6].x, v[6].y); c.lineTo(v[7].x, v[7].y);
+                c.lineTo(v[4].x, v[4].y);
+                // Connecting lines
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[6].x, v[6].y);
+                c.moveTo(v[3].x, v[3].y); c.lineTo(v[7].x, v[7].y);
+                break;
+
+            case 'pyramid':
+                // Base
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
+                c.lineTo(v[3].x, v[3].y); c.lineTo(v[4].x, v[4].y);
+                c.lineTo(v[1].x, v[1].y);
+                // Sides
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+                break;
+
+            case 'octahedron':
+                // Top pyramid
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[5].x, v[5].y);
+                // Bottom pyramid
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
+                // Middle ring
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[4].x, v[4].y);
+                c.lineTo(v[3].x, v[3].y); c.lineTo(v[5].x, v[5].y);
+                c.lineTo(v[2].x, v[2].y);
+                break;
+
+            case 'tesseract':
+                // Inner cube (vertices 0-7)
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
+                c.lineTo(v[2].x, v[2].y); c.lineTo(v[3].x, v[3].y);
+                c.lineTo(v[0].x, v[0].y);
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[5].x, v[5].y);
+                c.lineTo(v[6].x, v[6].y); c.lineTo(v[7].x, v[7].y);
+                c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[6].x, v[6].y);
+                c.moveTo(v[3].x, v[3].y); c.lineTo(v[7].x, v[7].y);
+                // Outer cube (vertices 8-15)
+                c.moveTo(v[8].x, v[8].y); c.lineTo(v[9].x, v[9].y);
+                c.lineTo(v[10].x, v[10].y); c.lineTo(v[11].x, v[11].y);
+                c.lineTo(v[8].x, v[8].y);
+                c.moveTo(v[12].x, v[12].y); c.lineTo(v[13].x, v[13].y);
+                c.lineTo(v[14].x, v[14].y); c.lineTo(v[15].x, v[15].y);
+                c.lineTo(v[12].x, v[12].y);
+                c.moveTo(v[8].x, v[8].y); c.lineTo(v[12].x, v[12].y);
+                c.moveTo(v[9].x, v[9].y); c.lineTo(v[13].x, v[13].y);
+                c.moveTo(v[10].x, v[10].y); c.lineTo(v[14].x, v[14].y);
+                c.moveTo(v[11].x, v[11].y); c.lineTo(v[15].x, v[15].y);
+                // Connect inner to outer (the hyperdimensional edges)
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[8].x, v[8].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[9].x, v[9].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[10].x, v[10].y);
+                c.moveTo(v[3].x, v[3].y); c.lineTo(v[11].x, v[11].y);
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[12].x, v[12].y);
+                c.moveTo(v[5].x, v[5].y); c.lineTo(v[13].x, v[13].y);
+                c.moveTo(v[6].x, v[6].y); c.lineTo(v[14].x, v[14].y);
+                c.moveTo(v[7].x, v[7].y); c.lineTo(v[15].x, v[15].y);
+                break;
+
+            case 'merkaba':
+                // Upward tetrahedron (vertices 0-3)
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[1].x, v[1].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[3].x, v[3].y); c.lineTo(v[1].x, v[1].y);
+                // Downward tetrahedron (vertices 4-7)
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[5].x, v[5].y);
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[6].x, v[6].y);
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[7].x, v[7].y);
+                c.moveTo(v[5].x, v[5].y); c.lineTo(v[6].x, v[6].y);
+                c.moveTo(v[6].x, v[6].y); c.lineTo(v[7].x, v[7].y);
+                c.moveTo(v[7].x, v[7].y); c.lineTo(v[5].x, v[5].y);
+                break;
+
+            case 'icosahedron':
+                // Connect vertices to form 20 triangular faces edges
+                // This creates the iconic icosahedron wireframe
+                const icoEdges = [
+                    [0, 2], [0, 4], [0, 6], [0, 8], [0, 9],
+                    [1, 3], [1, 4], [1, 6], [1, 10], [1, 11],
+                    [2, 5], [2, 8], [2, 9], [3, 5], [3, 10], [3, 11],
+                    [4, 8], [4, 10], [5, 8], [5, 10],
+                    [6, 9], [6, 11], [7, 9], [7, 11],
+                    [7, 2], [7, 5], [8, 10], [9, 11]
+                ];
+                for (const [i, j] of icoEdges) {
+                    c.moveTo(v[i].x, v[i].y);
+                    c.lineTo(v[j].x, v[j].y);
+                }
+                break;
+
+            case 'stellated_octahedron':
+                // Core octahedron (vertices 0-5)
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[5].x, v[5].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[4].x, v[4].y);
+                c.lineTo(v[3].x, v[3].y); c.lineTo(v[5].x, v[5].y);
+                c.lineTo(v[2].x, v[2].y);
+                // Stellated spikes - connect octahedron edges to spike points
+                // These create the "star" effect
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[6].x, v[6].y);
+                c.moveTo(v[3].x, v[3].y); c.lineTo(v[6].x, v[6].y);
+                c.moveTo(v[5].x, v[5].y); c.lineTo(v[6].x, v[6].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[7].x, v[7].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[7].x, v[7].y);
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[7].x, v[7].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[8].x, v[8].y);
+                c.moveTo(v[3].x, v[3].y); c.lineTo(v[8].x, v[8].y);
+                c.moveTo(v[4].x, v[4].y); c.lineTo(v[8].x, v[8].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[9].x, v[9].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[9].x, v[9].y);
+                c.moveTo(v[5].x, v[5].y); c.lineTo(v[9].x, v[9].y);
+                break;
+
+            case 'dodecahedron':
+                // Connect vertices to approximate pentagonal faces
+                // Simplified edge representation for wireframe effect
+                const dodecEdges = [
+                    // Cube-like connections
+                    [0, 1], [0, 2], [0, 4], [1, 3], [1, 5],
+                    [2, 3], [2, 6], [3, 7], [4, 5], [4, 6],
+                    [5, 7], [6, 7],
+                    // Golden ratio connections
+                    [0, 8], [4, 8], [2, 10], [6, 10],
+                    [1, 9], [5, 9], [3, 11], [7, 11],
+                    [0, 12], [1, 12], [4, 14], [5, 14],
+                    [2, 13], [3, 13], [6, 15], [7, 15],
+                    [0, 16], [2, 16], [1, 18], [3, 18],
+                    [4, 17], [6, 17], [5, 19], [7, 19],
+                    // Connect extended points
+                    [8, 10], [9, 11], [12, 14], [13, 15],
+                    [16, 17], [18, 19], [8, 12], [9, 14],
+                    [10, 13], [11, 15], [16, 18], [17, 19]
+                ];
+                for (const [i, j] of dodecEdges) {
+                    if (v[i] && v[j]) {
+                        c.moveTo(v[i].x, v[i].y);
+                        c.lineTo(v[j].x, v[j].y);
+                    }
+                }
+                break;
+
+            case 'metatrons_cube':
+                // Sacred geometry: Connect all 13 vertices to each other
+                // This creates the iconic Metatron's Cube pattern
+                // Vertices: 0=center, 1-6=inner hex, 7-12=outer hex
+                for (let i = 0; i < 13; i++) {
+                    for (let j = i + 1; j < 13; j++) {
+                        if (v[i] && v[j]) {
+                            c.moveTo(v[i].x, v[i].y);
+                            c.lineTo(v[j].x, v[j].y);
+                        }
+                    }
+                }
+                break;
+
+            case 'origin_nexus':
+                // ✦ ENHANCED NEXUS: Metatron's Cube Core + 3 Orbital Rings
+                // Core: vertices 0-12 (fully connected sacred geometry)
+                // Ring 1: vertices 13-20 (equatorial)
+                // Ring 2: vertices 21-28 (tilted +)
+                // Ring 3: vertices 29-36 (tilted -)
+
+                // === Draw Core Metatron's Cube (all 13 vertices connected) ===
+                for (let i = 0; i < 13; i++) {
+                    for (let j = i + 1; j < 13; j++) {
+                        if (v[i] && v[j]) {
+                            c.moveTo(v[i].x, v[i].y);
+                            c.lineTo(v[j].x, v[j].y);
+                        }
+                    }
+                }
+
+                // === Draw Orbital Rings (connect adjacent vertices in each ring) ===
+                // Ring 1: Equatorial (13-20)
+                for (let i = 0; i < 8; i++) {
+                    const curr = 13 + i;
+                    const next = 13 + ((i + 1) % 8);
+                    if (v[curr] && v[next]) {
+                        c.moveTo(v[curr].x, v[curr].y);
+                        c.lineTo(v[next].x, v[next].y);
+                    }
+                }
+
+                // Ring 2: Tilted + (21-28)
+                for (let i = 0; i < 8; i++) {
+                    const curr = 21 + i;
+                    const next = 21 + ((i + 1) % 8);
+                    if (v[curr] && v[next]) {
+                        c.moveTo(v[curr].x, v[curr].y);
+                        c.lineTo(v[next].x, v[next].y);
+                    }
+                }
+
+                // Ring 3: Tilted - (29-36)
+                for (let i = 0; i < 8; i++) {
+                    const curr = 29 + i;
+                    const next = 29 + ((i + 1) % 8);
+                    if (v[curr] && v[next]) {
+                        c.moveTo(v[curr].x, v[curr].y);
+                        c.lineTo(v[next].x, v[next].y);
+                    }
+                }
+
+                // === Connect rings to core (radial connections) ===
+                // Connect each outer hexagon vertex to nearby ring points
+                for (let i = 0; i < 6; i++) {
+                    const outerVert = 7 + i; // Outer hexagon vertices 7-12
+                    // Connect to nearest equatorial ring point
+                    const ringPoint = 13 + Math.round((i / 6) * 8) % 8;
+                    if (v[outerVert] && v[ringPoint]) {
+                        c.moveTo(v[outerVert].x, v[outerVert].y);
+                        c.lineTo(v[ringPoint].x, v[ringPoint].y);
+                    }
+                }
+                break;
+
+            default:
+                // Fallback to octahedron drawing
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[0].x, v[0].y); c.lineTo(v[5].x, v[5].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[2].x, v[2].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[3].x, v[3].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[4].x, v[4].y);
+                c.moveTo(v[1].x, v[1].y); c.lineTo(v[5].x, v[5].y);
+                c.moveTo(v[2].x, v[2].y); c.lineTo(v[4].x, v[4].y);
+                c.lineTo(v[3].x, v[3].y); c.lineTo(v[5].x, v[5].y);
+                c.lineTo(v[2].x, v[2].y);
+                break;
         }
     }
 
@@ -883,10 +1363,15 @@ class CosmicBackground {
      * Optimized: uses numeric encoding instead of string concatenation
      */
     _getSpriteCacheKey(type, sizeKey, rotXIdx, rotYIdx, rotZIdx) {
-        // Encode type as 0/1/2, pack into single number
-        // Format: type(2bits) + size(10bits) + rotX(5bits) + rotY(5bits) + rotZ(5bits) = 27 bits
-        const typeCode = type === 'cube' ? 0 : (type === 'pyramid' ? 1 : 2);
-        return (typeCode << 25) | (sizeKey << 15) | (rotXIdx << 10) | (rotYIdx << 5) | rotZIdx;
+        // Encode type as 0-7 for 8 shape types, pack into single number
+        // Format: type(4bits) + size(9bits) + rotX(5bits) + rotY(5bits) + rotZ(5bits) = 28 bits
+        const typeCodes = {
+            'cube': 0, 'pyramid': 1, 'octahedron': 2, 'tesseract': 3,
+            'merkaba': 4, 'icosahedron': 5, 'stellated_octahedron': 6, 'dodecahedron': 7,
+            'metatrons_cube': 8, 'origin_nexus': 9
+        };
+        const typeCode = typeCodes[type] ?? 2; // Default to octahedron
+        return (typeCode << 24) | ((sizeKey & 0x1FF) << 15) | (rotXIdx << 10) | (rotYIdx << 5) | rotZIdx;
     }
 
     /**
@@ -914,8 +1399,28 @@ class CosmicBackground {
             return this.shapeSpriteCache.get(key);
         }
 
-        // Create sprite
-        const spriteSize = Math.ceil(sizeKey * 3);
+        // Create sprite with size appropriate for shape type
+        // Different shapes have different vertex extents:
+        // - Basic shapes (cube, pyramid, octahedron): vertices at ±s, diagonal ~1.73s
+        // - Tesseract: outer vertices at ±s, inner at ±0.5s
+        // - Stellated octahedron: spikes at ±1.5s, diagonal ~2.6s
+        // - Icosahedron/Dodecahedron: vertices extend to ~1.0-1.2s with golden ratio
+        // Perspective projection can scale up to ~1.5x for front-facing vertices
+        // Use shape-specific multipliers to ensure no clipping
+        const sizeMultipliers = {
+            'cube': 3.5,           // s * √3 * perspective ≈ 3.0, add padding
+            'pyramid': 3.5,        // Similar to cube
+            'octahedron': 3.5,     // Similar to cube
+            'tesseract': 4.0,      // Outer cube diagonal + connecting lines
+            'merkaba': 4.0,        // Two interlocking tetrahedra
+            'icosahedron': 4.0,    // Golden ratio extends vertices
+            'stellated_octahedron': 5.5,  // 1.5x spikes * √3 * perspective ≈ 4.5
+            'dodecahedron': 4.5,   // Golden ratio vertices extend further
+            'metatrons_cube': 4.5, // 2 hexagonal rings + center
+            'origin_nexus': 5.5    // Core + orbital rings at 1.1x radius
+        };
+        const sizeMult = sizeMultipliers[shape.type] || 4.0;
+        const spriteSize = Math.ceil(sizeKey * sizeMult);
         const canvas = document.createElement('canvas');
         canvas.width = spriteSize;
         canvas.height = spriteSize;

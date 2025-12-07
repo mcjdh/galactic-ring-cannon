@@ -178,6 +178,9 @@ class MinimapSystem {
         if (bossCache.distSq !== Infinity) {
             this._drawBossIndicator(ctx, bossCache, width, height, centerX, centerY);
         }
+
+        // ✦ Origin Nexus indicator - always shows direction to spawn point
+        this._drawOriginNexusIndicator(ctx, player, width, height, centerX, centerY, scale);
     }
 
     destroy() {
@@ -244,41 +247,118 @@ class MinimapSystem {
         const { x, y, dxWorld, dyWorld } = bossData;
         const inBounds = bossData.inBounds;
         const angle = Math.atan2(dyWorld, dxWorld);
+
         ctx.save();
         ctx.fillStyle = '#f1c40f';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 1;
+
         if (inBounds) {
+            // Draw a distinct, filled boss marker
+            // Independent of _drawEnemyMarkers so it's always visible
+            const dx = Math.max(0, Math.min(width, x));
+            const dy = Math.max(0, Math.min(height, y));
+            ctx.translate(dx, dy);
+
+            // Draw a distinct large circle for the boss
             ctx.beginPath();
-            ctx.arc(Math.max(0, Math.min(width, x)), Math.max(0, Math.min(height, y)), 6, 0, Math.PI * 2);
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            ctx.fill();
             ctx.stroke();
+
+            // Inner styling to distinguish from elite/regular
+            ctx.fillStyle = '#c0392b'; // Darker red center
+            ctx.beginPath();
+            ctx.arc(0, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
         } else {
-            const margin = 8;
-            const vx = Math.cos(angle);
-            const vy = Math.sin(angle);
-            const tx = vx !== 0 ? ((vx > 0 ? (width/2 - margin) : (-width/2 + margin)) / vx) : Infinity;
-            const ty = vy !== 0 ? ((vy > 0 ? (height/2 - margin) : (-height/2 + margin)) / vy) : Infinity;
-            const t = Math.min(Math.abs(tx), Math.abs(ty));
-            const ax = centerX + vx * t;
-            const ay = centerY + vy * t;
+            // Circular clamping for circular minimap
+            const margin = 14; // Margin from edge
+            const radius = (width / 2) - margin;
+
+            const ax = centerX + Math.cos(angle) * radius;
+            const ay = centerY + Math.sin(angle) * radius;
+
             ctx.translate(ax, ay);
             ctx.rotate(angle);
+
+            // Arrow shape
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.lineTo(-8, 4);
-            ctx.lineTo(-8, -4);
+            ctx.lineTo(-8, 5);
+            ctx.lineTo(-8, -5);
+            ctx.closePath();
+
+            ctx.fillStyle = '#f1c40f';
+            ctx.fill();
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    /**
+     * Draw Origin Nexus indicator - a cyan arrow pointing to spawn point
+     * Acts as a compass anchor for navigation
+     */
+    _drawOriginNexusIndicator(ctx, player, width, height, centerX, centerY, scale) {
+        // Player spawns at canvas center (canvas.width/2, canvas.height/2)
+        // Get the actual spawn point from game canvas or use stored value
+        const gameCanvas = this.game?.canvas;
+        const spawnX = gameCanvas ? gameCanvas.width / 2 : (this._spawnX ?? width / 2 / scale);
+        const spawnY = gameCanvas ? gameCanvas.height / 2 : (this._spawnY ?? height / 2 / scale);
+
+        // Store spawn for consistency
+        if (!this._spawnX && gameCanvas) {
+            this._spawnX = spawnX;
+            this._spawnY = spawnY;
+        }
+
+        const dxWorld = spawnX - player.x;
+        const dyWorld = spawnY - player.y;
+        const distSq = dxWorld * dxWorld + dyWorld * dyWorld;
+
+        // Don't show if player is very close to origin (within 100 units)
+        if (distSq < 10000) return;
+
+        const x = Math.round(centerX + dxWorld * scale);
+        const y = Math.round(centerY + dyWorld * scale);
+        const inBounds = x >= 0 && x <= width && y >= 0 && y <= height;
+        const angle = Math.atan2(dyWorld, dxWorld);
+
+        ctx.save();
+        ctx.fillStyle = '#64b4ff'; // Cyan-blue for nexus
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+
+        if (inBounds) {
+            // Draw a small marker at the origin position
+            ctx.beginPath();
+            // Draw a diamond shape instead of circle for unique look
+            ctx.moveTo(x, y - 4);
+            ctx.lineTo(x + 4, y);
+            ctx.lineTo(x, y + 4);
+            ctx.lineTo(x - 4, y);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
-            const meters = Math.round((dxWorld * dxWorld + dyWorld * dyWorld) ** 0.5 / 10);
-            ctx.rotate(-angle);
-            ctx.font = '10px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2;
-            ctx.strokeText(`${meters}m`, 0, -8);
-            ctx.fillText(`${meters}m`, 0, -8);
+        } else {
+            // Circular clamping for circular minimap
+            const margin = 14;
+            const radius = (width / 2) - margin;
+
+            const ax = centerX + Math.cos(angle) * radius;
+            const ay = centerY + Math.sin(angle) * radius;
+
+            ctx.translate(ax, ay);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            // Slightly smaller arrow than boss
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-6, 3);
+            ctx.lineTo(-6, -3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
         }
         ctx.restore();
     }

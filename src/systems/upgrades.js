@@ -278,6 +278,7 @@ class UpgradeSystem {
         this.removeKeyboardShortcuts();
 
         this.levelUpKeyListener = (e) => {
+            // Number keys 1-3
             if (e.key >= '1' && e.key <= '3') {
                 const index = parseInt(e.key) - 1;
                 if (index >= 0 && index < upgrades.length) {

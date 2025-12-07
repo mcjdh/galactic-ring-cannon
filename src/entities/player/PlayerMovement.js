@@ -229,12 +229,9 @@ class PlayerMovement {
         // Get keys from the game engine
         const keys = game.keys || {};
 
-        // Only activate dodge if game is active (not paused or in level-up menu)
-        const isMenuActive = window.upgradeSystem?.isLevelUpActive?.() ||
-            window.gameManager?.isMenuActive?.() ||
-            game.isPaused;
-
-        if (keys[' '] && this.canDodge && !this.isDodging && !isMenuActive) {
+        // Only activate dodge if game is active (not paused)
+        // User requested ability to dash while level-up menu is open
+        if (keys[' '] && this.canDodge && !this.isDodging && !game.isPaused) {
             keys[' '] = false; // Prevent holding space
             this.doDodge();
         }
