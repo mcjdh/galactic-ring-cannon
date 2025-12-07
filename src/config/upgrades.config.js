@@ -685,11 +685,11 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'sanguine_lash',
         name: 'Sanguine Lash',
-        description: 'LASH: 45 dmg on steal',
+        description: 'LASH: 40% on steal, 15dmg',
         type: 'bloodLash',
-        damage: 45,
-        range: 280,
-        chance: 1.0,
+        damage: 15,          // BALANCED: Reduced from 45 - was too high for constant procs
+        range: 200,          // Reduced from 280 - less range for balance
+        chance: 0.40,        // BALANCED: Reduced from 100% - was triggering on every steal
         icon: '↯',
         rarity: 'rare',
         requires: ['blood_tithe'],

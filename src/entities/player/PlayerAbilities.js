@@ -42,6 +42,8 @@ class PlayerAbilities {
         this.bloodLashDamage = 0;
         this.bloodLashRange = 0;
         this.bloodLashChance = 0;
+        this.bloodLashCooldown = 0;     // Internal cooldown timer (seconds remaining)
+        this.bloodLashCooldownTime = 0.5; // Minimum time between blood lashes
         this.bloodNovaDamage = 0;
         this.bloodNovaRadius = 0;
 
@@ -139,6 +141,12 @@ class PlayerAbilities {
         if (this.player && typeof this.player.radius === 'number') {
             this.collisionRadius = this.player.radius;
         }
+
+        // Decrement blood lash cooldown
+        if (this.bloodLashCooldown > 0) {
+            this.bloodLashCooldown = Math.max(0, this.bloodLashCooldown - deltaTime);
+        }
+
         this.updateOrbitalAttacks(deltaTime, game);
         this.updateShield(deltaTime, game);
     }
@@ -1045,10 +1053,19 @@ class PlayerAbilities {
         if (!(amount > 0 && this.bloodLashDamage > 0)) {
             return;
         }
-        const chance = this.bloodLashChance || 1;
+
+        // Check cooldown - prevent rapid firing
+        if (this.bloodLashCooldown > 0) {
+            return;
+        }
+
+        const chance = this.bloodLashChance || 0.4; // Default to 40% if not set
         if (Math.random() > chance) {
             return;
         }
+
+        // Set cooldown for next blood lash
+        this.bloodLashCooldown = this.bloodLashCooldownTime || 0.5;
 
         const gm = window.gameManager || window.gameManagerBridge;
         const game = gm?.game;

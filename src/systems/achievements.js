@@ -356,8 +356,14 @@ class AchievementSystem {
     // Track damage-free time
     updateUntouchable(deltaTime) {
         this.timeSinceLastDamage += deltaTime;
-        this.maxTimeSinceLastDamage = Math.max(this.maxTimeSinceLastDamage, this.timeSinceLastDamage);
-        this.updateAchievement('untouchable', this.maxTimeSinceLastDamage);
+        const newMax = Math.max(this.maxTimeSinceLastDamage, this.timeSinceLastDamage);
+
+        // Only update achievement if progress changed by at least 1 second (throttle to reduce overhead)
+        if (Math.floor(newMax) > Math.floor(this.maxTimeSinceLastDamage) || newMax >= 120) {
+            this.updateAchievement('untouchable', newMax);
+        }
+
+        this.maxTimeSinceLastDamage = newMax;
     }
 
     // Reset damage-free time when hit
@@ -442,26 +448,36 @@ class AchievementSystem {
         this.timeSinceLastDodge = 0;
     }
 
-    // Track time at low health for 'Edge Walker' achievement (Void Reaver unlock)
+    // Track time at low health for 'Edge Walker' achievement (Cybernetic Berserker unlock)
     updateEdgeWalker(deltaTime, player) {
         if (!player?.stats) {
             return;
         }
 
-        const healthPercent = player.stats.health / player.stats.maxHealth;
+        const health = player.stats.health;
+        const maxHealth = player.stats.maxHealth;
 
-        if (healthPercent < this.lowHealthThreshold) {
-            // Player is below 30% health, accumulate time
+        // Guard against invalid health values
+        if (!Number.isFinite(health) || !Number.isFinite(maxHealth) || maxHealth <= 0) {
+            return;
+        }
+
+        const healthPercent = health / maxHealth;
+
+        if (healthPercent < this.lowHealthThreshold && healthPercent > 0) {
+            // Player is below 50% health and alive, accumulate time
             this.timeAtLowHealth += deltaTime;
-            this.maxTimeAtLowHealth = Math.max(this.maxTimeAtLowHealth, this.timeAtLowHealth);
 
-            // Only update achievement if progress changed by at least 1 second or achievement is about to unlock
-            if (Math.floor(this.maxTimeAtLowHealth) > Math.floor(this.achievements.edge_walker?.progress || 0)
-                || this.maxTimeAtLowHealth >= 180) {
-                this.updateAchievement('edge_walker', this.maxTimeAtLowHealth);
+            // Track max time achieved this run
+            if (this.timeAtLowHealth > this.maxTimeAtLowHealth) {
+                this.maxTimeAtLowHealth = this.timeAtLowHealth;
+
+                // Update achievement immediately when max increases  
+                // (throttle handled by updateAchievement's internal change check)
+                this.updateAchievement('edge_walker', Math.floor(this.maxTimeAtLowHealth));
             }
         } else {
-            // Player is above 30% health, reset current streak but keep max
+            // Player is above 50% health or dead, reset current streak but keep max
             this.timeAtLowHealth = 0;
         }
     }

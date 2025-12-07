@@ -204,29 +204,33 @@ class GravityWell {
         ctx.save();
 
         const visibility = this._getVisibilityFactor();
+        if (visibility <= 0) {
+            ctx.restore();
+            return;
+        }
 
         // Enhanced visuals for high-level Void Warden
         let intensityBonus = 1.0;
         if (this.sourcePlayer?.characterDefinition?.id === 'void_warden') {
             const playerLevel = this.sourcePlayer?.stats?.level || 1;
-            intensityBonus = 1.0 + Math.min(0.5, playerLevel * 0.03); // Up to +50% intensity at high levels
+            intensityBonus = 1.0 + Math.min(0.5, playerLevel * 0.03);
         }
 
-        const alpha = (0.2 + 0.55 * visibility) * Math.min(1.4, intensityBonus);
-        const pulse = 1 + (0.04 * Math.sin(this._pulseOffset + this.timer * 4)) * intensityBonus;
+        // Subtle background-style effect - reduced intensity
+        const alpha = (0.12 + 0.28 * visibility) * Math.min(1.2, intensityBonus);
+        const pulse = 1 + (0.02 * Math.sin(this._pulseOffset + this.timer * 3)) * intensityBonus;
         const drawRadius = this.radius * pulse;
+        const time = this.timer * 2.0;
 
+        // === LAYER 1: Subtle void background gradient ===
         const gradient = ctx.createRadialGradient(
-            this.x,
-            this.y,
-            drawRadius * 0.12,
-            this.x,
-            this.y,
-            drawRadius
+            this.x, this.y, drawRadius * 0.1,
+            this.x, this.y, drawRadius
         );
-        gradient.addColorStop(0, 'rgba(210, 200, 255, 0.95)');
-        gradient.addColorStop(0.45, 'rgba(140, 125, 255, 0.35)');
-        gradient.addColorStop(1, 'rgba(60, 55, 180, 0)');
+        gradient.addColorStop(0, 'rgba(30, 15, 60, 0.6)');
+        gradient.addColorStop(0.4, 'rgba(50, 35, 100, 0.3)');
+        gradient.addColorStop(0.8, 'rgba(60, 50, 110, 0.1)');
+        gradient.addColorStop(1, 'rgba(40, 30, 80, 0)');
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = gradient;
@@ -234,33 +238,181 @@ class GravityWell {
         ctx.arc(this.x, this.y, drawRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.globalAlpha = 0.65 * visibility;
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#c7b5ff';
-        for (let ring = 0; ring < 2; ring++) {
-            const ringRadius = drawRadius * (0.45 + ring * 0.25);
-            ctx.beginPath();
-            ctx.ellipse(
-                this.x,
-                this.y,
-                ringRadius,
-                ringRadius * 0.85,
-                this.visualRotation + ring * Math.PI * 0.5,
-                0,
-                Math.PI * 2
-            );
-            ctx.stroke();
+        // === LAYER 2 & 3: Cached wireframe sprite ===
+        const cache = GravityWell._ensureCache();
+        if (cache) {
+            // Calculate animation frame from rotation
+            const frameCount = GravityWell._CACHE_FRAMES;
+            const normalizedRotation = ((this.visualRotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            const frameIndex = Math.floor((normalizedRotation / (Math.PI * 2)) * frameCount) % frameCount;
+
+            const sprite = cache[frameIndex];
+            if (sprite) {
+                // Scale cached sprite to match current radius
+                const scale = (drawRadius / GravityWell._CACHE_BASE_RADIUS);
+                const spriteSize = GravityWell._CACHE_SIZE * scale;
+
+                // Reduced wireframe opacity for subtler effect
+                ctx.globalAlpha = visibility * 0.5 * Math.min(1.0, intensityBonus);
+                ctx.drawImage(
+                    sprite,
+                    this.x - spriteSize / 2,
+                    this.y - spriteSize / 2,
+                    spriteSize,
+                    spriteSize
+                );
+            }
         }
 
-        // Outer ripple for subtle fade-out edge
-        ctx.globalAlpha = 0.25 * visibility;
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = '#a483ff';
+        // === LAYER 4: Subtle central glow ===
+        const coreRadius = drawRadius * 0.15;
+        const corePulse = 1 + 0.08 * Math.sin(time * 1.5);
+
+        const centerGlow = ctx.createRadialGradient(
+            this.x, this.y, 0,
+            this.x, this.y, coreRadius * 0.5 * corePulse
+        );
+        centerGlow.addColorStop(0, 'rgba(200, 180, 255, 0.5)');
+        centerGlow.addColorStop(0.5, 'rgba(160, 140, 200, 0.25)');
+        centerGlow.addColorStop(1, 'rgba(120, 100, 160, 0)');
+
+        ctx.globalAlpha = 0.5 * visibility * corePulse;
+        ctx.fillStyle = centerGlow;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, drawRadius * 1.05, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, coreRadius * 0.5 * corePulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === LAYER 5: Subtle outer ripple ===
+        ctx.globalAlpha = 0.18 * visibility;
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#8070bb';
+
+        ctx.beginPath();
+        for (let i = 0; i <= 24; i++) {
+            const angle = (i / 24) * Math.PI * 2;
+            const ripple = 1 + 0.03 * Math.sin(angle * 6 + time * 3);
+            const r = drawRadius * 1.05 * ripple;
+            const px = this.x + Math.cos(angle) * r;
+            const py = this.y + Math.sin(angle) * r;
+            if (i === 0) {
+                ctx.moveTo(px, py);
+            } else {
+                ctx.lineTo(px, py);
+            }
+        }
+        ctx.closePath();
         ctx.stroke();
 
         ctx.restore();
+    }
+
+    // ========================================
+    // STATIC SPRITE CACHE SYSTEM
+    // ========================================
+
+    /**
+     * Ensure the static wireframe cache is initialized.
+     * Returns the cache array or null if not ready.
+     */
+    static _ensureCache() {
+        if (GravityWell._spriteCache) {
+            return GravityWell._spriteCache;
+        }
+
+        // Initialize cache lazily on first gravity well render
+        GravityWell._initCache();
+        return GravityWell._spriteCache;
+    }
+
+    /**
+     * Initialize the static wireframe sprite cache.
+     * Pre-renders 32 rotation frames of the hexagonal rings + triangular core.
+     */
+    static _initCache() {
+        if (GravityWell._spriteCache) return;
+
+        const frameCount = GravityWell._CACHE_FRAMES;
+        const size = GravityWell._CACHE_SIZE;
+        const baseRadius = GravityWell._CACHE_BASE_RADIUS;
+        const center = size / 2;
+
+        GravityWell._spriteCache = [];
+
+        for (let frame = 0; frame < frameCount; frame++) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            const rotation = (frame / frameCount) * Math.PI * 2;
+
+            // Draw hexagonal wireframe rings
+            const hexSides = 6;
+            const ringLayers = 3;
+
+            for (let layer = 0; layer < ringLayers; layer++) {
+                const layerRadius = baseRadius * (0.35 + layer * 0.25);
+                const layerRotation = rotation * (1 + layer * 0.3) + layer * Math.PI / 3;
+                // Muted colors for background-style appearance
+                const layerAlpha = 0.4 - layer * 0.1;
+
+                ctx.globalAlpha = layerAlpha;
+                ctx.strokeStyle = layer === 0 ? '#b0a0dd' : (layer === 1 ? '#9080bb' : '#706099');
+                ctx.lineWidth = 1.5 - layer * 0.3;
+                ctx.shadowColor = '#806099';
+                ctx.shadowBlur = 4 - layer;
+
+                ctx.beginPath();
+                for (let i = 0; i <= hexSides; i++) {
+                    const angle = (i / hexSides) * Math.PI * 2 + layerRotation;
+                    const px = center + Math.cos(angle) * layerRadius;
+                    const py = center + Math.sin(angle) * layerRadius;
+                    if (i === 0) {
+                        ctx.moveTo(px, py);
+                    } else {
+                        ctx.lineTo(px, py);
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // Draw inner triangular core
+            const coreRadius = baseRadius * 0.2;
+            const coreRotation = -rotation * 2;
+
+            // Subdued core - not bright white
+            ctx.globalAlpha = 0.5;
+            ctx.strokeStyle = '#d0c8ee';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#a090cc';
+            ctx.shadowBlur = 6;
+
+            ctx.beginPath();
+            for (let i = 0; i <= 3; i++) {
+                const angle = (i / 3) * Math.PI * 2 + coreRotation;
+                const px = center + Math.cos(angle) * coreRadius;
+                const py = center + Math.sin(angle) * coreRadius;
+                if (i === 0) {
+                    ctx.moveTo(px, py);
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+            ctx.stroke();
+
+            GravityWell._spriteCache.push(canvas);
+        }
+
+        if (window.logger?.isDebugEnabled?.('systems')) {
+            window.logger.log(`[GravityWell] Cached ${frameCount} wireframe sprites`);
+        }
+    }
+
+    /**
+     * Clear the static cache (for memory cleanup or hot reload).
+     */
+    static clearCache() {
+        GravityWell._spriteCache = null;
     }
 
     _getVisibilityFactor() {
@@ -295,4 +447,9 @@ if (typeof window !== 'undefined') {
     window.Game.GravityWell = GravityWell;
 }
 
+// Static cache configuration
 GravityWell._activeCount = 0;
+GravityWell._spriteCache = null;
+GravityWell._CACHE_FRAMES = 32;       // Number of rotation frames to cache
+GravityWell._CACHE_SIZE = 256;        // Sprite canvas size in pixels
+GravityWell._CACHE_BASE_RADIUS = 100; // Base radius for cached sprites
