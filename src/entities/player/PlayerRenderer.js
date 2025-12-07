@@ -66,9 +66,14 @@ class PlayerRenderer {
 
             // Subtle 3D depth animation - NOT full rotation, just a gentle wobble
             // This creates depth effect without overriding the player's facing direction
+            // [TUNED] Reduced amplitude for more centered appearance
             const now = Date.now() / 1000;
-            const depthWobbleX = Math.sin(now * animSpeed * 2) * 0.3; // ±0.3 radians (~17°)
-            const depthWobbleY = Math.cos(now * animSpeed * 1.5) * 0.4; // ±0.4 radians (~23°)
+            const depthWobbleX = Math.sin(now * animSpeed * 2) * 0.15; // ±0.15 radians (~9°)
+            const depthWobbleY = Math.cos(now * animSpeed * 1.5) * 0.18; // ±0.18 radians (~10°)
+
+            // [HYPER-TESSERACT] 4D rotation angle for hypercube breathing effect
+            // Cycles continuously, creating phase-shifting of inner/outer vertices
+            const rotW = now * animSpeed * 0.8; // Continuous 4D rotation
 
             // Get color override for invulnerability
             let wireColor = null;
@@ -76,8 +81,8 @@ class PlayerRenderer {
                 wireColor = '#ffffff';
             }
 
-            // Get cached sprite with subtle wobble
-            const sprite = shapeCache.getSprite(characterId, radius, depthWobbleX, depthWobbleY, wireColor);
+            // Get cached sprite with 3D wobble and 4D rotation
+            const sprite = shapeCache.getSprite(characterId, radius, depthWobbleX, depthWobbleY, wireColor, rotW);
 
             if (sprite) {
                 // Apply player's facing rotation FIRST

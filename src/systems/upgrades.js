@@ -59,10 +59,17 @@ class UpgradeSystem {
         }
     }
 
+    /**
+     * Update level-up timer. Called from GameEngine.update().
+     * 
+     * PAUSE INTEGRATION: Timer automatically freezes when game is paused because
+     * GameEngine.gameLoop only calls update() when !isPaused (line ~964).
+     * No special handling needed - timer bar simply stops moving during pause.
+     */
     update(deltaTime) {
         if (!this.levelUpActive) return;
 
-        // Update timer
+        // Timer decreases each frame (auto-pauses with game)
         this.selectionTimer -= deltaTime;
 
         // Find the active row (first child = bottom visually with column-reverse)
@@ -73,7 +80,7 @@ class UpgradeSystem {
             const percent = Math.max(0, (this.selectionTimer / this.maxSelectionTime) * 100);
             timerBar.style.width = `${percent}%`;
 
-            // Visual urgency
+            // Visual urgency based on time remaining
             if (percent < 30) {
                 timerBar.style.background = 'var(--neon-red)';
                 timerBar.style.boxShadow = '0 0 10px var(--neon-red)';

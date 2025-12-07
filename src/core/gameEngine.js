@@ -2102,10 +2102,8 @@ class GameEngine {
     // Add error handling to togglePause
     togglePause() {
         try {
-            // Don't allow toggling pause when level-up menu is active
-            if (window.upgradeSystem && window.upgradeSystem.isLevelUpActive()) {
-                return;
-            }
+            // [FIX] Allow pausing during level-up - game should pause even with upgrade menu open
+            // The pause menu UI won't show (handled in pauseGame), but game state will pause
 
             if (this.isPaused) {
                 this.resumeGame({ reason: 'manual' });
@@ -2137,8 +2135,9 @@ class GameEngine {
 
         const shouldShowPauseMenu = reason === 'manual';
 
-        // Only show pause menu if we're not in level-up mode or result screen
-        if (shouldShowPauseMenu && !resultVisible && (!window.upgradeSystem || !window.upgradeSystem.isLevelUpActive())) {
+        // [FIX] Show pause menu even during level-up so player knows game is paused
+        // Level-up menu stays visible alongside pause menu
+        if (shouldShowPauseMenu && !resultVisible) {
             const pauseMenu = this._getDomRef('pause-menu');
             if (pauseMenu?.classList?.remove) pauseMenu.classList.remove('hidden');
         }
@@ -2166,11 +2165,9 @@ class GameEngine {
             return;
         }
 
-        // Don't resume if level-up menu is active
-        if (window.upgradeSystem && window.upgradeSystem.isLevelUpActive()) {
-            return;
-        }
-        if (!this.canAutoResume()) {
+        // [FIX] Allow manual resume during level-up
+        // Only block auto-resume during level-up (via canAutoResume)
+        if (reason !== 'manual' && !this.canAutoResume()) {
             return;
         }
 
