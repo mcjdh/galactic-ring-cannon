@@ -102,8 +102,6 @@ class GameEngine {
         try {
             // Store bound functions for proper cleanup later
             this.boundResizeCanvas = this.resizeCanvas.bind(this);
-            this.boundHandleContextLoss = this.handleContextLoss.bind(this);
-            this.boundHandleContextRestore = this.handleContextRestore.bind(this);
             this.boundHandleVisibilityChange = this.handleVisibilityChange.bind(this);
             this.boundHandleFocusChange = this.handleFocusChange.bind(this);
             this.boundHandleBlurChange = this.handleBlurChange.bind(this);
@@ -279,10 +277,6 @@ class GameEngine {
         this.lastResourceCleanup = 0;
 
         // Add canvas context loss handling
-        if (typeof this.canvas?.addEventListener === 'function') {
-            this.canvas.addEventListener('webglcontextlost', this.boundHandleContextLoss);
-            this.canvas.addEventListener('webglcontextrestored', this.boundHandleContextRestore);
-        }
         this.contextLost = false;
 
         // Track the main loop status
@@ -2538,12 +2532,7 @@ class GameEngine {
                 window.removeEventListener('resize', this.boundResizeCanvas);
             }
             if (this.canvas && typeof this.canvas.removeEventListener === 'function') {
-                if (this.boundHandleContextLoss) {
-                    this.canvas.removeEventListener('webglcontextlost', this.boundHandleContextLoss);
-                }
-                if (this.boundHandleContextRestore) {
-                    this.canvas.removeEventListener('webglcontextrestored', this.boundHandleContextRestore);
-                }
+                // No-op for now, previous listeners removed
             }
             if (this.boundHandleVisibilityChange) {
                 if (typeof document?.removeEventListener === 'function') {
@@ -2571,8 +2560,6 @@ class GameEngine {
             }
 
             this.boundResizeCanvas = null;
-            this.boundHandleContextLoss = null;
-            this.boundHandleContextRestore = null;
             this.boundHandleVisibilityChange = null;
             this.boundHandleFocusChange = null;
             this.boundHandleBlurChange = null;
