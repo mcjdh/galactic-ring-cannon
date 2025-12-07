@@ -897,10 +897,16 @@ class GameManagerBridge {
                 return;
             }
 
-            if (!window.hudEventHandlers) {
-                window.hudEventHandlers = new HandlerClass(this.game.state);
-                window.logger.log('+ HUD event handlers initialized');
+            // [FIX] Cleanup existing handlers to prevent memory leaks and stale event listeners
+            if (window.hudEventHandlers) {
+                if (typeof window.hudEventHandlers.cleanup === 'function') {
+                    window.hudEventHandlers.cleanup();
+                }
+                window.hudEventHandlers = null;
             }
+
+            window.hudEventHandlers = new HandlerClass(this.game.state);
+            window.logger.log('+ HUD event handlers initialized');
         } catch (error) {
             window.logger.error('! Failed to initialize HUD event handlers:', error);
         }

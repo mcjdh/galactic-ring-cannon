@@ -235,6 +235,19 @@ body::after {
 }
 
 /* Timer and boss countdown */
+#timer-container {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 100;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 #timer-display {
     font-size: 28px;
     font-weight: bold;

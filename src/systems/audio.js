@@ -15,7 +15,7 @@ class AudioSystem {
             // Volume categories (0-1)
             this.volumes = {
                 master: 0.5,
-                music: 0.6,
+                music: 0.3, // Tuned lower for balance (was 0.6)
                 sfx: 0.7,
                 ui: 0.5
             };
@@ -26,16 +26,40 @@ class AudioSystem {
             this.pendingSounds = [];
             this.maxPendingSounds = 8;
 
-            // Music system state
-            this.musicLayers = {
-                ambient: null,
-                bass: null,
-                melody: null,
-                intensity: null
-            };
-            this.currentIntensity = 0; // 0-1 scale
+            // Music system state - FILE BASED
+            this.playlist = [
+                'assets/audio/music/track_01.wav',
+                'assets/audio/music/track_02.wav',
+                'assets/audio/music/track_03.wav',
+                'assets/audio/music/track_04.wav',
+                'assets/audio/music/track_05.wav',
+                'assets/audio/music/track_06.wav',
+                'assets/audio/music/track_07.wav'
+            ];
+
+            // Shuffle playlist for variety
+            for (let i = this.playlist.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [this.playlist[i], this.playlist[j]] = [this.playlist[j], this.playlist[i]];
+            }
+
+            this.currentTrackIndex = -1;
+            this.currentSource = null;
+            this.musicBufferCache = new Map();
+            this.isLoadingMusic = false;
+
             this.musicEnabled = false;
-            this._musicTimeouts = []; // Track setTimeout IDs for cleanup
+            this.currentIntensity = 0; // 0-1 scale
+
+            // Add hotkey listener for skipping tracks (N key)
+            if (typeof window !== 'undefined') {
+                this._boundHandleKeyDown = (e) => {
+                    if ((e.key === 'n' || e.key === 'N') && !e.repeat && this.initialized) {
+                        this.playNextTrack();
+                    }
+                };
+                window.addEventListener('keydown', this._boundHandleKeyDown);
+            }
 
             // Add fallback for browsers without Web Audio API
             if (!this.isWebAudioSupported) {
@@ -77,18 +101,29 @@ class AudioSystem {
      * Call this when the game is shutting down to prevent memory leaks
      */
     destroy() {
-        // Clear all music timeouts
-        if (this._musicTimeouts) {
-            for (const timeoutId of this._musicTimeouts) {
-                clearTimeout(timeoutId);
-            }
-            this._musicTimeouts = [];
+        // Remove hotkey listener
+        if (typeof window !== 'undefined' && this._boundHandleKeyDown) {
+            window.removeEventListener('keydown', this._boundHandleKeyDown);
+        }
+
+        // Stop any active music
+        if (this.currentSource) {
+            try {
+                this.currentSource.stop();
+                this.currentSource.disconnect();
+            } catch (e) { }
+            this.currentSource = null;
+        }
+
+        // Clear music cache
+        if (this.musicBufferCache) {
+            this.musicBufferCache.clear();
         }
 
         // Stop boss theme
         this.stopBossTheme();
 
-        // Stop ambient music
+        // Stop ambient music (calls our updated method)
         this.stopAmbientMusic();
 
         // Close audio context
@@ -110,7 +145,10 @@ class AudioSystem {
         this.uiGain = null;
         this.pendingSounds = [];
         this.initialized = false;
+
+        this.isLoadingMusic = false;
     }
+
 
     // Initialize audio context with error handling
     initializeAudioContext() {
@@ -1258,311 +1296,117 @@ class AudioSystem {
     // === CONTINUOUS AMBIENT MUSIC SYSTEM ===
 
     // Start ambient background music
+    // Start ambient background music
     startAmbientMusic() {
-        if (!this.audioContext || this.musicEnabled) return;
-
         this.musicEnabled = true;
-        this.createAmbientLayer();
-        this.createBassLayer();
-
-        // Start melody and intensity layers based on gameplay
-        this.updateMusicLayers();
+        if (!this.currentSource && this.initialized) {
+            this.playNextTrack();
+        } else if (this.currentSource && this.audioContext.state === 'suspended') {
+            this.resumeAudioContext();
+        }
     }
+
+
+
 
     // Stop ambient music
+    // Stop ambient music
     stopAmbientMusic() {
-        if (!this.musicEnabled) return;
-
         this.musicEnabled = false;
+        if (this.currentSource) {
+            try {
+                this.currentSource.stop();
+            } catch (e) { }
+            this.currentSource = null;
+        }
+    }
 
-        // Clear all music-related timeouts to prevent memory leaks
-        if (this._musicTimeouts) {
-            this._musicTimeouts.forEach(id => clearTimeout(id));
-            this._musicTimeouts = [];
+    async loadTrack(url) {
+        if (this.musicBufferCache.has(url)) {
+            return this.musicBufferCache.get(url);
         }
 
-        // Stop all music layers
-        Object.keys(this.musicLayers).forEach(key => {
-            if (this.musicLayers[key]) {
-                try {
-                    this.musicLayers[key].forEach(node => {
-                        if (node.stop) node.stop();
-                        if (node.disconnect) node.disconnect();
-                    });
-                } catch (e) {
-                    // Layer might already be stopped
-                }
-                this.musicLayers[key] = null;
-            }
-        });
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            this.musicBufferCache.set(url, audioBuffer);
+            return audioBuffer;
+        } catch (error) {
+            window.logger?.error?.(`Failed to load music track: ${url}`, error);
+            return null;
+        }
     }
 
-    // Create ambient pad layer (always playing)
-    createAmbientLayer() {
-        if (!this.audioContext || !this.musicEnabled) return;
+    playNextTrack() {
+        if (!this.musicEnabled && this.currentTrackIndex !== -1) return;
 
-        const now = this.audioContext.currentTime;
-        this.musicLayers.ambient = [];
-
-        // Ambient pad using filtered noise and low oscillators
-        const createPad = (freq, delay = 0) => {
-            const osc = this.audioContext.createOscillator();
-            const gain = this.audioContext.createGain();
-            const filter = this.audioContext.createBiquadFilter();
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now);
-
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(800, now);
-            filter.Q.value = 1.0;
-
-            gain.gain.setValueAtTime(0, now + delay);
-            gain.gain.linearRampToValueAtTime(0.08, now + delay + 2);
-
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(this.musicGain);
-
-            osc.start(now + delay);
-
-            return { osc, gain, filter };
-        };
-
-        // Create ambient drone (A minor tonality)
-        const pad1 = createPad(110, 0);    // A2
-        const pad2 = createPad(164.81, 0.5); // E3
-        const pad3 = createPad(220, 1);    // A3
-
-        this.musicLayers.ambient.push(pad1, pad2, pad3);
-
-        // Schedule next ambient layer refresh (every 30 seconds for variety)
-        const timeoutId = setTimeout(() => {
-            // Remove from tracking array
-            const idx = this._musicTimeouts.indexOf(timeoutId);
-            if (idx !== -1) this._musicTimeouts.splice(idx, 1);
-
-            if (this.musicEnabled) {
-                this.refreshAmbientLayer();
-            }
-        }, 30000);
-        this._musicTimeouts.push(timeoutId);
+        // Advance index
+        this.currentTrackIndex = (this.currentTrackIndex + 1) % this.playlist.length;
+        this.playTrack(this.playlist[this.currentTrackIndex]);
     }
 
-    // Refresh ambient layer for variety
-    refreshAmbientLayer() {
-        if (!this.audioContext || !this.musicEnabled) return;
+    async playTrack(url) {
+        if (!this.audioContext || this.isLoadingMusic) return;
+        this.isLoadingMusic = true;
 
-        const now = this.audioContext.currentTime;
-
-        // Fade out old layer
-        if (this.musicLayers.ambient) {
-            this.musicLayers.ambient.forEach(({ osc, gain }) => {
-                if (gain && gain.gain) {
-                    gain.gain.linearRampToValueAtTime(0, now + 3);
-                }
-                if (osc && osc.stop) {
-                    try {
-                        osc.stop(now + 3.5);
-                    } catch (e) { }
-                }
-            });
+        // Stop current if playing
+        if (this.currentSource) {
+            try {
+                this.currentSource.stop();
+                this.currentSource.disconnect();
+            } catch (e) { }
+            this.currentSource = null;
         }
 
-        // Create new layer
-        const timeoutId = setTimeout(() => {
-            // Remove from tracking array
-            const idx = this._musicTimeouts.indexOf(timeoutId);
-            if (idx !== -1) this._musicTimeouts.splice(idx, 1);
+        const buffer = await this.loadTrack(url);
+        if (!buffer) {
+            this.isLoadingMusic = false;
+            // Try next one on error
+            this.playNextTrack();
+            return;
+        }
 
-            this.createAmbientLayer();
-        }, 3000);
-        this._musicTimeouts.push(timeoutId);
-    }
+        if (!this.musicEnabled) {
+            this.isLoadingMusic = false;
+            return;
+        }
 
-    // Create bass layer (rhythmic foundation)
-    createBassLayer() {
-        if (!this.audioContext || !this.musicEnabled) return;
+        const source = this.audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.musicGain);
 
-        const now = this.audioContext.currentTime;
-        const beatInterval = 1.2; // Slower, ambient tempo
+        source.loop = false;
 
-        // Bass note sequence (A minor: A, C, E, D)
-        const bassNotes = [110, 130.81, 164.81, 146.83];
-        let currentBeat = 0;
-
-        const playBassNote = () => {
-            if (!this.musicEnabled) return;
-
-            const noteNow = this.audioContext.currentTime;
-            const freq = bassNotes[currentBeat % bassNotes.length];
-
-            const osc = this.audioContext.createOscillator();
-            const gain = this.audioContext.createGain();
-            const filter = this.audioContext.createBiquadFilter();
-
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, noteNow);
-
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(400, noteNow);
-
-            gain.gain.setValueAtTime(0.12, noteNow);
-            gain.gain.exponentialRampToValueAtTime(0.001, noteNow + beatInterval * 0.8);
-
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(this.musicGain);
-
-            osc.start(noteNow);
-            osc.stop(noteNow + beatInterval);
-
-            currentBeat++;
-
-            // Schedule next beat (track timeout for cleanup)
-            const nextTimeoutId = setTimeout(playBassNote, beatInterval * 1000);
-            if (this._musicTimeouts) {
-                this._musicTimeouts.push(nextTimeoutId);
+        // When track ends, play next
+        source.onended = () => {
+            if (this.currentSource === source) {
+                this.playNextTrack();
             }
         };
 
-        // Start bass pattern
-        playBassNote();
+        source.start(0);
+        this.currentSource = source;
+        this.isLoadingMusic = false;
     }
 
-    // Update music layers based on intensity (0-1 scale)
-    updateMusicLayers() {
-        if (!this.audioContext || !this.musicEnabled) return;
-
-        const now = this.audioContext.currentTime;
-
-        // Adjust reverb based on intensity
-        if (this.reverbGain) {
-            const reverbAmount = 0.1 + (this.currentIntensity * 0.15);
-            this.reverbGain.gain.linearRampToValueAtTime(reverbAmount, now + 0.5);
-            this.dryGain.gain.linearRampToValueAtTime(1 - reverbAmount, now + 0.5);
-        }
-
-        // Add melody layer at medium intensity
-        if (this.currentIntensity > 0.4 && !this.musicLayers.melody) {
-            this.createMelodyLayer();
-        } else if (this.currentIntensity <= 0.4 && this.musicLayers.melody) {
-            this.fadeMelodyLayer();
-        }
-
-        // Add intensity layer at high intensity
-        if (this.currentIntensity > 0.7 && !this.musicLayers.intensity) {
-            this.createIntensityLayer();
-        } else if (this.currentIntensity <= 0.7 && this.musicLayers.intensity) {
-            this.fadeIntensityLayer();
-        }
-    }
-
-    // Set music intensity (called from game based on enemy count, boss mode, health, etc.)
     setMusicIntensity(intensity) {
         this.currentIntensity = Math.max(0, Math.min(1, intensity));
-        this.updateMusicLayers();
+
+        // Adjust reverb based on intensity
+        if (this.reverbGain && this.dryGain && this.audioContext) {
+            const now = this.audioContext.currentTime;
+            const reverbAmount = 0.1 + (this.currentIntensity * 0.15);
+
+            try {
+                this.reverbGain.gain.linearRampToValueAtTime(reverbAmount, now + 0.5);
+                this.dryGain.gain.linearRampToValueAtTime(1 - reverbAmount, now + 0.5);
+            } catch (e) { }
+        }
     }
 
-    // Create melody layer for medium intensity
-    createMelodyLayer() {
-        if (!this.audioContext || !this.musicEnabled) return;
 
-        this.musicLayers.melody = [];
 
-        // Simple melodic sequence
-        const melodyNotes = [440, 493.88, 523.25, 587.33, 523.25, 493.88]; // A, B, C, D, C, B
-        const noteDuration = 2.0;
-        let currentNote = 0;
-
-        const playMelodyNote = () => {
-            if (!this.musicEnabled || this.currentIntensity <= 0.4) return;
-
-            const noteNow = this.audioContext.currentTime;
-            const freq = melodyNotes[currentNote % melodyNotes.length];
-
-            const osc = this.audioContext.createOscillator();
-            const gain = this.audioContext.createGain();
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, noteNow);
-
-            gain.gain.setValueAtTime(0.001, noteNow);
-            gain.gain.exponentialRampToValueAtTime(0.06, noteNow + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, noteNow + noteDuration * 0.9);
-
-            osc.connect(gain);
-            gain.connect(this.musicGain);
-
-            osc.start(noteNow);
-            osc.stop(noteNow + noteDuration);
-
-            currentNote++;
-
-            // Track timeout for cleanup to prevent memory leak
-            const timeoutId = setTimeout(playMelodyNote, noteDuration * 1000);
-            if (this._musicTimeouts) {
-                this._musicTimeouts.push(timeoutId);
-            }
-        };
-
-        playMelodyNote();
-    }
-
-    // Fade out melody layer
-    fadeMelodyLayer() {
-        this.musicLayers.melody = null;
-    }
-
-    // Create intensity layer for high action
-    createIntensityLayer() {
-        if (!this.audioContext || !this.musicEnabled) return;
-
-        this.musicLayers.intensity = [];
-
-        // Fast rhythmic pulse
-        const pulseDuration = 0.6;
-
-        const playPulse = () => {
-            if (!this.musicEnabled || this.currentIntensity <= 0.7) return;
-
-            const pulseNow = this.audioContext.currentTime;
-
-            const osc = this.audioContext.createOscillator();
-            const gain = this.audioContext.createGain();
-            const filter = this.audioContext.createBiquadFilter();
-
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(220, pulseNow);
-
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(800, pulseNow);
-            filter.frequency.exponentialRampToValueAtTime(200, pulseNow + pulseDuration);
-
-            gain.gain.setValueAtTime(0.1, pulseNow);
-            gain.gain.exponentialRampToValueAtTime(0.001, pulseNow + pulseDuration * 0.7);
-
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(this.musicGain);
-
-            osc.start(pulseNow);
-            osc.stop(pulseNow + pulseDuration);
-
-            // Track timeout for cleanup to prevent memory leak
-            const timeoutId = setTimeout(playPulse, pulseDuration * 1000);
-            if (this._musicTimeouts) {
-                this._musicTimeouts.push(timeoutId);
-            }
-        };
-
-        playPulse();
-    }
-
-    // Fade out intensity layer
-    fadeIntensityLayer() {
-        this.musicLayers.intensity = null;
-    }
 
     // Utility function to create noise
     createNoiseBuffer(duration) {
@@ -1580,6 +1424,8 @@ class AudioSystem {
 }
 
 // Create global audio system instance with error handling
+
+
 let audioSystem;
 try {
     if (typeof window !== 'undefined') {
