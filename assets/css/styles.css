@@ -3113,7 +3113,77 @@ body::after {
     border-radius: clamp(8px, 1vw, 10px);
 }
 
-/* Pagination Controls */
+/* Shop Tier Tabs */
+#shop-tier-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 1.5vw, 16px);
+    margin-bottom: clamp(10px, 1.5vh, 15px);
+    padding: clamp(6px, 1vh, 10px);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: clamp(6px, 0.8vw, 8px);
+}
+
+.tier-tab {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.05));
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    color: #888;
+    font-size: clamp(11px, 1.4vw, 14px);
+    padding: clamp(6px, 1vh, 10px) clamp(12px, 2vw, 20px);
+    border-radius: clamp(4px, 0.5vw, 6px);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Lucida Console', 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: bold;
+}
+
+/* Foundation tier - Cyan */
+.tier-tab[data-tier="foundation"] {
+    border-color: rgba(0, 255, 255, 0.3);
+}
+
+.tier-tab[data-tier="foundation"]:hover,
+.tier-tab[data-tier="foundation"].active {
+    border-color: #00ffff;
+    color: #00ffff;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 255, 255, 0.05));
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+/* Specialization tier - Magenta */
+.tier-tab[data-tier="specialization"] {
+    border-color: rgba(255, 0, 255, 0.3);
+}
+
+.tier-tab[data-tier="specialization"]:hover,
+.tier-tab[data-tier="specialization"].active {
+    border-color: #ff00ff;
+    color: #ff00ff;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.2), rgba(255, 0, 255, 0.05));
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+/* Fortune tier - Gold */
+.tier-tab[data-tier="fortune"] {
+    border-color: rgba(241, 196, 15, 0.3);
+}
+
+.tier-tab[data-tier="fortune"]:hover,
+.tier-tab[data-tier="fortune"].active {
+    border-color: #f1c40f;
+    color: #f1c40f;
+    background: linear-gradient(135deg, rgba(241, 196, 15, 0.2), rgba(241, 196, 15, 0.05));
+    box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+}
+
+/* Pagination Controls (kept for achievements panel) */
 .pagination-controls {
     display: flex;
     align-items: center;
@@ -3349,17 +3419,31 @@ body::after {
     display: none;
 }
 
+/* MAXED badge styling */
 .shop-item-maxed {
     color: #2ecc71;
-    font-weight: bold;
-    padding: clamp(8px, 1.2vh, 12px) clamp(14px, 2.2vw, 20px);
-    text-shadow: 0 0 12px rgba(46, 204, 113, 0.7);
     font-size: clamp(12px, 1.8vw, 16px);
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: clamp(8px, 1.2vh, 12px) clamp(14px, 2.2vw, 20px);
     background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(39, 174, 96, 0.1));
     border: 2px solid rgba(46, 204, 113, 0.4);
     border-radius: clamp(6px, 0.8vw, 8px);
-    text-transform: uppercase;
-    letter-spacing: 2px;
+    text-shadow: 0 0 12px rgba(46, 204, 113, 0.7);
+    animation: maxedPulse 2s ease-in-out infinite;
+}
+
+@keyframes maxedPulse {
+
+    0%,
+    100% {
+        opacity: 0.8;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }
 
 .shop-item h3 {

@@ -523,14 +523,15 @@ class StatsManager {
         // Award star tokens for boss kills
         this.earnStarTokens(1);
 
-        // Check for Jupiter star drop upgrade
+        // Apply Cosmic Tribute meta upgrade (boss_stars)
+        // Each level grants +1 guaranteed star per boss
         try {
-            const extraStars = window.StorageManager.getInt('meta_jupiter_star_drop', 0);
-            if (extraStars > 0) {
-                this.earnStarTokens(extraStars);
+            const bossStarsLevel = window.StorageManager.getInt('meta_boss_stars', 0);
+            if (bossStarsLevel > 0) {
+                this.earnStarTokens(bossStarsLevel);
             }
         } catch (error) {
-            window.logger.warn('Failed to load Jupiter star drop upgrade:', error);
+            window.logger.warn('Failed to load Cosmic Tribute upgrade level:', error);
         }
 
         this.achievementSystem?.updateAchievement?.('boss_slayer', this.sessionStats.bossesKilled);
@@ -683,8 +684,8 @@ class StatsManager {
         let finalAmount = amount;
 
         if (stellarFortuneLevel > 0) {
-            // Each level gives a chance for bonus stars
-            const bonusChance = stellarFortuneLevel * 0.33; // 33% chance per level
+            // Each level gives +8% chance for bonus star per star earned
+            const bonusChance = stellarFortuneLevel * 0.08;
             for (let i = 0; i < amount; i++) {
                 if (Math.random() < bonusChance) {
                     finalAmount++;

@@ -78,6 +78,11 @@ class Player {
 
     /**
      * Apply meta upgrades from Star Vendor (persistent upgrades)
+     * 
+     * Uses balanced values from metaUpgrades.config.js:
+     * - Smaller per-level bonuses (4-8% instead of 15-25%)
+     * - More levels available (8-10 instead of 3-5)
+     * - New upgrade types: orbital, crit, dodge
      */
     applyMetaUpgrades() {
         // Safe localStorage access using centralized StorageManager
@@ -95,33 +100,73 @@ class Player {
             }
         };
 
-        // Enhanced Firepower - Starting damage boost
+        // ═══════════════════════════════════════════════════════════════
+        // TIER 1: FOUNDATION - Core stats
+        // ═══════════════════════════════════════════════════════════════
+
+        // Enhanced Firepower - +6% damage per level (max 10 levels = 60%)
         const damageLevel = getMetaLevel('starting_damage');
         if (damageLevel > 0 && this.combat && typeof this.combat.attackDamage === 'number') {
-            const damageBonus = Math.max(1, Math.min(3, 1 + (damageLevel * 0.25))); // 25% per level, capped at 3x
+            const damageBonus = 1 + (damageLevel * 0.06);
             this.combat.attackDamage *= damageBonus;
         }
 
-        // Reinforced Hull - Starting health boost
+        // Reinforced Hull - +5% max health per level (max 10 levels = 50%)
         const healthLevel = getMetaLevel('starting_health');
         if (healthLevel > 0 && this.stats && typeof this.stats.maxHealth === 'number') {
-            const healthBonus = Math.max(1, Math.min(3, 1 + (healthLevel * 0.20))); // 20% per level, capped at 3x
+            const healthBonus = 1 + (healthLevel * 0.05);
             this.stats.maxHealth *= healthBonus;
-            this.stats.health = this.stats.maxHealth; // Set current health to new max
+            this.stats.health = this.stats.maxHealth;
         }
 
-        // Ion Thrusters - Starting speed boost
+        // Ion Thrusters - +4% speed per level (max 8 levels = 32%)
         const speedLevel = getMetaLevel('starting_speed');
         if (speedLevel > 0 && this.movement && typeof this.movement.speed === 'number') {
-            const speedBonus = Math.max(1, Math.min(2.5, 1 + (speedLevel * 0.15))); // 15% per level, capped at 2.5x
+            const speedBonus = 1 + (speedLevel * 0.04);
             this.movement.speed *= speedBonus;
         }
 
-        // Chain Lightning Mastery - Improved chain lightning
+        // ═══════════════════════════════════════════════════════════════
+        // TIER 2: SPECIALIZATION - Build-enabling
+        // ═══════════════════════════════════════════════════════════════
+
+        // Lightning Mastery - +1 chain target per level (max 4 levels)
         const chainLevel = getMetaLevel('chain_upgrade');
         if (chainLevel > 0 && this.abilities) {
-            this.abilities.maxChains = Math.max(this.abilities.maxChains || 2, 2 + Math.min(chainLevel, 5)); // Cap at +5 chains
+            this.abilities.maxChains = Math.max(this.abilities.maxChains || 2, 2 + chainLevel);
         }
+
+        // Orbital Frequency - +8% orbital damage & speed per level (max 5 levels = 40%)
+        const orbitLevel = getMetaLevel('orbit_boost');
+        if (orbitLevel > 0 && this.abilities) {
+            const orbitBonus = 1 + (orbitLevel * 0.08);
+            if (typeof this.abilities.orbitDamage === 'number') {
+                this.abilities.orbitDamage *= orbitBonus;
+            }
+            if (typeof this.abilities.orbitSpeed === 'number') {
+                this.abilities.orbitSpeed *= orbitBonus;
+            }
+        }
+
+        // Precision Matrix - +3% crit chance per level (max 5 levels = 15%)
+        const critLevel = getMetaLevel('starting_crit');
+        if (critLevel > 0 && this.combat) {
+            const critBonus = critLevel * 0.03;
+            this.combat.critChance = (this.combat.critChance || 0) + critBonus;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // TIER 3: FORTUNE & UTILITY
+        // ═══════════════════════════════════════════════════════════════
+
+        // Phase Harmonics - -4% dodge cooldown per level (max 4 levels = -16%)
+        const dodgeLevel = getMetaLevel('dodge_cooldown');
+        if (dodgeLevel > 0 && this.movement && typeof this.movement.dodgeCooldown === 'number') {
+            const dodgeReduction = 1 - (dodgeLevel * 0.04);
+            this.movement.dodgeCooldown *= Math.max(0.5, dodgeReduction);
+        }
+
+        // Note: star_chance and boss_stars are handled in StatsManager
     }
 
     resolveCharacterDefinition(characterId) {

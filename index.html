@@ -149,20 +149,20 @@
         </div>
     </div>
 
-    <!-- Shop Panel -->
+    <!-- Shop Panel - Star Vendor -->
     <div id="shop-panel" class="hidden">
         <canvas id="shop-background"></canvas>
         <div id="shop-content">
             <h2>Star Vendor</h2>
-            <!-- Show current star balance -->
+            <!-- Current star balance -->
             <div id="vendor-star-display">⭐ 0</div>
-            <!-- Pagination controls for shop -->
-            <div class="pagination-controls">
-                <button id="shop-prev-page" class="page-nav-btn" disabled>◀</button>
-                <div id="shop-page-indicator" class="page-indicator">Page 1 of 1</div>
-                <button id="shop-next-page" class="page-nav-btn" disabled>▶</button>
+            <!-- Tier category tabs -->
+            <div id="shop-tier-tabs">
+                <button class="tier-tab active" data-tier="foundation">Foundation</button>
+                <button class="tier-tab" data-tier="specialization">Specialization</button>
+                <button class="tier-tab" data-tier="fortune">Fortune</button>
             </div>
-            <!-- List of purchasable upgrades -->
+            <!-- Upgrade items grid -->
             <div id="shop-items"></div>
             <button id="shop-close" class="menu-button">Close</button>
         </div>

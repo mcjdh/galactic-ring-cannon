@@ -2,10 +2,10 @@
  * ShopPanel - Manages the Star Vendor shop UI
  * 
  * Handles:
- * - Shop item rendering with pagination
- * - Purchase logic
- * - Star token display
- * - Meta upgrade level tracking
+ * - Tier-based tab navigation (Foundation, Specialization, Fortune)
+ * - Exponential pricing formula (baseCost × 1.8^level)
+ * - Purchase logic with proper cost calculation
+ * - Geometric wireframe-themed item display
  */
 (function () {
     const PanelBase = window.Game?.PanelBase;
@@ -19,10 +19,87 @@
         constructor(options = {}) {
             super(options);
             this.metaUpgrades = Array.isArray(options.metaUpgrades) ? options.metaUpgrades : [];
+            this.currentTier = 'foundation';
+            this.tierTabListeners = [];
         }
 
         /**
-         * Render the shop with current page of items
+         * Calculate upgrade cost using exponential formula
+         * Cost = baseCost × 1.8^currentLevel
+         */
+        calculateCost(upgrade, currentLevel) {
+            // Support both old 'cost' and new 'baseCost' format
+            const baseCost = upgrade.baseCost ?? upgrade.cost ?? 10;
+            const calculateFn = window.calculateUpgradeCost;
+            if (typeof calculateFn === 'function') {
+                return calculateFn(baseCost, currentLevel);
+            }
+            // Fallback calculation
+            return Math.ceil(baseCost * Math.pow(1.8, currentLevel));
+        }
+
+        /**
+         * Initialize tier tab event listeners
+         */
+        initTierTabs() {
+            // Clean up old listeners
+            this.tierTabListeners.forEach(({ element, handler }) => {
+                element.removeEventListener('click', handler);
+            });
+            this.tierTabListeners = [];
+
+            const tabs = document.querySelectorAll('.tier-tab');
+            tabs.forEach(tab => {
+                const handler = () => {
+                    const tier = tab.dataset.tier;
+                    if (tier && tier !== this.currentTier) {
+                        this.switchTier(tier);
+                    }
+                };
+                tab.addEventListener('click', handler);
+                this.tierTabListeners.push({ element: tab, handler });
+            });
+        }
+
+        /**
+         * Switch to a different tier tab
+         */
+        switchTier(tier) {
+            this.currentTier = tier;
+
+            // Update tab active states
+            const tabs = document.querySelectorAll('.tier-tab');
+            tabs.forEach(tab => {
+                if (tab.dataset.tier === tier) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            // Fade transition
+            const container = this.dom.shopItems;
+            if (container) {
+                container.classList.add('page-transitioning');
+                setTimeout(() => {
+                    this.render();
+                    container.classList.remove('page-transitioning');
+                }, 150);
+            } else {
+                this.render();
+            }
+        }
+
+        /**
+         * Get tier color for styling
+         */
+        getTierColor(tier) {
+            const tiers = window.META_UPGRADE_TIERS || {};
+            return tiers[tier]?.color || '#00ffff';
+        }
+
+        /**
+         * Render the shop with current tier items
          */
         render() {
             const container = this.dom.shopItems;
@@ -31,48 +108,32 @@
             }
 
             this.clearDynamicListeners();
+            this.initTierTabs();
 
-            // Calculate items per page dynamically using actual container dimensions
-            const minItemWidth = 250; // From CSS: minmax(clamp(250px, 32vw, 350px), 1fr)
-            const estimatedItemHeight = 120; // From CSS min-height clamp(90px, 12vh, 120px) + padding
-            let itemsPerPage = this.calculateItemsPerPage(
-                container,
-                minItemWidth,
-                estimatedItemHeight
+            // Filter upgrades by current tier
+            const tierUpgrades = this.metaUpgrades.filter(u =>
+                (u.tier || 'foundation') === this.currentTier
             );
-            // Cap at 4 items per page for shop to prevent clipping
-            this.pagination.itemsPerPage = Math.min(4, itemsPerPage);
 
-            // Calculate pagination
-            const totalItems = this.metaUpgrades.length;
-            this.pagination.totalPages = Math.ceil(totalItems / this.pagination.itemsPerPage) || 1;
-
-            // Ensure current page is valid
-            if (this.pagination.currentPage > this.pagination.totalPages) {
-                this.pagination.currentPage = this.pagination.totalPages;
-            }
-
-            // Calculate start and end indices for current page
-            const startIdx = (this.pagination.currentPage - 1) * this.pagination.itemsPerPage;
-            const endIdx = Math.min(startIdx + this.pagination.itemsPerPage, totalItems);
-            const pageItems = this.metaUpgrades.slice(startIdx, endIdx);
-
-            // OPTIMIZED: Use DocumentFragment to batch DOM updates (50-100ms faster)
+            // Create fragment for efficient DOM updates
             const fragment = document.createDocumentFragment();
+            const tierColor = this.getTierColor(this.currentTier);
 
-            pageItems.forEach((upgrade) => {
+            tierUpgrades.forEach((upgrade) => {
                 const currentLevel = this.getMetaUpgradeLevel(upgrade.id);
                 const isMaxed = currentLevel >= upgrade.maxLevel;
-                const cost = upgrade.cost + (currentLevel * Math.floor(upgrade.cost * 0.5));
+                const cost = this.calculateCost(upgrade, currentLevel);
                 const currentStars = window.gameManager?.metaStars ?? 0;
                 const canAfford = currentStars >= cost;
 
                 const item = document.createElement('div');
                 item.className = 'shop-item';
+                item.style.borderColor = `${tierColor}40`; // 25% opacity border
+
                 item.innerHTML = `
                     <div class="shop-item-header">
-                        <span class="shop-item-icon">${upgrade.icon}</span>
-                        <span class="shop-item-name">${upgrade.name}</span>
+                        <span class="shop-item-icon" style="color: ${tierColor}">${upgrade.icon}</span>
+                        <span class="shop-item-name" style="color: ${tierColor}">${upgrade.name}</span>
                         <span class="shop-item-level">${currentLevel}/${upgrade.maxLevel}</span>
                     </div>
                     <div class="shop-item-description">${upgrade.description}</div>
@@ -85,6 +146,8 @@
                     const maxed = document.createElement('span');
                     maxed.className = 'shop-item-maxed';
                     maxed.textContent = 'MAXED';
+                    maxed.style.color = tierColor;
+                    maxed.style.textShadow = `0 0 10px ${tierColor}80`;
                     footer.appendChild(maxed);
                 } else {
                     const button = document.createElement('button');
@@ -100,43 +163,11 @@
                 }
 
                 item.appendChild(footer);
-                fragment.appendChild(item);  // Add to fragment (no reflow)
+                fragment.appendChild(item);
             });
 
             container.innerHTML = '';
-            container.appendChild(fragment);  // Single reflow
-
-            // Update pagination controls
-            const prevBtn = this.dom.buttons?.shopPrevPage;
-            const nextBtn = this.dom.buttons?.shopNextPage;
-            const indicator = this.dom.controls?.shopPageIndicator;
-            this.updatePaginationButtons(prevBtn, nextBtn, indicator);
-        }
-
-        /**
-         * Navigate shop pages with fade transition
-         */
-        navigatePage(direction) {
-            const newPage = this.pagination.currentPage + direction;
-            if (newPage < 1 || newPage > this.pagination.totalPages) {
-                return;
-            }
-
-            this.pagination.currentPage = newPage;
-
-            const container = this.dom.shopItems;
-            if (!container) {
-                this.render();
-                return;
-            }
-
-            // Add fade out effect
-            container.classList.add('page-transitioning');
-
-            setTimeout(() => {
-                this.render();
-                container.classList.remove('page-transitioning');
-            }, 150);
+            container.appendChild(fragment);
         }
 
         /**
@@ -153,7 +184,7 @@
                 return;
             }
 
-            const cost = upgrade.cost + (currentLevel * Math.floor(upgrade.cost * 0.5));
+            const cost = this.calculateCost(upgrade, currentLevel);
             if ((window.gameManager.metaStars ?? 0) < cost) {
                 return;
             }
@@ -164,10 +195,13 @@
             this.refreshStarDisplay();
             window.gameManager.saveStarTokens?.();
 
-            // Stay on current page after purchase
+            // Audio feedback
+            window.audioSystem?.play?.('levelUp', 0.4);
+
+            // Re-render to update display
             this.render();
 
-            this.logger?.log?.(`Purchased ${upgrade.name} level ${currentLevel + 1}`);
+            this.logger?.log?.(`Purchased ${upgrade.name} level ${currentLevel + 1} for ${cost} stars`);
 
             if (currentLevel + 1 >= upgrade.maxLevel) {
                 window.gameManager.onUpgradeMaxed?.(upgradeId);
@@ -220,6 +254,17 @@
                 return window.gameManagerBridge.metaStars;
             }
             return window.StorageManager.getInt('starTokens', 0);
+        }
+
+        /**
+         * Clean up event listeners
+         */
+        destroy() {
+            this.tierTabListeners.forEach(({ element, handler }) => {
+                element.removeEventListener('click', handler);
+            });
+            this.tierTabListeners = [];
+            this.clearDynamicListeners();
         }
     }
 
