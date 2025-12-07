@@ -398,6 +398,19 @@ body::after {
     box-shadow:
         0 0 25px rgba(255, 204, 0, 0.5),
         0 0 50px rgba(255, 204, 0, 0.2);
+    animation: activeRowPulse 2s ease-in-out infinite;
+}
+
+@keyframes activeRowPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 25px rgba(255, 204, 0, 0.5), 0 0 50px rgba(255, 204, 0, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 35px rgba(255, 204, 0, 0.7), 0 0 60px rgba(255, 204, 0, 0.3);
+    }
 }
 
 .upgrade-row.active-row::before {
@@ -634,6 +647,32 @@ body::after {
 
 .upgrade-rarity {
     display: none;
+}
+
+/* Rarity badge - small icon in top-right corner */
+.rarity-badge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: clamp(12px, 1.5vw, 16px);
+    opacity: 0.85;
+    text-shadow: 0 0 5px currentColor;
+}
+
+.rarity-badge[data-rarity="common"] {
+    color: #aaa;
+}
+
+.rarity-badge[data-rarity="uncommon"] {
+    color: #2ecc71;
+}
+
+.rarity-badge[data-rarity="rare"] {
+    color: #3498db;
+}
+
+.rarity-badge[data-rarity="epic"] {
+    color: #9b59b6;
 }
 
 /* Horizontal keys */
@@ -3516,9 +3555,8 @@ body::after {
 }
 
 #achievements-list.achievements-list--compact {
-    /* max-width: min(600px, 95%); */
-    /* Removed constraint for grid */
-    /* margin: 0 auto; */
+    /* Intentionally empty - constraints removed for grid layout */
+    display: block;
 }
 
 #achievements-list.page-transitioning {

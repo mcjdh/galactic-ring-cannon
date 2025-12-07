@@ -173,15 +173,21 @@ class UpgradeSystem {
             option.dataset.rarity = upgrade.rarity || 'common';
             option.dataset.index = index + 1;
 
-            // Shortcut key badge
+            // Shortcut key badge (left)
             const shortcutKey = document.createElement('div');
             shortcutKey.className = 'shortcut-key';
             shortcutKey.textContent = (index + 1).toString();
 
-            // Icon
+            // Icon (center)
             const upgradeIcon = document.createElement('div');
             upgradeIcon.className = 'upgrade-icon';
             upgradeIcon.textContent = upgrade.icon || '';
+
+            // Rarity badge (top-right corner)
+            const rarityBadge = document.createElement('div');
+            rarityBadge.className = 'rarity-badge';
+            rarityBadge.dataset.rarity = upgrade.rarity || 'common';
+            rarityBadge.textContent = upgrade.icon || '';
 
             // Description
             const upgradeDesc = document.createElement('p');
@@ -190,6 +196,7 @@ class UpgradeSystem {
 
             option.appendChild(shortcutKey);
             option.appendChild(upgradeIcon);
+            option.appendChild(rarityBadge);
             option.appendChild(upgradeDesc);
 
             option.addEventListener('click', () => {

@@ -26,7 +26,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'attack_speed_1',
         name: 'Quick Shot',
-        description: '30% faster attacks',
+        description: 'ATK: +30% fire rate',
         type: 'attackSpeed',
         multiplier: 1.30,
         icon: "*",
@@ -36,7 +36,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'attack_damage_1',
         name: 'Sharp Shots',
-        description: '35% more damage',
+        description: 'DMG: +35% damage',
         type: 'attackDamage',
         multiplier: 1.35,
         icon: "+",
@@ -46,7 +46,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'max_health_1',
         name: 'Vitality',
-        description: '25% more health',
+        description: 'HP: +25% max health',
         type: 'maxHealth',
         multiplier: 1.25,
         icon: "<3",
@@ -56,7 +56,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'movement_speed_1',
         name: 'Swift Feet',
-        description: '20% faster movement',
+        description: 'SPD: +20% move speed',
         type: 'speed',
         multiplier: 1.2,
         icon: ">>",
@@ -70,7 +70,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'multi_shot_1',
         name: 'Split Shot',
-        description: 'Fire an additional projectile',
+        description: 'SHOT: +1 projectile',
         type: 'projectileCount',
         value: 1,
         icon: "T",
@@ -81,7 +81,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'spread_shot_1',
         name: 'Wide Spread',
-        description: 'Increase projectile spread by 15deg',
+        description: 'SPREAD: +15°',
         type: 'projectileSpread',
         value: 15,
         icon: "<->",
@@ -93,7 +93,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'piercing_shot',
         name: 'Piercing Shot',
-        description: 'Shots pierce enemies',
+        description: 'PIERCE: Go through foes',
         type: 'piercing',
         value: 1, // Number of enemies projectile can pierce through
         icon: "/",
@@ -105,7 +105,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'critical_strike_1',
         name: 'Precision Targeting',
-        description: '+12% crit, +0.3x crit dmg',
+        description: 'CRIT: +12%, +0.3x dmg',
         type: 'critChance',
         value: 0.12, // Crit chance increase (12%)
         critDamageBonus: 0.3, // Crit multiplier increase (+0.3 to multiplier)
@@ -123,7 +123,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'chain_lightning_1',
         name: 'Chain Lightning',
-        description: '55% chance to chain to nearby enemy',
+        description: 'CHAIN: 55% proc, 2 targets',
         type: 'special',
         specialType: 'chain',
         value: 0.55,
@@ -139,7 +139,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'chain_lightning_2',
         name: 'Improved Chains',
-        description: '70% chain chance, hits 4 targets',
+        description: 'CHAIN+: 70%, 4 targets',
         type: 'chain',
         value: 0.7,
         maxChains: 4,
@@ -153,7 +153,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'chain_lightning_3',
         name: 'Storm Chains',
-        description: '85% chain chance, hits 6 targets',
+        description: 'CHAIN++: 85%, 6 targets',
         type: 'chain',
         value: 0.85,
         maxChains: 6,
@@ -167,7 +167,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'chain_damage',
         name: 'Conductive Strike',
-        description: 'Chain lightning deals 110% of the original damage',
+        description: 'CHAIN: 110% dmg',
         type: 'chainDamage',
         value: 1.1,
         icon: "*!",
@@ -183,7 +183,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'orbit_attack_1',
         name: 'Orbital Projectiles',
-        description: 'Orbiting shots damage nearby foes',
+        description: 'ORBIT: Circling shots',
         type: 'special',
         specialType: 'orbit',
         orbitRadius: 100,
@@ -198,7 +198,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'orbit_attack_2',
         name: 'Double Orbit',
-        description: 'Add a second orbiting projectile',
+        description: 'ORBIT: +1 projectile',
         type: 'orbit',
         value: 1,
         icon: "@@",
@@ -210,7 +210,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'orbit_attack_3',
         name: 'Triple Orbit',
-        description: 'Add a third orbiting projectile',
+        description: 'ORBIT: +1 projectile',
         type: 'orbit',
         value: 1,
         icon: "@@@",
@@ -222,7 +222,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'orbit_attack_4',
         name: 'Quad Orbit',
-        description: 'Add a fourth orbiting projectile for complete coverage',
+        description: 'ORBIT: +1 projectile',
         type: 'orbit',
         value: 1,
         icon: "@@@@",
@@ -234,7 +234,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'orbit_attack_5',
         name: 'Penta Orbit',
-        description: 'Add a fifth orbiting projectile - ultimate orbital defense',
+        description: 'ORBIT: +1 projectile',
         type: 'orbit',
         value: 1,
         icon: "@@@@@",
@@ -246,7 +246,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'orbit_damage',
         name: 'Orbital Impact',
-        description: 'Orbiting projectiles deal 40% more damage',
+        description: 'ORBIT: +40% dmg',
         type: 'orbitDamage',
         multiplier: 1.4,
         icon: "@!",
@@ -262,7 +262,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'ricochet_1',
         name: 'Ricochet Shot',
-        description: '60% chance to bounce twice',
+        description: 'RICOCHET: 60%, 2 bounces',
         type: 'special',
         specialType: 'ricochet',
         ricochetChance: 0.60,
@@ -278,7 +278,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'ricochet_2',
         name: 'Multi-Bounce',
-        description: 'Bounce one additional time with extended range and +15% trigger chance',
+        description: 'RICOCHET: +1 bounce, +15%',
         type: 'ricochetBounces',
         value: 1,
         rangeBonus: 80,  // INCREASED from 60 - scales with larger base range
@@ -292,7 +292,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'ricochet_damage',
         name: 'Momentum Transfer',
-        description: 'Ricochets retain 95% of their damage and +10% trigger chance',
+        description: 'RICOCHET: 95% dmg, +10%',
         type: 'ricochetDamage',
         value: 0.95,
         chanceBonus: 0.10,
@@ -309,7 +309,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'phantom_phase',
         name: 'Phantom Phase Geometry',
-        description: 'Ricochets gain +1 bounce, +120 range, and +10% proc chance.',
+        description: 'RICOCHET: +1, +120rng, +10%',
         type: 'weaponModifier',
         weaponTags: ['phantom_repeater'],
         characterRestriction: 'phantom_striker',
@@ -324,7 +324,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'void_amplifier',
         name: 'Void Amplifier',
-        description: 'Ricochet damage +25% and final hits detonate for 90 void damage.',
+        description: 'RICOCHET: +25%, 90 AoE',
         type: 'weaponModifier',
         weaponTags: ['phantom_repeater'],
         characterRestriction: 'phantom_striker',
@@ -340,7 +340,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'spectral_echoes',
         name: 'Spectral Echoes',
-        description: 'Final ricochet has a 35% chance to spawn a 1-bounce echo chain and +1 bounce.',
+        description: 'RICOCHET: 35% echo, +1',
         type: 'weaponModifier',
         weaponTags: ['phantom_repeater'],
         characterRestriction: 'phantom_striker',
@@ -360,7 +360,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_1',
         name: 'Explosive Rounds',
-        description: '50% chance for AoE on impact',
+        description: 'EXPLOSIVE: 50% AoE proc',
         type: 'special',
         specialType: 'explosion',
         explosiveChance: 0.50,  // Added: was missing, defaulted to 0.3
@@ -375,7 +375,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_2',
         name: 'Bigger Explosions',
-        description: 'Explosion radius increased by 50% and +15% trigger chance',
+        description: 'EXPLODE: +50% radius, +15%',
         type: 'explosionSize',
         multiplier: 1.5,  // INCREASED from 1.4 - more noticeable upgrade
         chanceBonus: 0.15,  // Added: 50% → 65%
@@ -388,7 +388,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_3',
         name: 'Devastating Blasts',
-        description: 'Explosions deal 75% of hit damage and +15% trigger chance',
+        description: 'EXPLODE: 75% dmg, +15%',
         type: 'explosionDamage',
         value: 0.75,
         chanceBonus: 0.15,  // Added: 65% → 80%
@@ -405,7 +405,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'nova_choke',
         name: 'Focused Choke',
-        description: 'Tighten Nova spread by 10deg and boost pellet damage by 20%',
+        description: 'SHOTGUN: -10°, +20% dmg',
         type: 'weaponModifier',
         weaponTags: ['shotgun'],
         spreadReduction: 10,
@@ -418,7 +418,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'nova_scatter_flex',
         name: 'Scatter Flex',
-        description: 'Add two extra pellets but slightly widen the cone',
+        description: 'SHOTGUN: +2 pellets',
         type: 'weaponModifier',
         weaponTags: ['shotgun'],
         additionalProjectiles: 2,
@@ -431,7 +431,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'nova_frag_rounds',
         name: 'Frag Rounds',
-        description: 'Pellets detonate on impact but deal 10% less base damage',
+        description: 'SHOTGUN: Pellets explode',
         type: 'weaponModifier',
         weaponTags: ['shotgun'],
         damagePenalty: 0.9,
@@ -447,7 +447,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'detection_range_1',
         name: 'Long Range Sensors',
-        description: '20% larger enemy detection range',
+        description: 'RANGE: +20% detection',
         type: 'attackRange',
         multiplier: 1.20,
         icon: "O",
@@ -460,7 +460,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'magnet_1',
         name: 'Magnetic Field',
-        description: '+75% XP attraction radius',
+        description: 'XP: +75% magnet range',
         type: 'magnet',
         value: 75,
         icon: "M",
@@ -471,7 +471,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'regeneration_1',
         name: 'Regeneration',
-        description: 'Recover 1 health per second',
+        description: 'REGEN: +1 HP/sec',
         type: 'regeneration',
         value: 1.0,
         icon: '+',
@@ -482,7 +482,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'lifesteal_1',
         name: 'Vampiric Essence',
-        description: 'Heal for 4% of damage dealt',
+        description: 'STEAL: 4% lifesteal',
         type: 'lifesteal',
         value: 0.04,
         icon: "♦",
@@ -493,7 +493,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'damage_reduction_1',
         name: 'Armor',
-        description: 'Reduce damage taken by 10%',
+        description: 'ARMOR: -10% dmg taken',
         type: 'damageReduction',
         value: 0.10,
         icon: "#",
@@ -509,7 +509,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'barrier_shield_1',
         name: 'Barrier Shield',
-        description: '100 dmg shield, 5s recharge',
+        description: 'SHIELD: 100 absorb, 5s',
         type: 'special',
         specialType: 'shield',
         shieldCapacity: 100,  // Increased from 75 - more impactful starting upgrade
@@ -524,7 +524,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'barrier_shield_2',
         name: 'Reinforced Barriers',
-        description: 'Shield capacity increased by 150 and recharges 25% faster',
+        description: 'SHIELD: +150, -25% CD',
         type: 'shieldCapacity',
         value: 150,  // Increased from 100 - more powerful scaling
         rechargeBonus: 0.25,  // Reduces recharge time by 25%
@@ -538,7 +538,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'energy_reflection',
         name: 'Energy Reflection',
-        description: 'Shield reflects 50% of blocked damage back at nearby attackers',
+        description: 'SHIELD: 50% reflect',
         type: 'shieldReflection',
         value: 0.50,  // Increased from 0.35 (35% → 50%)
         icon: "[<]",
@@ -551,7 +551,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'adaptive_armor',
         name: 'Adaptive Armor',
-        description: 'Shield gains +3 max capacity for every 100 damage blocked (caps at +100)',
+        description: 'SHIELD: +3/100 blocked',
         type: 'shieldAdaptive',
         growthRate: 3,    // Increased from 2 - faster growth
         maxGrowth: 100,   // Increased from 50 - higher cap
@@ -565,7 +565,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'rapid_recharge',
         name: 'Rapid Recharge',
-        description: 'Shield recharge time reduced by 50%',
+        description: 'SHIELD: -50% recharge',
         type: 'shieldRecharge',
         value: 0.50,
         icon: "[>>]",
@@ -578,7 +578,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'aegis_protocol',
         name: 'Aegis Protocol',
-        description: 'Shield break = 250 dmg shockwave',
+        description: 'SHIELD: 250 AoE on break',
         type: 'shieldExplosion',
         explosionDamage: 250,  // Increased from 150 - devastatingly powerful!
         explosionRadius: 220,  // Increased from 180 - huge area
@@ -596,7 +596,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'gravity_well_focus',
         name: 'Event Horizon Focusers',
-        description: 'Gravity wells are 20% larger and persist 0.5s longer.',
+        description: 'GRAV: +20% size, +0.5s',
         type: 'gravityWell',
         radiusMultiplier: 1.2,
         durationBonus: 0.5,
@@ -609,7 +609,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'gravity_well_force',
         name: 'Tidal Lock Arrays',
-        description: 'Gravity wells slow enemies 15% more and pull harder.',
+        description: 'GRAV: +15% slow, pull',
         type: 'gravityWell',
         slowBonus: 0.15,
         pullBonus: 0.12,
@@ -623,7 +623,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'gravity_well_core',
         name: 'Quantum Singularity Core',
-        description: 'Gravity well damage is massively increased and they linger a bit longer.',
+        description: 'GRAV: +35% dmg, +0.3s',
         type: 'gravityWell',
         damageMultiplier: 1.35,
         damageAdd: 0.15,
@@ -642,7 +642,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'pyromancy_1',
         name: 'Pyromancy',
-        description: 'Projectiles apply burning status to enemies (7 damage/sec for 3s)',
+        description: 'BURN: 30% (7dps, 3s)',
         type: 'burn',
         burnChance: 0.3,  // 30% chance to burn - CRITICAL: was missing!
         burnDamage: 7,
@@ -656,7 +656,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'pyromancy_2',
         name: 'Intense Flames',
-        description: 'Burn damage increased by 50% and lasts 2 seconds longer',
+        description: 'BURN: +50% dmg, +2s',
         type: 'burnDamage',
         damageMultiplier: 1.5,
         durationBonus: 2.0,
@@ -673,7 +673,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'blood_tithe',
         name: 'Blood Tithe',
-        description: '+8% lifesteal for the Crimson Reaver.',
+        description: 'STEAL: +8% lifesteal',
         type: 'lifesteal',
         value: 0.08,
         icon: '†',
@@ -685,7 +685,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'sanguine_lash',
         name: 'Sanguine Lash',
-        description: 'Lifesteal lashes out at a nearby enemy for 45 damage.',
+        description: 'LASH: 45 dmg on steal',
         type: 'bloodLash',
         damage: 45,
         range: 280,
@@ -700,7 +700,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'crimson_cataclysm',
         name: 'Crimson Cataclysm',
-        description: 'Overhealing erupts in a 120 radius nova for 90 damage.',
+        description: 'BLOOD: Overheal = 90 AoE',
         type: 'bloodNova',
         damage: 90,
         radius: 120,
@@ -718,7 +718,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'inferno_brands',
         name: 'Inferno Brands',
-        description: 'Burn chance +15% and scorch damage boosted to 10 DPS for 4s.',
+        description: 'BURN: +15%, 10dps/4s',
         type: 'burn',
         characterRestriction: 'inferno_juggernaut',
         burnChance: 0.85,
@@ -734,7 +734,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'inferno_overpressure',
         name: 'Overpressure Chambers',
-        description: 'Burn DPS +35% and duration +1.5s for the Juggernaut.',
+        description: 'BURN: +35% dmg, +1.5s',
         type: 'burnDamage',
         characterRestriction: 'inferno_juggernaut',
         damageMultiplier: 1.35,
@@ -748,7 +748,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'inferno_conflagration',
         name: 'Conflagration Core',
-        description: 'Burning enemies emit fiery pulses (35 dmg, 90 radius) each tick.',
+        description: 'BURN: 35 AoE/tick',
         type: 'burnDamage',
         characterRestriction: 'inferno_juggernaut',
         explosionDamage: 35,
@@ -766,7 +766,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'overclock_1',
         name: 'Overclock Protocol',
-        description: 'Berserker bonuses increased by 20% (gain more power at low HP)',
+        description: 'RAGE: +20% low HP buff',
         type: 'berserkerScaling',
         value: 0.2,  // +20% to scaling
         icon: "⚡",
@@ -778,7 +778,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'overclock_2',
         name: 'Critical Overclock',
-        description: 'Gain +5% crit chance at low health',
+        description: 'RAGE: +5% crit at low HP',
         type: 'berserkerCrit',
         value: 0.05,
         icon: "⚡⚡",
