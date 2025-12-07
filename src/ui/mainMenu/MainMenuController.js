@@ -113,6 +113,7 @@
                 controls: {
                     muteCheckbox: byId('mute-checkbox'),
                     volumeRange: byId('volume-range'),
+                    pauseVolumeRange: byId('pause-volume-range'),  // Pause menu slider
                     lowQualityCheckbox: byId('lowquality-checkbox'),
                     difficultySelect: byId('difficulty-select'),
                     achievementsCount: byId('achievements-count'),
@@ -170,6 +171,30 @@
                     this.achievementsPanel.selectCategory(btn.dataset.category);
                 });
             });
+
+            // Pause menu volume slider - live update on 'input' for real-time feedback
+            const pauseVolumeRange = this.dom.controls.pauseVolumeRange;
+            if (pauseVolumeRange) {
+                this.addListener(pauseVolumeRange, 'input', () => {
+                    let volumeValue = Number(pauseVolumeRange.value);
+                    if (!Number.isFinite(volumeValue) || volumeValue < 0 || volumeValue > 1) {
+                        volumeValue = 0.5;
+                    }
+                    // Live update audio
+                    if (window.audioSystem) {
+                        if (typeof window.audioSystem.setVolume === 'function') {
+                            window.audioSystem.setVolume('master', volumeValue);
+                        } else if (window.audioSystem.masterGain) {
+                            window.audioSystem.masterGain.gain.value = volumeValue;
+                        }
+                    }
+                    // Sync with settings slider and persist
+                    if (this.dom.controls.volumeRange) {
+                        this.dom.controls.volumeRange.value = volumeValue.toString();
+                    }
+                    window.StorageManager?.setItem?.('volume', volumeValue.toString());
+                });
+            }
         }
 
         /**
@@ -338,6 +363,20 @@
                     this.backgroundRenderer.initPanelBackground('shop-background');
                 } else if (name === 'achievements') {
                     this.backgroundRenderer.initPanelBackground('achievements-background');
+                } else if (name === 'pause') {
+                    // Sync pause volume slider with current stored volume
+                    const pauseVolumeRange = this.dom.controls.pauseVolumeRange;
+                    if (pauseVolumeRange) {
+                        const storedVolume = window.StorageManager?.getItem?.('volume');
+                        let volumeValue = 0.5;
+                        if (storedVolume !== null) {
+                            const parsed = Number(storedVolume);
+                            if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
+                                volumeValue = parsed;
+                            }
+                        }
+                        pauseVolumeRange.value = volumeValue.toString();
+                    }
                 }
             }
         }

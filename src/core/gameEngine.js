@@ -2142,8 +2142,9 @@ class GameEngine {
             if (pauseMenu?.classList?.remove) pauseMenu.classList.remove('hidden');
         }
 
-        // Suspend audio during pause
-        if (window.audioSystem && window.audioSystem.audioContext && window.audioSystem.audioContext.state === 'running') {
+        // Only suspend audio for auto-pause (tab hidden), not manual pause
+        // This lets players adjust volume slider in pause menu while hearing music
+        if (reason !== 'manual' && window.audioSystem && window.audioSystem.audioContext && window.audioSystem.audioContext.state === 'running') {
             window.audioSystem.audioContext.suspend();
         }
     }

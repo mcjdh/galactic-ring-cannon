@@ -1586,7 +1586,7 @@ body::after {
 
 .pause-content {
     background-color: var(--bg-panel);
-    padding: 40px 60px;
+    padding: 30px 50px;
     /* Octagon */
     clip-path: polygon(20px 0, calc(100% - 20px) 0,
             100% 20px, 100% calc(100% - 20px),
@@ -1596,6 +1596,9 @@ body::after {
     /* Border trick */
     position: relative;
     animation: menu-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    /* Wider layout to reduce height */
+    max-width: 700px;
+    width: 90vw;
 }
 
 @keyframes simple-fade-in {
@@ -2017,6 +2020,62 @@ body::after {
     color: #aaa;
     margin: 5px 0;
     line-height: 1.5;
+}
+
+/* Pause menu two-column layout */
+.pause-layout {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.pause-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 180px;
+}
+
+.pause-right {
+    flex: 1;
+    font-size: 13px;
+}
+
+.pause-right h3 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+}
+
+.pause-right p {
+    margin: 3px 0;
+    color: #ccc;
+}
+
+/* Pause menu volume control */
+.pause-volume-control {
+    margin-top: 20px;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.08), rgba(255, 0, 255, 0.08));
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.pause-volume-control label {
+    color: #00ffff;
+    font-size: 16px;
+    font-weight: bold;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.pause-volume-control input[type="range"] {
+    width: 180px;
+    cursor: pointer;
+    accent-color: #ff00ff;
 }
 
 /* Boss health bar */

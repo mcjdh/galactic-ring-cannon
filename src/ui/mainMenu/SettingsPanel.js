@@ -39,14 +39,24 @@
                     window.StorageManager.setItem('soundEnabled', enabled ? 'true' : 'false');
                 }
 
-                if (volumeRange && window.audioSystem?.masterGain) {
+                if (volumeRange && window.audioSystem) {
                     let volumeValue = Number(volumeRange.value);
                     if (!Number.isFinite(volumeValue) || volumeValue < 0 || volumeValue > 1) {
                         volumeValue = 0.5;
                         volumeRange.value = '0.5';
                     }
-                    window.audioSystem.masterGain.gain.value = volumeValue;
+                    // Use setVolume method to properly sync internal state
+                    if (typeof window.audioSystem.setVolume === 'function') {
+                        window.audioSystem.setVolume('master', volumeValue);
+                    } else if (window.audioSystem.masterGain) {
+                        window.audioSystem.masterGain.gain.value = volumeValue;
+                    }
                     window.StorageManager.setItem('volume', volumeValue.toString());
+                    // Sync pause menu slider if it exists
+                    const pauseVolumeRange = document.getElementById('pause-volume-range');
+                    if (pauseVolumeRange) {
+                        pauseVolumeRange.value = volumeValue.toString();
+                    }
                 }
 
                 if (lowQualityCheckbox && window.gameManager) {
@@ -91,6 +101,18 @@
                         muteCheckbox.checked = false;
                         window.StorageManager.setItem('soundEnabled', 'true');
                     }
+
+                    // Bind live 'change' event for instant mute toggle
+                    if (!muteCheckbox._liveChangeBound) {
+                        muteCheckbox._liveChangeBound = true;
+                        muteCheckbox.addEventListener('change', () => {
+                            const enabled = !muteCheckbox.checked;
+                            if (window.audioSystem && typeof window.audioSystem.setEnabled === 'function') {
+                                window.audioSystem.setEnabled(enabled);
+                            }
+                            window.StorageManager?.setItem?.('soundEnabled', enabled ? 'true' : 'false');
+                        });
+                    }
                 }
 
                 if (volumeRange) {
@@ -103,8 +125,35 @@
                         }
                     }
                     volumeRange.value = volumeValue.toString();
-                    if (window.audioSystem?.masterGain) {
-                        window.audioSystem.masterGain.gain.value = volumeValue;
+                    // Use setVolume method for proper audio chain sync
+                    if (window.audioSystem) {
+                        if (typeof window.audioSystem.setVolume === 'function') {
+                            window.audioSystem.setVolume('master', volumeValue);
+                        } else if (window.audioSystem.masterGain) {
+                            window.audioSystem.masterGain.gain.value = volumeValue;
+                        }
+                    }
+
+                    // Bind live 'input' event for real-time feedback while dragging
+                    if (!volumeRange._liveInputBound) {
+                        volumeRange._liveInputBound = true;
+                        volumeRange.addEventListener('input', () => {
+                            let val = Number(volumeRange.value);
+                            if (!Number.isFinite(val) || val < 0 || val > 1) val = 0.5;
+                            if (window.audioSystem) {
+                                if (typeof window.audioSystem.setVolume === 'function') {
+                                    window.audioSystem.setVolume('master', val);
+                                } else if (window.audioSystem.masterGain) {
+                                    window.audioSystem.masterGain.gain.value = val;
+                                }
+                            }
+                            window.StorageManager?.setItem?.('volume', val.toString());
+                            // Sync pause menu slider
+                            const pauseVolumeRange = document.getElementById('pause-volume-range');
+                            if (pauseVolumeRange) {
+                                pauseVolumeRange.value = val.toString();
+                            }
+                        });
                     }
                 }
 
@@ -119,6 +168,18 @@
                     } else {
                         lowQualityCheckbox.checked = false;
                         window.StorageManager.setItem('lowQuality', 'false');
+                    }
+
+                    // Bind live 'change' event for instant quality toggle
+                    if (!lowQualityCheckbox._liveChangeBound) {
+                        lowQualityCheckbox._liveChangeBound = true;
+                        lowQualityCheckbox.addEventListener('change', () => {
+                            const enabled = lowQualityCheckbox.checked;
+                            if (window.gameManager) {
+                                window.gameManager.lowQuality = enabled;
+                            }
+                            window.StorageManager?.setItem?.('lowQuality', enabled ? 'true' : 'false');
+                        });
                     }
                 }
 
