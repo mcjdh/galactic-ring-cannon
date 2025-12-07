@@ -11,10 +11,16 @@ class UpgradeSystem {
 
         this.selectedUpgrades = [];
         this.levelUpContainer = document.getElementById('level-up-container');
-        this.upgradeOptionsContainer = document.getElementById('upgrade-options');
+        // Note: upgrade-options and timer-bar are now created dynamically per row
+
         this.levelUpActive = false;
+        this.isTransitioning = false; // Guard against animation conflicts
         this.levelUpKeyListener = null; // Store reference to listener for cleanup
         this.comboEffects = new Set();
+
+        // Timer system
+        this.selectionTimer = 0;
+        this.maxSelectionTime = 7.0; // 7 seconds to choose
 
         // Auto-level feature: load from StorageManager with defensive check
         const StorageManager = window.StorageManager;
@@ -38,21 +44,94 @@ class UpgradeSystem {
         }
 
         this.levelUpActive = false;
+        this.isTransitioning = false;
+        this.selectionTimer = 0;
+
         this.removeKeyboardShortcuts();
 
         // Refresh DOM references in case the UI was re-rendered
         this.levelUpContainer = document.getElementById('level-up-container');
-        this.upgradeOptionsContainer = document.getElementById('upgrade-options');
 
+        // Clear all upgrade rows from container
         if (this.levelUpContainer) {
+            this.levelUpContainer.innerHTML = '';
             this.levelUpContainer.classList.add('hidden');
         }
-        if (this.upgradeOptionsContainer) {
-            this.upgradeOptionsContainer.innerHTML = '';
+    }
+
+    update(deltaTime) {
+        if (!this.levelUpActive) return;
+
+        // Update timer
+        this.selectionTimer -= deltaTime;
+
+        // Find the active row (first child = bottom visually with column-reverse)
+        const currentRow = this.levelUpContainer?.querySelector('.upgrade-row:first-child');
+        const timerBar = currentRow?._timerBar;
+
+        if (timerBar) {
+            const percent = Math.max(0, (this.selectionTimer / this.maxSelectionTime) * 100);
+            timerBar.style.width = `${percent}%`;
+
+            // Visual urgency
+            if (percent < 30) {
+                timerBar.style.background = 'var(--neon-red)';
+                timerBar.style.boxShadow = '0 0 10px var(--neon-red)';
+            } else {
+                timerBar.style.background = 'var(--neon-yellow)';
+                timerBar.style.boxShadow = '0 0 10px var(--neon-yellow)';
+            }
+        }
+
+        // Handle timeout - Auto select random
+        if (this.selectionTimer <= 0) {
+            // Reset timer immediately to prevent multiple triggers
+            this.selectionTimer = this.maxSelectionTime;
+            this.autoSelectRandom();
         }
     }
-    
-    showUpgradeOptions() {
+
+    queueLevelUp() {
+        // Always create a new row for this level-up immediately
+        this.createUpgradeRow();
+
+        // Container should be visible
+        if (this.levelUpContainer) {
+            this.levelUpContainer.classList.remove('hidden');
+        }
+
+        // Mark as active
+        this.levelUpActive = true;
+
+        // Update which row is the active one (first child = bottom visually)
+        this.updateActiveRow();
+    }
+
+    updateActiveRow() {
+        if (!this.levelUpContainer) return;
+
+        const rows = this.levelUpContainer.querySelectorAll('.upgrade-row');
+
+        rows.forEach((row, index) => {
+            if (index === 0) {
+                // First child is the active row (bottom visually with column-reverse)
+                row.classList.add('active-row');
+            } else {
+                row.classList.remove('active-row');
+            }
+        });
+
+        // Bind keyboard shortcuts to the active row only
+        const activeRow = this.levelUpContainer.querySelector('.upgrade-row:first-child');
+        if (activeRow && activeRow._upgradeOptions) {
+            this.removeKeyboardShortcuts();
+            this.addKeyboardShortcutsForRow(activeRow, activeRow._upgradeOptions);
+            this.activeOptions = activeRow._upgradeOptions;
+            this.selectionTimer = this.maxSelectionTime;
+        }
+    }
+
+    createUpgradeRow() {
         const options = this.getRandomUpgrades(3);
 
         if (!Array.isArray(options) || options.length === 0) {
@@ -60,80 +139,162 @@ class UpgradeSystem {
             return;
         }
 
-        // Auto-level: immediately select random upgrade if enabled
-        // Do this BEFORE setting any state to avoid blocking input
+        // Auto-level: immediately apply and don't create UI
         if (this.autoLevelEnabled) {
             const randomIndex = Math.floor(Math.random() * options.length);
             const selectedUpgrade = options[randomIndex];
-
-            // Directly apply upgrade without state changes or pausing
             this.applyUpgradeDirectly(selectedUpgrade);
             return;
         }
 
-        // Normal flow: Set level up active state BEFORE pausing the game
-        this.levelUpActive = true;
+        // Create a new upgrade row
+        const row = document.createElement('div');
+        row.className = 'upgrade-row';
+        row.dataset.rowId = Date.now();
 
-        // Pause game without showing pause menu
-        if (window.gameManager && window.gameManager.game) {
-            window.gameManager.game.isPaused = true;
-        }
+        // Store options on row
+        row._upgradeOptions = options;
+        row._upgradeSystem = this;
 
-        // Clear previous options
-        this.upgradeOptionsContainer.innerHTML = '';
+        // Header
+        const header = document.createElement('div');
+        header.className = 'upgrade-row-header';
+        header.textContent = 'LEVEL UP!';
+        row.appendChild(header);
 
-        // Add upgrade options to the DOM
+        // Options container
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'upgrade-options-row';
+
+        // Add upgrade options
         options.forEach((upgrade, index) => {
             const option = document.createElement('div');
             option.className = 'upgrade-option';
             option.dataset.rarity = upgrade.rarity || 'common';
-            option.dataset.index = index + 1; // Store numeric index
+            option.dataset.index = index + 1;
 
-            // Create elements safely to prevent XSS
+            // Shortcut key badge
             const shortcutKey = document.createElement('div');
             shortcutKey.className = 'shortcut-key';
             shortcutKey.textContent = (index + 1).toString();
 
+            // Icon
             const upgradeIcon = document.createElement('div');
             upgradeIcon.className = 'upgrade-icon';
             upgradeIcon.textContent = upgrade.icon || '';
 
-            const upgradeName = document.createElement('h3');
-            upgradeName.textContent = upgrade.name || '';
-
+            // Description
             const upgradeDesc = document.createElement('p');
+            upgradeDesc.className = 'upgrade-desc';
             upgradeDesc.textContent = upgrade.description || '';
 
-            const upgradeRarity = document.createElement('div');
-            upgradeRarity.className = 'upgrade-rarity';
-            upgradeRarity.textContent = upgrade.rarity || 'common';
-
-            // Append all elements
             option.appendChild(shortcutKey);
             option.appendChild(upgradeIcon);
-            option.appendChild(upgradeName);
             option.appendChild(upgradeDesc);
-            option.appendChild(upgradeRarity);
 
             option.addEventListener('click', () => {
-                this.selectUpgrade(upgrade);
+                this.selectUpgradeFromRow(upgrade, row);
             });
 
-            this.upgradeOptionsContainer.appendChild(option);
+            option.onmousedown = () => option.style.transform = 'scale(0.95)';
+            option.onmouseup = () => option.style.transform = '';
+
+            optionsContainer.appendChild(option);
         });
 
-        // Show the level up UI
+        row.appendChild(optionsContainer);
+
+        // Timer bar
+        const timerContainer = document.createElement('div');
+        timerContainer.className = 'level-up-timer-container';
+        const timerBar = document.createElement('div');
+        timerBar.className = 'level-up-timer-bar';
+        timerContainer.appendChild(timerBar);
+        row.appendChild(timerContainer);
+        row._timerBar = timerBar;
+
+        // Add row to container
         if (this.levelUpContainer) {
-            this.levelUpContainer.classList.remove('hidden');
+            this.levelUpContainer.appendChild(row);
+        }
+    }
+
+    selectUpgradeFromRow(upgrade, row) {
+        // Guard: prevent selecting from already-processed row
+        if (row.classList.contains('sliding-out') || row._processed) {
+            return;
+        }
+        row._processed = true;
+
+        // Apply the upgrade
+        this._applyUpgradeCore(upgrade);
+        this.showUpgradeNotification(upgrade);
+
+        // Remove keyboard shortcuts
+        this.removeKeyboardShortcuts();
+
+        // Temporarily disable level-up to prevent race conditions during animation
+        this.levelUpActive = false;
+
+        // Animate row out
+        row.classList.remove('active-row');
+        row.classList.add('sliding-out');
+
+        setTimeout(() => {
+            row.remove();
+
+            // Check if more rows exist in container
+            const remainingRows = this.levelUpContainer?.querySelectorAll('.upgrade-row:not(.sliding-out)');
+
+            if (remainingRows && remainingRows.length > 0) {
+                // Activate the next row (first child = bottom visually)
+                this.levelUpActive = true;
+                this.updateActiveRow();
+            } else {
+                // Hide container if no more rows
+                this.levelUpActive = false;
+                if (this.levelUpContainer) {
+                    this.levelUpContainer.classList.add('hidden');
+                }
+            }
+        }, 250);
+    }
+
+    addKeyboardShortcutsForRow(row, upgrades) {
+        this.removeKeyboardShortcuts();
+
+        this.levelUpKeyListener = (e) => {
+            if (e.key >= '1' && e.key <= '3') {
+                const index = parseInt(e.key) - 1;
+                if (index >= 0 && index < upgrades.length) {
+                    this.selectUpgradeFromRow(upgrades[index], row);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', this.levelUpKeyListener);
+    }
+
+    autoSelectRandom() {
+        // Find the active row (first child that's not sliding out)
+        const activeRow = this.levelUpContainer?.querySelector('.upgrade-row:not(.sliding-out):first-child');
+        const options = activeRow?._upgradeOptions;
+
+        if (!options || options.length === 0 || !activeRow) {
+            // No valid row found - deactivate level-up state
+            this.levelUpActive = false;
+            if (this.levelUpContainer) {
+                this.levelUpContainer.classList.add('hidden');
+            }
+            return;
         }
 
-        // Add keyboard shortcut listener
-        this.addKeyboardShortcuts(options);
+        const randomUpgrade = options[Math.floor(Math.random() * options.length)];
+        this.selectUpgradeFromRow(randomUpgrade, activeRow);
     }
-    
+
     applyUpgradeDirectly(upgrade) {
         // Streamlined upgrade application for auto-level (no UI state changes)
-        // Apply the core upgrade logic
         this._applyUpgradeCore(upgrade);
 
         // Show compact notification for auto-level (just the icon)
@@ -150,7 +311,7 @@ class UpgradeSystem {
 
         // Play a subtle sound for auto-level
         if (window.audioSystem?.play) {
-            window.audioSystem.play('levelUp', 0.3); // Lower volume than manual
+            window.audioSystem.play('levelUp', 0.3);
         }
     }
 
@@ -217,27 +378,8 @@ class UpgradeSystem {
         return JSON.parse(JSON.stringify(upgrade));
     }
 
-    addKeyboardShortcuts(upgrades) {
-        // Remove existing listener if present
-        this.removeKeyboardShortcuts();
-        
-        // Create new listener
-        this.levelUpKeyListener = (e) => {
-            // Check if a number key 1-3 was pressed
-            if (e.key >= '1' && e.key <= '3') {
-                const index = parseInt(e.key) - 1;
-                
-                // Make sure the index is valid
-                if (index >= 0 && index < upgrades.length) {
-                    this.selectUpgrade(upgrades[index]);
-                }
-            }
-        };
-        
-        // Add the listener
-        window.addEventListener('keydown', this.levelUpKeyListener);
-    }
-    
+    // Old addKeyboardShortcuts removed - now using addKeyboardShortcutsForRow
+
     removeKeyboardShortcuts() {
         // Remove existing listener if present
         if (this.levelUpKeyListener) {
@@ -245,7 +387,7 @@ class UpgradeSystem {
             this.levelUpKeyListener = null;
         }
     }
-    
+
     isLevelUpActive() {
         return this.levelUpActive;
     }
@@ -258,7 +400,7 @@ class UpgradeSystem {
         this.autoLevelEnabled = !!enabled;
         window.StorageManager.setItem('autoLevelEnabled', enabled ? 'true' : 'false');
     }
-    
+
     // Enhanced method to get better quality random upgrades with build path consideration
     getRandomUpgrades(count) {
         // Get player and weapon info
@@ -278,12 +420,12 @@ class UpgradeSystem {
                     return false; // This upgrade is locked to a different character
                 }
             }
-            
+
             // Exclude any non-stackable upgrade already selected
             if (!upgrade.stackable && this.isUpgradeSelected(upgrade.id)) {
                 return false;
             }
-            
+
             // Allow stackable upgrades to appear multiple times
             if (upgrade.stackable === true) {
                 // For stackable upgrades, we don't exclude them even if already selected
@@ -293,17 +435,17 @@ class UpgradeSystem {
                 }
                 return true;
             }
-            
+
             // Exclude already selected one-time upgrades
             if (upgrade.type === 'piercing' && this.isUpgradeSelected('piercing_shot')) {
                 return false;
             }
-            
+
             // Check if required upgrades are met
             if (upgrade.requires) {
                 return upgrade.requires.every(reqId => this.isUpgradeSelected(reqId));
             }
-            
+
             // If special type is aoe, check if player already has it
             if (upgrade.specialType === 'aoe' && this.isUpgradeSelected('aoe_attack')) {
                 return false;
@@ -320,15 +462,15 @@ class UpgradeSystem {
                     return false;
                 }
             }
-            
+
             return true;
         });
-        
+
         // Weight upgrades by rarity and build path
         const weightedPool = [];
         const characterDefinition = player?.characterDefinition;
         const preferredPaths = characterDefinition?.preferredBuildPaths || [];
-        
+
         const currentPath = this.getCurrentBuildPath();
         availableUpgrades.forEach(upgrade => {
             const weight = this.calculateUpgradeWeight({
@@ -341,10 +483,10 @@ class UpgradeSystem {
                 weightedPool.push({ upgrade, weight });
             }
         });
-        
+
         return this.selectWeightedUpgrades(weightedPool, count);
     }
-    
+
     getBaseWeight(upgrade) {
         const rarity = upgrade.rarity || 'common';
         switch (rarity) {
@@ -355,7 +497,7 @@ class UpgradeSystem {
             default: return 10;
         }
     }
-    
+
     handleMissingUpgradeOptions() {
         const fallbackUpgrade = this.getFallbackUpgrade();
         if (!fallbackUpgrade) {
@@ -378,7 +520,7 @@ class UpgradeSystem {
 
         window.audioSystem?.play?.('levelUp', 0.25);
     }
-    
+
     getFallbackUpgrade() {
         if (!Array.isArray(this.availableUpgrades) || this.availableUpgrades.length === 0) {
             return null;
@@ -454,15 +596,15 @@ class UpgradeSystem {
 
         return selected;
     }
-    
+
     getCurrentBuildPath() {
         // Get all selected build paths, excluding core and support
         const selectedPaths = this.selectedUpgrades
             .map(upgrade => upgrade.buildPath)
             .filter(path => path && path !== 'core' && path !== 'support');
-        
+
         if (selectedPaths.length === 0) return null;
-        
+
         // Return the most common build path
         const pathCounts = {};
         selectedPaths.forEach(path => {
@@ -474,11 +616,11 @@ class UpgradeSystem {
 
         return entries.sort((a, b) => b[1] - a[1])[0][0];
     }
-    
+
     isUpgradeSelected(upgradeId) {
         return this.selectedUpgrades.some(u => u.id === upgradeId);
     }
-    
+
     shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -486,30 +628,8 @@ class UpgradeSystem {
         }
         return array;
     }
-    
-    selectUpgrade(upgrade) {
-        // Apply the core upgrade logic (shared with auto-level)
-        this._applyUpgradeCore(upgrade);
 
-        // Show special notification for manual selection
-        this.showUpgradeNotification(upgrade);
-
-        // Hide the level up UI
-        if (this.levelUpContainer) {
-            this.levelUpContainer.classList.add('hidden');
-        }
-
-        // Clean up keyboard shortcuts
-        this.removeKeyboardShortcuts();
-
-        // Reset levelUpActive state
-        this.levelUpActive = false;
-
-        // Resume game
-        if (window.gameManager && window.gameManager.game) {
-            window.gameManager.game.isPaused = false;
-        }
-    }
+    // Old selectUpgrade removed - now using selectUpgradeFromRow
 
     applySpecialEffect(upgrade) {
         const player = window.gameManager.game.player;

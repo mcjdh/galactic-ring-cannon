@@ -93,7 +93,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'piercing_shot',
         name: 'Piercing Shot',
-        description: 'Projectiles penetrate through enemies',
+        description: 'Shots pierce enemies',
         type: 'piercing',
         value: 1, // Number of enemies projectile can pierce through
         icon: "/",
@@ -105,7 +105,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'critical_strike_1',
         name: 'Precision Targeting',
-        description: '+12% crit chance, +0.3 crit multiplier',
+        description: '+12% crit, +0.3x crit dmg',
         type: 'critChance',
         value: 0.12, // Crit chance increase (12%)
         critDamageBonus: 0.3, // Crit multiplier increase (+0.3 to multiplier)
@@ -123,7 +123,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'chain_lightning_1',
         name: 'Chain Lightning',
-        description: 'Projectiles have a 55% chance to chain to a nearby enemy',
+        description: '55% chance to chain to nearby enemy',
         type: 'special',
         specialType: 'chain',
         value: 0.55,
@@ -139,7 +139,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'chain_lightning_2',
         name: 'Improved Chains',
-        description: 'Chain chance increased to 70% and can hit four targets',
+        description: '70% chain chance, hits 4 targets',
         type: 'chain',
         value: 0.7,
         maxChains: 4,
@@ -153,7 +153,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'chain_lightning_3',
         name: 'Storm Chains',
-        description: 'Chain chance increased to 85% and can hit six targets',
+        description: '85% chain chance, hits 6 targets',
         type: 'chain',
         value: 0.85,
         maxChains: 6,
@@ -183,7 +183,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'orbit_attack_1',
         name: 'Orbital Projectiles',
-        description: 'Projectiles orbit around you, dealing damage to nearby enemies',
+        description: 'Orbiting shots damage nearby foes',
         type: 'special',
         specialType: 'orbit',
         orbitRadius: 100,
@@ -262,7 +262,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'ricochet_1',
         name: 'Ricochet Shot',
-        description: '60% chance for projectiles to bounce to a new target twice',
+        description: '60% chance to bounce twice',
         type: 'special',
         specialType: 'ricochet',
         ricochetChance: 0.60,
@@ -360,7 +360,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'explosive_shots_1',
         name: 'Explosive Rounds',
-        description: '50% chance for projectiles to explode on impact, dealing area damage',
+        description: '50% chance for AoE on impact',
         type: 'special',
         specialType: 'explosion',
         explosiveChance: 0.50,  // Added: was missing, defaulted to 0.3
@@ -509,7 +509,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'barrier_shield_1',
         name: 'Barrier Shield',
-        description: 'Generate a shield that absorbs 100 damage before breaking. Recharges after 5s',
+        description: '100 dmg shield, 5s recharge',
         type: 'special',
         specialType: 'shield',
         shieldCapacity: 100,  // Increased from 75 - more impactful starting upgrade
@@ -578,7 +578,7 @@ const UPGRADE_DEFINITIONS = [
     {
         id: 'aegis_protocol',
         name: 'Aegis Protocol',
-        description: 'When shield breaks, release a devastating shockwave dealing 250 damage in 220px radius',
+        description: 'Shield break = 250 dmg shockwave',
         type: 'shieldExplosion',
         explosionDamage: 250,  // Increased from 150 - devastatingly powerful!
         explosionRadius: 220,  // Increased from 180 - huge area

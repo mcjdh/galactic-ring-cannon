@@ -221,30 +221,6 @@ body::after {
     height: 100%;
     background: var(--neon-yellow);
     transform-origin: left center;
-    transition: transform 0.1s linear;
-    box-shadow: 0 0 8px var(--neon-yellow);
-}
-
-/* Timer container at top center */
-#timer-container {
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    z-index: 1000;
-    background: var(--bg-panel);
-    padding: 10px 25px;
-    /* Hexagonal shape */
-    clip-path: polygon(15px 0, calc(100% - 15px) 0,
-            100% 50%, calc(100% - 15px) 100%,
-            15px 100%, 0 50%);
-    border: none;
-    /* Handled by pseudo if needed, or just rely on glow */
-}
-
-/* Timer border trick */
-#timer-container::before {
     content: '';
     position: absolute;
     top: 0;
@@ -342,83 +318,254 @@ body::after {
     }
 }
 
+/* ============================================
+   LEVEL-UP UI - Visual Stack Queue
+   ============================================ */
 #level-up-container {
     position: absolute;
-    top: 50%;
+    bottom: clamp(8px, 1.5vh, 16px);
     left: 50%;
-    transform: translate(-50%, -50%);
-    background: var(--bg-panel);
-    padding: 30px;
-    z-index: 100;
-    text-align: center;
-    width: 85%;
-    max-width: 700px;
+    transform: translateX(-50%);
+    width: clamp(260px, 50vw, 500px);
+    max-width: calc(100vw - 280px);
+    /* Leave room for HP bar + minimap */
+    z-index: 15;
+    background: transparent;
+    padding: 0;
 
-    /* Polybius Octagon */
-    clip-path: polygon(20px 0, calc(100% - 20px) 0,
-            100% 20px, 100% calc(100% - 20px),
-            calc(100% - 20px) 100%, 20px 100%,
-            0 calc(100% - 20px), 0 20px);
+    /* Stack container - holds multiple upgrade rows */
+    display: flex;
+    flex-direction: column-reverse;
+    /* Stack from bottom up */
+    align-items: center;
+    gap: clamp(4px, 0.6vh, 8px);
+
+    pointer-events: none;
+    /* Let children handle pointer events */
 }
 
-/* Level up border */
-#level-up-container::before {
+/* Hidden state for container - simple hide */
+#level-up-container.hidden {
+    display: none !important;
+}
+
+/* Individual upgrade row - styled independently for stacking */
+.upgrade-row {
+    width: 100%;
+    background: linear-gradient(180deg, rgba(10, 25, 35, 0.95), rgba(5, 15, 25, 0.98));
+    padding: clamp(6px, 1vh, 10px) clamp(8px, 1.2vw, 14px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    pointer-events: auto;
+    opacity: 0.6;
+    transform: scale(0.97);
+    transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+
+    /* Polybius Geometric Shape: Octagonal chamfer */
+    clip-path: polygon(clamp(5px, 0.8vw, 10px) 0, calc(100% - clamp(5px, 0.8vw, 10px)) 0,
+            100% clamp(5px, 0.8vw, 10px), 100% calc(100% - clamp(5px, 0.8vw, 10px)),
+            calc(100% - clamp(5px, 0.8vw, 10px)) 100%, clamp(5px, 0.8vw, 10px) 100%,
+            0 calc(100% - clamp(5px, 0.8vw, 10px)), 0 clamp(5px, 0.8vw, 10px));
+
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.25);
+    animation: upgradeRowSlideIn 0.3s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+}
+
+/* Border pseudo for upgrade row */
+.upgrade-row::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    border: 3px solid var(--neon-magenta);
-    clip-path: polygon(20px 0, calc(100% - 20px) 0,
-            100% 20px, 100% calc(100% - 20px),
-            calc(100% - 20px) 100%, 20px 100%,
-            0 calc(100% - 20px), 0 20px);
+    border: 2px solid rgba(0, 255, 255, 0.5);
+    clip-path: polygon(clamp(5px, 0.8vw, 10px) 0, calc(100% - clamp(5px, 0.8vw, 10px)) 0,
+            100% clamp(5px, 0.8vw, 10px), 100% calc(100% - clamp(5px, 0.8vw, 10px)),
+            calc(100% - clamp(5px, 0.8vw, 10px)) 100%, clamp(5px, 0.8vw, 10px) 100%,
+            0 calc(100% - clamp(5px, 0.8vw, 10px)), 0 clamp(5px, 0.8vw, 10px));
     pointer-events: none;
-    box-shadow: inset 0 0 20px var(--neon-magenta);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Active row - the one currently being selected (bottom visually) */
+.upgrade-row.active-row {
+    opacity: 1;
+    transform: scale(1);
+    background: linear-gradient(180deg, rgba(15, 35, 50, 0.98), rgba(8, 20, 35, 0.98));
+    box-shadow:
+        0 0 25px rgba(255, 204, 0, 0.5),
+        0 0 50px rgba(255, 204, 0, 0.2);
+}
+
+.upgrade-row.active-row::before {
+    border-color: var(--neon-yellow);
+    box-shadow: 0 0 12px var(--neon-yellow);
+}
+
+/* Slide animations */
+@keyframes upgradeRowSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(30px) scale(0.9);
+    }
+
+    100% {
+        opacity: 0.6;
+        transform: translateY(0) scale(0.97);
+    }
+}
+
+.upgrade-row.sliding-out {
+    animation: upgradeRowSlideOut 0.25s ease-in forwards;
+}
+
+@keyframes upgradeRowSlideOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.9);
+    }
+}
+
+/* Timer bar for auto-selection - now attached to upgrade row */
+.level-up-timer-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+.level-up-timer-bar {
+    height: 100%;
+    width: 100%;
+    background: var(--neon-yellow);
+    box-shadow: 0 0 8px var(--neon-yellow);
+    transform-origin: left;
+    transition: width 0.1s linear;
+}
+
+/* Row header with level-up label */
+.upgrade-row-header {
+    color: var(--neon-magenta);
+    margin: 0 0 clamp(3px, 0.5vh, 6px) 0;
+    font-size: clamp(9px, 1.2vw, 11px);
+    font-weight: 900;
+    text-shadow: 0 0 8px var(--neon-magenta);
+    letter-spacing: clamp(1px, 0.3vw, 2px);
+    text-transform: uppercase;
+    display: inline-block;
+    background: rgba(255, 0, 85, 0.15);
+    padding: clamp(2px, 0.4vh, 3px) clamp(8px, 1.5vw, 14px);
+    border-radius: 2px;
+}
+
+/* Pending level-ups indicator glow */
+#level-up-container.has-pending {
+    box-shadow:
+        0 0 25px rgba(255, 204, 0, 0.5),
+        inset 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+#level-up-container.has-pending::before {
+    border-color: var(--neon-yellow);
+    box-shadow: 0 0 12px var(--neon-yellow);
+}
+
+/* Timer bar for auto-selection */
+#level-up-timer-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+#level-up-timer-bar {
+    height: 100%;
+    width: 100%;
+    background: var(--neon-yellow);
+    box-shadow: 0 0 10px var(--neon-yellow);
+    transform-origin: left;
+    transition: width 0.1s linear;
 }
 
 #level-up-container h2 {
     color: var(--neon-magenta);
-    margin-top: 0;
-    font-size: 32px;
+    margin: 0 0 clamp(4px, 0.8vh, 8px) 0;
+    font-size: clamp(10px, 1.5vw, 14px);
     font-weight: 900;
-    text-shadow: 0 0 15px var(--neon-magenta);
-    letter-spacing: 4px;
+    text-shadow: 0 0 10px var(--neon-magenta);
+    letter-spacing: clamp(1px, 0.4vw, 3px);
     text-transform: uppercase;
-    border-bottom: 2px solid var(--neon-magenta);
-    padding-bottom: 10px;
     display: inline-block;
+    background: rgba(255, 0, 85, 0.15);
+    padding: clamp(2px, 0.5vh, 4px) clamp(10px, 2vw, 20px);
+    border-radius: 3px;
+    /* Static positioning - flows naturally in flex container */
+    position: static;
+    transform: none;
+    align-self: center;
 }
 
-#upgrade-options {
+.shortcut-hint {
+    display: none;
+}
+
+/* Upgrade row header - LEVEL UP! text */
+.upgrade-row-header {
+    color: var(--neon-magenta);
+    font-size: clamp(9px, 1.3vw, 12px);
+    font-weight: 900;
+    text-shadow: 0 0 8px var(--neon-magenta);
+    letter-spacing: clamp(1px, 0.3vw, 2px);
+    text-transform: uppercase;
+    margin-bottom: clamp(3px, 0.5vh, 6px);
+}
+
+/* Upgrade options row - horizontal layout */
+.upgrade-options-row {
     display: flex;
-    gap: 15px;
-    margin-top: 25px;
+    gap: clamp(4px, 0.8vw, 8px);
+    width: 100%;
     justify-content: center;
-    flex-wrap: wrap;
 }
 
 .upgrade-option {
-    background: rgba(0, 0, 0, 0.8);
-    padding: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: clamp(4px, 0.6vh, 7px) clamp(6px, 1vw, 10px);
     cursor: pointer;
     transition: all 0.2s;
     flex: 1;
-    min-width: 160px;
-    max-width: 220px;
+    min-width: 0;
+    max-width: 33%;
+    height: clamp(36px, 5vh, 50px);
+    /* Compact height */
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    text-align: left;
     position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
 
-    /* Cut corners */
-    clip-path: polygon(10px 0, 100% 0,
-            100% calc(100% - 10px), calc(100% - 10px) 100%,
-            0 100%, 0 10px);
+    /* Chamfered corners - responsive */
+    clip-path: polygon(clamp(4px, 0.6vw, 6px) 0, 100% 0,
+            100% calc(100% - clamp(4px, 0.6vw, 6px)), calc(100% - clamp(4px, 0.6vw, 6px)) 100%,
+            0 100%, 0 clamp(4px, 0.6vw, 6px));
 }
 
-/* Upgrade option border pseudo */
 .upgrade-option::after {
     content: '';
     position: absolute;
@@ -427,17 +574,82 @@ body::after {
     right: 0;
     bottom: 0;
     border: 2px solid currentColor;
-    /* Inherits color from rarity */
-    clip-path: polygon(10px 0, 100% 0,
-            100% calc(100% - 10px), calc(100% - 10px) 100%,
-            0 100%, 0 10px);
+    clip-path: polygon(clamp(4px, 0.6vw, 6px) 0, 100% 0,
+            100% calc(100% - clamp(4px, 0.6vw, 6px)), calc(100% - clamp(4px, 0.6vw, 6px)) 100%,
+            0 100%, 0 clamp(4px, 0.6vw, 6px));
     pointer-events: none;
 }
 
 .upgrade-option:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-5px) scale(1.05);
-    box-shadow: 0 0 30px currentColor;
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 0 10px currentColor;
+}
+
+/* Shortcut key - inline badge on left side */
+.shortcut-key {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 2px;
+    min-width: clamp(14px, 2vw, 18px);
+    height: clamp(14px, 2vw, 18px);
+    line-height: clamp(12px, 1.8vw, 16px);
+    font-size: clamp(9px, 1.2vw, 11px);
+    text-align: center;
+    color: #fff;
+    font-weight: bold;
+    margin-right: clamp(4px, 0.6vw, 6px);
+    flex-shrink: 0;
+}
+
+.upgrade-icon {
+    font-size: clamp(14px, 2.2vw, 20px);
+    margin-right: clamp(4px, 0.6vw, 6px);
+    min-width: clamp(18px, 2.5vw, 24px);
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* Hide h3 name - using description only */
+.upgrade-option h3 {
+    display: none;
+}
+
+/* Main description text */
+.upgrade-option p,
+.upgrade-desc {
+    margin: 0;
+    font-size: clamp(8px, 1.1vw, 11px);
+    opacity: 0.95;
+    line-height: 1.2;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    color: #fff;
+    flex: 1;
+    min-width: 0;
+}
+
+.upgrade-rarity {
+    display: none;
+}
+
+/* Horizontal keys */
+.shortcut-key {
+    position: absolute;
+    top: clamp(3px, 0.5vh, 5px);
+    right: clamp(3px, 0.5vw, 5px);
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    width: clamp(12px, 1.6vw, 16px);
+    height: clamp(12px, 1.6vw, 16px);
+    line-height: clamp(10px, 1.4vw, 14px);
+    font-size: clamp(8px, 1vw, 10px);
+    text-align: center;
+    color: #aaa;
 }
 
 
@@ -1457,19 +1669,7 @@ body::after {
     }
 }
 
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-    }
 
-    50% {
-        transform: scale(1.05);
-    }
-
-    100% {
-        transform: scale(1);
-    }
-}
 
 #boss-direction {
     position: absolute;

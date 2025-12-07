@@ -1098,6 +1098,11 @@ class GameEngine {
             window.performanceManager.update(deltaTime);
         }
 
+        // [NEW] Update UpgradeSystem for timed level-up events
+        if (window.upgradeSystem && typeof window.upgradeSystem.update === 'function') {
+            window.upgradeSystem.update(deltaTime);
+        }
+
         // Update optimized particle pool if available
         if (window.optimizedParticles && typeof window.optimizedParticles.update === 'function') {
             if (window.performanceProfiler?.enabled) window.performanceProfiler.start('particles');

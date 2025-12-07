@@ -227,17 +227,17 @@ class PlayerStats {
     levelUp() {
         this.level++;
         this.xp -= this.xpToNextLevel;
-        
+
         // Use piecewise scaling from constants
         const LV = window.GAME_CONSTANTS?.PLAYER?.LEVELING || {};
         let multiplier = LV.LATE_MULTIPLIER || 1.12;
-        
+
         if (this.level < (LV.EARLY_LEVELS || 7)) {
             multiplier = LV.EARLY_MULTIPLIER || 1.08;
         } else if (this.level < (LV.MID_LEVELS || 22)) {
             multiplier = LV.MID_MULTIPLIER || 1.15;
         }
-        
+
         this.xpToNextLevel = Math.floor(this.xpToNextLevel * multiplier);
 
         // Update UI
@@ -262,8 +262,8 @@ class PlayerStats {
 
         // Show upgrade options
         setTimeout(() => {
-            if (window.upgradeSystem && typeof window.upgradeSystem.showUpgradeOptions === 'function') {
-                window.upgradeSystem.showUpgradeOptions();
+            if (window.upgradeSystem && typeof window.upgradeSystem.queueLevelUp === 'function') {
+                window.upgradeSystem.queueLevelUp();
             }
         }, 0);
 
