@@ -15,8 +15,8 @@ class AudioSystem {
             // Volume categories (0-1)
             this.volumes = {
                 master: 0.5,
-                music: 0.4, // Bumped slightly for presence
-                sfx: 0.6,   // Lowered slightly to balance with music
+                music: 0.22, // Bumped for better presence with SFX
+                sfx: 0.35,   // Lowered to compensate for lo-fi saturation gain
                 ui: 0.5
             };
 
@@ -35,10 +35,21 @@ class AudioSystem {
                 'assets/audio/music/track_04.wav',
                 'assets/audio/music/track_05.wav',
                 'assets/audio/music/track_06.wav',
-                'assets/audio/music/track_07.wav'
+                'assets/audio/music/track_07.wav',
+                'assets/audio/music/track_08.wav',
+                'assets/audio/music/track_09.wav',
+                'assets/audio/music/track_10.wav',
+                'assets/audio/music/track_11.wav',
+                'assets/audio/music/track_12.wav',
+                'assets/audio/music/track_13.wav',
+                'assets/audio/music/track_14.wav',
+                'assets/audio/music/track_15.wav'
             ];
 
-            // Shuffle only tracks 2-7 (keep track_01 first)
+            // Crossfade duration between tracks (in seconds)
+            this.crossfadeDuration = 2.0;
+
+            // Shuffle only tracks 2-15 (keep track_01 first)
             for (let i = this.playlist.length - 1; i > 1; i--) {
                 const j = 1 + Math.floor(Math.random() * i); // Start from index 1
                 [this.playlist[i], this.playlist[j]] = [this.playlist[j], this.playlist[i]];
@@ -219,15 +230,78 @@ class AudioSystem {
             this.musicLowPass.frequency.value = 12000;
             this.musicLowPass.Q.value = 0.7;
 
+            // === RETRO POLYBIUS EFFECTS (Music Only) ===
+            // Adds gritty, vintage arcade character to the music
+
+            // 1. Tape Saturation / Soft Clipping via WaveShaper
+            // Creates warm harmonic distortion like vintage arcade hardware
+            this.musicSaturation = this.audioContext.createWaveShaper();
+            this.musicSaturation.curve = this.createSaturationCurve(0.65); // Heavier vintage distortion
+            this.musicSaturation.oversample = '2x'; // Reduce aliasing artifacts
+
+            // 2. Lo-Fi Filter - simulates reduced sample rate / bit depth
+            // Aggressive low-pass to cut high frequencies (like 8-bit DACs)
+            this.lofiFilter = this.audioContext.createBiquadFilter();
+            this.lofiFilter.type = 'lowpass';
+            this.lofiFilter.frequency.value = 6000; // Aggressive lo-fi, like old arcade DACs
+            this.lofiFilter.Q.value = 0.8;
+
+            // 3. Subtle high-pass to remove rumble (old speaker simulation)
+            this.lofiHighPass = this.audioContext.createBiquadFilter();
+            this.lofiHighPass.type = 'highpass';
+            this.lofiHighPass.frequency.value = 60; // Cut sub-bass rumble
+            this.lofiHighPass.Q.value = 0.5;
+
+            // 4. Bit-crusher resonance - adds gritty "digital" character
+            // Narrow band boost at 2-3kHz mimics quantization noise
+            this.bitcrushResonance = this.audioContext.createBiquadFilter();
+            this.bitcrushResonance.type = 'peaking';
+            this.bitcrushResonance.frequency.value = 2500;
+            this.bitcrushResonance.Q.value = 1.5;
+            this.bitcrushResonance.gain.value = 1.5; // Subtle grit, avoids adding too much level
+
+            // 5. Music Output Limiter - compensates for gain added by effects chain
+            // This is the final volume control after all processing
+            this.musicOutputGain = this.audioContext.createGain();
+            this.musicOutputGain.gain.value = 0.08; // Bumped slightly for presence
+
             // Connect audio chain
-            // Music goes through its own EQ before reverb/dry mix
-            this.musicGain.connect(this.musicLowPass);
-            this.musicLowPass.connect(this.dryGain);
-            this.musicLowPass.connect(this.reverb);
+            // Music goes through: Gain -> Saturation -> LoFi -> EQ -> Output Limiter -> reverb/dry mix
+            this.musicGain.connect(this.musicSaturation);
+            this.musicSaturation.connect(this.lofiHighPass);
+            this.lofiHighPass.connect(this.lofiFilter);
+            this.lofiFilter.connect(this.bitcrushResonance);
+            this.bitcrushResonance.connect(this.musicLowPass);
+            this.musicLowPass.connect(this.musicOutputGain);
+            this.musicOutputGain.connect(this.dryGain);
+            this.musicOutputGain.connect(this.reverb);
 
-            this.sfxGain.connect(this.dryGain);
-            this.sfxGain.connect(this.reverb);
+            // === SFX LO-FI CHAIN (Lighter treatment for unified sound) ===
+            // Subtle vintage character to match music's retro vibe
 
+            // SFX Saturation - very light, just adds warmth
+            this.sfxSaturation = this.audioContext.createWaveShaper();
+            this.sfxSaturation.curve = this.createSaturationCurve(0.25); // Light saturation
+            this.sfxSaturation.oversample = '2x';
+
+            // SFX Lo-Fi Filter - gentle rolloff for that arcade speaker sound
+            this.sfxLofiFilter = this.audioContext.createBiquadFilter();
+            this.sfxLofiFilter.type = 'lowpass';
+            this.sfxLofiFilter.frequency.value = 10000; // Less aggressive than music
+            this.sfxLofiFilter.Q.value = 0.5;
+
+            // SFX Output Gain - compensates for saturation gain
+            this.sfxOutputGain = this.audioContext.createGain();
+            this.sfxOutputGain.gain.value = 0.4; // Attenuate after effects
+
+            // Connect SFX through lo-fi chain
+            this.sfxGain.connect(this.sfxSaturation);
+            this.sfxSaturation.connect(this.sfxLofiFilter);
+            this.sfxLofiFilter.connect(this.sfxOutputGain);
+            this.sfxOutputGain.connect(this.dryGain);
+            this.sfxOutputGain.connect(this.reverb);
+
+            // UI sounds stay clean (menus should be crisp)
             this.uiGain.connect(this.dryGain);
 
             this.reverb.connect(this.reverbGain);
@@ -270,6 +344,26 @@ class AudioSystem {
         }
 
         return impulse;
+    }
+
+    // Create saturation/soft-clipping curve for vintage arcade distortion
+    // Uses tanh-based soft clipping for warm, analog-style harmonics
+    // Amount: 0.0 = clean, 1.0 = heavy distortion
+    createSaturationCurve(amount = 0.4) {
+        const samples = 44100;
+        const curve = new Float32Array(samples);
+        const k = amount * 50; // Drive amount (higher = more aggressive)
+
+        for (let i = 0; i < samples; i++) {
+            // Normalize input to -1 to 1 range
+            const x = (i * 2) / samples - 1;
+
+            // Soft clipping using tanh (smooth saturation)
+            // This adds even harmonics like tube/tape distortion
+            curve[i] = Math.tanh(k * x) / Math.tanh(k);
+        }
+
+        return curve;
     }
 
     // Resume audio context with error handling
@@ -494,6 +588,15 @@ class AudioSystem {
                 case 'achievement':
                     this.playAchievementSound(adjustedVolume);
                     break;
+                case 'formationForm':
+                    this.playFormationFormSound(adjustedVolume);
+                    break;
+                case 'formationMerge':
+                    this.playFormationMergeSound(adjustedVolume);
+                    break;
+                case 'formationBreak':
+                    this.playFormationBreakSound(adjustedVolume);
+                    break;
                 default:
                     window.logger?.warn?.(`Unknown sound name: ${soundName}`);
             }
@@ -565,41 +668,48 @@ class AudioSystem {
         }
     }
 
-    // Enhanced shoot sound - layered for richness
+    // Soft projectile sound - warm and ear-friendly like formation sounds
+    // Pleasant low tones with gentle variance for organic feel
     playShootSound(volume, pan = 0) {
         const now = this.audioContext.currentTime;
         const panner = this.audioContext.createStereoPanner();
         panner.pan.value = pan;
 
-        // Layer 1: High frequency pulse
+        // Random variance for organic feel
+        const pitchVar = 0.9 + Math.random() * 0.2;     // 90-110% pitch (tighter range)
+        const volVar = 0.85 + Math.random() * 0.3;     // 85-115% volume
+        const decayVar = 0.9 + Math.random() * 0.2;
+
+        // Layer 1: Warm low-mid tone (softer than before)
         const osc1 = this.audioContext.createOscillator();
         const gain1 = this.audioContext.createGain();
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(1200, now);
-        osc1.frequency.exponentialRampToValueAtTime(600, now + 0.08);
-        gain1.gain.setValueAtTime(volume * 0.2, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc1.type = 'sine';  // Pure sine = softest
+        osc1.frequency.setValueAtTime(380 * pitchVar, now);  // Lower base freq
+        osc1.frequency.exponentialRampToValueAtTime(180 * pitchVar, now + 0.1 * decayVar);
+        gain1.gain.setValueAtTime(volume * 0.15 * volVar, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12 * decayVar);
 
-        // Layer 2: Mid frequency body
+        // Layer 2: Sub bass punch (felt more than heard)
         const osc2 = this.audioContext.createOscillator();
         const gain2 = this.audioContext.createGain();
-        osc2.type = 'triangle';
-        osc2.frequency.setValueAtTime(440, now);
-        osc2.frequency.exponentialRampToValueAtTime(220, now + 0.12);
-        gain2.gain.setValueAtTime(volume * 0.25, now);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(120 * pitchVar, now);
+        osc2.frequency.exponentialRampToValueAtTime(60 * pitchVar, now + 0.08 * decayVar);
+        gain2.gain.setValueAtTime(volume * 0.12 * volVar, now);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.1 * decayVar);
 
-        // Layer 3: Noise burst for attack
+        // Layer 3: Soft filtered noise puff (not harsh attack)
         const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.05);
+        noise.buffer = this.createNoiseBuffer(0.04);
         const noiseGain = this.audioContext.createGain();
         const noiseFilter = this.audioContext.createBiquadFilter();
-        noiseFilter.type = 'highpass';
-        noiseFilter.frequency.value = 2000;
-        noiseGain.gain.setValueAtTime(volume * 0.15, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        noiseFilter.type = 'bandpass';  // Bandpass = softer than highpass
+        noiseFilter.frequency.value = 600 + Math.random() * 400;  // 600-1000Hz (much lower)
+        noiseFilter.Q.value = 1.5;
+        noiseGain.gain.setValueAtTime(volume * 0.06 * volVar, now);  // Much quieter noise
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04 * decayVar);
 
-        // Connect everything
+        // Connect
         osc1.connect(gain1);
         osc2.connect(gain2);
         noise.connect(noiseFilter);
@@ -614,36 +724,40 @@ class AudioSystem {
         osc1.start(now);
         osc2.start(now);
         noise.start(now);
-        osc1.stop(now + 0.15);
-        osc2.stop(now + 0.15);
-        noise.stop(now + 0.05);
+        osc1.stop(now + 0.15 * decayVar);
+        osc2.stop(now + 0.12 * decayVar);
+        noise.stop(now + 0.05 * decayVar);
     }
 
-    // Enhanced hit sound - more impactful
+    // Hit sound - impactful with variance
     playHitSound(volume, pan = 0) {
         const now = this.audioContext.currentTime;
         const panner = this.audioContext.createStereoPanner();
         panner.pan.value = pan;
 
-        // Impact transient
+        // Random variance for organic feel
+        const pitchVar = 0.85 + Math.random() * 0.3;
+        const volVar = 0.8 + Math.random() * 0.4;
+
+        // Impact transient (with variance)
         const impact = this.audioContext.createOscillator();
         const impactGain = this.audioContext.createGain();
         impact.type = 'sine';
-        impact.frequency.setValueAtTime(250, now);
-        impact.frequency.exponentialRampToValueAtTime(50, now + 0.08);
-        impactGain.gain.setValueAtTime(volume * 0.4, now);
+        impact.frequency.setValueAtTime(250 * pitchVar, now);
+        impact.frequency.exponentialRampToValueAtTime(50 * pitchVar, now + 0.08);
+        impactGain.gain.setValueAtTime(volume * 0.3 * volVar, now);
         impactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
 
-        // Noise burst
+        // Noise burst (with filter variance)
         const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.15);
+        noise.buffer = this.createNoiseBuffer(0.12);
         const noiseGain = this.audioContext.createGain();
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1500, now);
-        filter.frequency.exponentialRampToValueAtTime(300, now + 0.15);
-        noiseGain.gain.setValueAtTime(volume * 0.5, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        filter.frequency.setValueAtTime(1200 + Math.random() * 400, now);
+        filter.frequency.exponentialRampToValueAtTime(200, now + 0.12);
+        noiseGain.gain.setValueAtTime(volume * 0.35 * volVar, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
         // Connect
         impact.connect(impactGain);
@@ -657,7 +771,7 @@ class AudioSystem {
         impact.start(now);
         noise.start(now);
         impact.stop(now + 0.1);
-        noise.stop(now + 0.15);
+        noise.stop(now + 0.12);
     }
 
     // Level up sound - Classic arcade inspired (Mario power-up / Galaga style)
@@ -724,33 +838,33 @@ class AudioSystem {
         shimmer.stop(now + 0.35);
     }
 
-    // Dodge sound - improved whoosh
+    // Dodge sound - soft whoosh (ear-friendly version)
     playDodgeSound(volume) {
         const now = this.audioContext.currentTime;
 
-        // Multi-band whoosh
+        // Soft filtered noise whoosh (lower frequency ceiling)
         const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.25);
+        noise.buffer = this.createNoiseBuffer(0.2);
 
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'bandpass';
         filter.frequency.setValueAtTime(150, now);
-        filter.frequency.exponentialRampToValueAtTime(3000, now + 0.2);
-        filter.Q.value = 2.0;
+        filter.frequency.exponentialRampToValueAtTime(1200, now + 0.15);  // Much lower ceiling
+        filter.Q.value = 1.0;  // Lower Q = smoother
 
         const gain = this.audioContext.createGain();
-        gain.gain.setValueAtTime(volume * 0.08, now);
-        gain.gain.exponentialRampToValueAtTime(volume * 0.25, now + 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        gain.gain.setValueAtTime(volume * 0.05, now);
+        gain.gain.exponentialRampToValueAtTime(volume * 0.12, now + 0.06);  // Gentler peak
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
-        // Add doppler-like oscillator
+        // Softer doppler-like oscillator (lower range)
         const doppler = this.audioContext.createOscillator();
         const dopplerGain = this.audioContext.createGain();
         doppler.type = 'sine';
-        doppler.frequency.setValueAtTime(100, now);
-        doppler.frequency.exponentialRampToValueAtTime(600, now + 0.15);
-        dopplerGain.gain.setValueAtTime(volume * 0.15, now);
-        dopplerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        doppler.frequency.setValueAtTime(80, now);
+        doppler.frequency.exponentialRampToValueAtTime(300, now + 0.12);  // Lower range
+        dopplerGain.gain.setValueAtTime(volume * 0.08, now);
+        dopplerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
         noise.connect(filter);
         filter.connect(gain);
@@ -761,44 +875,48 @@ class AudioSystem {
 
         noise.start(now);
         doppler.start(now);
-        noise.stop(now + 0.25);
-        doppler.stop(now + 0.2);
+        noise.stop(now + 0.2);
+        doppler.stop(now + 0.15);
     }
 
-    // Enhanced enemy death sound - bigger explosion
+    // Enemy death sound - explosion with variance
     playEnemyDeathSound(volume, pan = 0) {
         const now = this.audioContext.currentTime;
         const panner = this.audioContext.createStereoPanner();
         panner.pan.value = pan;
 
+        // Random variance for organic late-game mass deaths
+        const pitchVar = 0.8 + Math.random() * 0.4;
+        const volVar = 0.7 + Math.random() * 0.6;
+
         // Layer 1: Sub-bass rumble
         const sub = this.audioContext.createOscillator();
         const subGain = this.audioContext.createGain();
         sub.type = 'sine';
-        sub.frequency.setValueAtTime(80, now);
-        sub.frequency.exponentialRampToValueAtTime(30, now + 0.4);
-        subGain.gain.setValueAtTime(volume * 0.4, now);
-        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        sub.frequency.setValueAtTime(80 * pitchVar, now);
+        sub.frequency.exponentialRampToValueAtTime(30 * pitchVar, now + 0.35);
+        subGain.gain.setValueAtTime(volume * 0.3 * volVar, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
 
-        // Layer 2: Mid explosion tone
+        // Layer 2: Mid explosion tone (triangle instead of harsh sawtooth)
         const mid = this.audioContext.createOscillator();
         const midGain = this.audioContext.createGain();
-        mid.type = 'sawtooth';
-        mid.frequency.setValueAtTime(200, now);
-        mid.frequency.exponentialRampToValueAtTime(40, now + 0.35);
-        midGain.gain.setValueAtTime(volume * 0.3, now);
-        midGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        mid.type = 'triangle';  // Softer than sawtooth
+        mid.frequency.setValueAtTime(180 * pitchVar, now);
+        mid.frequency.exponentialRampToValueAtTime(40 * pitchVar, now + 0.3);
+        midGain.gain.setValueAtTime(volume * 0.2 * volVar, now);
+        midGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
-        // Layer 3: Noise explosion
+        // Layer 3: Noise explosion (with variance)
         const noise = this.audioContext.createBufferSource();
-        noise.buffer = this.createNoiseBuffer(0.4);
+        noise.buffer = this.createNoiseBuffer(0.35);
         const noiseGain = this.audioContext.createGain();
         const noiseFilter = this.audioContext.createBiquadFilter();
         noiseFilter.type = 'lowpass';
-        noiseFilter.frequency.setValueAtTime(2000, now);
-        noiseFilter.frequency.exponentialRampToValueAtTime(100, now + 0.4);
-        noiseGain.gain.setValueAtTime(volume * 0.5, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        noiseFilter.frequency.setValueAtTime(1500 + Math.random() * 500, now);
+        noiseFilter.frequency.exponentialRampToValueAtTime(80, now + 0.35);
+        noiseGain.gain.setValueAtTime(volume * 0.35 * volVar, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
         // Connect
         sub.connect(subGain);
@@ -815,38 +933,42 @@ class AudioSystem {
         sub.start(now);
         mid.start(now);
         noise.start(now);
-        sub.stop(now + 0.5);
-        mid.stop(now + 0.4);
-        noise.stop(now + 0.4);
+        sub.stop(now + 0.4);
+        mid.stop(now + 0.35);
+        noise.stop(now + 0.35);
     }
 
-    // Pickup sound - Classic Mario coin inspired (warmer frequencies)
+    // Pickup sound - coin with variance
     playPickupSound(volume) {
         const now = this.audioContext.currentTime;
 
-        // Sub-bass thump for satisfying weight
+        // Random variance for organic feel
+        const pitchVar = 0.9 + Math.random() * 0.2;
+        const volVar = 0.85 + Math.random() * 0.3;
+
+        // Sub-bass thump (with variance)
         const sub = this.audioContext.createOscillator();
         const subGain = this.audioContext.createGain();
         sub.type = 'sine';
-        sub.frequency.setValueAtTime(100, now);
-        sub.frequency.exponentialRampToValueAtTime(60, now + 0.08);
-        subGain.gain.setValueAtTime(volume * 0.2, now);
+        sub.frequency.setValueAtTime(100 * pitchVar, now);
+        sub.frequency.exponentialRampToValueAtTime(60 * pitchVar, now + 0.08);
+        subGain.gain.setValueAtTime(volume * 0.15 * volVar, now);
         subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
         sub.connect(subGain);
         subGain.connect(this.uiGain);
         sub.start(now);
         sub.stop(now + 0.12);
 
-        // Classic coin dual-tone (warmer: C5/E5 instead of C6/C7)
-        const freqs = [523, 659]; // C5, E5
-        freqs.forEach((freq, i) => {
+        // Classic coin dual-tone with variance
+        const baseFreqs = [523, 659]; // C5, E5
+        baseFreqs.forEach((freq, i) => {
             const osc = this.audioContext.createOscillator();
             const gain = this.audioContext.createGain();
 
-            osc.type = 'triangle'; // Warmer than sine
-            osc.frequency.setValueAtTime(freq, now + i * 0.05);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq * pitchVar, now + i * 0.05);
 
-            gain.gain.setValueAtTime(volume * 0.22, now + i * 0.05);
+            gain.gain.setValueAtTime(volume * 0.18 * volVar, now + i * 0.05);
             gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.15);
 
             osc.connect(gain);
@@ -921,46 +1043,46 @@ class AudioSystem {
         noise.stop(now + 0.7);
     }
 
-    // Boss attack - sharp, aggressive mechanical sound
+    // Boss attack - deep, powerful (softened version)
     playBossAttackSound(volume, pan = 0) {
         const now = this.audioContext.currentTime;
         const panner = this.audioContext.createStereoPanner();
         panner.pan.value = pan;
 
-        // Metallic impact
+        // Deep impact (softer waveform)
         const osc = this.audioContext.createOscillator();
         const oscGain = this.audioContext.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
-        oscGain.gain.setValueAtTime(volume * 0.3, now);
+        osc.type = 'triangle';  // Softer than sawtooth
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+        oscGain.gain.setValueAtTime(volume * 0.2, now);
         oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
-        // Zap/Laser element
-        const lazer = this.audioContext.createOscillator();
-        const lazerGain = this.audioContext.createGain();
-        lazer.type = 'square';
-        lazer.frequency.setValueAtTime(800, now);
-        lazer.frequency.exponentialRampToValueAtTime(200, now + 0.15);
-        lazerGain.gain.setValueAtTime(volume * 0.2, now);
-        lazerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        // Low rumble element (replaces harsh square laser)
+        const rumble = this.audioContext.createOscillator();
+        const rumbleGain = this.audioContext.createGain();
+        rumble.type = 'sine';  // Pure sine = softest
+        rumble.frequency.setValueAtTime(200, now);
+        rumble.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+        rumbleGain.gain.setValueAtTime(volume * 0.15, now);
+        rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
         // Connect
         osc.connect(oscGain);
         oscGain.connect(panner);
 
-        lazer.connect(lazerGain);
-        lazerGain.connect(panner);
+        rumble.connect(rumbleGain);
+        rumbleGain.connect(panner);
 
         panner.connect(this.sfxGain);
 
         osc.start(now);
         osc.stop(now + 0.2);
-        lazer.start(now);
-        lazer.stop(now + 0.2);
+        rumble.start(now);
+        rumble.stop(now + 0.2);
     }
 
-    // Boss charge - rising energy sound
+    // Boss charge - low rumble energy (softened version)
     playBossChargeSound(volume, pan = 0) {
         const now = this.audioContext.currentTime;
         const panner = this.audioContext.createStereoPanner();
@@ -969,20 +1091,20 @@ class AudioSystem {
         const osc = this.audioContext.createOscillator();
         const oscGain = this.audioContext.createGain();
 
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(100, now);
-        osc.frequency.exponentialRampToValueAtTime(600, now + 0.8);
+        osc.type = 'sine';  // Softest waveform
+        osc.frequency.setValueAtTime(60, now);  // Lower start
+        osc.frequency.exponentialRampToValueAtTime(250, now + 0.6);  // Lower ceiling
 
         oscGain.gain.setValueAtTime(0.001, now);
-        oscGain.gain.linearRampToValueAtTime(volume * 0.3, now + 0.7);
-        oscGain.gain.linearRampToValueAtTime(0.001, now + 0.8);
+        oscGain.gain.linearRampToValueAtTime(volume * 0.15, now + 0.5);  // Quieter
+        oscGain.gain.linearRampToValueAtTime(0.001, now + 0.6);
 
         osc.connect(oscGain);
         oscGain.connect(panner);
         panner.connect(this.sfxGain);
 
         osc.start(now);
-        osc.stop(now + 0.8);
+        osc.stop(now + 0.6);
     }
 
 
@@ -1397,6 +1519,140 @@ class AudioSystem {
         });
     }
 
+    // === FORMATION AMBIENT SOUNDS ===
+    // Subtle background sounds for constellation/formation events
+    // All have random variance to sound organic with high-frequency late-game events
+
+    // Formation/constellation created - ethereal rising chord
+    // Very subtle, Polybius-style mystical hum
+    playFormationFormSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Random variance for organic feel when many play near each other
+        const pitchVar = 0.9 + Math.random() * 0.2;   // 90-110% pitch
+        const volVar = 0.7 + Math.random() * 0.6;     // 70-130% volume for subtle variation
+
+        // Base frequencies for a mysterious minor chord (Am7 voicing)
+        const baseFreqs = [220, 261, 329, 392]; // A3, C4, E4, G4
+
+        // Pick 2-3 random notes from the chord for variety
+        const noteCount = 2 + Math.floor(Math.random() * 2);
+        const selectedFreqs = baseFreqs
+            .sort(() => Math.random() - 0.5)
+            .slice(0, noteCount);
+
+        selectedFreqs.forEach((freq, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+
+            osc.type = Math.random() < 0.3 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(freq * pitchVar * 0.5, now);
+            osc.frequency.exponentialRampToValueAtTime(freq * pitchVar, now + 0.3);
+
+            // Slow fade in, hold, fade out
+            const attackTime = 0.1 + Math.random() * 0.1;
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.exponentialRampToValueAtTime(volume * 0.08 * volVar, now + attackTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+
+            osc.start(now + i * 0.03);
+            osc.stop(now + 0.6);
+        });
+    }
+
+    // Formations merge - harmonic crystallization (two tones sliding to unison)
+    // Galaga power-up inspiration, very subtle
+    playFormationMergeSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Random variance
+        const pitchVar = 0.85 + Math.random() * 0.3;
+        const volVar = 0.8 + Math.random() * 0.4;
+
+        // Two oscillators that slide together
+        const targetFreq = (300 + Math.random() * 100) * pitchVar; // 300-400Hz base
+        const spread = 30 + Math.random() * 40; // How far apart they start
+
+        const osc1 = this.audioContext.createOscillator();
+        const osc2 = this.audioContext.createOscillator();
+        const gain1 = this.audioContext.createGain();
+        const gain2 = this.audioContext.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+
+        // Start apart, slide to unison
+        osc1.frequency.setValueAtTime(targetFreq - spread, now);
+        osc1.frequency.exponentialRampToValueAtTime(targetFreq, now + 0.25);
+        osc2.frequency.setValueAtTime(targetFreq + spread, now);
+        osc2.frequency.exponentialRampToValueAtTime(targetFreq, now + 0.25);
+
+        const peakVol = volume * 0.06 * volVar;
+        gain1.gain.setValueAtTime(0.001, now);
+        gain1.gain.exponentialRampToValueAtTime(peakVol, now + 0.1);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        gain2.gain.setValueAtTime(0.001, now);
+        gain2.gain.exponentialRampToValueAtTime(peakVol, now + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        osc1.connect(gain1);
+        osc2.connect(gain2);
+        gain1.connect(this.sfxGain);
+        gain2.connect(this.sfxGain);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.45);
+        osc2.stop(now + 0.45);
+    }
+
+    // Formation breaks - quick falling shatter
+    // Reverse of form sound with noise burst
+    playFormationBreakSound(volume) {
+        const now = this.audioContext.currentTime;
+
+        // Random variance for late-game variety
+        const pitchVar = 0.8 + Math.random() * 0.4;
+        const volVar = 0.7 + Math.random() * 0.6;
+
+        // Falling tone
+        const osc = this.audioContext.createOscillator();
+        const oscGain = this.audioContext.createGain();
+        osc.type = Math.random() < 0.5 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(400 * pitchVar, now);
+        osc.frequency.exponentialRampToValueAtTime(80 * pitchVar, now + 0.15);
+
+        oscGain.gain.setValueAtTime(volume * 0.1 * volVar, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        osc.connect(oscGain);
+        oscGain.connect(this.sfxGain);
+
+        // Short noise burst for scatter/shatter
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.08);
+        const noiseGain = this.audioContext.createGain();
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 800 + Math.random() * 600;
+        noiseFilter.Q.value = 1;
+
+        noiseGain.gain.setValueAtTime(volume * 0.08 * volVar, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.sfxGain);
+
+        osc.start(now);
+        noise.start(now);
+        osc.stop(now + 0.25);
+        noise.stop(now + 0.12);
+    }
+
     // === CONTINUOUS AMBIENT MUSIC SYSTEM ===
 
     // Start ambient background music
@@ -1449,15 +1705,6 @@ class AudioSystem {
         if (!this.audioContext || this.isLoadingMusic) return;
         this.isLoadingMusic = true;
 
-        // Stop current if playing
-        if (this.currentSource) {
-            try {
-                this.currentSource.stop();
-                this.currentSource.disconnect();
-            } catch (e) { }
-            this.currentSource = null;
-        }
-
         const buffer = await this.loadTrack(url);
         if (!buffer) {
             this.isLoadingMusic = false;
@@ -1471,11 +1718,41 @@ class AudioSystem {
             return;
         }
 
-        const source = this.audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(this.musicGain);
+        const now = this.audioContext.currentTime;
+        const fadeDuration = this.crossfadeDuration || 2.0;
 
+        // Fade out current track if playing
+        if (this.currentSource && this.currentSourceGain) {
+            try {
+                // Smooth fade out
+                this.currentSourceGain.gain.setValueAtTime(this.currentSourceGain.gain.value, now);
+                this.currentSourceGain.gain.linearRampToValueAtTime(0, now + fadeDuration);
+
+                // Schedule stop after fade
+                const oldSource = this.currentSource;
+                setTimeout(() => {
+                    try {
+                        oldSource.stop();
+                        oldSource.disconnect();
+                    } catch (e) { }
+                }, fadeDuration * 1000 + 100);
+            } catch (e) { }
+        }
+
+        // Create new source with its own gain for fade-in
+        const source = this.audioContext.createBufferSource();
+        const sourceGain = this.audioContext.createGain();
+
+        source.buffer = buffer;
         source.loop = false;
+
+        // Connect: source -> sourceGain -> musicGain (effects chain)
+        source.connect(sourceGain);
+        sourceGain.connect(this.musicGain);
+
+        // Fade in new track
+        sourceGain.gain.setValueAtTime(0, now);
+        sourceGain.gain.linearRampToValueAtTime(1, now + fadeDuration);
 
         // When track ends, play next
         source.onended = () => {
@@ -1485,7 +1762,9 @@ class AudioSystem {
         };
 
         source.start(0);
+
         this.currentSource = source;
+        this.currentSourceGain = sourceGain;
         this.isLoadingMusic = false;
     }
 

@@ -804,6 +804,11 @@ class EmergentFormationDetector {
                     this.effects?.removeConstellationBeams?.(b.id);
                     this.constellations[j] = null; // consume b
                     mergedAny = true;
+
+                    // Play merge sound (subtle crystallization)
+                    if (window.audioSystem) {
+                        window.audioSystem.play('formationMerge', 0.3);
+                    }
                     break;
                 }
             }
@@ -1077,6 +1082,11 @@ class EmergentFormationDetector {
 
         this.constellations.push(constellation);
 
+        // Play constellation form sound (subtle ambient)
+        if (window.audioSystem) {
+            window.audioSystem.play('formationForm', 0.25);
+        }
+
         window.logger?.log(`✨ [Emergent] Created ${pattern.name} constellation with ${targetEnemies.length} enemies`);
 
         if (this.effects) {
@@ -1299,6 +1309,11 @@ class EmergentFormationDetector {
                         enemies: constellation.enemies,
                         config: { name: constellation.pattern?.name || 'UNKNOWN' }
                     });
+                }
+
+                // Play constellation break sound (subtle shatter)
+                if (window.audioSystem) {
+                    window.audioSystem.play('formationBreak', 0.25);
                 }
             };
 

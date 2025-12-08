@@ -292,6 +292,11 @@ class FormationManager {
         // Add to active formations
         this.formations.push(formation);
 
+        // Play formation spawn sound (subtle ambient)
+        if (window.audioSystem) {
+            window.audioSystem.play('formationForm', 0.3);
+        }
+
         if (window.logger?.isDebugEnabled?.('formations')) {
             window.logger.log('[FormationManager] Spawned formation:', config.name, 'at wave', waveNumber);
         }
@@ -461,6 +466,11 @@ class FormationManager {
         // Trigger shatter effects
         if (this.effects) {
             this.effects.onFormationBroken(formation);
+        }
+
+        // Play formation break sound (subtle ambient)
+        if (window.audioSystem) {
+            window.audioSystem.play('formationBreak', 0.3);
         }
 
         // Remove formation markers from enemies
