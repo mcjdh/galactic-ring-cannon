@@ -29,21 +29,21 @@ class AudioSystem {
             // Music system state - FILE BASED
             // Track 01 always plays first, then shuffle remaining for variety
             this.playlist = [
-                'assets/audio/music/track_01.wav',  // Always first on load
-                'assets/audio/music/track_02.wav',
-                'assets/audio/music/track_03.wav',
-                'assets/audio/music/track_04.wav',
-                'assets/audio/music/track_05.wav',
-                'assets/audio/music/track_06.wav',
-                'assets/audio/music/track_07.wav',
-                'assets/audio/music/track_08.wav',
-                'assets/audio/music/track_09.wav',
-                'assets/audio/music/track_10.wav',
-                'assets/audio/music/track_11.wav',
-                'assets/audio/music/track_12.wav',
-                'assets/audio/music/track_13.wav',
-                'assets/audio/music/track_14.wav',
-                'assets/audio/music/track_15.wav'
+                'assets/audio/music/track_01.mp3',  // Always first on load
+                'assets/audio/music/track_02.mp3',
+                'assets/audio/music/track_03.mp3',
+                'assets/audio/music/track_04.mp3',
+                'assets/audio/music/track_05.mp3',
+                'assets/audio/music/track_06.mp3',
+                'assets/audio/music/track_07.mp3',
+                'assets/audio/music/track_08.mp3',
+                'assets/audio/music/track_09.mp3',
+                'assets/audio/music/track_10.mp3',
+                'assets/audio/music/track_11.mp3',
+                'assets/audio/music/track_12.mp3',
+                'assets/audio/music/track_13.mp3',
+                'assets/audio/music/track_14.mp3',
+                'assets/audio/music/track_15.mp3'
             ];
 
             // Crossfade duration between tracks (in seconds)

@@ -2472,19 +2472,20 @@ body::after {
     overflow: hidden;
 }
 
-/* Title Styling - 2 lines: "GALACTIC RING" / "CANNON" */
+/* Title Styling - 2 lines: "GALACTIC RING" / "CANNON" - COMPACTED for 720p */
 #menu-title {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(2px, 0.5vh, 6px);
-    margin-bottom: clamp(10px, 2vh, 25px);
+    gap: clamp(0px, 0.3vh, 4px);
+    margin-bottom: clamp(6px, 1.2vh, 16px);
     font-family: 'Lucida Console', 'Courier New', monospace;
     font-weight: 900;
-    letter-spacing: clamp(3px, 0.8vw, 8px);
+    letter-spacing: clamp(2px, 0.6vw, 6px);
     text-transform: uppercase;
     /* Use filter drop-shadow instead of text-shadow for clipped text */
-    filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.6)) drop-shadow(0 0 40px rgba(255, 0, 255, 0.4));
+    filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.5)) drop-shadow(0 0 30px rgba(255, 0, 255, 0.3));
 }
 
 /* First line: GALACTIC RING */
@@ -2495,8 +2496,8 @@ body::after {
 }
 
 .title-galactic {
-    font-size: clamp(28px, 5vw, 52px);
-    /* Scales: 28px (mobile) → 52px (desktop) */
+    font-size: clamp(22px, 4vw, 44px);
+    /* COMPACTED: 22px (small) → 44px (large) */
     background: linear-gradient(90deg, #00ff99, #00ff33);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -2505,8 +2506,8 @@ body::after {
 }
 
 .title-ring {
-    font-size: clamp(28px, 5vw, 52px);
-    /* Match galactic size for same line */
+    font-size: clamp(22px, 4vw, 44px);
+    /* COMPACTED: Match galactic size */
     background: linear-gradient(90deg, #ff0055, #ff3333);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -2514,15 +2515,51 @@ body::after {
     animation: title-pulse 2s ease-in-out infinite;
 }
 
-/* Second line: CANNON (larger for emphasis) */
+/* Second line: CANNON - COMPACTED */
 .title-cannon {
-    font-size: clamp(36px, 6.5vw, 64px);
-    /* Larger: 36px (mobile) → 64px (desktop) */
+    position: relative;
+    font-size: clamp(28px, 5vw, 52px);
+    /* COMPACTED: 28px → 52px */
     background: linear-gradient(90deg, #ffcc00, #00ff33);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     animation: title-float 3s ease-in-out infinite 0.5s;
+}
+
+/* Minecraft-style splash text - tilted and bouncing */
+.splash-text {
+    position: absolute;
+    right: clamp(-80px, -10vw, -50px);
+    top: clamp(20px, 4vh, 35px);
+    font-size: clamp(8px, 1.2vw, 12px);
+    font-weight: bold;
+    color: #ffff00 !important;
+    -webkit-text-fill-color: #ffff00 !important;
+    background: none !important;
+    text-shadow:
+        0 0 5px rgba(255, 255, 0, 0.8),
+        0 0 10px rgba(255, 255, 0, 0.5),
+        0 0 20px rgba(255, 255, 0, 0.3);
+    filter: drop-shadow(0 0 8px rgba(255, 255, 0, 0.4));
+    transform: rotate(-15deg);
+    transform-origin: center center;
+    animation: splash-bounce 0.4s ease-in-out infinite alternate;
+    white-space: nowrap;
+    font-family: 'Lucida Console', 'Courier New', monospace;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes splash-bounce {
+    0% {
+        transform: rotate(-15deg) scale(1);
+    }
+
+    100% {
+        transform: rotate(-15deg) scale(1.08);
+    }
 }
 
 @keyframes title-float {
@@ -2562,21 +2599,21 @@ body::after {
 }
 
 #star-menu-display {
-    font-size: clamp(18px, 2.8vw, 28px);
-    /* Scales with viewport */
-    margin-bottom: clamp(6px, 1vh, 10px);
+    font-size: clamp(14px, 2.2vw, 22px);
+    /* COMPACTED */
+    margin-bottom: clamp(4px, 0.6vh, 8px);
     color: #f1c40f;
-    text-shadow: 0 0 15px rgba(241, 196, 15, 0.8);
+    text-shadow: 0 0 12px rgba(241, 196, 15, 0.7);
     font-weight: bold;
 }
 
 #menu-subtitle {
-    font-size: clamp(12px, 1.6vw, 16px);
-    /* Scales with viewport */
+    font-size: clamp(10px, 1.3vw, 14px);
+    /* COMPACTED */
     color: #00ffff;
-    margin-bottom: clamp(15px, 2.5vh, 30px);
-    letter-spacing: clamp(2px, 0.4vw, 4px);
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+    margin-bottom: clamp(8px, 1.5vh, 20px);
+    letter-spacing: clamp(1px, 0.3vw, 3px);
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
     animation: subtitle-glow 2s ease-in-out infinite;
 }
 
@@ -2595,47 +2632,98 @@ body::after {
 #menu-buttons {
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 1.5vh, 15px);
-    /* Scales with viewport height */
-    width: clamp(280px, 40vw, 360px);
-    /* Responsive width */
+    gap: clamp(5px, 1vh, 12px);
+    /* COMPACTED gap */
+    width: clamp(260px, 38vw, 340px);
+    /* COMPACTED width */
 }
 
 #loadout-selector {
-    margin: clamp(15px, 2.5vh, 30px) 0 clamp(10px, 1.5vh, 20px);
+    margin: clamp(6px, 1vh, 16px) 0 clamp(4px, 0.8vh, 10px);
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 1.2vh, 12px);
-    max-width: clamp(420px, 60vw, 600px);
-    /* Scales with viewport */
+    gap: clamp(4px, 0.6vh, 8px);
+    max-width: clamp(340px, 52vw, 500px);
+    /* Geometric container with wireframe aesthetic */
+    background: linear-gradient(135deg, rgba(0, 20, 30, 0.85), rgba(10, 5, 25, 0.9));
+    padding: clamp(8px, 1vh, 12px) clamp(10px, 1.2vw, 14px);
+    position: relative;
+    /* Chamfered corners - Polybius geometric style */
+    clip-path: polygon(12px 0, calc(100% - 12px) 0,
+            100% 12px, 100% calc(100% - 12px),
+            calc(100% - 12px) 100%, 12px 100%,
+            0 calc(100% - 12px), 0 12px);
+    box-shadow: 0 0 20px rgba(0, 255, 153, 0.15), inset 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Wireframe border for loadout selector */
+#loadout-selector::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid rgba(0, 255, 153, 0.4);
+    clip-path: polygon(12px 0, calc(100% - 12px) 0,
+            100% 12px, 100% calc(100% - 12px),
+            calc(100% - 12px) 100%, 12px 100%,
+            0 calc(100% - 12px), 0 12px);
+    pointer-events: none;
+    transition: border-color 0.3s ease;
+}
+
+#loadout-selector:hover::before {
+    border-color: rgba(255, 0, 153, 0.5);
+}
+
+/* Corner accent decorations */
+#loadout-selector::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 16px;
+    height: 16px;
+    border-left: 2px solid rgba(0, 255, 153, 0.6);
+    border-top: 2px solid rgba(0, 255, 153, 0.6);
+    pointer-events: none;
 }
 
 #loadout-selector-title {
-    font-size: clamp(11px, 1.4vw, 14px);
-    /* Scales with viewport */
+    font-size: clamp(10px, 1.3vw, 13px);
     letter-spacing: clamp(1.5px, 0.3vw, 3px);
     color: #ff00ff;
-    text-shadow: 0 0 12px rgba(255, 0, 255, 0.6);
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
     font-family: 'Lucida Console', 'Courier New', monospace;
+    margin-bottom: clamp(4px, 0.5vh, 8px);
 }
 
 #character-options {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: clamp(8px, 1vw, 12px);
+    justify-content: center;
 }
 
 .loadout-option {
-    flex: 1 1 160px;
-    min-width: 140px;
-    max-width: 240px;
-    padding: 14px 18px;
+    flex: 1 1 clamp(120px, 18vw, 160px);
+    min-width: clamp(100px, 15vw, 140px);
+    max-width: clamp(180px, 25vw, 220px);
+    padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.5vw, 18px);
     justify-content: center;
+    /* Geometric button style */
+    clip-path: polygon(8px 0, calc(100% - 8px) 0,
+            100% 8px, 100% calc(100% - 8px),
+            calc(100% - 8px) 100%, 8px 100%,
+            0 calc(100% - 8px), 0 8px);
+    font-size: clamp(11px, 1.2vw, 14px);
 }
 
 .loadout-option .button-text {
     text-align: center;
     width: 100%;
+    font-size: clamp(10px, 1.1vw, 13px);
 }
 
 .loadout-option.loadout-option-locked {
@@ -2676,24 +2764,44 @@ body::after {
     }
 }
 
-/* IMPROVED: Better structured character description - compact & responsive, NO SCROLL */
+/* GEOMETRIC: Character description panel - COMPACTED for 720p */
 #loadout-description {
-    min-height: clamp(60px, 8vh, 80px);
-    /* Scales with viewport height */
-    font-size: clamp(11px, 1.3vw, 13px);
-    /* Scales with viewport */
+    min-height: clamp(35px, 4vh, 55px);
+    max-height: clamp(65px, 9vh, 90px);
+    font-size: clamp(9px, 0.95vw, 11px);
     color: #00ffff;
     font-family: 'Lucida Console', 'Courier New', monospace;
-    line-height: 1.4;
-    text-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
-    padding: clamp(6px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px);
+    line-height: 1.25;
+    text-shadow: 0 0 6px rgba(0, 255, 255, 0.35);
+    padding: clamp(5px, 0.6vh, 8px) clamp(8px, 1vw, 12px);
     box-sizing: border-box;
     word-wrap: break-word;
-    /* Prevent text overflow */
     white-space: normal;
-    /* Allow wrapping */
-    overflow: visible;
-    /* NO SCROLLBARS - let content flow naturally */
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Geometric panel styling */
+    background: rgba(0, 10, 20, 0.6);
+    border: 1px solid rgba(0, 255, 153, 0.3);
+    clip-path: polygon(6px 0, calc(100% - 6px) 0,
+            100% 6px, 100% calc(100% - 6px),
+            calc(100% - 6px) 100%, 6px 100%,
+            0 calc(100% - 6px), 0 6px);
+    /* Thin scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 153, 0.3) transparent;
+}
+
+#loadout-description::-webkit-scrollbar {
+    width: 4px;
+}
+
+#loadout-description::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#loadout-description::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 153, 0.3);
+    border-radius: 2px;
 }
 
 #loadout-description.is-locked {
